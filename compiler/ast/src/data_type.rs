@@ -1,4 +1,6 @@
-#[derive(Copy, Clone, PartialOrd, PartialEq)]
+/** This represents the data types specified in section one of the lang spec
+*/
+#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq)]
 pub enum DataType
 {
     Char,
@@ -7,4 +9,13 @@ pub enum DataType
     Bool,
     F32,
     F64
+}
+
+/** This represents some wasome concept with a data type
+*/
+pub trait Type
+{
+    /** This method gets the type
+    */
+    fn data_type(&self) -> DataType;
 }
