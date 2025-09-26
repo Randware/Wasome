@@ -1,4 +1,5 @@
 use crate::data_type::{DataType, Type};
+use crate::eq_return_option;
 
 /** This represents an expression as per section 2 of the lang spec
 */
@@ -334,23 +335,6 @@ impl BinaryOpType
             _ => None
         }
     }
-}
-
-/** This compares two values
-This is useful for returning with the ? operator if values are not equal
-@params
-left, right: The values to compare
-@return
-None if not equal
-Some if equal
-*/
-fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()>
-{
-    if left == right
-    {
-        return Some(())
-    }
-    None
 }
 
 #[cfg(test)]
