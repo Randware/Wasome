@@ -274,7 +274,8 @@ pub enum BinaryOpType
     Xor,
     /// Section 3 lang spec, xnor operator
     Xnor,
-
+    /// Section 3 lang spec, comparison operator
+    Comparison,
 }
 
 impl BinaryOpType
@@ -302,7 +303,12 @@ impl BinaryOpType
             BinaryOpType::Or |
             BinaryOpType::And |
             BinaryOpType::Xor |
-            BinaryOpType::Xnor => Self::type_from_processing_types_with_bool_operator(left, right)
+            BinaryOpType::Xnor => Self::type_from_processing_types_with_bool_operator(left, right),
+            BinaryOpType::Comparison =>
+                {
+                    eq_return_option(left, right)?;
+                    Some(DataType::Bool)
+                }
         }
     }
 
