@@ -1,4 +1,4 @@
-use crate::data_type::DataType;
+use crate::data_type::{DataType, Type};
 
 pub trait SymbolTable<'a>: Iterator<Item=Symbol<'a>>
 {
@@ -39,8 +39,11 @@ impl VariableSymbol
     {
         &self.name
     }
+}
 
-    pub fn data_type(&self) -> DataType
+impl Type for VariableSymbol
+{
+    fn data_type(&self) -> DataType
     {
         self.data_type
     }

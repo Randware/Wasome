@@ -1,5 +1,7 @@
+use std::rc::Rc;
 use crate::data_type::{DataType, Type};
 use crate::eq_return_option;
+use crate::symbol::VariableSymbol;
 
 /** This represents an expression as per section 2 of the lang spec
 */
@@ -7,6 +9,7 @@ use crate::eq_return_option;
 pub enum Expression
 {
     FunctionCall, //TODO
+    Variable(Rc<VariableSymbol>),
     Literal(Literal),
     UnaryOp(Box<UnaryOp>), // The boxes prevent this from becoming an infinitely sized type
     BinaryOp(Box<BinaryOp>)
@@ -21,7 +24,8 @@ impl Type for Expression
             Ex::FunctionCall => todo!(),
             Ex::Literal(inner) => inner.data_type(),
             Ex::UnaryOp(inner) => inner.data_type(),
-            Ex::BinaryOp(inner) => inner.data_type()
+            Ex::BinaryOp(inner) => inner.data_type(),
+            Ex::Variable(inner) => inner.data_type()
         }
     }
 }
