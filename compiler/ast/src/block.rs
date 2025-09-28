@@ -3,6 +3,7 @@ use crate::statement::Statement;
 
 /** This represents a codeblock as per section 4 of the lang spec
 */
+#[derive(Debug)]
 pub struct CodeBlock
 {
     statements: Vec<Statement>

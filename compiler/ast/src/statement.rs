@@ -1,5 +1,7 @@
+use std::cmp::PartialEq;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
+use crate::block::CodeBlock;
 use crate::data_type::Type;
 use crate::eq_return_option;
 use crate::expression::Expression;
@@ -7,12 +9,14 @@ use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
 
 /** This represents a Statement as per section 4 of the lang spec
 */
+#[derive(Debug)]
 pub enum Statement
 {
     VariableAssignment(VariableAssignment),
     VariableDeclaration(VariableAssignment),
     Expression(Expression),
-    ControlStructure //TODO
+    ControlStructure(Box<ControlStructure>),
+    Codeblock(CodeBlock)
 }
 
 impl Statement
@@ -30,6 +34,18 @@ impl Statement
             _ => None
         }
     }
+
+    /** Gets the length of the child statements
+    */
+    pub fn len_children(&self) -> usize
+    {
+        match self
+        {
+            Statement::ControlStructure(structure) => structure.child_len(),
+            Statement::Codeblock(codeblock) => codeblock.len(),
+            _ => 0
+        }
+    }
 }
 
 impl Index<usize> for Statement
@@ -41,21 +57,31 @@ impl Index<usize> for Statement
     */
     fn index(&self, index: usize) -> &Self::Output
     {
-        todo!()
+        match self {
+            Statement::Codeblock(block) => &block[index],
+            Statement::ControlStructure(structure) => &structure[index],
+            _ => panic!("This has no child members!")
+        }
     }
 }
 
 /** This is a wrapper around Statement to make traversial easier
 */
+#[derive(Debug)]
 pub struct StatementRef<'a>
 {
+    // The referenced statement
     inner: &'a Statement,
+    // The location of this statement, relative to the root
     location: Option<StatementLocation<'a>>,
+    // The root of the statement tree (should eventually become the function)
     root: &'a Statement //TODO: Change this to a proper root
 }
 
 impl<'a> StatementRef<'a>
 {
+    /** Creates a new StatementRef where inner is the root
+    */
     pub fn new_root(inner: &'a Statement) -> Self
     {
         Self {
@@ -65,6 +91,8 @@ impl<'a> StatementRef<'a>
         }
     }
 
+    /** Creates a new StatementRef that is the child of the specified statementRef at the specified index
+    */
     fn new_child(inner: &'a Statement, parent: &'a StatementRef<'a>, location: usize) -> Self
     {
         Self {
@@ -74,27 +102,36 @@ impl<'a> StatementRef<'a>
         }
     }
 
+    /** Indexes the root with index
+    */
     fn index_relative_to_root<'b>(&'b self, index: &StatementLocation) -> &'b Statement
     {
-        let mut current = self.root;
+        let mut current_statement = self.root;
         let starting_index_size = index.len();
         let mut current_index_size = starting_index_size;
         let mut current_index = index;
         while current_index_size > 0 {
-            let path = current_index.index();
-            current = &current[path];
-            current_index_size -= 1;
             current_index = &index[starting_index_size - current_index_size];
+            let path = current_index.index();
+            current_statement = &current_statement[path];
+            current_index_size -= 1;
         }
-        current
+        current_statement
     }
 
-    /** Gets an iterator that iterates over all child statements
-    Returns an empty iterator if there are no child expressions
+    /** Indexes this with index
     */
-    pub fn child_iter(&self) -> impl Iterator<Item=StatementRef<'a>>
+    fn index(&'a self, index: usize) -> StatementRef<'a>
     {
-        [].into_iter() //TODO: Add child statements
+        let indexed_statement = self.inner.index(index);
+        Self::new_child(indexed_statement, self, index)
+    }
+
+    /** Creates a symbol table that iterates over all symbols defined at the current location
+    */
+    pub fn symbols(&self) -> impl SymbolTable
+    {
+        DefaultSymbolTable::new(self)
     }
 }
 
@@ -105,13 +142,6 @@ impl<'a> Deref for StatementRef<'a>
     fn deref(&self) -> &Self::Target
     {
         self.inner
-    }
-}
-impl<'a> StatementRef<'a>
-{
-    pub fn symbols(&self) -> impl SymbolTable
-    {
-        DefaultSymbolTable::new(self)
     }
 }
 
@@ -149,10 +179,17 @@ impl<'a> Iterator for DefaultSymbolTable<'a>
                 return Some(symbol);
             }
         }
-        let new_current_location = self.current_location?.prev()?;
-        self.prev_index = new_current_location.index();
-        self.current_location = Some(new_current_location);
-        self.current = self.source.index_relative_to_root(self.current_location?);
+        let new_current_location = self.current_location?.prev();
+        self.prev_index = self.current_location?.index();
+        self.current_location = new_current_location;
+        if let Some(inner_current_location) = self.current_location
+        {
+            self.current = self.source.index_relative_to_root(inner_current_location);
+        }
+        else
+        {
+            self.current = self.source.root;
+        }
         self.next()
     }
 }
@@ -190,7 +227,7 @@ impl<'a> StatementLocation<'a>
 
     pub fn len(&self) -> usize
     {
-        let mut len = 1;
+        let mut len = 0;
         let mut current: Option<&StatementLocation> = Some(self);
         while current != None {
             // Unwrap safety:
@@ -206,6 +243,10 @@ impl<'a> Index<usize> for StatementLocation<'a>
 {
     type Output = StatementLocation<'a>;
 
+    /** Indexes self with the specified index
+    0 results in self
+    len()-1 results in a StatementLocation that just indexes one level deeper than root
+    */
     fn index(&self, mut index: usize) -> &Self::Output
     {
         let mut current = self;
@@ -221,6 +262,7 @@ impl<'a> Index<usize> for StatementLocation<'a>
 
 /** This represents an assignement to a variable
 */
+#[derive(Debug)]
 pub struct VariableAssignment
 {
     variable: Rc<VariableSymbol>,
@@ -260,6 +302,209 @@ impl VariableAssignment
     }
 }
 
+/** This represents a control structure as defined in chapters 8 and 13 of the lang spec
+*/
+#[derive(Debug)]
+pub enum ControlStructure
+{
+    Conditional(Conditional),
+    Loop(Loop)
+}
+
+impl ControlStructure
+{
+    /** Returns the number of child statements
+    */
+    pub fn child_len(&self) -> usize
+    {
+        match self {
+            ControlStructure::Conditional(inner) => inner.len(),
+            ControlStructure::Loop(inner) => inner.len()
+        }
+    }
+}
+impl Index<usize> for ControlStructure
+{
+    type Output = Statement;
+
+    /** Returns the child statement at index
+    */
+    fn index(&self, index: usize) -> &Self::Output
+    {
+        match self {
+            ControlStructure::Conditional(cond) => &cond[index],
+            ControlStructure::Loop(inner) => &inner[index]
+        }
+    }
+}
+
+/** This represents a conditional as defined in chapter 8 of the lang spec
+*/
+#[derive(Debug)]
+pub struct Conditional
+{
+    condition: Expression,
+    then_statement: Statement,
+    else_statement: Option<Statement>
+}
+
+impl Conditional
+{
+    pub fn new(condition: Expression, then_statement: Statement, else_statement: Option<Statement>) -> Self
+    {
+        Self {
+            condition,
+            then_statement,
+            else_statement
+        }
+    }
+
+    /** Returns the number of child statements
+    */
+    pub fn len(&self) -> usize
+    {
+        1+self.else_statement.is_some() as usize
+    }
+
+    pub fn condition(&self) -> &Expression
+    {
+        &self.condition
+    }
+
+    pub fn then_statement(&self) -> &Statement
+    {
+        &self.then_statement
+    }
+
+    pub fn else_statement(&self) -> Option<&Statement>
+    {
+        self.else_statement.as_ref()
+    }
+}
+
+impl Index<usize> for Conditional
+{
+    type Output = Statement;
+
+    /** Returns the child statement at index
+    */
+    fn index(&self, index: usize) -> &Self::Output
+    {
+        match index {
+            0 => &self.then_statement,
+            1 => &self.else_statement.as_ref().unwrap(),
+            _ => panic!("Index is out of bounds")
+        }
+    }
+}
+
+/** This represents a conditional as defined in chapter 13 of the lang spec
+*/
+#[derive(Debug)]
+pub struct Loop
+{
+    to_loop_on: Statement,
+    loop_type: LoopType
+}
+
+impl Loop
+{
+    pub fn new(to_loop_on: Statement, loop_type: LoopType) -> Self
+    {
+        Self
+        {
+            to_loop_on,
+            loop_type
+        }
+    }
+
+    /** Returns the number of child statements
+    */
+    pub fn len(&self) -> usize
+    {
+        self.loop_type.len()+1
+    }
+
+    pub fn to_loop_on(&self) -> &Statement
+    {
+        &self.to_loop_on
+    }
+
+    pub fn loop_type(&self) -> &LoopType
+    {
+        &self.loop_type
+    }
+}
+
+impl Index<usize> for Loop
+{
+    type Output = Statement;
+
+    /** Returns the child statement at index
+    */
+    fn index(&self, index: usize) -> &Self::Output
+    {
+        if index == self.loop_type.len() {
+            &self.to_loop_on
+        }
+        else
+        {
+            &self.loop_type[index]
+        }
+    }
+}
+
+/** This is the type of a loop
+*/
+#[derive(Debug)]
+pub enum LoopType
+{
+    Infinite,
+    While(Expression),
+    For{
+        start: Statement,
+        cond: Expression,
+        after_each: Statement
+    }
+}
+
+impl LoopType
+{
+    /** Returns the number of child statements
+    */
+    pub fn len(&self) -> usize
+    {
+        match self
+        {
+            LoopType::Infinite => 0,
+            LoopType::While(_) => 0,
+            LoopType::For { .. } => 2
+        }
+    }
+}
+
+impl Index<usize> for LoopType
+{
+    type Output = Statement;
+
+    /** Returns the child statement at index
+    */
+    fn index(&self, index: usize) -> &Self::Output
+    {
+        if let LoopType::For {start, cond: _cond, after_each} = self
+        {
+            match index {
+                0 => start,
+                1 => after_each,
+                _ => panic!("Index is out of bounds")
+            }
+        }
+        else {
+            panic!("This loop type has no children!");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests
 {
@@ -288,6 +533,51 @@ mod tests
 
         let statement_ref = StatementRef::new_root(&statement);
         assert_eq!(Vec::<Symbol>::new(), statement_ref.symbols().collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn statement_2()
+    {
+        let symbol = Rc::new(
+            VariableSymbol::new("test".to_string(), DataType::F32)
+        );
+        let statement = Statement::Codeblock(
+            CodeBlock::new(
+                vec![
+                    Statement::VariableDeclaration(
+                        VariableAssignment::new(
+                            symbol.clone(),
+                            Expression::Literal(
+                                Literal::F32(
+                                    10.0
+                                )
+                            )
+                        ).unwrap()
+                    ),
+                    Statement::ControlStructure(
+                        Box::new(
+                            ControlStructure::Loop(
+                                Loop::new(
+                                    Statement::Expression(
+                                        Expression::Literal(
+                                            Literal::Bool(
+                                                false
+                                            )
+                                        )
+                                    ),
+                                    LoopType::Infinite
+                                )
+                            )
+                        )
+                    )
+                ]
+            )
+        );
+
+        let root = StatementRef::new_root(&statement);
+        let loop_statement = root.index(1);
+        let statement_ref = loop_statement.index(0);
+        assert_eq!(vec![Symbol::Variable(&symbol)], statement_ref.symbols().collect::<Vec<_>>());
     }
 
     fn basic_test_variable(symbol: Rc<VariableSymbol>) -> Option<VariableAssignment> {
