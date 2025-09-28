@@ -75,7 +75,7 @@ impl<'a> FunctionRef<'a>
 
     /** Indexes the implementation with index
     */
-    pub fn index_implementation<'b>(&'b self, index: &crate::statement::StatementLocation) -> &'b Statement
+    pub(crate) fn index_implementation<'b>(&'b self, index: &crate::statement::StatementLocation) -> &'b Statement
     {
         let mut current_statement = self.implementation();
         let starting_index_size = index.len();
