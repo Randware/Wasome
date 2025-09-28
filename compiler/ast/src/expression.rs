@@ -1,14 +1,15 @@
 use std::rc::Rc;
 use crate::data_type::{DataType, Type};
 use crate::eq_return_option;
-use crate::symbol::VariableSymbol;
+use crate::symbol::{FunctionSymbol, VariableSymbol};
 
 /** This represents an expression as per section 2 of the lang spec
 */
 #[derive(Debug)]
 pub enum Expression
 {
-    FunctionCall, //TODO
+    // Only valid if it doesn't return void
+    FunctionCall(Rc<FunctionSymbol>),
     Variable(Rc<VariableSymbol>),
     Literal(Literal),
     UnaryOp(Box<UnaryOp>), // The boxes prevent this from becoming an infinitely sized type
@@ -21,7 +22,9 @@ impl Type for Expression
     {
         use Expression as Ex;
         match self {
-            Ex::FunctionCall => todo!(),
+            // Unwrap safety:
+            // It may only exist if the return type is not void
+            Ex::FunctionCall(inner) => inner.return_type().unwrap(),
             Ex::Literal(inner) => inner.data_type(),
             Ex::UnaryOp(inner) => inner.data_type(),
             Ex::BinaryOp(inner) => inner.data_type(),

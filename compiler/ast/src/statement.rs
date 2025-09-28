@@ -6,6 +6,7 @@ use crate::data_type::Type;
 use crate::eq_return_option;
 use crate::expression::Expression;
 use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
+use crate::top_level::Function;
 
 /** This represents a Statement as per section 4 of the lang spec
 */
@@ -75,17 +76,17 @@ pub struct StatementRef<'a>
     // The location of this statement, relative to the root
     location: Option<StatementLocation<'a>>,
     // The root of the statement tree (should eventually become the function)
-    root: &'a Statement //TODO: Change this to a proper root
+    root: &'a Function
 }
 
 impl<'a> StatementRef<'a>
 {
     /** Creates a new StatementRef where inner is the root
     */
-    pub fn new_root(inner: &'a Statement) -> Self
+    pub fn new_root(inner: &'a Function) -> Self
     {
         Self {
-            inner,
+            inner: inner.implementation(),
             location: None,
             root: inner
         }
@@ -106,7 +107,7 @@ impl<'a> StatementRef<'a>
     */
     fn index_relative_to_root<'b>(&'b self, index: &StatementLocation) -> &'b Statement
     {
-        let mut current_statement = self.root;
+        let mut current_statement = self.root.implementation();
         let starting_index_size = index.len();
         let mut current_index_size = starting_index_size;
         let mut current_index = index;
@@ -188,7 +189,7 @@ impl<'a> Iterator for DefaultSymbolTable<'a>
         }
         else
         {
-            self.current = self.source.root;
+            self.current = self.source.root.implementation();
         }
         self.next()
     }
@@ -510,6 +511,7 @@ mod tests
 {
     use crate::data_type::DataType;
     use crate::expression::Literal;
+    use crate::symbol::FunctionSymbol;
     use super::*;
     #[test]
     fn variable_assignement()
@@ -529,9 +531,21 @@ mod tests
             basic_test_variable(symbol.clone()).unwrap()
         );
 
+
         assert_eq!(Some(Symbol::Variable(&symbol)), statement.get_direct_symbol());
 
-        let statement_ref = StatementRef::new_root(&statement);
+        let function = Function::new(
+            Rc::new(
+                FunctionSymbol::new(
+                    "test".to_string(),
+                    None,
+                    Vec::new()
+                )
+            ),
+            statement
+        );
+
+        let statement_ref = StatementRef::new_root(&function);
         assert_eq!(Vec::<Symbol>::new(), statement_ref.symbols().collect::<Vec<_>>());
     }
 
@@ -574,7 +588,18 @@ mod tests
             )
         );
 
-        let root = StatementRef::new_root(&statement);
+        let function = Function::new(
+            Rc::new(
+                FunctionSymbol::new(
+                    "test".to_string(),
+                    None,
+                    Vec::new()
+                )
+            ),
+            statement
+        );
+
+        let root = StatementRef::new_root(&function);
         let loop_statement = root.index(1);
         let statement_ref = loop_statement.index(0);
         assert_eq!(vec![Symbol::Variable(&symbol)], statement_ref.symbols().collect::<Vec<_>>());
