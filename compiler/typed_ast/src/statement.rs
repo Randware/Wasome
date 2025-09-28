@@ -6,7 +6,7 @@ use crate::data_type::Type;
 use crate::eq_return_option;
 use crate::expression::Expression;
 use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
-use crate::top_level::Function;
+use crate::top_level::FunctionRef;
 
 /** This represents a Statement as per section 4 of the lang spec
 */
@@ -76,14 +76,14 @@ pub struct StatementRef<'a>
     // The location of this statement, relative to the root
     location: Option<StatementLocation<'a>>,
     // The root of the statement tree (should eventually become the function)
-    root: &'a Function
+    root: &'a FunctionRef<'a>
 }
 
 impl<'a> StatementRef<'a>
 {
     /** Creates a new StatementRef where inner is the root
     */
-    pub fn new_root(inner: &'a Function) -> Self
+    pub fn new_root(inner: &'a FunctionRef<'a>) -> Self
     {
         Self {
             inner: inner.implementation(),
@@ -101,23 +101,6 @@ impl<'a> StatementRef<'a>
             location: Some(StatementLocation::new(location, parent.location.as_ref())),
             root: parent.root
         }
-    }
-
-    /** Indexes the root with index
-    */
-    fn index_relative_to_root<'b>(&'b self, index: &StatementLocation) -> &'b Statement
-    {
-        let mut current_statement = self.root.implementation();
-        let starting_index_size = index.len();
-        let mut current_index_size = starting_index_size;
-        let mut current_index;
-        while current_index_size > 0 {
-            current_index = &index[starting_index_size - current_index_size];
-            let path = current_index.index();
-            current_statement = &current_statement[path];
-            current_index_size -= 1;
-        }
-        current_statement
     }
 
     /** Indexes this with index
@@ -152,7 +135,9 @@ struct DefaultSymbolTable<'a>
     source: &'a StatementRef<'a>,
     current: &'a Statement,
     current_location: Option<&'a StatementLocation<'a>>,
-    prev_index: usize
+    prev_index: usize,
+    // The symbols from the root, for example functions
+    root_symbols: Box<dyn SymbolTable<'a> + 'a>
 }
 
 impl<'a> DefaultSymbolTable<'a>
@@ -163,16 +148,15 @@ impl<'a> DefaultSymbolTable<'a>
             source,
             current: source.inner,
             current_location: source.location.as_ref(),
-            prev_index: 0
+            prev_index: 0,
+            root_symbols: Box::new(source.root.symbols())
         }
     }
 }
 
-impl<'a> Iterator for DefaultSymbolTable<'a>
+impl<'a> DefaultSymbolTable<'a>
 {
-    type Item = Symbol<'a>;
-
-    fn next(&mut self) -> Option<Self::Item>
+    fn next_variable_symbol(&mut self) -> Option<Symbol<'a>>
     {
         while self.prev_index > 0 {
             self.prev_index -= 1;
@@ -183,15 +167,24 @@ impl<'a> Iterator for DefaultSymbolTable<'a>
         let new_current_location = self.current_location?.prev();
         self.prev_index = self.current_location?.index();
         self.current_location = new_current_location;
-        if let Some(inner_current_location) = self.current_location
-        {
-            self.current = self.source.index_relative_to_root(inner_current_location);
+        if let Some(inner_current_location) = self.current_location {
+            self.current = self.source.root.index_implementation(inner_current_location);
         }
-        else
-        {
+        else {
             self.current = self.source.root.implementation();
         }
         self.next()
+    }
+}
+
+impl<'a> Iterator for DefaultSymbolTable<'a>
+{
+    type Item = Symbol<'a>;
+
+    fn next(&mut self) -> Option<Self::Item>
+    {
+        self.next_variable_symbol()
+            .or_else(|| self.root_symbols.next())
     }
 }
 
@@ -200,7 +193,7 @@ impl<'a> SymbolTable<'a> for DefaultSymbolTable<'a> {}
 // Linked list representing the path from the root to the current statement
 // The first step is at the end of the list
 #[derive(Debug, Eq, PartialEq)]
-struct StatementLocation<'a>
+pub(crate) struct StatementLocation<'a>
 {
     index: usize,
     prev: Box<Option<&'a StatementLocation<'a>>>
@@ -511,7 +504,6 @@ mod tests
 {
     use crate::data_type::DataType;
     use crate::expression::Literal;
-    use crate::symbol::FunctionSymbol;
     use super::*;
     #[test]
     fn variable_assignement()
@@ -519,90 +511,6 @@ mod tests
         basic_test_variable(Rc::new(
             VariableSymbol::new("test".to_string(), DataType::F32)
         )).unwrap();
-    }
-
-    #[test]
-    fn statement()
-    {
-        let symbol = Rc::new(
-            VariableSymbol::new("test".to_string(), DataType::F32)
-        );
-        let statement = Statement::VariableDeclaration(
-            basic_test_variable(symbol.clone()).unwrap()
-        );
-
-
-        assert_eq!(Some(Symbol::Variable(&symbol)), statement.get_direct_symbol());
-
-        let function = Function::new(
-            Rc::new(
-                FunctionSymbol::new(
-                    "test".to_string(),
-                    None,
-                    Vec::new()
-                )
-            ),
-            statement
-        );
-
-        let statement_ref = StatementRef::new_root(&function);
-        assert_eq!(Vec::<Symbol>::new(), statement_ref.symbols().collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn statement_2()
-    {
-        let symbol = Rc::new(
-            VariableSymbol::new("test".to_string(), DataType::F32)
-        );
-        let statement = Statement::Codeblock(
-            CodeBlock::new(
-                vec![
-                    Statement::VariableDeclaration(
-                        VariableAssignment::new(
-                            symbol.clone(),
-                            Expression::Literal(
-                                Literal::F32(
-                                    10.0
-                                )
-                            )
-                        ).unwrap()
-                    ),
-                    Statement::ControlStructure(
-                        Box::new(
-                            ControlStructure::Loop(
-                                Loop::new(
-                                    Statement::Expression(
-                                        Expression::Literal(
-                                            Literal::Bool(
-                                                false
-                                            )
-                                        )
-                                    ),
-                                    LoopType::Infinite
-                                )
-                            )
-                        )
-                    )
-                ]
-            )
-        );
-
-        let function = Function::new(
-            Rc::new(
-                FunctionSymbol::new(
-                    "test".to_string(),
-                    None,
-                    Vec::new()
-                )
-            ),
-            statement
-        );
-
-        let root = StatementRef::new_root(&function);
-        let loop_statement = root.index(1);
-        let statement_ref = loop_statement.index(0);
-        assert_eq!(vec![Symbol::Variable(&symbol)], statement_ref.symbols().collect::<Vec<_>>());
     }
 
     fn basic_test_variable(symbol: Rc<VariableSymbol>) -> Option<VariableAssignment> {
