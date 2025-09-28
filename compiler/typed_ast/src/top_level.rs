@@ -2,7 +2,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use crate::AST;
 use crate::statement::{Statement, StatementRef};
-use crate::symbol::{FunctionSymbol, Symbol, SymbolTable};
+use crate::symbol::{FunctionSymbol, Symbol, SymbolTable, VariableSymbol};
 
 #[derive(Debug)]
 pub struct Function
@@ -67,6 +67,8 @@ impl<'a> FunctionRef<'a>
         self.root
     }
 
+    /** Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
+    */
     pub fn symbols(&self) -> impl SymbolTable
     {
         FunctionSymbolTable::new(self)
@@ -102,7 +104,7 @@ impl<'a> Deref for FunctionRef<'a>
 {
     type Target = Function;
 
-    fn deref(&self) -> &Self::Target
+    fn deref(&self) -> &'a Self::Target
     {
         self.inner
     }
@@ -111,17 +113,21 @@ impl<'a> Deref for FunctionRef<'a>
 #[derive(Debug)]
 struct FunctionSymbolTable<'a>
 {
+    parameters: &'a [VariableSymbol],
+    parameter_index: usize,
     functions: &'a [Function],
-    index: usize
+    function_index: usize
 }
 
 impl<'a> FunctionSymbolTable<'a>
 {
-    fn new(source: &FunctionRef<'a>) -> Self
+    fn new(source: & FunctionRef<'a>) -> Self
     {
         Self {
+            parameters: source.inner().declaration().params(),
+            parameter_index: 0,
             functions: source.root.functions(),
-            index: 0
+            function_index: 0
         }
     }
 }
@@ -132,15 +138,25 @@ impl<'a> Iterator for FunctionSymbolTable<'a>
 
     fn next(&mut self) -> Option<Self::Item>
     {
-        let item = self.functions
-            .get(self.index)
-            .map(|val| Symbol::Function(&val.declaration));
-        // Prevent overflows of index
-        if item.is_some() {
-            self.index += 1;
-        }
-        item
+        next_item_from_slice(self.parameters, &mut self.parameter_index)
+            .map(|val| Symbol::Variable(&val))
+            .or_else(||
+                next_item_from_slice(self.functions, &mut self.function_index)
+                    .map(|val| Symbol::Function(&val.declaration))
+            )
+
     }
+}
+
+fn next_item_from_slice<'a, T>(slice: &'a [T], index: &mut usize) -> Option<&'a T>
+{
+    let item = slice
+        .get(*index);
+    // Prevent overflows of index
+    if item.is_some() {
+        *index += 1;
+    }
+    item
 }
 
 impl<'a> SymbolTable<'a> for FunctionSymbolTable<'a> {}
