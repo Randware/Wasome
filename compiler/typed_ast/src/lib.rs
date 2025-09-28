@@ -18,8 +18,7 @@ impl AST
 {
     pub fn new(functions: Vec<Function>) -> Self
     {
-        Self
-        {
+        Self {
             functions
         }
     }
@@ -51,8 +50,7 @@ Some if equal
 */
 fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()>
 {
-    if left == right
-    {
+    if left == right {
         return Some(())
     }
     None

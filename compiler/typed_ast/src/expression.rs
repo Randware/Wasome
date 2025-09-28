@@ -307,8 +307,7 @@ impl BinaryOpType
             BinaryOpType::And |
             BinaryOpType::Xor |
             BinaryOpType::Xnor => Self::type_from_processing_types_with_bool_operator(left, right),
-            BinaryOpType::Comparison =>
-                {
+            BinaryOpType::Comparison => {
                     eq_return_option(left, right)?;
                     Some(DataType::Bool)
                 }
@@ -318,8 +317,7 @@ impl BinaryOpType
     fn type_from_processing_types_with_base_arithmetic(left: DataType, right: DataType) -> Option<DataType>
     {
         eq_return_option(left, right)?;
-        match left
-        {
+        match left {
             DataType::I32 |
             DataType::I64 |
             DataType::F32 |
@@ -331,8 +329,7 @@ impl BinaryOpType
     fn type_from_processing_types_with_integer_only_operator(left: DataType, right: DataType) -> Option<DataType>
     {
         eq_return_option(left, right)?;
-        match left
-        {
+        match left {
             DataType::I32 |
             DataType::I64 => Some(left),
             _ => None
@@ -342,8 +339,7 @@ impl BinaryOpType
     fn type_from_processing_types_with_bool_operator(left: DataType, right: DataType) -> Option<DataType>
     {
         eq_return_option(left, right)?;
-        match left
-        {
+        match left {
             DataType::Bool => Some(left),
             _ => None
         }

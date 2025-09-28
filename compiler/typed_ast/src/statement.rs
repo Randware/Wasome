@@ -40,8 +40,7 @@ impl Statement
     */
     pub fn len_children(&self) -> usize
     {
-        match self
-        {
+        match self {
             Statement::ControlStructure(structure) => structure.child_len(),
             Statement::Codeblock(codeblock) => codeblock.len(),
             _ => 0
@@ -159,8 +158,7 @@ impl<'a> DefaultSymbolTable<'a>
 {
     pub(crate) fn new_available_to_statement(source: &'a StatementRef) -> Option<Self>
     {
-        if source.root.implementation() == source.inner
-        {
+        if source.root.implementation() == source.inner {
             return None
         }
         Some(Self {
@@ -436,8 +434,7 @@ impl Loop
 {
     pub fn new(to_loop_on: Statement, loop_type: LoopType) -> Self
     {
-        Self
-        {
+        Self {
             to_loop_on,
             loop_type
         }
@@ -472,8 +469,7 @@ impl Index<usize> for Loop
         if index == self.loop_type.len() {
             &self.to_loop_on
         }
-        else
-        {
+        else {
             &self.loop_type[index]
         }
     }
@@ -499,8 +495,7 @@ impl LoopType
     */
     pub fn len(&self) -> usize
     {
-        match self
-        {
+        match self {
             LoopType::Infinite => 0,
             LoopType::While(_) => 0,
             LoopType::For { .. } => 2
@@ -516,8 +511,7 @@ impl Index<usize> for LoopType
     */
     fn index(&self, index: usize) -> &Self::Output
     {
-        if let LoopType::For {start, cond: _cond, after_each} = self
-        {
+        if let LoopType::For {start, cond: _cond, after_each} = self {
             match index {
                 0 => start,
                 1 => after_each,

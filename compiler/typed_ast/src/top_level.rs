@@ -15,8 +15,7 @@ impl Function
 {
     pub fn new(declaration: Rc<FunctionSymbol>, implementation: Statement) -> Self
     {
-        Self
-        {
+        Self {
             declaration,
             implementation
         }
@@ -137,8 +136,7 @@ impl<'a> Iterator for FunctionSymbolTable<'a>
             .get(self.index)
             .map(|val| Symbol::Function(&val.declaration));
         // Prevent overflows of index
-        if item.is_some()
-        {
+        if item.is_some() {
             self.index += 1;
         }
         item
