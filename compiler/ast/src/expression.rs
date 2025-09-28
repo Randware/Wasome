@@ -384,7 +384,7 @@ mod tests
         assert_eq!(None, tc_i32.type_from_processing_type(DataType::Bool));
 
         let tc_bool = UnaryOpType::Typecast(Typecast::new(DataType::Bool));
-        assert_eq!(None, tc_i32.type_from_processing_type(DataType::I32));
+        assert_eq!(None, tc_bool.type_from_processing_type(DataType::I32));
     }
 
     #[test]

@@ -110,7 +110,7 @@ impl<'a> StatementRef<'a>
         let mut current_statement = self.root.implementation();
         let starting_index_size = index.len();
         let mut current_index_size = starting_index_size;
-        let mut current_index = index;
+        let mut current_index;
         while current_index_size > 0 {
             current_index = &index[starting_index_size - current_index_size];
             let path = current_index.index();
@@ -122,7 +122,7 @@ impl<'a> StatementRef<'a>
 
     /** Indexes this with index
     */
-    fn index(&'a self, index: usize) -> StatementRef<'a>
+    pub fn index(&'a self, index: usize) -> StatementRef<'a>
     {
         let indexed_statement = self.inner.index(index);
         Self::new_child(indexed_statement, self, index)
@@ -516,7 +516,7 @@ mod tests
     #[test]
     fn variable_assignement()
     {
-        let assign = basic_test_variable(Rc::new(
+        basic_test_variable(Rc::new(
             VariableSymbol::new("test".to_string(), DataType::F32)
         )).unwrap();
     }
