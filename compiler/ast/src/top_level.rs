@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::statement::Statement;
+use crate::statement::{Statement, StatementRef};
 use crate::symbol::FunctionSymbol;
 
 #[derive(Debug)]
@@ -35,5 +35,13 @@ impl Function
     pub fn implementation(&self) -> &Statement
     {
         &self.implementation
+    }
+
+    /** Gets a StatementRef for the top level statement in this function
+    This is the intended way to traverse a function
+    */
+    pub fn ref_to_implementation(&self) -> StatementRef
+    {
+        StatementRef::new_root(self)
     }
 }

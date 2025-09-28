@@ -1,5 +1,7 @@
 use crate::data_type::DataType;
 
+/**  Any type that has symbols available for use
+*/
 pub trait SymbolTable<'a>: Iterator<Item=Symbol<'a>>
 {
 
