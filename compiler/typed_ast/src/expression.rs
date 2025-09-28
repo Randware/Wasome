@@ -5,7 +5,7 @@ use crate::symbol::{FunctionSymbol, VariableSymbol};
 
 /** This represents an expression as per section 2 of the lang spec
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expression
 {
     // Only valid if it doesn't return void
@@ -36,7 +36,7 @@ impl Type for Expression
 
 /** This represents a literal as described at the end of section 2 of the lang spec
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Literal
 {
     I32(i32),
@@ -65,7 +65,7 @@ impl Literal
 
 /** This is a type of operator that only takes one input
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct UnaryOp
 {
     // The type of the expression
@@ -199,7 +199,7 @@ impl Typecast
 
 /** This is a type of operator that takes two inputs
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct BinaryOp
 {
     // The type of the expression

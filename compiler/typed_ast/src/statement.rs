@@ -10,7 +10,7 @@ use crate::top_level::FunctionRef;
 
 /** This represents a Statement as per section 4 of the lang spec
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Statement
 {
     VariableAssignment(VariableAssignment),
@@ -111,11 +111,26 @@ impl<'a> StatementRef<'a>
         Self::new_child(indexed_statement, self, index)
     }
 
-    /** Creates a symbol table that iterates over all symbols defined at the current location
+    /** Creates a symbol table that iterates over all symbols available to the current statement
+    self may not be the root statement in its function
+    @return:
+    Some(table) The requested table
+    None if self is the root statement
     */
-    pub fn symbols(&self) -> impl SymbolTable
+    pub fn symbols_available_at(&self) -> Option<impl SymbolTable>
     {
-        DefaultSymbolTable::new(self)
+        DefaultSymbolTable::new_available_to_statement(self)
+    }
+
+    /** Creates a symbol table that iterates over all symbols available after the current statement
+    self may not be the root statement in its function
+    @return:
+    Some(table) The requested table
+    None if self is the root statement
+    */
+    pub fn symbols_available_after(&self) -> Option<impl SymbolTable>
+    {
+        DefaultSymbolTable::new_available_after_statement(self)
     }
 }
 
@@ -142,15 +157,27 @@ struct DefaultSymbolTable<'a>
 
 impl<'a> DefaultSymbolTable<'a>
 {
-    pub fn new(source: &'a StatementRef) -> Self
+    pub(crate) fn new_available_to_statement(source: &'a StatementRef) -> Option<Self>
     {
-        Self {
+        if source.root.implementation() == source.inner
+        {
+            return None
+        }
+        Some(Self {
             source,
             current: source.inner,
             current_location: source.location.as_ref(),
             prev_index: 0,
             root_symbols: Box::new(source.root.symbols())
-        }
+        })
+    }
+
+    pub(crate) fn new_available_after_statement(source: &'a StatementRef) -> Option<Self>
+    {
+        let mut to_ret = Self::new_available_to_statement(source)?;
+        to_ret.go_up_statement_tree()?;
+        to_ret.prev_index += 1;
+        Some(to_ret)
     }
 }
 
@@ -164,16 +191,20 @@ impl<'a> DefaultSymbolTable<'a>
                 return Some(symbol);
             }
         }
+        self.go_up_statement_tree()?;
+        self.next()
+    }
+
+    fn go_up_statement_tree(&mut self) -> Option<()> {
         let new_current_location = self.current_location?.prev();
         self.prev_index = self.current_location?.index();
         self.current_location = new_current_location;
         if let Some(inner_current_location) = self.current_location {
             self.current = self.source.root.index_implementation(inner_current_location);
-        }
-        else {
+        } else {
             self.current = self.source.root.implementation();
         }
-        self.next()
+        Some(())
     }
 }
 
@@ -256,7 +287,7 @@ impl<'a> Index<usize> for StatementLocation<'a>
 
 /** This represents an assignement to a variable
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct VariableAssignment
 {
     variable: Rc<VariableSymbol>,
@@ -298,7 +329,7 @@ impl VariableAssignment
 
 /** This represents a control structure as defined in chapters 8 and 13 of the lang spec
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ControlStructure
 {
     Conditional(Conditional),
@@ -334,7 +365,7 @@ impl Index<usize> for ControlStructure
 
 /** This represents a conditional as defined in chapter 8 of the lang spec
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Conditional
 {
     condition: Expression,
@@ -394,7 +425,7 @@ impl Index<usize> for Conditional
 
 /** This represents a conditional as defined in chapter 13 of the lang spec
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Loop
 {
     to_loop_on: Statement,
@@ -450,7 +481,7 @@ impl Index<usize> for Loop
 
 /** This is the type of a loop
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum LoopType
 {
     Infinite,

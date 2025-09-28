@@ -91,15 +91,19 @@ mod tests
                     Vec::new()
                 )
             ),
-            statement
+            Statement::Codeblock(CodeBlock::new(
+                vec![statement]
+            ))
+
         );
 
         let ast = AST::new(vec![function]);
 
         let function_ref = FunctionRef::new(&ast[0], &ast);
 
-        let statement_ref = StatementRef::new_root(&function_ref);
-        assert_eq!(vec![Symbol::Function(function_ref.declaration())], statement_ref.symbols().collect::<Vec<_>>());
+        let root = StatementRef::new_root(&function_ref);
+        let statement_ref = root.index(0);
+        assert_eq!(vec![Symbol::Function(function_ref.declaration())], statement_ref.symbols_available_at().unwrap().collect::<Vec<_>>());
     }
 
     #[test]
@@ -107,6 +111,10 @@ mod tests
     {
         let symbol = Rc::new(
             VariableSymbol::new("test".to_string(), DataType::F32)
+        );
+
+        let symbol2 = Rc::new(
+            VariableSymbol::new("test2".to_string(), DataType::Bool)
         );
         let statement = Statement::Codeblock(
             CodeBlock::new(
@@ -125,12 +133,15 @@ mod tests
                         Box::new(
                             ControlStructure::Loop(
                                 Loop::new(
-                                    Statement::Expression(
-                                        Expression::Literal(
-                                            Literal::Bool(
-                                                false
+                                    Statement::VariableDeclaration(
+                                        VariableAssignment::new(
+                                            symbol2.clone(),
+                                            Expression::Literal(
+                                                Literal::Bool(
+                                                    true
+                                                )
                                             )
-                                        )
+                                        ).unwrap()
                                     ),
                                     LoopType::Infinite
                                 )
@@ -160,10 +171,15 @@ mod tests
         let loop_statement = root.index(1);
         let statement_ref = loop_statement.index(0);
 
-        let actual = statement_ref.symbols().collect::<Vec<_>>();
+        let actual = statement_ref.symbols_available_at().unwrap().collect::<Vec<_>>();
         let expected = vec![Symbol::Variable(&symbol), Symbol::Function(function_ref.declaration())];
-        assert_eq!(actual.len(), 2);
-        assert!(expected.iter().all(|val| actual.contains(val)))
+        assert_eq!(actual.len(), expected.len());
+        assert!(expected.iter().all(|val| actual.contains(val)));
+
+        let actual = statement_ref.symbols_available_after().unwrap().collect::<Vec<_>>();
+        let expected = vec![Symbol::Variable(&symbol), Symbol::Function(function_ref.declaration()), Symbol::Variable(&symbol2)];
+        assert_eq!(actual.len(), expected.len());
+        assert!(expected.iter().all(|val| actual.contains(val)));
     }
 
     fn basic_test_variable(symbol: Rc<VariableSymbol>) -> Option<VariableAssignment> {
