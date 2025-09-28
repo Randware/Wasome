@@ -1,12 +1,31 @@
-mod expression;
-mod statement;
-mod block;
-mod top_level;
-mod symbol;
-mod data_type;
+use crate::top_level::Function;
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+pub mod expression;
+pub mod statement;
+pub mod block;
+pub mod top_level;
+pub mod symbol;
+pub mod data_type;
+
+pub struct AST
+{
+    functions: Vec<Function>
+}
+
+impl AST
+{
+    pub fn new(functions: Vec<Function>) -> Self
+    {
+        Self
+        {
+            functions
+        }
+    }
+
+    pub fn functions(&self) -> &[Function]
+    {
+        &self.functions
+    }
 }
 
 
@@ -25,15 +44,4 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()>
         return Some(())
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
 }

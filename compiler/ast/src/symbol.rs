@@ -1,4 +1,4 @@
-use crate::data_type::{DataType, Type};
+use crate::data_type::DataType;
 
 pub trait SymbolTable<'a>: Iterator<Item=Symbol<'a>>
 {
