@@ -1,8 +1,18 @@
+use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
 use crate::AST;
 use crate::statement::{Statement, StatementRef};
 use crate::symbol::{FunctionSymbol, Symbol, SymbolTable, VariableSymbol};
+
+/** This is an arbitiary top-level construct
+For now, there are only functions
+*/
+#[derive(Debug)]
+pub enum TopLevelElement
+{
+    Function(Function)
+}
 
 #[derive(Debug)]
 pub struct Function
@@ -110,13 +120,23 @@ impl<'a> Deref for FunctionRef<'a>
     }
 }
 
-#[derive(Debug)]
 struct FunctionSymbolTable<'a>
 {
     parameters: &'a [Rc<VariableSymbol>],
     parameter_index: usize,
-    functions: &'a [Function],
-    function_index: usize
+    functions: Box<dyn Iterator<Item=&'a Function>+'a>
+}
+
+impl<'a> Debug for FunctionSymbolTable<'a>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result
+    {
+        f.debug_struct("FunctionSymbolTable")
+            .field("parameters", &self.parameters)
+            .field("parameter_index", &self.parameter_index)
+            // Unable to debug functions, it does not implement debug
+            .finish()
+    }
 }
 
 impl<'a> FunctionSymbolTable<'a>
@@ -126,8 +146,7 @@ impl<'a> FunctionSymbolTable<'a>
         Self {
             parameters: source.inner().declaration().params(),
             parameter_index: 0,
-            functions: source.root.functions(),
-            function_index: 0
+            functions: Box::new(source.root.functions())
         }
     }
 }
@@ -141,7 +160,7 @@ impl<'a> Iterator for FunctionSymbolTable<'a>
         next_item_from_slice(self.parameters, &mut self.parameter_index)
             .map(|val| Symbol::Variable(&val))
             .or_else(||
-                next_item_from_slice(self.functions, &mut self.function_index)
+                self.functions.next()
                     .map(|val| Symbol::Function(&val.declaration))
             )
 
