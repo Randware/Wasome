@@ -113,7 +113,7 @@ impl<'a> Deref for FunctionRef<'a>
 #[derive(Debug)]
 struct FunctionSymbolTable<'a>
 {
-    parameters: &'a [VariableSymbol],
+    parameters: &'a [Rc<VariableSymbol>],
     parameter_index: usize,
     functions: &'a [Function],
     function_index: usize

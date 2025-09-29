@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use crate::data_type::DataType;
 
 /**  Any type that has symbols available for use
@@ -20,7 +21,7 @@ pub struct FunctionSymbol
     name: String,
     // None = no return type/void
     return_type: Option<DataType>,
-    params: Vec<VariableSymbol>
+    params: Vec<Rc<VariableSymbol>>
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -53,7 +54,7 @@ impl VariableSymbol
 
 impl FunctionSymbol
 {
-    pub fn new(name: String, return_type: Option<DataType>, params: Vec<VariableSymbol>) -> Self
+    pub fn new(name: String, return_type: Option<DataType>, params: Vec<Rc<VariableSymbol>>) -> Self
     {
         Self {
             name,
@@ -67,7 +68,7 @@ impl FunctionSymbol
         &self.name
     }
 
-    pub fn params(&self) -> &[VariableSymbol]
+    pub fn params(&self) -> &[Rc<VariableSymbol>]
     {
         &self.params
     }

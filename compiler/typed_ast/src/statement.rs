@@ -2,7 +2,7 @@ use std::cmp::PartialEq;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
 use crate::block::CodeBlock;
-use crate::data_type::Type;
+use crate::data_type::{DataType, Type};
 use crate::eq_return_option;
 use crate::expression::Expression;
 use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
@@ -531,26 +531,31 @@ This is a wrapper around Expression with the wrapped one being the one's result 
 #[derive(Debug, PartialEq)]
 pub struct Return
 {
-    to_return: Expression
+    to_return: Option<Expression>
 }
 
 impl Return
 {
-    pub fn new(to_return: Expression) -> Self
+    pub fn new(to_return: Option<Expression>) -> Self
     {
         Self {
             to_return
         }
     }
-}
 
-impl Deref for Return
-{
-    type Target = Expression;
-
-    fn deref(&self) -> &Self::Target
+    pub fn to_return(&self) -> Option<&Expression>
     {
-        &self.to_return
+        self.to_return.as_ref()
+    }
+
+    /** Gets the type being returned
+    Returns none if nothing
+    And Some(type) if an expression with type is being returned
+    */
+    pub fn return_type(&self) -> Option<DataType>
+    {
+        // Gets the type from the expression
+        self.to_return().map(|val| val.data_type())
     }
 }
 
