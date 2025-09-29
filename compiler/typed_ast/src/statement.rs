@@ -16,6 +16,7 @@ pub enum Statement
     VariableAssignment(VariableAssignment),
     VariableDeclaration(VariableAssignment),
     Expression(Expression),
+    Return(Return),
     ControlStructure(Box<ControlStructure>),
     Codeblock(CodeBlock)
 }
@@ -521,6 +522,35 @@ impl Index<usize> for LoopType
         else {
             panic!("This loop type has no children!");
         }
+    }
+}
+
+/** A return in wasome code
+This is a wrapper around Expression with the wrapped one being the one's result that will be returned
+*/
+#[derive(Debug, PartialEq)]
+pub struct Return
+{
+    to_return: Expression
+}
+
+impl Return
+{
+    pub fn new(to_return: Expression) -> Self
+    {
+        Self {
+            to_return
+        }
+    }
+}
+
+impl Deref for Return
+{
+    type Target = Expression;
+
+    fn deref(&self) -> &Self::Target
+    {
+        &self.to_return
     }
 }
 
