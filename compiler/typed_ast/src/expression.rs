@@ -223,7 +223,7 @@ impl BinaryOp
     pub fn new(op_type: BinaryOpType, left: Expression, right: Expression) -> Option<Self>
     {
         // Can't process
-        op_type.type_from_processing_type(left.data_type(), right.data_type())?;
+        op_type.result_type(left.data_type(), right.data_type())?;
         Some(Self {
             op_type,
             left,
@@ -237,7 +237,7 @@ impl Type for BinaryOp
 {
     fn data_type(&self) -> DataType
     {
-        self.op_type.type_from_processing_type(self.left.data_type(), self.right.data_type())
+        self.op_type.result_type(self.left.data_type(), self.right.data_type())
             .unwrap()   // Unwrap safety: BinaryOps may only exist if the input type can be processed
                         // This is checked in the constructor
                         // Therefore, this can never panic
@@ -298,23 +298,23 @@ impl BinaryOpType
        Some(output data type) if the provided types can be processed to the output type
        None if the processed type can't be processed
     */
-    pub fn type_from_processing_type(&self, left: DataType, right: DataType) -> Option<DataType>
+    pub fn result_type(&self, left: DataType, right: DataType) -> Option<DataType>
     {
         use BinaryOpType as BOT;
         match self {
             BOT::Addition |
             BOT::Subtraction |
             BOT::Multiplication |
-            BOT::Division => Self::type_from_processing_types_with_base_arithmetic(left, right),
+            BOT::Division => Self::arithmetic_type(left, right),
             BOT::Modulo |
             BOT::LeftShift |
             BOT::RightShift |
             BOT::BitwiseOr |
             BOT::BitwiseAnd |
-            BOT::BitwiseXor => Self::type_from_processing_types_with_integer_only_operator(left, right),
+            BOT::BitwiseXor => Self::int_op_type(left, right),
             BOT::Or |
             BOT::And |
-            BOT::Xor => Self::type_from_processing_types_with_bool_operator(left, right),
+            BOT::Xor => Self::bool_op_type(left, right),
             BOT::Equals | BOT::NotEquals => {
                     eq_return_option(left, right)?;
                     Some(DataType::Bool)
@@ -322,11 +322,14 @@ impl BinaryOpType
             BOT::Greater |
             BOT::GreaterEquals |
             BOT::Lesser |
-            BOT:: LesserEquals => Self::type_from_processing_types_with_comparison_operator(left, right)
+            BOT:: LesserEquals => Self::comparison_op_type(left, right)
         }
     }
 
-    fn type_from_processing_types_with_base_arithmetic(left: DataType, right: DataType) -> Option<DataType>
+    /** Returns the type of data from putting the two input types through an arethmetic operator
+    (lang spec, section 3)
+    */
+    fn arithmetic_type(left: DataType, right: DataType) -> Option<DataType>
     {
         eq_return_option(left, right)?;
         match left {
@@ -338,7 +341,10 @@ impl BinaryOpType
         }
     }
 
-    fn type_from_processing_types_with_integer_only_operator(left: DataType, right: DataType) -> Option<DataType>
+    /** Returns the type of data from putting the two input types through an integer only operator
+    (lang spec, section 3)
+    */
+    fn int_op_type(left: DataType, right: DataType) -> Option<DataType>
     {
         eq_return_option(left, right)?;
         match left {
@@ -348,7 +354,10 @@ impl BinaryOpType
         }
     }
 
-    fn type_from_processing_types_with_bool_operator(left: DataType, right: DataType) -> Option<DataType>
+    /** Returns the type of data from putting the two input types through a bool only (such as or) operator
+       (lang spec, section 3)
+    */
+    fn bool_op_type(left: DataType, right: DataType) -> Option<DataType>
     {
         eq_return_option(left, right)?;
         match left {
@@ -357,7 +366,10 @@ impl BinaryOpType
         }
     }
 
-    fn type_from_processing_types_with_comparison_operator(left: DataType, right: DataType) -> Option<DataType>
+    /** Returns the type of data from putting the two input types through a comparison operator
+       (lang spec, section 3)
+    */
+    fn comparison_op_type(left: DataType, right: DataType) -> Option<DataType>
     {
         eq_return_option(left, right)?;
         Some(DataType::Bool)
@@ -372,13 +384,13 @@ mod tests
     fn binary_op_type()
     {
         let add = BinaryOpType::Addition;
-        assert_eq!(None, add.type_from_processing_type(DataType::F32, DataType::F64));
-        assert_eq!(Some(DataType::F32), add.type_from_processing_type(DataType::F32, DataType::F32));
-        assert_eq!(None, add.type_from_processing_type(DataType::Bool, DataType::Bool));
+        assert_eq!(None, add.result_type(DataType::F32, DataType::F64));
+        assert_eq!(Some(DataType::F32), add.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, add.result_type(DataType::Bool, DataType::Bool));
 
         let bxor = BinaryOpType::BitwiseXor;
-        assert_eq!(None, bxor.type_from_processing_type(DataType::F32, DataType::F32));
-        assert_eq!(Some(DataType::I64), bxor.type_from_processing_type(DataType::I64, DataType::I64));
+        assert_eq!(None, bxor.result_type(DataType::F32, DataType::F32));
+        assert_eq!(Some(DataType::I64), bxor.result_type(DataType::I64, DataType::I64));
     }
 
     #[test]
