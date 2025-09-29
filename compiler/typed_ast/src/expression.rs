@@ -275,10 +275,18 @@ pub enum BinaryOpType
     BitwiseXor,
     /// Section 3 lang spec, xor operator
     Xor,
-    /// Section 3 lang spec, xnor operator
-    Xnor,
-    /// Section 3 lang spec, comparison operator
-    Comparison,
+    /// Section 3 lang spec, equals operator
+    Equals,
+    /// Section 3 lang spec, not equals operator
+    NotEquals,
+    /// Section 3 lang spec, greater operator
+    Greater,
+    /// Section 3 lang spec, greater or equals operator
+    GreaterEquals,
+    /// Section 3 lang spec, lesser operator
+    Lesser,
+    /// Section 3 lang spec, lesser or equals operator
+    LesserEquals
 }
 
 impl BinaryOpType
@@ -292,25 +300,29 @@ impl BinaryOpType
     */
     pub fn type_from_processing_type(&self, left: DataType, right: DataType) -> Option<DataType>
     {
+        use BinaryOpType as BOT;
         match self {
-            BinaryOpType::Addition |
-            BinaryOpType::Subtraction |
-            BinaryOpType::Multiplication |
-            BinaryOpType::Division => Self::type_from_processing_types_with_base_arithmetic(left, right),
-            BinaryOpType::Modulo |
-            BinaryOpType::LeftShift |
-            BinaryOpType::RightShift |
-            BinaryOpType::BitwiseOr |
-            BinaryOpType::BitwiseAnd |
-            BinaryOpType::BitwiseXor => Self::type_from_processing_types_with_integer_only_operator(left, right),
-            BinaryOpType::Or |
-            BinaryOpType::And |
-            BinaryOpType::Xor |
-            BinaryOpType::Xnor => Self::type_from_processing_types_with_bool_operator(left, right),
-            BinaryOpType::Comparison => {
+            BOT::Addition |
+            BOT::Subtraction |
+            BOT::Multiplication |
+            BOT::Division => Self::type_from_processing_types_with_base_arithmetic(left, right),
+            BOT::Modulo |
+            BOT::LeftShift |
+            BOT::RightShift |
+            BOT::BitwiseOr |
+            BOT::BitwiseAnd |
+            BOT::BitwiseXor => Self::type_from_processing_types_with_integer_only_operator(left, right),
+            BOT::Or |
+            BOT::And |
+            BOT::Xor => Self::type_from_processing_types_with_bool_operator(left, right),
+            BOT::Equals | BOT::NotEquals => {
                     eq_return_option(left, right)?;
                     Some(DataType::Bool)
-                }
+                },
+            BOT::Greater |
+            BOT::GreaterEquals |
+            BOT::Lesser |
+            BOT:: LesserEquals => Self::type_from_processing_types_with_comparison_operator(left, right)
         }
     }
 
@@ -343,6 +355,12 @@ impl BinaryOpType
             DataType::Bool => Some(left),
             _ => None
         }
+    }
+
+    fn type_from_processing_types_with_comparison_operator(left: DataType, right: DataType) -> Option<DataType>
+    {
+        eq_return_option(left, right)?;
+        Some(DataType::Bool)
     }
 }
 
