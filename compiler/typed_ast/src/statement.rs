@@ -13,7 +13,9 @@ use crate::top_level::FunctionRef;
 #[derive(Debug, PartialEq)]
 pub enum Statement
 {
+    // Assignment to existing variable
     VariableAssignment(VariableAssignment),
+    // Creation of new variable
     VariableDeclaration(VariableAssignment),
     Expression(Expression),
     Return(Return),
@@ -284,7 +286,7 @@ impl<'a> Index<usize> for StatementLocation<'a>
     }
 }
 
-/** This represents an assignement to a variable
+/** This represents an assignement to a variable. If this variable doesn't exist previously, it is created
 */
 #[derive(Debug, PartialEq)]
 pub struct VariableAssignment

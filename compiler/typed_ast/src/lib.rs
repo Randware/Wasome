@@ -8,6 +8,21 @@ pub mod top_level;
 pub mod symbol;
 pub mod data_type;
 
+/** This is the Abstract syntax tree, the interface between the parser and the codegen
+It consists of three "levels", from highest to lowest:
+1. Functions
+2. Statements
+3. Expressions
+
+Each level can contain instances of the level below it and its own level.
+
+In addition to these main types, there are also two traversial helpers:
+FunctionRef and StatementRef
+They both contain references to an instance of Function or Statement
+
+For more information on how to use this, refer to the tests in this file.
+Note that unlike in the tests, ASTs are not supposed to be hardcoded
+*/
 #[derive(Debug)]
 pub struct AST
 {
@@ -63,13 +78,13 @@ mod tests
     use crate::AST;
     use crate::block::CodeBlock;
     use crate::data_type::DataType;
-    use crate::expression::{Expression, Literal};
-    use crate::statement::{ControlStructure, Loop, LoopType, Statement, StatementRef, VariableAssignment};
+    use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
+    use crate::statement::{ControlStructure, Loop, LoopType, Return, Statement, StatementRef, VariableAssignment};
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
     use crate::top_level::{Function, FunctionRef};
 
     #[test]
-    fn statement()
+    fn ast()
     {
         let symbol = Rc::new(
             VariableSymbol::new("test".to_string(), DataType::F32)
@@ -105,7 +120,7 @@ mod tests
     }
 
     #[test]
-    fn statement_2()
+    fn ast_2()
     {
         let symbol = Rc::new(
             VariableSymbol::new("test".to_string(), DataType::F32)
@@ -176,6 +191,166 @@ mod tests
 
         let actual = statement_ref.symbols_available_after().unwrap().collect::<Vec<_>>();
         let expected = vec![Symbol::Variable(&symbol), Symbol::Function(function_ref.declaration()), Symbol::Variable(&symbol2)];
+        assert_eq!(actual.len(), expected.len());
+        assert!(expected.iter().all(|val| actual.contains(val)));
+    }
+
+    #[test]
+    fn fibonacci()
+    {
+        // The how manyth fibonacci number we want
+        let nth = Rc::new(VariableSymbol::new(
+            "nth".to_string(),
+            DataType::I32
+        ));
+        let current = Rc::new(VariableSymbol::new(
+            "current".to_string(),
+            DataType::I64
+        ));
+        let previous = Rc::new(VariableSymbol::new(
+            "previous".to_string(),
+            DataType::I64
+        ));
+        let temp = Rc::new(VariableSymbol::new(
+            "temp".to_string(),
+            DataType::I64
+        ));
+
+        let fibonacci = Rc::new(FunctionSymbol::new(
+            "fibonacci".to_string(),
+            Some(DataType::I64),
+            vec![nth.clone()]
+        ));
+        let ast = AST::new(
+            vec![
+                Function::new(
+                    fibonacci.clone(),
+                    Statement::Codeblock(
+                        CodeBlock::new(
+                            vec![
+                                Statement::VariableDeclaration(
+                                    VariableAssignment::new(
+                                        current.clone(),
+                                        Expression::Literal(
+                                            Literal::I64(
+                                                1
+                                            )
+                                        )
+                                    ).unwrap()
+                                ),
+                                Statement::VariableDeclaration(
+                                    VariableAssignment::new(
+                                        previous.clone(),
+                                        Expression::Literal(
+                                            Literal::I64(
+                                                0
+                                            )
+                                        )
+                                    ).unwrap()
+                                ),
+                                Statement::ControlStructure(
+                                    Box::new(ControlStructure::Loop(
+                                        Loop::new(
+                                            Statement::Codeblock(
+                                                CodeBlock::new(
+                                                    vec![
+                                                        Statement::VariableDeclaration(
+                                                            VariableAssignment::new(
+                                                                temp.clone(),
+                                                                Expression::Variable(
+                                                                    current.clone()
+                                                                )
+                                                            ).unwrap()
+                                                        ),
+                                                        Statement::VariableAssignment(
+                                                            VariableAssignment::new(
+                                                                current.clone(),
+                                                                Expression::BinaryOp(
+                                                                    Box::new(BinaryOp::new(
+                                                                        BinaryOpType::Addition,
+                                                                        Expression::Variable(
+                                                                            current.clone()
+                                                                        ),
+                                                                        Expression::Variable(
+                                                                            previous.clone()
+                                                                        ),
+                                                                    ).unwrap())
+                                                                )
+
+                                                            ).unwrap()
+                                                        ),
+                                                        Statement::VariableAssignment(
+                                                            VariableAssignment::new(
+                                                                previous.clone(),
+                                                                Expression::Variable(
+                                                                    temp.clone()
+                                                                )
+                                                            ).unwrap()
+                                                        ),
+                                                        Statement::VariableAssignment(
+                                                            VariableAssignment::new(
+                                                                nth.clone(),
+                                                                Expression::BinaryOp(
+                                                                    Box::new(BinaryOp::new(
+                                                                        BinaryOpType::Subtraction,
+                                                                        Expression::Variable(
+                                                                            nth.clone()
+                                                                        ),
+                                                                        Expression::Literal(
+                                                                            Literal::I32(
+                                                                                1
+                                                                            )
+                                                                        ),
+                                                                    ).unwrap())
+                                                                )
+                                                            ).unwrap()
+                                                        ),
+                                                    ]
+                                                )
+                                            ),
+                                            LoopType::While(
+                                                Expression::BinaryOp(
+                                                    Box::new(BinaryOp::new(
+                                                        BinaryOpType::Greater,
+                                                        Expression::Variable(
+                                                            nth.clone()
+                                                        ),
+                                                        Expression::Literal(
+                                                            Literal::I32(
+                                                                1 //The fibonacci number of 1 is 1
+                                                            )
+                                                        )
+                                                    ).unwrap())
+                                                )
+                                            )
+                                        )
+                                    ))
+                                ),
+                                Statement::Return(
+                                    Return::new(
+                                        Some(Expression::Variable(
+                                            current.clone()
+                                        ))
+                                    )
+                                )
+                            ]
+                        )
+                    )
+                )
+            ]
+        );
+
+        let function_ref = FunctionRef::new(&ast[0], &ast);
+
+        let root = function_ref.ref_to_implementation();
+        let return_statement = root.index(3);
+
+        let actual = return_statement.symbols_available_at().unwrap().collect::<Vec<_>>();
+        let expected = vec![
+            Symbol::Variable(&nth),
+            Symbol::Variable(&current),
+            Symbol::Variable(&previous),
+            Symbol::Function(&fibonacci)];
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
     }
