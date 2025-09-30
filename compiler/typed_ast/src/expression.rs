@@ -42,7 +42,7 @@ pub enum Literal
     // All integer literals are of type S32
     S32(i32),
     Bool(bool),
-    Char(u8), //Ascii character, todo: Maybe change to an arbitiary UTF8-char
+    Char(u32), //UTF-8 character
     F32(f32),
     F64(f64)
 }
@@ -445,7 +445,7 @@ mod tests
         let literal_f32 = Literal::F32(5.0);
         assert_eq!(DataType::F32, literal_f32.data_type());
 
-        let literal_char = Literal::Char('a' as u8);
+        let literal_char = Literal::Char('a' as u32);
         assert_eq!(DataType::Char, literal_char.data_type());
     }
 
