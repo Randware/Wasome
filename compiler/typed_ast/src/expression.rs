@@ -86,7 +86,7 @@ impl UnaryOp
     pub fn new(op_type: UnaryOpType, input: Expression) -> Option<Self>
     {
         // Can't process
-        op_type.type_from_processing_type(input.data_type())?;
+        op_type.result_type(input.data_type())?;
         Some(Self {
             op_type,
             input
@@ -98,7 +98,7 @@ impl Type for UnaryOp
 {
     fn data_type(&self) -> DataType
     {
-        self.op_type.type_from_processing_type(self.input.data_type())
+        self.op_type.result_type(self.input.data_type())
             .unwrap()   // Unwrap safety: UnaryOps may only exist if the input type can be processed
                         // This is checked in the constructor
                         // Therefore, this can never panic
@@ -127,16 +127,19 @@ impl UnaryOpType
     Some(output data type) if the provided type can be processed to the output type
     None if the processed type can't be processed
     */
-    pub fn type_from_processing_type(&self, to_process: DataType) -> Option<DataType>
+    pub fn result_type(&self, to_process: DataType) -> Option<DataType>
     {
         match self {
-            UnaryOpType::Negative => Self::type_from_processing_type_with_minus(to_process),
-            UnaryOpType::Not => Self::type_from_processing_type_with_neg(to_process),
-            UnaryOpType::Typecast(inner) => inner.type_from_processing_type(to_process)
+            UnaryOpType::Negative => Self::minus_type(to_process),
+            UnaryOpType::Not => Self::neg_type(to_process),
+            UnaryOpType::Typecast(inner) => inner.result_type(to_process)
         }
     }
 
-    fn type_from_processing_type_with_neg(to_process: DataType) -> Option<DataType>
+    /** Returns the type of data from putting the input type through a negation operator
+       (lang spec, section 3)
+    */
+    fn neg_type(to_process: DataType) -> Option<DataType>
     {
         match to_process {
             DataType::Bool => Some(DataType::Bool),
@@ -144,7 +147,10 @@ impl UnaryOpType
         }
     }
 
-    fn type_from_processing_type_with_minus(to_process: DataType) -> Option<DataType>
+    /** Returns the type of data from putting the input type through a minus operator
+          (lang spec, section 3)
+    */
+    fn minus_type(to_process: DataType) -> Option<DataType>
     {
         match to_process {
             DataType::Char | DataType::Bool |
@@ -180,7 +186,7 @@ impl Typecast
     Some(result) if to_process can be casted to result
     None if there is no cast available
     */
-    pub fn type_from_processing_type(&self, to_process: DataType) -> Option<DataType>
+    pub fn result_type(&self, to_process: DataType) -> Option<DataType>
     {
         match (to_process, self.target) {
             (DataType::S8 | DataType::U16, DataType::U8) |
@@ -417,20 +423,20 @@ mod tests
     fn unary_op_type()
     {
         let negative = UnaryOpType::Negative;
-        assert_eq!(Some(DataType::F32), negative.type_from_processing_type(DataType::F32));
-        assert_eq!(None, negative.type_from_processing_type(DataType::Bool));
+        assert_eq!(Some(DataType::F32), negative.result_type(DataType::F32));
+        assert_eq!(None, negative.result_type(DataType::Bool));
 
         let not = UnaryOpType::Not;
-        assert_eq!(Some(DataType::Bool), not.type_from_processing_type(DataType::Bool));
-        assert_eq!(None, not.type_from_processing_type(DataType::Char));
+        assert_eq!(Some(DataType::Bool), not.result_type(DataType::Bool));
+        assert_eq!(None, not.result_type(DataType::Char));
 
         let tc_i32 = UnaryOpType::Typecast(Typecast::new(DataType::S32));
-        assert_eq!(Some(DataType::S32), tc_i32.type_from_processing_type(DataType::F32));
-        assert_eq!(Some(DataType::S32), tc_i32.type_from_processing_type(DataType::S64));
-        assert_eq!(None, tc_i32.type_from_processing_type(DataType::Bool));
+        assert_eq!(Some(DataType::S32), tc_i32.result_type(DataType::F32));
+        assert_eq!(Some(DataType::S32), tc_i32.result_type(DataType::S64));
+        assert_eq!(None, tc_i32.result_type(DataType::Bool));
 
         let tc_bool = UnaryOpType::Typecast(Typecast::new(DataType::Bool));
-        assert_eq!(None, tc_bool.type_from_processing_type(DataType::S32));
+        assert_eq!(None, tc_bool.result_type(DataType::S32));
     }
 
     #[test]
@@ -447,19 +453,19 @@ mod tests
     fn typecast()
     {
         let typecast_s32 = Typecast::new(DataType::S32);
-        assert_eq!(Some(DataType::S32), typecast_s32.type_from_processing_type(DataType::F32));
-        assert_eq!(Some(DataType::S32), typecast_s32.type_from_processing_type(DataType::S16));
-        assert_eq!(None, typecast_s32.type_from_processing_type(DataType::S32));
+        assert_eq!(Some(DataType::S32), typecast_s32.result_type(DataType::F32));
+        assert_eq!(Some(DataType::S32), typecast_s32.result_type(DataType::S16));
+        assert_eq!(None, typecast_s32.result_type(DataType::S32));
 
         let typecast_u16 = Typecast::new(DataType::U16);
-        assert_eq!(Some(DataType::U16), typecast_u16.type_from_processing_type(DataType::U32));
-        assert_eq!(Some(DataType::U16), typecast_u16.type_from_processing_type(DataType::S16));
-        assert_eq!(None, typecast_u16.type_from_processing_type(DataType::F32));
+        assert_eq!(Some(DataType::U16), typecast_u16.result_type(DataType::U32));
+        assert_eq!(Some(DataType::U16), typecast_u16.result_type(DataType::S16));
+        assert_eq!(None, typecast_u16.result_type(DataType::F32));
 
         let typecast_s64 = Typecast::new(DataType::S64);
-        assert_eq!(Some(DataType::S64), typecast_s64.type_from_processing_type(DataType::F64));
-        assert_eq!(Some(DataType::S64), typecast_s64.type_from_processing_type(DataType::S32));
-        assert_eq!(None, typecast_s64.type_from_processing_type(DataType::F32));
+        assert_eq!(Some(DataType::S64), typecast_s64.result_type(DataType::F64));
+        assert_eq!(Some(DataType::S64), typecast_s64.result_type(DataType::S32));
+        assert_eq!(None, typecast_s64.result_type(DataType::F32));
 
     }
 
