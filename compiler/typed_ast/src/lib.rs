@@ -7,6 +7,7 @@ pub mod block;
 pub mod top_level;
 pub mod symbol;
 pub mod data_type;
+pub mod traversal;
 
 /** This is the Abstract syntax tree, the interface between the parser and the codegen
 It consists of three "levels", from highest to lowest:
@@ -18,7 +19,8 @@ Each level can contain instances of the level below it and its own level.
 
 In addition to these main types, there are also two traversial helpers:
 FunctionRef and StatementRef
-They both contain references to an instance of Function or Statement
+They both contain references to an instance of Function or Statement and allow to list all
+symbols available to a function/statement.
 
 For more information on how to use this, refer to the tests in this file.
 Note that unlike in the tests, ASTs are not supposed to be hardcoded
@@ -88,9 +90,11 @@ mod tests
     use crate::block::CodeBlock;
     use crate::data_type::DataType;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
-    use crate::statement::{ControlStructure, Loop, LoopType, Return, Statement, StatementRef, VariableAssignment};
+    use crate::statement::{ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment};
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
-    use crate::top_level::{Function, FunctionRef, TopLevelElement};
+    use crate::top_level::{Function, TopLevelElement};
+    use crate::traversal::function_traversal::FunctionTraversalHelper;
+    use crate::traversal::statement_traversal::StatementTraversalHelper;
 
     #[test]
     fn ast()
@@ -121,9 +125,9 @@ mod tests
 
         let ast = AST::new(vec![TopLevelElement::Function(function)]);
 
-        let function_ref = FunctionRef::new(ast.functions().next().unwrap(), &ast);
+        let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
-        let root = StatementRef::new_root(&function_ref);
+        let root = StatementTraversalHelper::new_root(&function_ref);
         let statement_ref = root.index(0);
         assert_eq!(vec![Symbol::Function(function_ref.declaration())], statement_ref.symbols_available_at().unwrap().collect::<Vec<_>>());
     }
@@ -187,9 +191,9 @@ mod tests
 
         let ast = AST::new(vec![TopLevelElement::Function(function)]);
 
-        let function_ref = FunctionRef::new(ast.functions().next().unwrap(), &ast);
+        let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
-        let root = StatementRef::new_root(&function_ref);
+        let root = StatementTraversalHelper::new_root(&function_ref);
         let loop_statement = root.index(1);
         let statement_ref = loop_statement.index(0);
 
@@ -351,7 +355,7 @@ mod tests
             ]
         );
 
-        let function_ref = FunctionRef::new(ast.functions().next().unwrap(), &ast);
+        let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.index(3);
