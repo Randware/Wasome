@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
-use crate::AST;
+use crate::{ASTType, AST};
 use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
@@ -12,16 +12,16 @@ It keeps a reference to the ast and a function.
 This allows it to be used to keep track of all symbols available in a function
 */
 #[derive(Debug)]
-pub struct FunctionTraversalHelper<'a>
+pub struct FunctionTraversalHelper<'a, Type: ASTType>
 {
     // The referenced function
-    inner: &'a Function,
-    root: &'a AST
+    inner: &'a Function<Type>,
+    root: &'a AST<Type>
 }
 
-impl<'a> FunctionTraversalHelper<'a>
+impl<'a, Type: ASTType> FunctionTraversalHelper<'a, Type>
 {
-    pub fn new(inner: &'a Function, root: &'a AST) -> Self
+    pub fn new(inner: &'a Function<Type>, root: &'a AST<Type>) -> Self
     {
         Self {
             inner,
@@ -29,26 +29,26 @@ impl<'a> FunctionTraversalHelper<'a>
         }
     }
 
-    pub fn inner(&self) -> &'a Function
+    pub fn inner(&self) -> &'a Function<Type>
     {
         self.inner
     }
 
-    pub fn root(&self) -> &'a AST
+    pub fn root(&self) -> &'a AST<Type>
     {
         self.root
     }
 
     /** Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
     */
-    pub fn symbols(&self) -> impl SymbolTable
+    pub fn symbols(&self) -> impl SymbolTable<Type>
     {
         FunctionSymbolTable::new(self)
     }
 
     /** Indexes the implementation with index
     */
-    pub(crate) fn index_implementation<'b>(&'b self, index: &StatementLocation) -> &'b Statement
+    pub(crate) fn index_implementation<'b>(&'b self, index: &StatementLocation) -> &'b Statement<Type>
     {
         let mut current_statement = self.implementation();
         let starting_index_size = index.len();
@@ -66,15 +66,15 @@ impl<'a> FunctionTraversalHelper<'a>
     /** Gets a StatementRef for the top level statement in this function
           This is the intended way to traverse a function
     */
-    pub fn ref_to_implementation(&self) -> StatementTraversalHelper
+    pub fn ref_to_implementation(&self) -> StatementTraversalHelper<Type>
     {
         StatementTraversalHelper::new_root(self)
     }
 }
 
-impl<'a> Deref for FunctionTraversalHelper<'a>
+impl<'a, Type: ASTType> Deref for FunctionTraversalHelper<'a, Type>
 {
-    type Target = Function;
+    type Target = Function<Type>;
 
     fn deref(&self) -> &'a Self::Target
     {
@@ -82,14 +82,14 @@ impl<'a> Deref for FunctionTraversalHelper<'a>
     }
 }
 
-struct FunctionSymbolTable<'a>
+struct FunctionSymbolTable<'a, Type: ASTType>
 {
-    parameters: &'a [Rc<VariableSymbol>],
+    parameters: &'a [Rc<VariableSymbol<Type>>],
     parameter_index: usize,
-    functions: Box<dyn Iterator<Item=&'a Function>+'a>
+    functions: Box<dyn Iterator<Item=&'a Function<Type>>+'a>
 }
 
-impl<'a> Debug for FunctionSymbolTable<'a>
+impl<'a, Type: ASTType> Debug for FunctionSymbolTable<'a, Type>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result
     {
@@ -101,9 +101,9 @@ impl<'a> Debug for FunctionSymbolTable<'a>
     }
 }
 
-impl<'a> FunctionSymbolTable<'a>
+impl<'a, Type: ASTType> FunctionSymbolTable<'a, Type>
 {
-    fn new(source: & FunctionTraversalHelper<'a>) -> Self
+    fn new(source: & FunctionTraversalHelper<'a, Type>) -> Self
     {
         Self {
             parameters: source.inner().declaration().params(),
@@ -113,9 +113,9 @@ impl<'a> FunctionSymbolTable<'a>
     }
 }
 
-impl<'a> Iterator for FunctionSymbolTable<'a>
+impl<'a, Type: ASTType> Iterator for FunctionSymbolTable<'a, Type>
 {
-    type Item = Symbol<'a>;
+    type Item = Symbol<'a, Type>;
 
     fn next(&mut self) -> Option<Self::Item>
     {
@@ -140,4 +140,4 @@ fn next_item_from_slice<'a, T>(slice: &'a [T], index: &mut usize) -> Option<&'a 
     item
 }
 
-impl<'a> SymbolTable<'a> for FunctionSymbolTable<'a> {}
+impl<'a, Type: ASTType> SymbolTable<'a, Type> for FunctionSymbolTable<'a, Type> {}

@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::rc::Rc;
+use crate::ASTType;
 use crate::statement::Statement;
 use crate::symbol::FunctionSymbol;
 
@@ -7,21 +8,21 @@ use crate::symbol::FunctionSymbol;
 For now, there are only functions
 */
 #[derive(Debug)]
-pub enum TopLevelElement
+pub enum TopLevelElement<Type: ASTType>
 {
-    Function(Function)
+    Function(Function<Type>)
 }
 
 #[derive(Debug)]
-pub struct Function
+pub struct Function<Type: ASTType>
 {
-    declaration: Rc<FunctionSymbol>,
-    implementation: Statement
+    declaration: Rc<FunctionSymbol<Type>>,
+    implementation: Statement<Type>
 }
 
-impl Function
+impl<Type: ASTType> Function<Type>
 {
-    pub fn new(declaration: Rc<FunctionSymbol>, implementation: Statement) -> Self
+    pub fn new(declaration: Rc<FunctionSymbol<Type>>, implementation: Statement<Type>) -> Self
     {
         Self {
             declaration,
@@ -29,19 +30,19 @@ impl Function
         }
     }
 
-    pub fn declaration(&self) -> &FunctionSymbol
+    pub fn declaration(&self) -> &FunctionSymbol<Type>
     {
         &self.declaration
     }
 
     /** Gets the declaration by cloning the rc
     */
-    pub fn declaration_owned(&self) -> Rc<FunctionSymbol>
+    pub fn declaration_owned(&self) -> Rc<FunctionSymbol<Type>>
     {
         self.declaration.clone()
     }
 
-    pub fn implementation(&self) -> &Statement
+    pub fn implementation(&self) -> &Statement<Type>
     {
         &self.implementation
     }

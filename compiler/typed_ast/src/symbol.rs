@@ -1,39 +1,39 @@
 use std::rc::Rc;
-use crate::data_type::DataType;
+use crate::ASTType;
 
 /**  Any type that has symbols available for use
 */
-pub trait SymbolTable<'a>: Iterator<Item=Symbol<'a>>
+pub trait SymbolTable<'a, Type: ASTType>: Iterator<Item=Symbol<'a, Type>>
 {
 
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum Symbol<'a>
+pub enum Symbol<'a, Type: ASTType>
 {
-    Function(&'a FunctionSymbol),
-    Variable(&'a VariableSymbol)
+    Function(&'a FunctionSymbol<Type>),
+    Variable(&'a VariableSymbol<Type>)
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct FunctionSymbol
+pub struct FunctionSymbol<Type: ASTType>
 {
     name: String,
     // None = no return type/void
-    return_type: Option<DataType>,
-    params: Vec<Rc<VariableSymbol>>
+    return_type: Option<Type::GeneralDataType>,
+    params: Vec<Rc<VariableSymbol<Type>>>
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct VariableSymbol
+pub struct VariableSymbol<Type: ASTType>
 {
     name: String,
-    data_type: DataType
+    data_type: Type::GeneralDataType
 }
 
-impl VariableSymbol
+impl<Type: ASTType> VariableSymbol<Type>
 {
-    pub fn new(name: String, data_type: DataType) -> Self
+    pub fn new(name: String, data_type: Type::GeneralDataType) -> Self
     {
         Self {
             name,
@@ -46,15 +46,15 @@ impl VariableSymbol
         &self.name
     }
 
-    pub fn data_type(&self) -> DataType
+    pub fn data_type(&self) -> &Type::GeneralDataType
     {
-        self.data_type
+        &self.data_type
     }
 }
 
-impl FunctionSymbol
+impl<Type: ASTType> FunctionSymbol<Type>
 {
-    pub fn new(name: String, return_type: Option<DataType>, params: Vec<Rc<VariableSymbol>>) -> Self
+    pub fn new(name: String, return_type: Option<Type::GeneralDataType>, params: Vec<Rc<VariableSymbol<Type>>>) -> Self
     {
         Self {
             name,
@@ -68,13 +68,13 @@ impl FunctionSymbol
         &self.name
     }
 
-    pub fn params(&self) -> &[Rc<VariableSymbol>]
+    pub fn params(&self) -> &[Rc<VariableSymbol<Type>>]
     {
         &self.params
     }
 
-    pub fn return_type(&self) -> Option<DataType>
+    pub fn return_type(&self) -> Option<&Type::GeneralDataType>
     {
-        self.return_type
+        self.return_type.as_ref()
     }
 }

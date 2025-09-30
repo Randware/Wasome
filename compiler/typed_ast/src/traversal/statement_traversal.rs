@@ -1,4 +1,5 @@
 use std::ops::{Deref, Index};
+use crate::ASTType;
 use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
@@ -9,21 +10,21 @@ This allows it to be used to keep track of all symbols available to a statement
 It is supposed to be created by either a FunctionTraversalHelper or the StatementTraversalHelper of the parent statement
 */
 #[derive(Debug)]
-pub struct StatementTraversalHelper<'a>
+pub struct StatementTraversalHelper<'a, Type: ASTType>
 {
     // The referenced statement
-    inner: &'a Statement,
+    inner: &'a Statement<Type>,
     // The location of this statement, relative to the root
     location: Option<StatementLocation<'a>>,
     // The root of the statement tree (should eventually become the function)
-    root: &'a FunctionTraversalHelper<'a>
+    root: &'a FunctionTraversalHelper<'a, Type>
 }
 
-impl<'a> StatementTraversalHelper<'a>
+impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type>
 {
     /** Creates a new StatementRef where inner is the root
     */
-    pub fn new_root(inner: &'a FunctionTraversalHelper<'a>) -> Self
+    pub fn new_root(inner: &'a FunctionTraversalHelper<'a, Type>) -> Self
     {
         Self {
             inner: inner.implementation(),
@@ -34,7 +35,7 @@ impl<'a> StatementTraversalHelper<'a>
 
     /** Creates a new StatementRef that is the child of the specified statementRef at the specified index
     */
-    fn new_child(inner: &'a Statement, parent: &'a StatementTraversalHelper<'a>, location: usize) -> Self
+    fn new_child(inner: &'a Statement<Type>, parent: &'a StatementTraversalHelper<'a, Type>, location: usize) -> Self
     {
         Self {
             inner,
@@ -45,7 +46,7 @@ impl<'a> StatementTraversalHelper<'a>
 
     /** Indexes this with index
     */
-    pub fn index(&'a self, index: usize) -> StatementTraversalHelper<'a>
+    pub fn index(&'a self, index: usize) -> StatementTraversalHelper<'a, Type>
     {
         let indexed_statement = self.inner.index(index);
         Self::new_child(indexed_statement, self, index)
@@ -57,7 +58,7 @@ impl<'a> StatementTraversalHelper<'a>
        Some(table) The requested table
        None if self is the root statement
     */
-    pub fn symbols_available_at(&self) -> Option<impl SymbolTable>
+    pub fn symbols_available_at(&self) -> Option<impl SymbolTable<Type>>
     {
         DefaultSymbolTable::new_available_to_statement(self)
     }
@@ -68,7 +69,7 @@ impl<'a> StatementTraversalHelper<'a>
        Some(table) The requested table
        None if self is the root statement
     */
-    pub fn symbols_available_after(&self) -> Option<impl SymbolTable>
+    pub fn symbols_available_after(&self) -> Option<impl SymbolTable<Type>>
     {
         DefaultSymbolTable::new_available_after_statement(self)
     }
@@ -76,9 +77,9 @@ impl<'a> StatementTraversalHelper<'a>
     /** Gets a vec of all symbols declared in a direct child of self
     Symbols declared by self directly are not included
     */
-    pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'a>> // Returning an iterator would require a trait object
+    pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'a, Type>> // Returning an iterator would require a trait object
     {
-        let statement_to_symbol: for<'b> fn(&'b Statement) -> Option<Symbol<'b>>  = |statement: &Statement| -> Option<Symbol>
+        let statement_to_symbol: for<'b> fn(&'b Statement<Type>) -> Option<Symbol<'b, Type>>  = |statement: &Statement<Type>| -> Option<Symbol<Type>>
             {
                 statement.get_direct_symbol()
             };
@@ -115,9 +116,9 @@ impl<'a> StatementTraversalHelper<'a>
     }
 }
 
-impl<'a> Deref for StatementTraversalHelper<'a>
+impl<'a, Type: ASTType> Deref for StatementTraversalHelper<'a, Type>
 {
-    type Target = Statement;
+    type Target = Statement<Type>;
 
     fn deref(&self) -> &Self::Target
     {
@@ -126,19 +127,19 @@ impl<'a> Deref for StatementTraversalHelper<'a>
 }
 
 // Helper struct for getting a symbols defined at a current location
-struct DefaultSymbolTable<'a>
+struct DefaultSymbolTable<'a, Type: ASTType>
 {
-    source: &'a StatementTraversalHelper<'a>,
-    current: &'a Statement,
+    source: &'a StatementTraversalHelper<'a, Type>,
+    current: &'a Statement<Type>,
     current_location: Option<&'a StatementLocation<'a>>,
     prev_index: usize,
     // The symbols from the root, for example functions
-    root_symbols: Box<dyn SymbolTable<'a> + 'a>
+    root_symbols: Box<dyn SymbolTable<'a, Type> + 'a>
 }
 
-impl<'a> DefaultSymbolTable<'a>
+impl<'a, Type: ASTType> DefaultSymbolTable<'a, Type>
 {
-    pub(crate) fn new_available_to_statement(source: &'a StatementTraversalHelper) -> Option<Self>
+    pub(crate) fn new_available_to_statement(source: &'a StatementTraversalHelper<Type>) -> Option<Self>
     {
         if source.root.implementation() == source.inner {
             return None
@@ -152,7 +153,7 @@ impl<'a> DefaultSymbolTable<'a>
         })
     }
 
-    pub(crate) fn new_available_after_statement(source: &'a StatementTraversalHelper) -> Option<Self>
+    pub(crate) fn new_available_after_statement(source: &'a StatementTraversalHelper<Type>) -> Option<Self>
     {
         let mut to_ret = Self::new_available_to_statement(source)?;
         to_ret.go_up_statement_tree()?;
@@ -161,9 +162,9 @@ impl<'a> DefaultSymbolTable<'a>
     }
 }
 
-impl<'a> DefaultSymbolTable<'a>
+impl<'a, Type: ASTType> DefaultSymbolTable<'a, Type>
 {
-    fn next_variable_symbol(&mut self) -> Option<Symbol<'a>>
+    fn next_variable_symbol(&mut self) -> Option<Symbol<'a, Type>>
     {
         while self.prev_index > 0 {
             self.prev_index -= 1;
@@ -188,9 +189,9 @@ impl<'a> DefaultSymbolTable<'a>
     }
 }
 
-impl<'a> Iterator for DefaultSymbolTable<'a>
+impl<'a, Type: ASTType> Iterator for DefaultSymbolTable<'a, Type>
 {
-    type Item = Symbol<'a>;
+    type Item = Symbol<'a, Type>;
 
     fn next(&mut self) -> Option<Self::Item>
     {
@@ -199,7 +200,7 @@ impl<'a> Iterator for DefaultSymbolTable<'a>
     }
 }
 
-impl<'a> SymbolTable<'a> for DefaultSymbolTable<'a> {}
+impl<'a, Type: ASTType> SymbolTable<'a, Type> for DefaultSymbolTable<'a, Type> {}
 
 // Linked list representing the path from the root to the current statement
 // The first step is at the end of the list

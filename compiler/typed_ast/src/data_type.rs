@@ -19,9 +19,9 @@ pub enum DataType
 
 /** This represents some wasome concept with a data type
 */
-pub trait Type
+pub trait Typed
 {
     /** This method gets the type
     */
-    fn data_type(&self) -> DataType;
+    fn data_type(&self) -> &DataType;
 }

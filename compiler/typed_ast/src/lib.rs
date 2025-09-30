@@ -1,4 +1,7 @@
+use std::fmt::Debug;
 use std::ops::Deref;
+use crate::data_type::DataType;
+use crate::expression::Literal;
 use crate::top_level::{Function, TopLevelElement};
 
 pub mod expression;
@@ -26,21 +29,21 @@ For more information on how to use this, refer to the tests in this file.
 Note that unlike in the tests, ASTs are not supposed to be hardcoded
 */
 #[derive(Debug)]
-pub struct AST
+pub struct AST<Type: ASTType>
 {
-    inner: Vec<TopLevelElement>
+    inner: Vec<TopLevelElement<Type>>
 }
 
-impl AST
+impl<Type: ASTType> AST<Type>
 {
-    pub fn new(inner: Vec<TopLevelElement>) -> Self
+    pub fn new(inner: Vec<TopLevelElement<Type>>) -> Self
     {
         Self {
             inner
         }
     }
 
-    pub fn functions(&self) -> impl Iterator<Item=&Function>
+    pub fn functions(&self) -> impl Iterator<Item=&Function<Type>>
     {
         #[allow(irrefutable_let_patterns)] // This only temporarily matches for everything, more TopLevelElements to come
         self.inner.iter().filter_map(|element|
@@ -55,9 +58,9 @@ impl AST
     }
 }
 
-impl Deref for AST
+impl<Type: ASTType> Deref for AST<Type>
 {
-    type Target = [TopLevelElement];
+    type Target = [TopLevelElement<Type>];
 
     fn deref(&self) -> &Self::Target
     {
@@ -82,11 +85,36 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()>
     None
 }
 
+pub trait ASTType: Sized+PartialEq+'static+Debug
+{
+    type LiteralType: PartialEq+Debug;
+
+    type GeneralDataType: Eq+PartialEq+Debug+Clone;
+}
+
+#[derive(PartialEq, Debug)]
+pub struct TypedAST {}
+
+impl ASTType for TypedAST
+{
+    type LiteralType = Literal;
+    type GeneralDataType = DataType;
+}
+
+#[derive(PartialEq, Debug)]
+pub struct UntypedAST {}
+
+impl ASTType for UntypedAST
+{
+    type LiteralType = String;
+    type GeneralDataType = String;
+}
+
 #[cfg(test)]
 mod tests
 {
     use std::rc::Rc;
-    use crate::AST;
+    use crate::{TypedAST, AST};
     use crate::block::CodeBlock;
     use crate::data_type::DataType;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
@@ -146,7 +174,7 @@ mod tests
             CodeBlock::new(
                 vec![
                     Statement::VariableDeclaration(
-                        VariableAssignment::new(
+                        VariableAssignment::<TypedAST>::new(
                             symbol.clone(),
                             Expression::Literal(
                                 Literal::F32(
@@ -160,7 +188,7 @@ mod tests
                             ControlStructure::Loop(
                                 Loop::new(
                                     Statement::VariableDeclaration(
-                                        VariableAssignment::new(
+                                        VariableAssignment::<TypedAST>::new(
                                             symbol2.clone(),
                                             Expression::Literal(
                                                 Literal::Bool(
@@ -245,7 +273,7 @@ mod tests
                             CodeBlock::new(
                                 vec![
                                     Statement::VariableDeclaration(
-                                        VariableAssignment::new(
+                                        VariableAssignment::<TypedAST>::new(
                                             current.clone(),
                                             Expression::Literal(
                                                 Literal::S32(
@@ -255,7 +283,7 @@ mod tests
                                         ).unwrap()
                                     ),
                                     Statement::VariableDeclaration(
-                                        VariableAssignment::new(
+                                        VariableAssignment::<TypedAST>::new(
                                             previous.clone(),
                                             Expression::Literal(
                                                 Literal::S32(
@@ -271,7 +299,7 @@ mod tests
                                                     CodeBlock::new(
                                                         vec![
                                                             Statement::VariableDeclaration(
-                                                                VariableAssignment::new(
+                                                                VariableAssignment::<TypedAST>::new(
                                                                     temp.clone(),
                                                                     Expression::Variable(
                                                                         current.clone()
@@ -279,10 +307,10 @@ mod tests
                                                                 ).unwrap()
                                                             ),
                                                             Statement::VariableAssignment(
-                                                                VariableAssignment::new(
+                                                                VariableAssignment::<TypedAST>::new(
                                                                     current.clone(),
                                                                     Expression::BinaryOp(
-                                                                        Box::new(BinaryOp::new(
+                                                                        Box::new(BinaryOp::<TypedAST>::new(
                                                                             BinaryOpType::Addition,
                                                                             Expression::Variable(
                                                                                 current.clone()
@@ -296,7 +324,7 @@ mod tests
                                                                 ).unwrap()
                                                             ),
                                                             Statement::VariableAssignment(
-                                                                VariableAssignment::new(
+                                                                VariableAssignment::<TypedAST>::new(
                                                                     previous.clone(),
                                                                     Expression::Variable(
                                                                         temp.clone()
@@ -304,10 +332,10 @@ mod tests
                                                                 ).unwrap()
                                                             ),
                                                             Statement::VariableAssignment(
-                                                                VariableAssignment::new(
+                                                                VariableAssignment::<TypedAST>::new(
                                                                     nth.clone(),
                                                                     Expression::BinaryOp(
-                                                                        Box::new(BinaryOp::new(
+                                                                        Box::new(BinaryOp::<TypedAST>::new(
                                                                             BinaryOpType::Subtraction,
                                                                             Expression::Variable(
                                                                                 nth.clone()
@@ -326,7 +354,7 @@ mod tests
                                                 ),
                                                 LoopType::While(
                                                     Expression::BinaryOp(
-                                                        Box::new(BinaryOp::new(
+                                                        Box::new(BinaryOp::<TypedAST>::new(
                                                             BinaryOpType::Greater,
                                                             Expression::Variable(
                                                                 nth.clone()
@@ -372,8 +400,8 @@ mod tests
         assert!(expected.iter().all(|val| actual.contains(val)));
     }
 
-    fn basic_test_variable(symbol: Rc<VariableSymbol>) -> Option<VariableAssignment> {
-        VariableAssignment::new(
+    fn basic_test_variable(symbol: Rc<VariableSymbol<TypedAST>>) -> Option<VariableAssignment<TypedAST>> {
+        VariableAssignment::<TypedAST>::new(
             symbol,
             Expression::Literal(
                 Literal::F32(
