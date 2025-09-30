@@ -9,7 +9,7 @@ use crate::symbol::{FunctionSymbol, VariableSymbol};
 pub enum Expression<Type: ASTType>
 {
     // Only valid if it doesn't return void
-    FunctionCall(Rc<FunctionSymbol<Type>>),
+    FunctionCall(FunctionCall<Type>),
     Variable(Rc<VariableSymbol<Type>>),
     Literal(Type::LiteralType),
     UnaryOp(Box<UnaryOp<Type>>), // The boxes prevent this from becoming an infinitely sized type
@@ -24,7 +24,7 @@ impl Typed for Expression<TypedAST>
         match self {
             // Unwrap safety:
             // It may only exist if the return type is not void
-            Ex::FunctionCall(inner) => inner.return_type().unwrap(),
+            Ex::FunctionCall(inner) => inner.function().return_type().unwrap(),
             Ex::Literal(inner) => &inner.data_type(),
             Ex::UnaryOp(inner) => &inner.data_type(),
             Ex::BinaryOp(inner) => &inner.data_type(),
@@ -436,6 +436,66 @@ impl BinaryOpType
     {
         eq_return_option(left, right)?;
         Some(&DataType::Bool)
+    }
+}
+
+/** A function call with params
+*/
+#[derive(Debug, Eq, PartialEq)]
+pub struct FunctionCall<Type: ASTType>
+{
+    function: Rc<FunctionSymbol<Type>>,
+    args: Vec<Rc<VariableSymbol<Type>>>
+}
+
+impl<Type: ASTType> FunctionCall<Type>
+{
+    pub fn function(&self) -> &Rc<FunctionSymbol<Type>>
+    {
+        &self.function
+    }
+
+    pub fn args(&self) -> &Vec<Rc<VariableSymbol<Type>>>
+    {
+        &self.args
+    }
+}
+
+impl FunctionCall<TypedAST>
+{
+    /** Creates a new function call
+    Checks if the provided and expected params are the same number and have the same data types
+    Returns None if these checks failed
+    Some(new instance) otherwise
+    */
+    pub fn new(function: Rc<FunctionSymbol<TypedAST>>, args: Vec<Rc<VariableSymbol<TypedAST>>>) -> Option<Self>
+    {
+        if function.params().len() != args.len() ||
+            !function.params().iter().zip(args.iter()).all(
+                |(expected, provided)|
+                    *expected.data_type() == *provided.data_type()
+            )
+        {
+            return None;
+        }
+        Some(Self { function, args })
+    }
+}
+
+impl FunctionCall<UntypedAST>
+{
+    /** Creates a new function call
+       Checks if the provided and expected params are the same number
+       Returns None if these checks failed
+       Some(new instance) otherwise
+    */
+    pub fn new(function: Rc<FunctionSymbol<UntypedAST>>, args: Vec<Rc<VariableSymbol<UntypedAST>>>) -> Option<Self>
+    {
+        if function.params().len() != args.len()
+        {
+            return None;
+        }
+        Some(Self { function, args })
     }
 }
 
