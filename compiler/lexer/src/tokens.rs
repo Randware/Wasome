@@ -64,7 +64,7 @@ pub enum Token {
     GreaterThanEqual,
     #[token("!=")]
     NotEqual,
-    #[token("=")]
+    #[token("=")] // noch zu besprechen ob "=" oder "=="
     Comparison,
     #[token("<<")]
     LShift,
@@ -111,9 +111,13 @@ pub enum Token {
     #[token("as")]
     As,
     #[token("pub")]
-    Pub,
+    Public,
     #[token("new")]
     New,
     #[token("::")]
-    PathSeperator
+    PathSeperator,
+    #[token(".")]
+    Dot,
+    #[token(";")]
+    Semicolon,
 }
