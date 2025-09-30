@@ -210,24 +210,24 @@ mod tests
         // The how manyth fibonacci number we want
         let nth = Rc::new(VariableSymbol::new(
             "nth".to_string(),
-            DataType::I32
+            DataType::S32
         ));
         let current = Rc::new(VariableSymbol::new(
             "current".to_string(),
-            DataType::I64
+            DataType::S32
         ));
         let previous = Rc::new(VariableSymbol::new(
             "previous".to_string(),
-            DataType::I64
+            DataType::S32
         ));
         let temp = Rc::new(VariableSymbol::new(
             "temp".to_string(),
-            DataType::I64
+            DataType::S32
         ));
 
         let fibonacci = Rc::new(FunctionSymbol::new(
             "fibonacci".to_string(),
-            Some(DataType::I64),
+            Some(DataType::S32),
             vec![nth.clone()]
         ));
         let ast = AST::new(
@@ -242,7 +242,7 @@ mod tests
                                         VariableAssignment::new(
                                             current.clone(),
                                             Expression::Literal(
-                                                Literal::I64(
+                                                Literal::S32(
                                                     1
                                                 )
                                             )
@@ -252,7 +252,7 @@ mod tests
                                         VariableAssignment::new(
                                             previous.clone(),
                                             Expression::Literal(
-                                                Literal::I64(
+                                                Literal::S32(
                                                     0
                                                 )
                                             )
@@ -307,7 +307,7 @@ mod tests
                                                                                 nth.clone()
                                                                             ),
                                                                             Expression::Literal(
-                                                                                Literal::I32(
+                                                                                Literal::S32(
                                                                                     1
                                                                                 )
                                                                             ),
@@ -326,7 +326,7 @@ mod tests
                                                                 nth.clone()
                                                             ),
                                                             Expression::Literal(
-                                                                Literal::I32(
+                                                                Literal::S32(
                                                                     1 //The fibonacci number of 1 is 1
                                                                 )
                                                             )

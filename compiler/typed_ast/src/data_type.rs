@@ -4,8 +4,14 @@
 pub enum DataType
 {
     Char,
-    I32,
-    I64,
+    U8,
+    S8,
+    U16,
+    S16,
+    U32,
+    S32,
+    U64,
+    S64,
     Bool,
     F32,
     F64

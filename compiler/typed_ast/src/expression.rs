@@ -39,8 +39,8 @@ impl Type for Expression
 #[derive(Debug, PartialEq)]
 pub enum Literal
 {
-    I32(i32),
-    I64(i64),
+    // All integer literals are of type S32
+    S32(i32),
     Bool(bool),
     Char(u8), //Ascii character, todo: Maybe change to an arbitiary UTF8-char
     F32(f32),
@@ -53,8 +53,7 @@ impl Literal
     {
         use DataType as DT;
         match self {
-            Literal::I32(_) => DT::I32,
-            Literal::I64(_) => DT::I64,
+            Literal::S32(_) => DT::S32,
             Literal::Bool(_) => DT::Bool,
             Literal::Char(_) => DT::Char,
             Literal::F32(_) => DT::F32,
@@ -183,14 +182,22 @@ impl Typecast
     pub fn type_from_processing_type(&self, to_process: DataType) -> Option<DataType>
     {
         match (to_process, self.target) {
-            (DataType::I32, DataType::F32) |
-            (DataType::I32, DataType::I64) |
-            (DataType::I64, DataType::I32) |
-            (DataType::I64, DataType::F64) |
-            (DataType::F64, DataType::F32) |
-            (DataType::F64, DataType::I64) |
-            (DataType::F32, DataType::F64) |
-            (DataType::F32, DataType::I32)  => Some(self.target),
+            (DataType::S8 | DataType::U16, DataType::U8) |
+            (DataType::U8 | DataType::S16, DataType::S8) |
+
+            (DataType::S16 | DataType::U32 | DataType::U8, DataType::U16) |
+            (DataType::U16 | DataType::S32 | DataType::S8, DataType::S16) |
+
+            (DataType::S32 | DataType::U64 | DataType::U16, DataType::U32) |
+            (DataType::U32 | DataType::S64 | DataType::S16 | DataType::F32, DataType::S32) |
+
+            (DataType::S64 | DataType::U32, DataType::U64) |
+            (DataType::U64 | DataType::S32 | DataType::F64, DataType::S64) |
+
+            (DataType::S32 | DataType::F64, DataType::F32) |
+            (DataType::S64 | DataType::F32, DataType::F64)
+
+            => Some(self.target),
             _ => None
         }
     }
@@ -333,8 +340,14 @@ impl BinaryOpType
     {
         eq_return_option(left, right)?;
         match left {
-            DataType::I32 |
-            DataType::I64 |
+            DataType::U8 |
+            DataType::S8 |
+            DataType::U16 |
+            DataType::S16 |
+            DataType::U32 |
+            DataType::S32 |
+            DataType::U64 |
+            DataType::S64 |
             DataType::F32 |
             DataType::F64 => Some(left),
             _ => None
@@ -348,8 +361,14 @@ impl BinaryOpType
     {
         eq_return_option(left, right)?;
         match left {
-            DataType::I32 |
-            DataType::I64 => Some(left),
+            DataType::U8 |
+            DataType::S8 |
+            DataType::U16 |
+            DataType::S16 |
+            DataType::U32 |
+            DataType::S32 |
+            DataType::U64 |
+            DataType::S64 => Some(left),
             _ => None
         }
     }
@@ -390,7 +409,7 @@ mod tests
 
         let bxor = BinaryOpType::BitwiseXor;
         assert_eq!(None, bxor.result_type(DataType::F32, DataType::F32));
-        assert_eq!(Some(DataType::I64), bxor.result_type(DataType::I64, DataType::I64));
+        assert_eq!(Some(DataType::S64), bxor.result_type(DataType::S64, DataType::S64));
     }
 
     #[test]
@@ -404,13 +423,13 @@ mod tests
         assert_eq!(Some(DataType::Bool), not.type_from_processing_type(DataType::Bool));
         assert_eq!(None, not.type_from_processing_type(DataType::Char));
 
-        let tc_i32 = UnaryOpType::Typecast(Typecast::new(DataType::I32));
-        assert_eq!(Some(DataType::I32), tc_i32.type_from_processing_type(DataType::F32));
-        assert_eq!(Some(DataType::I32), tc_i32.type_from_processing_type(DataType::I64));
+        let tc_i32 = UnaryOpType::Typecast(Typecast::new(DataType::S32));
+        assert_eq!(Some(DataType::S32), tc_i32.type_from_processing_type(DataType::F32));
+        assert_eq!(Some(DataType::S32), tc_i32.type_from_processing_type(DataType::S64));
         assert_eq!(None, tc_i32.type_from_processing_type(DataType::Bool));
 
         let tc_bool = UnaryOpType::Typecast(Typecast::new(DataType::Bool));
-        assert_eq!(None, tc_bool.type_from_processing_type(DataType::I32));
+        assert_eq!(None, tc_bool.type_from_processing_type(DataType::S32));
     }
 
     #[test]
@@ -424,14 +443,35 @@ mod tests
     }
 
     #[test]
+    fn typecast()
+    {
+        let typecast_s32 = Typecast::new(DataType::S32);
+        assert_eq!(Some(DataType::S32), typecast_s32.type_from_processing_type(DataType::F32));
+        assert_eq!(Some(DataType::S32), typecast_s32.type_from_processing_type(DataType::S16));
+        assert_eq!(None, typecast_s32.type_from_processing_type(DataType::S32));
+
+        let typecast_u16 = Typecast::new(DataType::U16);
+        assert_eq!(Some(DataType::U16), typecast_u16.type_from_processing_type(DataType::U32));
+        assert_eq!(Some(DataType::U16), typecast_u16.type_from_processing_type(DataType::S16));
+        assert_eq!(None, typecast_u16.type_from_processing_type(DataType::F32));
+
+        let typecast_s64 = Typecast::new(DataType::S64);
+        assert_eq!(Some(DataType::S64), typecast_s64.type_from_processing_type(DataType::F64));
+        assert_eq!(Some(DataType::S64), typecast_s64.type_from_processing_type(DataType::S32));
+        assert_eq!(None, typecast_s64.type_from_processing_type(DataType::F32));
+
+    }
+
+
+    #[test]
     fn expression()
     {
         let expression = Expression::BinaryOp(Box::new(BinaryOp::new(BinaryOpType::Addition,
-            Expression::Literal(Literal::I32(5)),
-            Expression::UnaryOp(Box::new(UnaryOp::new(UnaryOpType::Typecast(Typecast::new(DataType::I32)),
-                Expression::Literal(Literal::F32(10.3))).unwrap()))
+                                                                     Expression::Literal(Literal::S32(5)),
+                                                                     Expression::UnaryOp(Box::new(UnaryOp::new(UnaryOpType::Typecast(Typecast::new(DataType::S32)),
+                                                      Expression::Literal(Literal::F32(10.3))).unwrap()))
             ).unwrap())
         );
-        assert_eq!(DataType::I32, expression.data_type());
+        assert_eq!(DataType::S32, expression.data_type());
     }
 }
