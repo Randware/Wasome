@@ -195,6 +195,8 @@ mod tests
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let loop_statement = root.index(1);
+
+        assert_eq!(vec![Symbol::Variable(&symbol2)], loop_statement.symbols_defined_directly_in());
         let statement_ref = loop_statement.index(0);
 
         let actual = statement_ref.symbols_available_at().unwrap().collect::<Vec<_>>();

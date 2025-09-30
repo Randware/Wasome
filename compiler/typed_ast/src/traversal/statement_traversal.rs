@@ -72,6 +72,47 @@ impl<'a> StatementTraversalHelper<'a>
     {
         DefaultSymbolTable::new_available_after_statement(self)
     }
+
+    /** Gets a vec of all symbols declared in a direct child of self
+    Symbols declared by self directly are not included
+    */
+    pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'a>> // Returning an iterator would require a trait object
+    {
+        let statement_to_symbol: for<'b> fn(&'b Statement) -> Option<Symbol<'b>>  = |statement: &Statement| -> Option<Symbol>
+            {
+                statement.get_direct_symbol()
+            };
+        match self.inner
+        {
+            Statement::ControlStructure(control) =>
+                Self::indexable_into_vec(control.as_ref(), control.child_len(), statement_to_symbol),
+            Statement::Codeblock(codeblock) =>
+                Self::indexable_into_vec(codeblock.as_ref(), codeblock.len(), statement_to_symbol),
+            _ => Vec::new()
+        }
+    }
+
+    // I was unable to find a better solution
+    /** This takes an indexable to_convert, reads the first len elements from it, converts them with
+    map_with and returns the inner values of the somes in a vec
+    */
+    fn indexable_into_vec<'b, T, U, F>(to_convert: &'b (impl Index<usize, Output=T> + ?Sized),
+                                 len: usize,
+                                 mut map_with: F) -> Vec<U>
+    where
+        F: FnMut(&'b T) -> Option<U>,
+        T: 'b
+    {
+        let mut result = Vec::with_capacity(len);
+        for index in 0..len
+        {
+            if let Some(converted) = map_with(&to_convert[index])
+            {
+                result.push(converted)
+            }
+        }
+        result
+    }
 }
 
 impl<'a> Deref for StatementTraversalHelper<'a>
