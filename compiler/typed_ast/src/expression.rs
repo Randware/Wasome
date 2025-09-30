@@ -147,7 +147,8 @@ impl UnaryOpType
     fn type_from_processing_type_with_minus(to_process: DataType) -> Option<DataType>
     {
         match to_process {
-            DataType::Char | DataType::Bool => None,
+            DataType::Char | DataType::Bool |
+            DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64 => None,
             _ => Some(to_process)
         }
     }
