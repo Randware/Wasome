@@ -85,6 +85,8 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()>
     None
 }
 
+/** This decided what type the ast is.
+*/
 pub trait ASTType: Sized+PartialEq+'static+Debug
 {
     type LiteralType: PartialEq+Debug;
@@ -92,6 +94,9 @@ pub trait ASTType: Sized+PartialEq+'static+Debug
     type GeneralDataType: Eq+PartialEq+Debug+Clone;
 }
 
+/** This is an ast type
+ASTs with this type include concrete data types
+*/
 #[derive(PartialEq, Debug)]
 pub struct TypedAST {}
 
@@ -101,6 +106,9 @@ impl ASTType for TypedAST
     type GeneralDataType = DataType;
 }
 
+/** This is an ast type
+ASTs with this type carry the data type used in a string and perform no validation on it
+*/
 #[derive(PartialEq, Debug)]
 pub struct UntypedAST {}
 
