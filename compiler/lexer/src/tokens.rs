@@ -1,26 +1,38 @@
 use logos::Logos;
 #[derive(Logos, Debug)]
 pub enum Token {
+
     // Datatypes
-    #[token("i32")]
-    I32,
+    #[token("s8")]
+    S8,
+    #[token("s16")]
+    S16,
+    #[token("s32")]
+    S32,
+    #[token("s64")]
+    S64,
+
+    #[token("u8")]
+    U8,
+    #[token("u16")]
+    U16,
     #[token("u32")]
     U32,
-    #[token("i64")]
-    I64,
     #[token("u64")]
     U64,
+
     #[token("f32")]
     F32,
     #[token("f64")]
     F64,
+
     #[token("bool")]
     Bool,
     #[token("char")]
     Char,
     #[token("self")]
     SelfType,
-    
+
     // Values
     #[regex("[a-zA-Z]+")]
     Identifier,
