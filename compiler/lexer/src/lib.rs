@@ -1,10 +1,9 @@
-use crate::tokens::Token;
+pub mod tokens; // <- make the module public
+pub use tokens::Token;
 use logos::Logos;
 
-mod tokens;
-
-pub fn lex(input: &str ) -> impl Iterator<Item = Result<Token, ()>> {
-    Token::lexer(&input)
+pub fn lex(input: &str) -> impl Iterator<Item = Result<Token, ()>> {
+    Token::lexer(input)
 }
 
 

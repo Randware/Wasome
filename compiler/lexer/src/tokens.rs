@@ -1,7 +1,7 @@
 use logos::Logos;
-#[derive(Logos, Debug)]
-pub enum Token {
 
+#[derive(Logos, Debug, PartialEq,)]
+pub enum Token {
     // Datatypes
     #[token("s8")]
     S8,
@@ -34,7 +34,7 @@ pub enum Token {
     SelfType,
 
     // Values
-    #[regex("[a-zA-Z]+")]
+    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
     Identifier,
     #[regex(r"\d+\.\d+")]
     Decimal,
@@ -64,7 +64,7 @@ pub enum Token {
     GreaterThanEqual,
     #[token("!=")]
     NotEqual,
-    #[token("=")] // noch zu besprechen ob "=" oder "=="
+    #[token("==")]
     Comparison,
     #[token("<<")]
     LShift,
@@ -72,10 +72,10 @@ pub enum Token {
     RShift,
     #[token("|")]
     BitOr,
-    #[token("&")]
-    BitAnd,
     #[token("||")]
     Or,
+    #[token("&")]
+    BitAnd,
     #[token("&&")]
     And,
     #[token("!")]
