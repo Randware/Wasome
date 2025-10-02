@@ -1,7 +1,7 @@
 use lexer::{lex, Token};
 
 #[test]
-fn test_all_tokens() {
+fn test_all_brackets() {
     let input = r#"
     { } ( ) 
     "#;

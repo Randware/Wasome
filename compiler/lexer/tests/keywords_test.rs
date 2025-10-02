@@ -1,7 +1,7 @@
 use lexer::{lex, Token};
 
 #[test]
-fn test_all_tokens() {
+fn test_all_keywords() {
     let input = r#"
     fn if else loop 
     struct -> <- enum as pub new :: . ;

@@ -1,10 +1,9 @@
 use lexer::{lex, Token};
 
 #[test]
-fn test_all_tokens() {
+fn test_math_operators() {
     let input = r#"
     + - * / %
-    < > <= >= != == << >> | || & && !
     "#;
 
     let expected_tokens = vec![
@@ -13,6 +12,22 @@ fn test_all_tokens() {
         Token::Multiplication,
         Token::Division,
         Token::Modulo,
+    ];
+
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .collect();
+
+
+    assert_eq!(tokens, expected_tokens);
+}
+#[test]
+fn test_logic_operators() {
+    let input = r#"
+    < > <= >= != == << >> | || & && !
+    "#;
+
+    let expected_tokens = vec![
         Token::LessThan,
         Token::GreaterThan,
         Token::LessThanEqual,

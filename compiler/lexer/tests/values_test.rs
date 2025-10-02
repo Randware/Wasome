@@ -1,7 +1,7 @@
 use lexer::{lex, Token}; 
 
 #[test]
-fn test_all_tokens() {
+fn test_all_values() {
     let input = r#"
     name name_trimmed 
     0.123 123.0 123.01
