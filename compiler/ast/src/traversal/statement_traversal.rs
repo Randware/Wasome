@@ -79,10 +79,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type>
     */
     pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'a, Type>> // Returning an iterator would require a trait object
     {
-        let statement_to_symbol: for<'b> fn(&'b Statement<Type>) -> Option<Symbol<'b, Type>>  = |statement: &Statement<Type>| -> Option<Symbol<Type>>
-            {
-                statement.get_direct_symbol()
-            };
+        let statement_to_symbol  = Statement::get_direct_symbol;
         match self.inner
         {
             Statement::ControlStructure(control) =>
