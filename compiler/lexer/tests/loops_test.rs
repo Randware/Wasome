@@ -103,7 +103,7 @@ fn test_for_loop() {
 }
 
 #[test]
-fn test_for_loop_nospaces() {
+fn test_for_loop_no_spaces() {
     let input = r#"
     
     loop(u32 count<-0;count<5;count<-count+1){

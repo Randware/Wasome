@@ -27,3 +27,20 @@ fn test_all_datatypes() {
 
     assert_eq!(tokens, expected_tokens);
 }
+
+#[test]
+fn test_all_datatypes_no_spaces() {
+    let input = r#"
+    s8s16s32s64u8u16u32u64f32f64boolcharself
+    "#;
+
+    let expected_tokens = vec![
+       Token::Identifier
+    ];
+
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .collect();
+
+    assert_eq!(tokens, expected_tokens);
+}

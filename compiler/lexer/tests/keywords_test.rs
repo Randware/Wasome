@@ -31,3 +31,29 @@ fn test_all_keywords() {
 
     assert_eq!(tokens, expected_tokens);
 }
+
+#[test]
+fn test_all_keywords_no_spaces() {
+    let input = r#"
+    fnifelseloopstruct-><-enumaspubnew::.;
+    "#;
+
+    let expected_tokens = vec![
+        Token::Identifier,
+        Token::Return,
+        Token::Assign,
+        Token::Identifier,
+        Token::PathSeperator,
+        Token::Dot,
+        Token::Semicolon,
+    ];
+
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .collect();
+
+
+    assert_eq!(tokens, expected_tokens);
+}
+
+
