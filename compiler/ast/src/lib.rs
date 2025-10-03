@@ -122,7 +122,7 @@ impl ASTType for UntypedAST
 mod tests
 {
     use std::rc::Rc;
-    use crate::{TypedAST, AST};
+    use crate::{TypedAST, UntypedAST, AST};
     use crate::block::CodeBlock;
     use crate::data_type::DataType;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
@@ -247,7 +247,7 @@ mod tests
     }
 
     #[test]
-    fn fibonacci()
+    fn fibonacci_typed()
     {
         // The how manyth fibonacci number we want
         let nth = Rc::new(VariableSymbol::new(
@@ -373,6 +373,159 @@ mod tests
                                                                 )
                                                             )
                                                         ).unwrap())
+                                                    )
+                                                )
+                                            )
+                                        ))
+                                    ),
+                                    Statement::Return(
+                                        Return::new(
+                                            Some(Expression::Variable(
+                                                current.clone()
+                                            ))
+                                        )
+                                    )
+                                ]
+                            )
+                        )
+                    )
+                )
+            ]
+        );
+
+        let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+
+        let root = function_ref.ref_to_implementation();
+        let return_statement = root.index(3);
+
+        let actual = return_statement.symbols_available_at().unwrap().collect::<Vec<_>>();
+        let expected = vec![
+            Symbol::Variable(&nth),
+            Symbol::Variable(&current),
+            Symbol::Variable(&previous),
+            Symbol::Function(&fibonacci)];
+        assert_eq!(actual.len(), expected.len());
+        assert!(expected.iter().all(|val| actual.contains(val)));
+    }
+
+    #[test]
+    fn fibonacci_untyped()
+    {
+        // The how manyth fibonacci number we want
+        let nth = Rc::new(VariableSymbol::<UntypedAST>::new(
+            "nth".to_string(),
+            "s32".to_string()
+        ));
+        let current = Rc::new(VariableSymbol::new(
+            "current".to_string(),
+            "s32".to_string()
+        ));
+        let previous = Rc::new(VariableSymbol::new(
+            "previous".to_string(),
+            "s32".to_string()
+        ));
+        let temp = Rc::new(VariableSymbol::new(
+            "temp".to_string(),
+            "s32".to_string()
+        ));
+
+        let fibonacci = Rc::new(FunctionSymbol::new(
+            "fibonacci".to_string(),
+            Some("s32".to_string()),
+            vec![nth.clone()]
+        ));
+        let ast = AST::new(
+            vec![
+                TopLevelElement::Function(
+                    Function::new(
+                        fibonacci.clone(),
+                        Statement::Codeblock(
+                            CodeBlock::new(
+                                vec![
+                                    Statement::VariableDeclaration(
+                                        VariableAssignment::<UntypedAST>::new(
+                                            current.clone(),
+                                            Expression::Literal(
+                                                "1".to_string()
+                                            )
+                                        )
+                                    ),
+                                    Statement::VariableDeclaration(
+                                        VariableAssignment::<UntypedAST>::new(
+                                            previous.clone(),
+                                            Expression::Literal(
+                                                "0".to_string()
+                                            )
+                                        )
+                                    ),
+                                    Statement::ControlStructure(
+                                        Box::new(ControlStructure::Loop(
+                                            Loop::new(
+                                                Statement::Codeblock(
+                                                    CodeBlock::new(
+                                                        vec![
+                                                            Statement::VariableDeclaration(
+                                                                VariableAssignment::<UntypedAST>::new(
+                                                                    temp.clone(),
+                                                                    Expression::Variable(
+                                                                        current.clone()
+                                                                    )
+                                                                )
+                                                            ),
+                                                            Statement::VariableAssignment(
+                                                                VariableAssignment::<UntypedAST>::new(
+                                                                    current.clone(),
+                                                                    Expression::BinaryOp(
+                                                                        Box::new(BinaryOp::<UntypedAST>::new(
+                                                                            BinaryOpType::Addition,
+                                                                            Expression::Variable(
+                                                                                current.clone()
+                                                                            ),
+                                                                            Expression::Variable(
+                                                                                previous.clone()
+                                                                            ),
+                                                                        ))
+                                                                    )
+                                                                )
+                                                            ),
+                                                            Statement::VariableAssignment(
+                                                                VariableAssignment::<UntypedAST>::new(
+                                                                    previous.clone(),
+                                                                    Expression::Variable(
+                                                                        temp.clone()
+                                                                    )
+                                                                )
+                                                            ),
+                                                            Statement::VariableAssignment(
+                                                                VariableAssignment::<UntypedAST>::new(
+                                                                    nth.clone(),
+                                                                    Expression::BinaryOp(
+                                                                        Box::new(BinaryOp::<UntypedAST>::new(
+                                                                            BinaryOpType::Subtraction,
+                                                                            Expression::Variable(
+                                                                                nth.clone()
+                                                                            ),
+                                                                            Expression::Literal(
+                                                                                "1".to_string()
+                                                                            ),
+                                                                        ))
+                                                                    )
+                                                                )
+                                                            ),
+                                                        ]
+                                                    )
+                                                ),
+                                                LoopType::While(
+                                                    Expression::BinaryOp(
+                                                        Box::new(BinaryOp::<UntypedAST>::new(
+                                                            BinaryOpType::Greater,
+                                                            Expression::Variable(
+                                                                nth.clone()
+                                                            ),
+                                                            Expression::Literal(
+                                                                "1".to_string() //The fibonacci number of 1 is 1
+                                                            )
+                                                        ))
                                                     )
                                                 )
                                             )
