@@ -12,7 +12,7 @@ pub enum LexError {
 #[derive(Logos, Debug, PartialEq)]
 #[logos(error = LexError)]
 pub enum Token {
-    #[regex(r"[ \t\n\f]+", logos::skip)] // <--- skip whitespace
+    #[regex(r"[ \t\f]+", logos::skip)] // <--- skip whitespace
     _Skip,
     // --- Datatypes ---
     #[token("s8")]
@@ -134,4 +134,7 @@ pub enum Token {
     Dot,
     #[token(";")]
     Semicolon,
+    #[regex(r"\r?\n")]
+    StatementSeparator,
+
 }

@@ -7,11 +7,13 @@ fn test_math_operators() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Addition,
         Token::Subtraction,
         Token::Multiplication,
         Token::Division,
         Token::Modulo,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -28,6 +30,7 @@ fn test_logic_operators() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::LessThan,
         Token::GreaterThan,
         Token::LessThanEqual,
@@ -41,6 +44,7 @@ fn test_logic_operators() {
         Token::And,
         Token::BitAnd,
         Token::Not,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -58,11 +62,13 @@ fn test_math_operators_no_spaces() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Addition,
         Token::Subtraction,
         Token::Multiplication,
         Token::Division,
         Token::Modulo,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -79,6 +85,7 @@ fn test_logic_operators_no_spaces() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::LessThan,
         Token::GreaterThan,
         Token::LessThanEqual,
@@ -92,6 +99,7 @@ fn test_logic_operators_no_spaces() {
         Token::And,
         Token::BitAnd,
         Token::Not,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -109,10 +117,12 @@ fn test_greedy_tokens() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Or,
         Token::BitOr,
         Token::And,
         Token::BitAnd,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)

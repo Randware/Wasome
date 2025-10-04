@@ -9,13 +9,17 @@ fn test_all_values() {
     "#;
 
     let expected_tokens = vec![
+    Token::StatementSeparator,    
     Token::Identifier("name".to_string()),
     Token::Identifier("name_trimmed".to_string()),
+    Token::StatementSeparator,
     Token::Decimal(0.123),
     Token::Decimal(123.0),
     Token::Decimal(123.01),
+    Token::StatementSeparator,
     Token::Integer(0),
     Token::Integer(123),
+    Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -32,8 +36,10 @@ fn test_brokenformat_decimal() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Decimal(0.1),
         Token::Decimal(1.1),
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)

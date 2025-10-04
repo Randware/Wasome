@@ -8,10 +8,12 @@ fn test_all_keywords() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Function,
         Token::If,
         Token::Else,
         Token::Loop,
+        Token::StatementSeparator,
         Token::Struct,
         Token::Return,
         Token::Assign,
@@ -22,6 +24,7 @@ fn test_all_keywords() {
         Token::PathSeperator,
         Token::Dot,
         Token::Semicolon,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -39,6 +42,7 @@ fn test_all_keywords_no_spaces() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Identifier("fnifelseloopstruct".to_string()),
         Token::Return,
         Token::Assign,
@@ -46,6 +50,7 @@ fn test_all_keywords_no_spaces() {
         Token::PathSeperator,
         Token::Dot,
         Token::Semicolon,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)

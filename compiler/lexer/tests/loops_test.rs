@@ -7,9 +7,11 @@ fn test_infinite_loop() {
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Loop,
         Token::OpenScope,
         Token::CloseScope,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -23,18 +25,19 @@ fn test_infinite_loop() {
 #[test]
 fn test_while_loop() {
     let input = r#"
-    u32 count <- 0;
+    u32 count <- 0
     loop (count < 5) {
        count <- count + 1
     }
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::U32,
         Token::Identifier("count".to_string()),
         Token::Assign,
         Token::Integer(0),
-        Token::Semicolon,
+        Token::StatementSeparator,
         Token::Loop,
         Token::OpenParen,
         Token::Identifier("count".to_string()),
@@ -42,12 +45,15 @@ fn test_while_loop() {
         Token::Integer(5),
         Token::CloseParen,
         Token::OpenScope,
+        Token::StatementSeparator,
         Token::Identifier("count".to_string()),
         Token::Assign,
         Token::Identifier("count".to_string()),
         Token::Addition,
         Token::Integer(1),
+        Token::StatementSeparator,
         Token::CloseScope,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -61,13 +67,13 @@ fn test_while_loop() {
 #[test]
 fn test_for_loop() {
     let input = r#"
-    
     loop (u32 count <- 0; count < 5; count <- count + 1 ) {
        count <- count + 1
     }
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Loop,
         Token::OpenParen,
         Token::U32,
@@ -86,12 +92,15 @@ fn test_for_loop() {
         Token::Integer(1),
         Token::CloseParen
         ,Token::OpenScope,
+        Token::StatementSeparator,
         Token::Identifier("count".to_string()),
         Token::Assign,
         Token::Identifier("count".to_string()),
         Token::Addition,
         Token::Integer(1),
+        Token::StatementSeparator,
         Token::CloseScope,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -105,13 +114,13 @@ fn test_for_loop() {
 #[test]
 fn test_for_loop_no_spaces() {
     let input = r#"
-    
     loop(u32 count<-0;count<5;count<-count+1){
        count<-count+1
     }
     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::Loop,
         Token::OpenParen,
         Token::U32,
@@ -128,14 +137,17 @@ fn test_for_loop_no_spaces() {
         Token::Identifier("count".to_string()),
         Token::Addition,
         Token::Integer(1),
-        Token::CloseParen
-        ,Token::OpenScope,
+        Token::CloseParen,
+        Token::OpenScope,
+        Token::StatementSeparator,
         Token::Identifier("count".to_string()),
         Token::Assign,
         Token::Identifier("count".to_string()),
         Token::Addition,
         Token::Integer(1),
+        Token::StatementSeparator,
         Token::CloseScope,
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input)

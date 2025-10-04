@@ -3,14 +3,16 @@ use lexer::{lex, Token};
 #[test]
 fn test_all_brackets() {
     let input = r#"
-    { } ( ) 
-    "#;
+     { } ( )
+     "#;
 
     let expected_tokens = vec![
+        Token::StatementSeparator,
         Token::OpenScope,
         Token::CloseScope,
         Token::OpenParen,
         Token::CloseParen,
+        Token::StatementSeparator
     ];
 
     let tokens: Vec<_> = lex(input)
