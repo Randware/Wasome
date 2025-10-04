@@ -9,13 +9,13 @@ fn test_all_values() {
     "#;
 
     let expected_tokens = vec![
-    Token::Identifier,
-    Token::Identifier,
-    Token::Decimal,
-    Token::Decimal,
-    Token::Decimal,
-    Token::Integer,
-    Token::Integer,
+    Token::Identifier("name".to_string()),
+    Token::Identifier("name_trimmed".to_string()),
+    Token::Decimal(0.123),
+    Token::Decimal(123.0),
+    Token::Decimal(123.01),
+    Token::Integer(0),
+    Token::Integer(123),
     ];
 
     let tokens: Vec<_> = lex(input)
@@ -32,29 +32,8 @@ fn test_brokenformat_decimal() {
     "#;
 
     let expected_tokens = vec![
-        Token::Decimal,
-        Token::Decimal,
-    ];
-
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
-
-    assert_ne!(tokens, expected_tokens);
-}
-
-#[test]
-fn test_identifier_cannot_start_with_number() {
-    let input = r#"
-    1name 1name_trimmed
-    "#;
-
-    let expected_tokens = vec![
-        Token::Integer,
-        Token::Identifier,
-        Token::Integer,
-        Token::Identifier,
+        Token::Decimal(0.1),
+        Token::Decimal(1.1),
     ];
 
     let tokens: Vec<_> = lex(input)

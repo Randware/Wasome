@@ -39,10 +39,10 @@ fn test_all_keywords_no_spaces() {
     "#;
 
     let expected_tokens = vec![
-        Token::Identifier,
+        Token::Identifier("fnifelseloopstruct".to_string()),
         Token::Return,
         Token::Assign,
-        Token::Identifier,
+        Token::Identifier("enumaspubnew".to_string()),
         Token::PathSeperator,
         Token::Dot,
         Token::Semicolon,

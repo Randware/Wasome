@@ -35,7 +35,7 @@ fn test_all_datatypes_no_spaces() {
     "#;
 
     let expected_tokens = vec![
-       Token::Identifier
+        Token::Identifier("s8s16s32s64u8u16u32u64f32f64boolcharself".to_string()),
     ];
 
     let tokens: Vec<_> = lex(input)

@@ -1,8 +1,20 @@
 use logos::Logos;
+use std::num::{ParseFloatError, ParseIntError};
 
-#[derive(Logos, Debug, PartialEq,)]
+#[derive(Debug, PartialEq, Clone, Default)]
+pub enum LexError {
+    #[default]
+    Unknown, 
+    Int(ParseIntError),
+    Float(ParseFloatError),
+}
+
+#[derive(Logos, Debug, PartialEq)]
+#[logos(error = LexError)]
 pub enum Token {
-    // Datatypes
+    #[regex(r"[ \t\n\f]+", logos::skip)] // <--- skip whitespace
+    _Skip,
+    // --- Datatypes ---
     #[token("s8")]
     S8,
     #[token("s16")]
@@ -33,15 +45,17 @@ pub enum Token {
     #[token("self")]
     SelfType,
 
-    // Values
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
-    Identifier,
-    #[regex(r"\d+\.\d+")]
-    Decimal,
-    #[regex(r"\d+")]
-    Integer,
-    
-    // Math-Operators
+    // --- Values ---
+    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
+    Identifier(String),
+
+    #[regex(r"\d+\.\d+", |lex| lex.slice().parse().map_err(LexError::Float))]
+    Decimal(f64),
+
+    #[regex(r"\d+", |lex| lex.slice().parse().map_err(LexError::Int))]
+    Integer(i64),
+
+    // --- Math Operators ---
     #[token("+")]
     Addition,
     #[token("-")]
@@ -52,8 +66,8 @@ pub enum Token {
     Division,
     #[token("%")]
     Modulo,
-    
-    // Logic-Operators
+
+    // --- Logic Operators ---
     #[token("<")]
     LessThan,
     #[token(">")]
@@ -80,8 +94,8 @@ pub enum Token {
     And,
     #[token("!")]
     Not,
-  
-    // Brackets
+
+    // --- Brackets ---
     #[token("{")]
     OpenScope,
     #[token("}")]
@@ -90,8 +104,8 @@ pub enum Token {
     OpenParen,
     #[token(")")]
     CloseParen,
-    
-    // Keywords
+
+    // --- Keywords ---
     #[token("fn")]
     Function,
     #[token("if")]
