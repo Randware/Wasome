@@ -1,7 +1,9 @@
 use std::fmt::Debug;
 use std::ops::Deref;
+use std::rc::Rc;
 use crate::data_type::DataType;
 use crate::expression::Literal;
+use crate::symbol::{FunctionSymbol, VariableSymbol};
 use crate::top_level::{Function, TopLevelElement};
 
 pub mod expression;
@@ -92,30 +94,36 @@ pub trait ASTType: Sized+PartialEq+'static+Debug
     type LiteralType: PartialEq+Debug;
 
     type GeneralDataType: Eq+PartialEq+Debug+Clone;
+    type FunctionCallSymbol: Debug+PartialEq;
+    type VariableUse: Debug+PartialEq;
 }
 
 /** This is an ast type
 ASTs with this type include concrete data types
 */
-#[derive(PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct TypedAST {}
 
 impl ASTType for TypedAST
 {
     type LiteralType = Literal;
     type GeneralDataType = DataType;
+    type FunctionCallSymbol = Rc<FunctionSymbol<TypedAST>>;
+    type VariableUse = Rc<VariableSymbol<TypedAST>>;
 }
 
 /** This is an ast type
 ASTs with this type carry the data type used in a string and perform no validation on it
 */
-#[derive(PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct UntypedAST {}
 
 impl ASTType for UntypedAST
 {
     type LiteralType = String;
     type GeneralDataType = String;
+    type FunctionCallSymbol = String;
+    type VariableUse = String;
 }
 
 #[cfg(test)]
@@ -468,7 +476,7 @@ mod tests
                                                                 VariableAssignment::<UntypedAST>::new(
                                                                     temp.clone(),
                                                                     Expression::Variable(
-                                                                        current.clone()
+                                                                        "current".to_string()
                                                                     )
                                                                 )
                                                             ),
@@ -479,10 +487,10 @@ mod tests
                                                                         Box::new(BinaryOp::<UntypedAST>::new(
                                                                             BinaryOpType::Addition,
                                                                             Expression::Variable(
-                                                                                current.clone()
+                                                                                "current".to_string()
                                                                             ),
                                                                             Expression::Variable(
-                                                                                previous.clone()
+                                                                                "previous".to_string()
                                                                             ),
                                                                         ))
                                                                     )
@@ -492,7 +500,7 @@ mod tests
                                                                 VariableAssignment::<UntypedAST>::new(
                                                                     previous.clone(),
                                                                     Expression::Variable(
-                                                                        temp.clone()
+                                                                        "temp".to_string()
                                                                     )
                                                                 )
                                                             ),
@@ -503,7 +511,7 @@ mod tests
                                                                         Box::new(BinaryOp::<UntypedAST>::new(
                                                                             BinaryOpType::Subtraction,
                                                                             Expression::Variable(
-                                                                                nth.clone()
+                                                                                "nth".to_string()
                                                                             ),
                                                                             Expression::Literal(
                                                                                 "1".to_string()
@@ -520,7 +528,7 @@ mod tests
                                                         Box::new(BinaryOp::<UntypedAST>::new(
                                                             BinaryOpType::Greater,
                                                             Expression::Variable(
-                                                                nth.clone()
+                                                                "nth".to_string()
                                                             ),
                                                             Expression::Literal(
                                                                 "1".to_string() //The fibonacci number of 1 is 1
@@ -534,7 +542,7 @@ mod tests
                                     Statement::Return(
                                         Return::new(
                                             Some(Expression::Variable(
-                                                current.clone()
+                                                "current".to_string()
                                             ))
                                         )
                                     )
@@ -572,3 +580,4 @@ mod tests
         )
     }
 }
+

@@ -10,7 +10,7 @@ pub enum Expression<Type: ASTType>
 {
     // Only valid if it doesn't return void
     FunctionCall(FunctionCall<Type>),
-    Variable(Rc<VariableSymbol<Type>>),
+    Variable(Type::VariableUse),
     Literal(Type::LiteralType),
     UnaryOp(Box<UnaryOp<Type>>), // The boxes prevent this from becoming an infinitely sized type
     BinaryOp(Box<BinaryOp<Type>>)
@@ -441,21 +441,21 @@ impl BinaryOpType
 
 /** A function call with params
 */
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct FunctionCall<Type: ASTType>
 {
-    function: Rc<FunctionSymbol<Type>>,
-    args: Vec<Rc<VariableSymbol<Type>>>
+    function: Type::FunctionCallSymbol,
+    args: Vec<Expression<Type>>
 }
 
 impl<Type: ASTType> FunctionCall<Type>
 {
-    pub fn function(&self) -> &Rc<FunctionSymbol<Type>>
+    pub fn function(&self) -> &Type::FunctionCallSymbol
     {
         &self.function
     }
 
-    pub fn args(&self) -> &Vec<Rc<VariableSymbol<Type>>>
+    pub fn args(&self) -> &Vec<Expression<Type>>
     {
         &self.args
     }
@@ -468,7 +468,7 @@ impl FunctionCall<TypedAST>
     Returns None if these checks failed
     Some(new instance) otherwise
     */
-    pub fn new(function: Rc<FunctionSymbol<TypedAST>>, args: Vec<Rc<VariableSymbol<TypedAST>>>) -> Option<Self>
+    pub fn new(function: Rc<FunctionSymbol<TypedAST>>, args: Vec<Expression<TypedAST>>) -> Option<Self>
     {
         if function.params().len() != args.len() ||
             !function.params().iter().zip(args.iter()).all(
@@ -485,17 +485,10 @@ impl FunctionCall<TypedAST>
 impl FunctionCall<UntypedAST>
 {
     /** Creates a new function call
-       Checks if the provided and expected params are the same number
-       Returns None if these checks failed
-       Some(new instance) otherwise
     */
-    pub fn new(function: Rc<FunctionSymbol<UntypedAST>>, args: Vec<Rc<VariableSymbol<UntypedAST>>>) -> Option<Self>
+    pub fn new(function: String, args: Vec<Expression<UntypedAST>>) -> Self
     {
-        if function.params().len() != args.len()
-        {
-            return None;
-        }
-        Some(Self { function, args })
+        Self { function, args }
     }
 }
 
