@@ -85,7 +85,7 @@ impl VariableAssignment<TypedAST>
     */
     pub fn new(variable: Rc<VariableSymbol<TypedAST>>, value: Expression<TypedAST>) -> Option<Self>
     {
-        eq_return_option(variable.data_type(), value.data_type())?;
+        eq_return_option(*variable.data_type(), value.data_type())?;
         Some(Self {
             variable,
             value
@@ -338,7 +338,7 @@ impl Return<TypedAST>
        Returns none if nothing
        And Some(type) if an expression with type is being returned
     */
-    pub fn return_type(&self) -> Option<&DataType>
+    pub fn return_type(&self) -> Option<DataType>
     {
         // Gets the type from the expression
         self.to_return().map(|val| val.data_type())

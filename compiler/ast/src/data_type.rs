@@ -23,5 +23,5 @@ pub trait Typed
 {
     /** This method gets the type
     */
-    fn data_type(&self) -> &DataType;
+    fn data_type(&self) -> DataType;
 }
