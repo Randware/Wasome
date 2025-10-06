@@ -9,10 +9,10 @@ pub enum LexError {
     Float(ParseFloatError),
 }
 
-#[derive(Logos, Debug, PartialEq)]
+#[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
 pub enum Token {
-    #[regex(r"[ \t\f]+", logos::skip)] // <--- skip whitespace
+    #[regex(r"[ \t\f]+", logos::skip)] 
     _Skip,
     // --- Datatypes ---
     #[token("s8")]
