@@ -1,3 +1,19 @@
+//! This is the Abstract syntax tree, the interface between the parser and the codegen
+//! It consists of three "levels", from highest to lowest:
+//! 1. Functions
+//! 2. Statements
+//! 3. Expressions
+//!
+//! Each level can contain instances of the level below it and its own level.
+//!
+//! In addition to these main types, there are also two traversial helpers:
+//! FunctionRef and StatementRef
+//! They both contain references to an instance of Function or Statement and allow to list all
+//! symbols available to a function/statement.
+//!
+//! For more information on how to use this, refer to the tests in this file.
+//! Note that unlike in the tests, ASTs are not supposed to be hardcoded
+
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -14,22 +30,6 @@ pub mod symbol;
 pub mod data_type;
 pub mod traversal;
 
-/** This is the Abstract syntax tree, the interface between the parser and the codegen
-It consists of three "levels", from highest to lowest:
-1. Functions
-2. Statements
-3. Expressions
-
-Each level can contain instances of the level below it and its own level.
-
-In addition to these main types, there are also two traversial helpers:
-FunctionRef and StatementRef
-They both contain references to an instance of Function or Statement and allow to list all
-symbols available to a function/statement.
-
-For more information on how to use this, refer to the tests in this file.
-Note that unlike in the tests, ASTs are not supposed to be hardcoded
-*/
 #[derive(Debug)]
 pub struct AST<Type: ASTType>
 {
