@@ -83,9 +83,9 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type>
         match self.inner
         {
             Statement::ControlStructure(control) =>
-                Self::indexable_into_vec(control.as_ref(), control.child_len(), statement_to_symbol),
+                Self::indexable_into_vec(|index| control.child_statement_at(index), control.child_len(), statement_to_symbol),
             Statement::Codeblock(codeblock) =>
-                Self::indexable_into_vec(codeblock.as_ref(), codeblock.len(), statement_to_symbol),
+                Self::indexable_into_vec(|index| &codeblock[index], codeblock.len(), statement_to_symbol),
             _ => Vec::new()
         }
     }
@@ -94,7 +94,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type>
     /** This takes an indexable to_convert, reads the first len elements from it, converts them with
     map_with and returns the inner values of the somes in a vec
     */
-    fn indexable_into_vec<'b, T, U, F>(to_convert: &'b (impl Index<usize, Output=T> + ?Sized),
+    fn indexable_into_vec<'b, T, U, F>(to_convert: impl Fn(usize) -> &'b T + 'b,
                                  len: usize,
                                  mut map_with: F) -> Vec<U>
     where
@@ -104,7 +104,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type>
         let mut result = Vec::with_capacity(len);
         for index in 0..len
         {
-            if let Some(converted) = map_with(&to_convert[index])
+            if let Some(converted) = map_with(&to_convert(index))
             {
                 result.push(converted)
             }

@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::cmp::PartialEq;
 use std::ops::Index;
 use std::rc::Rc;
@@ -61,7 +62,7 @@ impl<Type: ASTType> Index<usize> for Statement<Type>
     {
         match self {
             Statement::Codeblock(block) => &block[index],
-            Statement::ControlStructure(structure) => &structure[index],
+            Statement::ControlStructure(structure) => &structure.child_statement_at(index),
             _ => panic!("This has no child members!")
         }
     }
@@ -145,18 +146,14 @@ impl<Type: ASTType> ControlStructure<Type>
             ControlStructure::Loop(inner) => inner.len()
         }
     }
-}
-impl<Type: ASTType> Index<usize> for ControlStructure<Type>
-{
-    type Output = Statement<Type>;
 
     /** Returns the child statement at index
     */
-    fn index(&self, index: usize) -> &Self::Output
+    pub(crate) fn child_statement_at(&self, index: usize) -> &Statement<Type>
     {
         match self {
-            ControlStructure::Conditional(cond) => &cond[index],
-            ControlStructure::Loop(inner) => &inner[index]
+            ControlStructure::Conditional(cond) => &cond.child_statement_at(index),
+            ControlStructure::Loop(inner) => &inner.child_statement_at(index)
         }
     }
 }
@@ -203,15 +200,12 @@ impl<Type: ASTType> Conditional<Type>
     {
         self.else_statement.as_ref()
     }
-}
-
-impl<Type: ASTType> Index<usize> for Conditional<Type>
-{
-    type Output = Statement<Type>;
 
     /** Returns the child statement at index
+    0 is the then-statement
+    1 is the else-statement
     */
-    fn index(&self, index: usize) -> &Self::Output
+    fn child_statement_at(&self, index: usize) -> &Statement<Type>
     {
         match index {
             0 => &self.then_statement,
@@ -256,21 +250,16 @@ impl<Type: ASTType> Loop<Type>
     {
         &self.loop_type
     }
-}
-
-impl<Type: ASTType> Index<usize> for Loop<Type>
-{
-    type Output = Statement<Type>;
 
     /** Returns the child statement at index
     */
-    fn index(&self, index: usize) -> &Self::Output
+    fn child_statement_at(&self, index: usize) -> &Statement<Type>
     {
         if index == self.loop_type.len() {
             &self.to_loop_on
         }
         else {
-            &self.loop_type[index]
+            &self.loop_type.child_statement_at(index)
         }
     }
 }
@@ -301,15 +290,10 @@ impl<Type: ASTType> LoopType<Type>
             LoopType::For { .. } => 2
         }
     }
-}
-
-impl<Type: ASTType> Index<usize> for LoopType<Type>
-{
-    type Output = Statement<Type>;
 
     /** Returns the child statement at index
     */
-    fn index(&self, index: usize) -> &Self::Output
+    fn child_statement_at(&self, index: usize) -> &Statement<Type>
     {
         if let LoopType::For {start, cond: _cond, after_each} = self {
             match index {
