@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use crate::data_type::{DataType, Typed};
 use crate::{eq_return_option, ASTType, TypedAST, UntypedAST};
-use crate::symbol::{FunctionSymbol, VariableSymbol};
+use crate::symbol::{FunctionSymbol};
 
 /** This represents an expression as per section 2 of the lang spec
 */
