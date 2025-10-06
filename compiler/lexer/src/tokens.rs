@@ -136,5 +136,7 @@ pub enum Token {
     Semicolon,
     #[regex(r"\r?\n")]
     StatementSeparator,
+    #[token(",")]
+    ArgumentSeparator,
 
 }

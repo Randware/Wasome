@@ -4,7 +4,7 @@ use lexer::{lex, Token};
 fn test_all_keywords() {
     let input = r#"
     fn if else loop 
-    struct -> <- enum as pub new :: . ;
+    struct -> <- enum as pub new :: . ; ,
     "#;
 
     let expected_tokens = vec![
@@ -24,6 +24,7 @@ fn test_all_keywords() {
         Token::PathSeperator,
         Token::Dot,
         Token::Semicolon,
+        Token::ArgumentSeparator,
         Token::StatementSeparator,
     ];
 
@@ -38,7 +39,7 @@ fn test_all_keywords() {
 #[test]
 fn test_all_keywords_no_spaces() {
     let input = r#"
-    fnifelseloopstruct-><-enumaspubnew::.;
+    fnifelseloopstruct-><-enumaspubnew::.;,
     "#;
 
     let expected_tokens = vec![
@@ -50,6 +51,7 @@ fn test_all_keywords_no_spaces() {
         Token::PathSeperator,
         Token::Dot,
         Token::Semicolon,
+        Token::ArgumentSeparator,
         Token::StatementSeparator,
     ];
 
