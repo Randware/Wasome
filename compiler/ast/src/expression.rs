@@ -1,7 +1,6 @@
-use std::rc::Rc;
 use crate::data_type::{DataType, Typed};
 use crate::{eq_return_option, ASTType, TypedAST, UntypedAST};
-use crate::symbol::{FunctionSymbol};
+use crate::symbol::FunctionCall;
 
 /** This represents an expression as per section 2 of the lang spec
 */
@@ -440,59 +439,6 @@ impl BinaryOpType
             return None;
         }
         Some(DataType::Bool)
-    }
-}
-
-/** A function call with params
-*/
-#[derive(Debug, PartialEq)]
-pub struct FunctionCall<Type: ASTType>
-{
-    function: Type::FunctionCallSymbol,
-    args: Vec<Expression<Type>>
-}
-
-impl<Type: ASTType> FunctionCall<Type>
-{
-    pub fn function(&self) -> &Type::FunctionCallSymbol
-    {
-        &self.function
-    }
-
-    pub fn args(&self) -> &Vec<Expression<Type>>
-    {
-        &self.args
-    }
-}
-
-impl FunctionCall<TypedAST>
-{
-    /** Creates a new function call
-    Checks if the provided and expected params are the same number and have the same data types
-    Returns None if these checks failed
-    Some(new instance) otherwise
-    */
-    pub fn new(function: Rc<FunctionSymbol<TypedAST>>, args: Vec<Expression<TypedAST>>) -> Option<Self>
-    {
-        if function.params().len() != args.len() ||
-            !function.params().iter().zip(args.iter()).all(
-                |(expected, provided)|
-                    *expected.data_type() == provided.data_type()
-            )
-        {
-            return None;
-        }
-        Some(Self { function, args })
-    }
-}
-
-impl FunctionCall<UntypedAST>
-{
-    /** Creates a new function call
-    */
-    pub fn new(function: String, args: Vec<Expression<UntypedAST>>) -> Self
-    {
-        Self { function, args }
     }
 }
 

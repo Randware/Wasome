@@ -5,7 +5,7 @@ use crate::block::CodeBlock;
 use crate::data_type::{DataType, Typed};
 use crate::{eq_return_option, ASTType, TypedAST, UntypedAST};
 use crate::expression::Expression;
-use crate::symbol::{Symbol, VariableSymbol};
+use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
 
 /** This represents a Statement as per section 4 of the lang spec
 */
@@ -19,7 +19,10 @@ pub enum Statement<Type: ASTType>
     Expression(Expression<Type>),
     Return(Return<Type>),
     ControlStructure(Box<ControlStructure<Type>>),
-    Codeblock(CodeBlock<Type>)
+    Codeblock(CodeBlock<Type>),
+    // A call of a void function
+    // It can't be an expression as it does not have a return type
+    VoidFunctionCall(FunctionCall<Type>)
 }
 
 impl<Type: ASTType> Statement<Type>
