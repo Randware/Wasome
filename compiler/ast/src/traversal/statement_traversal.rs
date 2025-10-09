@@ -104,7 +104,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type>
         let mut result = Vec::with_capacity(len);
         for index in 0..len
         {
-            if let Some(converted) = map_with(&to_convert(index))
+            if let Some(converted) = map_with(to_convert(index))
             {
                 result.push(converted)
             }
@@ -113,7 +113,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type>
     }
 }
 
-impl<'a, Type: ASTType> Deref for StatementTraversalHelper<'a, Type>
+impl<Type: ASTType> Deref for StatementTraversalHelper<'_, Type>
 {
     type Target = Statement<Type>;
 
@@ -232,7 +232,7 @@ impl<'a> StatementLocation<'a>
     {
         let mut len = 0;
         let mut current: Option<&StatementLocation> = Some(self);
-        while current != None {
+        while current.is_some() {
             // Unwrap safety:
             // current can't be none as it was checked by the loop condition
             current = current.unwrap().prev();

@@ -64,7 +64,7 @@ impl<Type: ASTType> Index<usize> for Statement<Type>
     {
         match self {
             Statement::Codeblock(block) => &block[index],
-            Statement::ControlStructure(structure) => &structure.child_statement_at(index),
+            Statement::ControlStructure(structure) => structure.child_statement_at(index),
             _ => panic!("This has no child members!")
         }
     }
@@ -154,8 +154,8 @@ impl<Type: ASTType> ControlStructure<Type>
     pub(crate) fn child_statement_at(&self, index: usize) -> &Statement<Type>
     {
         match self {
-            ControlStructure::Conditional(cond) => &cond.child_statement_at(index),
-            ControlStructure::Loop(inner) => &inner.child_statement_at(index)
+            ControlStructure::Conditional(cond) => cond.child_statement_at(index),
+            ControlStructure::Loop(inner) => inner.child_statement_at(index)
         }
     }
 }
@@ -183,10 +183,12 @@ impl<Type: ASTType> Conditional<Type>
 
     /** Returns the number of child statements
     */
-    pub fn len(&self) -> usize
+    pub(crate) fn len(&self) -> usize
     {
         1+self.else_statement.is_some() as usize
     }
+
+
 
     pub fn condition(&self) -> &Expression<Type>
     {
@@ -211,7 +213,7 @@ impl<Type: ASTType> Conditional<Type>
     {
         match index {
             0 => &self.then_statement,
-            1 => &self.else_statement.as_ref().unwrap(),
+            1 => self.else_statement.as_ref().unwrap(),
             _ => panic!("Index is out of bounds")
         }
     }
@@ -238,7 +240,7 @@ impl<Type: ASTType> Loop<Type>
 
     /** Returns the number of child statements
     */
-    pub fn len(&self) -> usize
+    pub(crate) fn len(&self) -> usize
     {
         self.loop_type.len()+1
     }
@@ -261,7 +263,7 @@ impl<Type: ASTType> Loop<Type>
             &self.to_loop_on
         }
         else {
-            &self.loop_type.child_statement_at(index)
+            self.loop_type.child_statement_at(index)
         }
     }
 }
@@ -284,7 +286,7 @@ impl<Type: ASTType> LoopType<Type>
 {
     /** Returns the number of child statements
     */
-    pub fn len(&self) -> usize
+    pub(crate) fn len(&self) -> usize
     {
         match self {
             LoopType::Infinite => 0,

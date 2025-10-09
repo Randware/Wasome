@@ -89,7 +89,7 @@ struct FunctionSymbolTable<'a, Type: ASTType>
     functions: Box<dyn Iterator<Item=&'a Function<Type>>+'a>
 }
 
-impl<'a, Type: ASTType> Debug for FunctionSymbolTable<'a, Type>
+impl<Type: ASTType> Debug for FunctionSymbolTable<'_, Type>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result
     {
@@ -120,10 +120,10 @@ impl<'a, Type: ASTType> Iterator for FunctionSymbolTable<'a, Type>
     fn next(&mut self) -> Option<Self::Item>
     {
         next_item_from_slice(self.parameters, &mut self.parameter_index)
-            .map(|val| Symbol::Variable(&val))
+            .map(|val| Symbol::Variable(val))
             .or_else(||
                 self.functions.next()
-                    .map(|val| Symbol::Function(&val.declaration()))
+                    .map(|val| Symbol::Function(val.declaration()))
             )
 
     }
