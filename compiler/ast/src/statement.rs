@@ -1,17 +1,16 @@
+use crate::block::CodeBlock;
+use crate::data_type::{DataType, Typed};
+use crate::expression::Expression;
+use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
+use crate::{ASTType, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
 use std::ops::Index;
 use std::rc::Rc;
-use crate::block::CodeBlock;
-use crate::data_type::{DataType, Typed};
-use crate::{eq_return_option, ASTType, TypedAST, UntypedAST};
-use crate::expression::Expression;
-use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
 
 /** This represents a Statement as per section 4 of the lang spec
 */
 #[derive(Debug, PartialEq)]
-pub enum Statement<Type: ASTType>
-{
+pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
     VariableAssignment(VariableAssignment<Type>),
     // Creation of new variable
@@ -22,50 +21,45 @@ pub enum Statement<Type: ASTType>
     Codeblock(CodeBlock<Type>),
     // A call of a void function
     // It can't be an expression as it does not have a return type
-    VoidFunctionCall(FunctionCall<Type>)
+    VoidFunctionCall(FunctionCall<Type>),
 }
 
-impl<Type: ASTType> Statement<Type>
-{
+impl<Type: ASTType> Statement<Type> {
     /** Gets the symbol defined in this expression
     Only this is considered, while subexpressions are ignored
     @return
     Some(symbol) if symbol is defined here
     None if no symbols are defined here
     */
-    pub fn get_direct_symbol(&self) -> Option<Symbol<Type>>
-    {
+    pub fn get_direct_symbol(&self) -> Option<Symbol<Type>> {
         match self {
             Statement::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
-            _ => None
+            _ => None,
         }
     }
 
     /** Gets the length of the child statements
-    */
-    pub fn len_children(&self) -> usize
-    {
+     */
+    pub fn len_children(&self) -> usize {
         match self {
             Statement::ControlStructure(structure) => structure.child_len(),
             Statement::Codeblock(codeblock) => codeblock.len(),
-            _ => 0
+            _ => 0,
         }
     }
 }
 
-impl<Type: ASTType> Index<usize> for Statement<Type>
-{
+impl<Type: ASTType> Index<usize> for Statement<Type> {
     type Output = Statement<Type>;
 
     /** Gets the indexth child statement
     panics if self has no children or index is out of bounds
     */
-    fn index(&self, index: usize) -> &Self::Output
-    {
+    fn index(&self, index: usize) -> &Self::Output {
         match self {
             Statement::Codeblock(block) => &block[index],
             Statement::ControlStructure(structure) => structure.child_statement_at(index),
-            _ => panic!("This has no child members!")
+            _ => panic!("This has no child members!"),
         }
     }
 }
@@ -73,57 +67,45 @@ impl<Type: ASTType> Index<usize> for Statement<Type>
 /** This represents an assignement to a variable. If this variable doesn't exist previously, it is created
 */
 #[derive(Debug, PartialEq)]
-pub struct VariableAssignment<Type: ASTType>
-{
+pub struct VariableAssignment<Type: ASTType> {
     variable: Rc<VariableSymbol<Type>>,
-    value: Expression<Type>
+    value: Expression<Type>,
 }
 
-impl VariableAssignment<TypedAST>
-{
+impl VariableAssignment<TypedAST> {
     /** Tries to create a new instance
        returns None if the type of the variable symbol and the return type of the expression doesn't
        match
     */
-    pub fn new(variable: Rc<VariableSymbol<TypedAST>>, value: Expression<TypedAST>) -> Option<Self>
-    {
+    pub fn new(
+        variable: Rc<VariableSymbol<TypedAST>>,
+        value: Expression<TypedAST>,
+    ) -> Option<Self> {
         eq_return_option(*variable.data_type(), value.data_type())?;
-        Some(Self {
-            variable,
-            value
-        })
+        Some(Self { variable, value })
     }
 }
 
-impl VariableAssignment<UntypedAST>
-{
+impl VariableAssignment<UntypedAST> {
     /** Creates a new instance
-    */
-    pub fn new(variable: Rc<VariableSymbol<UntypedAST>>, value: Expression<UntypedAST>) -> Self
-    {
-        Self {
-            variable,
-            value
-        }
+     */
+    pub fn new(variable: Rc<VariableSymbol<UntypedAST>>, value: Expression<UntypedAST>) -> Self {
+        Self { variable, value }
     }
 }
 
-impl<Type: ASTType> VariableAssignment<Type>
-{
-    pub fn variable(&self) -> &VariableSymbol<Type>
-    {
+impl<Type: ASTType> VariableAssignment<Type> {
+    pub fn variable(&self) -> &VariableSymbol<Type> {
         &self.variable
     }
 
     /** Gets the variable symbol by cloning the underlying RC
-    */
-    pub fn variable_owned(&self) -> Rc<VariableSymbol<Type>>
-    {
+     */
+    pub fn variable_owned(&self) -> Rc<VariableSymbol<Type>> {
         self.variable.clone()
     }
 
-    pub fn value(&self) -> &Expression<Type>
-    {
+    pub fn value(&self) -> &Expression<Type> {
         &self.value
     }
 }
@@ -131,31 +113,27 @@ impl<Type: ASTType> VariableAssignment<Type>
 /** This represents a control structure as defined in chapters 8 and 13 of the lang spec
 */
 #[derive(Debug, PartialEq)]
-pub enum ControlStructure<Type: ASTType>
-{
+pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
-    Loop(Loop<Type>)
+    Loop(Loop<Type>),
 }
 
-impl<Type: ASTType> ControlStructure<Type>
-{
+impl<Type: ASTType> ControlStructure<Type> {
     /** Returns the number of child statements
-    */
-    pub fn child_len(&self) -> usize
-    {
+     */
+    pub fn child_len(&self) -> usize {
         match self {
             ControlStructure::Conditional(inner) => inner.len(),
-            ControlStructure::Loop(inner) => inner.len()
+            ControlStructure::Loop(inner) => inner.len(),
         }
     }
 
     /** Returns the child statement at index
-    */
-    pub(crate) fn child_statement_at(&self, index: usize) -> &Statement<Type>
-    {
+     */
+    pub(crate) fn child_statement_at(&self, index: usize) -> &Statement<Type> {
         match self {
             ControlStructure::Conditional(cond) => cond.child_statement_at(index),
-            ControlStructure::Loop(inner) => inner.child_statement_at(index)
+            ControlStructure::Loop(inner) => inner.child_statement_at(index),
         }
     }
 }
@@ -163,45 +141,40 @@ impl<Type: ASTType> ControlStructure<Type>
 /** This represents a conditional as defined in chapter 8 of the lang spec
 */
 #[derive(Debug, PartialEq)]
-pub struct Conditional<Type: ASTType>
-{
+pub struct Conditional<Type: ASTType> {
     condition: Expression<Type>,
     then_statement: Statement<Type>,
-    else_statement: Option<Statement<Type>>
+    else_statement: Option<Statement<Type>>,
 }
 
-impl<Type: ASTType> Conditional<Type>
-{
-    pub fn new(condition: Expression<Type>, then_statement: Statement<Type>, else_statement: Option<Statement<Type>>) -> Self
-    {
+impl<Type: ASTType> Conditional<Type> {
+    pub fn new(
+        condition: Expression<Type>,
+        then_statement: Statement<Type>,
+        else_statement: Option<Statement<Type>>,
+    ) -> Self {
         Self {
             condition,
             then_statement,
-            else_statement
+            else_statement,
         }
     }
 
     /** Returns the number of child statements
-    */
-    pub(crate) fn len(&self) -> usize
-    {
-        1+self.else_statement.is_some() as usize
+     */
+    pub(crate) fn len(&self) -> usize {
+        1 + self.else_statement.is_some() as usize
     }
 
-
-
-    pub fn condition(&self) -> &Expression<Type>
-    {
+    pub fn condition(&self) -> &Expression<Type> {
         &self.condition
     }
 
-    pub fn then_statement(&self) -> &Statement<Type>
-    {
+    pub fn then_statement(&self) -> &Statement<Type> {
         &self.then_statement
     }
 
-    pub fn else_statement(&self) -> Option<&Statement<Type>>
-    {
+    pub fn else_statement(&self) -> Option<&Statement<Type>> {
         self.else_statement.as_ref()
     }
 
@@ -209,12 +182,11 @@ impl<Type: ASTType> Conditional<Type>
     0 is the then-statement
     1 is the else-statement
     */
-    fn child_statement_at(&self, index: usize) -> &Statement<Type>
-    {
+    fn child_statement_at(&self, index: usize) -> &Statement<Type> {
         match index {
             0 => &self.then_statement,
             1 => self.else_statement.as_ref().unwrap(),
-            _ => panic!("Index is out of bounds")
+            _ => panic!("Index is out of bounds"),
         }
     }
 }
@@ -222,47 +194,39 @@ impl<Type: ASTType> Conditional<Type>
 /** This represents a conditional as defined in chapter 13 of the lang spec
 */
 #[derive(Debug, PartialEq)]
-pub struct Loop<Type: ASTType>
-{
+pub struct Loop<Type: ASTType> {
     to_loop_on: Statement<Type>,
-    loop_type: LoopType<Type>
+    loop_type: LoopType<Type>,
 }
 
-impl<Type: ASTType> Loop<Type>
-{
-    pub fn new(to_loop_on: Statement<Type>, loop_type: LoopType<Type>) -> Self
-    {
+impl<Type: ASTType> Loop<Type> {
+    pub fn new(to_loop_on: Statement<Type>, loop_type: LoopType<Type>) -> Self {
         Self {
             to_loop_on,
-            loop_type
+            loop_type,
         }
     }
 
     /** Returns the number of child statements
-    */
-    pub(crate) fn len(&self) -> usize
-    {
-        self.loop_type.len()+1
+     */
+    pub(crate) fn len(&self) -> usize {
+        self.loop_type.len() + 1
     }
 
-    pub fn to_loop_on(&self) -> &Statement<Type>
-    {
+    pub fn to_loop_on(&self) -> &Statement<Type> {
         &self.to_loop_on
     }
 
-    pub fn loop_type(&self) -> &LoopType<Type>
-    {
+    pub fn loop_type(&self) -> &LoopType<Type> {
         &self.loop_type
     }
 
     /** Returns the child statement at index
-    */
-    fn child_statement_at(&self, index: usize) -> &Statement<Type>
-    {
+     */
+    fn child_statement_at(&self, index: usize) -> &Statement<Type> {
         if index == self.loop_type.len() {
             &self.to_loop_on
-        }
-        else {
+        } else {
             self.loop_type.child_statement_at(index)
         }
     }
@@ -271,42 +235,42 @@ impl<Type: ASTType> Loop<Type>
 /** This is the type of a loop
 */
 #[derive(Debug, PartialEq)]
-pub enum LoopType<Type: ASTType>
-{
+pub enum LoopType<Type: ASTType> {
     Infinite,
     While(Expression<Type>),
-    For{
+    For {
         start: Statement<Type>,
         cond: Expression<Type>,
-        after_each: Statement<Type>
-    }
+        after_each: Statement<Type>,
+    },
 }
 
-impl<Type: ASTType> LoopType<Type>
-{
+impl<Type: ASTType> LoopType<Type> {
     /** Returns the number of child statements
-    */
-    pub(crate) fn len(&self) -> usize
-    {
+     */
+    pub(crate) fn len(&self) -> usize {
         match self {
             LoopType::Infinite => 0,
             LoopType::While(_) => 0,
-            LoopType::For { .. } => 2
+            LoopType::For { .. } => 2,
         }
     }
 
     /** Returns the child statement at index
-    */
-    fn child_statement_at(&self, index: usize) -> &Statement<Type>
-    {
-        if let LoopType::For {start, cond: _cond, after_each} = self {
+     */
+    fn child_statement_at(&self, index: usize) -> &Statement<Type> {
+        if let LoopType::For {
+            start,
+            cond: _cond,
+            after_each,
+        } = self
+        {
             match index {
                 0 => start,
                 1 => after_each,
-                _ => panic!("Index is out of bounds")
+                _ => panic!("Index is out of bounds"),
             }
-        }
-        else {
+        } else {
             panic!("This loop type has no children!");
         }
     }
@@ -316,62 +280,49 @@ impl<Type: ASTType> LoopType<Type>
 This is a wrapper around Expression with the wrapped one being the one's result that will be returned
 */
 #[derive(Debug, PartialEq)]
-pub struct Return<Type: ASTType>
-{
-    to_return: Option<Expression<Type>>
+pub struct Return<Type: ASTType> {
+    to_return: Option<Expression<Type>>,
 }
 
-impl<Type: ASTType> Return<Type>
-{
-    pub fn new(to_return: Option<Expression<Type>>) -> Self
-    {
-        Self {
-            to_return
-        }
+impl<Type: ASTType> Return<Type> {
+    pub fn new(to_return: Option<Expression<Type>>) -> Self {
+        Self { to_return }
     }
 
-    pub fn to_return(&self) -> Option<&Expression<Type>>
-    {
+    pub fn to_return(&self) -> Option<&Expression<Type>> {
         self.to_return.as_ref()
     }
 }
 
-impl Return<TypedAST>
-{
+impl Return<TypedAST> {
     /** Gets the type being returned
        Returns none if nothing
        And Some(type) if an expression with type is being returned
     */
-    pub fn return_type(&self) -> Option<DataType>
-    {
+    pub fn return_type(&self) -> Option<DataType> {
         // Gets the type from the expression
         self.to_return().map(|val| val.data_type())
     }
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
+    use super::*;
+    use crate::TypedAST;
     use crate::data_type::DataType;
     use crate::expression::Literal;
-    use crate::TypedAST;
-    use super::*;
     #[test]
-    fn variable_assignement()
-    {
-        basic_test_variable(Rc::new(
-            VariableSymbol::new("test".to_string(), DataType::F32)
-        )).unwrap();
+    fn variable_assignement() {
+        basic_test_variable(Rc::new(VariableSymbol::new(
+            "test".to_string(),
+            DataType::F32,
+        )))
+        .unwrap();
     }
 
-    fn basic_test_variable(symbol: Rc<VariableSymbol<TypedAST>>) -> Option<VariableAssignment<TypedAST>> {
-        VariableAssignment::<TypedAST>::new(
-            symbol,
-            Expression::Literal(
-                Literal::F32(
-                    14.0
-                )
-            )
-        )
+    fn basic_test_variable(
+        symbol: Rc<VariableSymbol<TypedAST>>,
+    ) -> Option<VariableAssignment<TypedAST>> {
+        VariableAssignment::<TypedAST>::new(symbol, Expression::Literal(Literal::F32(14.0)))
     }
 }
