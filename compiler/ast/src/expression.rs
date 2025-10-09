@@ -435,6 +435,10 @@ impl BinaryOpType
     fn comparison_op_type(left: DataType, right: DataType) -> Option<DataType>
     {
         eq_return_option(left, right)?;
+        if left == DataType::Bool || left == DataType::Char
+        {
+            return None;
+        }
         Some(DataType::Bool)
     }
 }
