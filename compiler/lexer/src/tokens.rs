@@ -14,7 +14,7 @@ pub enum LexError {
 #[logos(error = LexError)]
 #[logos(skip r"[\t\f]+")]
 pub enum Token {
-    // --- Datatypes ---
+    // Datatypes
     #[token("s8")]
     S8,
     #[token("s16")]
@@ -45,7 +45,7 @@ pub enum Token {
     #[token("self")]
     SelfType,
 
-    // --- Values ---
+    // Values
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
 
@@ -58,7 +58,7 @@ pub enum Token {
     #[regex(r"'(\\.|[^\\'])'", parse_char_literal)]
     CharLiteral(char),
 
-    // --- Math Operators ---
+    // Math Operators 
     #[token("+")]
     Addition,
     #[token("-")]
@@ -70,7 +70,7 @@ pub enum Token {
     #[token("%")]
     Modulo,
 
-    // --- Logic Operators ---
+    // Logic Operators
     #[token("<")]
     LessThan,
     #[token(">")]
@@ -98,7 +98,7 @@ pub enum Token {
     #[token("!")]
     Not,
 
-    // --- Brackets ---
+    // Brackets 
     #[token("{")]
     OpenScope,
     #[token("}")]
@@ -108,7 +108,7 @@ pub enum Token {
     #[token(")")]
     CloseParen,
 
-    // --- Keywords ---
+    //Keywords
     #[token("fn")]
     Function,
     #[token("if")]
@@ -119,10 +119,6 @@ pub enum Token {
     Loop,
     #[token("struct")]
     Struct,
-    #[token("->")]
-    Return,
-    #[token("<-")]
-    Assign,
     #[token("enum")]
     Enum,
     #[token("as")]
@@ -131,6 +127,13 @@ pub enum Token {
     Public,
     #[token("new")]
     New,
+    
+    // Symbols
+    #[token("->")]
+    Return,
+    #[token("<-")]
+    Assign,
+    
     #[token("::")]
     PathSeparator,
     #[token(".")]
