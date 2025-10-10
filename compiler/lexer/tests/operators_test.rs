@@ -1,4 +1,4 @@
-use lexer::{lex, Token};
+use lexer::{Token, lex};
 
 #[test]
 fn test_math_operators() {
@@ -16,10 +16,7 @@ fn test_math_operators() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -47,10 +44,7 @@ fn test_logic_operators() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -71,10 +65,7 @@ fn test_math_operators_no_spaces() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -102,10 +93,7 @@ fn test_logic_operators_no_spaces() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -125,7 +113,7 @@ fn test_greedy_tokens() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+
+    assert_eq!(tokens, expected_tokens);
 }

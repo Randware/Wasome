@@ -1,4 +1,4 @@
-use lexer::{lex, Token}; 
+use lexer::{Token, lex};
 
 #[test]
 fn test_all_values() {
@@ -9,23 +9,20 @@ fn test_all_values() {
     "#;
 
     let expected_tokens = vec![
-    Token::StatementSeparator,    
-    Token::Identifier("name".to_string()),
-    Token::Identifier("name_trimmed".to_string()),
-    Token::StatementSeparator,
-    Token::Decimal(0.123),
-    Token::Decimal(123.0),
-    Token::Decimal(123.01),
-    Token::StatementSeparator,
-    Token::Integer(0),
-    Token::Integer(123),
-    Token::StatementSeparator,
+        Token::StatementSeparator,
+        Token::Identifier("name".to_string()),
+        Token::Identifier("name_trimmed".to_string()),
+        Token::StatementSeparator,
+        Token::Decimal(0.123),
+        Token::Decimal(123.0),
+        Token::Decimal(123.01),
+        Token::StatementSeparator,
+        Token::Integer(0),
+        Token::Integer(123),
+        Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -42,10 +39,7 @@ fn test_brokenformat_decimal() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_ne!(tokens, expected_tokens);
 }
@@ -56,7 +50,7 @@ fn test_charLiteral() {
     char var1 <- 'n'
     char var2 <- '🎌'
     "#;
-    
+
     let expected_tokens = vec![
         Token::StatementSeparator,
         Token::Char,
@@ -71,14 +65,7 @@ fn test_charLiteral() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
-    for token in &tokens  {
-        println!("{:?}", token);
-    }
-
-    
     assert_eq!(tokens, expected_tokens);
 }

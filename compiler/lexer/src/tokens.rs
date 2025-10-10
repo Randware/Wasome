@@ -7,7 +7,7 @@ pub enum LexError {
     Unknown,
     Int(ParseIntError),
     Float(ParseFloatError),
-    InvalidChar(String), 
+    InvalidChar(String),
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
@@ -58,7 +58,7 @@ pub enum Token {
     #[regex(r"'(\\.|[^\\'])'", parse_char_literal)]
     CharLiteral(char),
 
-    // Math Operators 
+    // Math Operators
     #[token("+")]
     Addition,
     #[token("-")]
@@ -98,7 +98,7 @@ pub enum Token {
     #[token("!")]
     Not,
 
-    // Brackets 
+    // Brackets
     #[token("{")]
     OpenScope,
     #[token("}")]
@@ -127,13 +127,13 @@ pub enum Token {
     Public,
     #[token("new")]
     New,
-    
+
     // Symbols
     #[token("->")]
     Return,
     #[token("<-")]
     Assign,
-    
+
     #[token("::")]
     PathSeparator,
     #[token(".")]
@@ -144,36 +144,31 @@ pub enum Token {
     StatementSeparator,
     #[token(",")]
     ArgumentSeparator,
-
 }
 
 fn parse_char_literal(lex: &mut logos::Lexer<Token>) -> Result<char, LexError> {
-    let s = lex.slice(); 
+    let s = lex.slice();
     let content = &s[1..s.len() - 1];
 
     let num_chars = content.chars().count();
-    if num_chars != 0 && num_chars != (1+(content.chars().next().unwrap() == '\\') as usize)
-    {
-        return Err(LexError::InvalidChar(content.to_string()))
+    if num_chars != 0 && num_chars != (1 + (content.chars().next().unwrap() == '\\') as usize) {
+        return Err(LexError::InvalidChar(content.to_string()));
     }
 
     let mut chars = content.chars();
     let first_char = chars.next().unwrap();
-    Ok(match first_char
-    {
-        '\\' =>
-            {
-                let second_char = chars.next().unwrap();
-                match second_char
-                {
-                    'n' => '\n',
-                    't' => '\t',
-                    'r' => '\r',
-                    '0' => '\0',
-                    '\\' => '\\',
-                    _ => return Result::Err(LexError::InvalidChar(content.to_string()))
-                }
+    Ok(match first_char {
+        '\\' => {
+            let second_char = chars.next().unwrap();
+            match second_char {
+                'n' => '\n',
+                't' => '\t',
+                'r' => '\r',
+                '0' => '\0',
+                '\\' => '\\',
+                _ => return Result::Err(LexError::InvalidChar(content.to_string())),
             }
-        _ => first_char
+        }
+        _ => first_char,
     })
 }

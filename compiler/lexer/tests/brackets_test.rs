@@ -1,4 +1,4 @@
-use lexer::{lex, Token};
+use lexer::{Token, lex};
 
 #[test]
 fn test_all_brackets() {
@@ -12,13 +12,10 @@ fn test_all_brackets() {
         Token::CloseScope,
         Token::OpenParen,
         Token::CloseParen,
-        Token::StatementSeparator
+        Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -35,13 +32,10 @@ fn test_all_brackets_no_spaces() {
         Token::CloseScope,
         Token::OpenParen,
         Token::CloseParen,
-        Token::StatementSeparator
+        Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }

@@ -1,4 +1,4 @@
-use lexer::{lex, Token};
+use lexer::{Token, lex};
 
 #[test]
 fn test_infinite_loop() {
@@ -14,11 +14,8 @@ fn test_infinite_loop() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
-    println!("tokens: {:?}", tokens);
     assert_eq!(tokens, expected_tokens);
 }
 
@@ -56,11 +53,8 @@ fn test_while_loop() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
-    println!("tokens: {:?}", tokens);
     assert_eq!(tokens, expected_tokens);
 }
 
@@ -90,8 +84,8 @@ fn test_for_loop() {
         Token::Identifier("count".to_string()),
         Token::Addition,
         Token::Integer(1),
-        Token::CloseParen
-        ,Token::OpenScope,
+        Token::CloseParen,
+        Token::OpenScope,
         Token::StatementSeparator,
         Token::Identifier("count".to_string()),
         Token::Assign,
@@ -103,11 +97,8 @@ fn test_for_loop() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
-    println!("tokens: {:?}", tokens);
     assert_eq!(tokens, expected_tokens);
 }
 
@@ -150,10 +141,7 @@ fn test_for_loop_no_spaces() {
         Token::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
-    println!("tokens: {:?}", tokens);
     assert_eq!(tokens, expected_tokens);
 }
