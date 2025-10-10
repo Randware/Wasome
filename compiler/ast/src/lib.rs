@@ -30,7 +30,7 @@ pub mod symbol;
 pub mod top_level;
 pub mod traversal;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct AST<Type: ASTType> {
     inner: Vec<TopLevelElement<Type>>,
 }
@@ -119,6 +119,7 @@ mod tests {
     use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
     use crate::statement::{
         ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
+        VariableDeclaration,
     };
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
     use crate::top_level::{Function, TopLevelElement};
@@ -165,7 +166,7 @@ mod tests {
         let symbol2 = Rc::new(VariableSymbol::new("test2".to_string(), DataType::Bool));
         let statement = Statement::Codeblock(CodeBlock::new(vec![
             Statement::VariableDeclaration(
-                VariableAssignment::<TypedAST>::new(
+                VariableDeclaration::<TypedAST>::new(
                     symbol.clone(),
                     Expression::Literal(Literal::F32(10.0)),
                 )
@@ -173,7 +174,7 @@ mod tests {
             ),
             Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
                 Statement::VariableDeclaration(
-                    VariableAssignment::<TypedAST>::new(
+                    VariableDeclaration::<TypedAST>::new(
                         symbol2.clone(),
                         Expression::Literal(Literal::Bool(true)),
                     )
@@ -242,14 +243,14 @@ mod tests {
             fibonacci.clone(),
             Statement::Codeblock(CodeBlock::new(vec![
                 Statement::VariableDeclaration(
-                    VariableAssignment::<TypedAST>::new(
+                    VariableDeclaration::<TypedAST>::new(
                         current.clone(),
                         Expression::Literal(Literal::S32(1)),
                     )
                     .unwrap(),
                 ),
                 Statement::VariableDeclaration(
-                    VariableAssignment::<TypedAST>::new(
+                    VariableDeclaration::<TypedAST>::new(
                         previous.clone(),
                         Expression::Literal(Literal::S32(0)),
                     )
@@ -258,7 +259,7 @@ mod tests {
                 Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
                     Statement::Codeblock(CodeBlock::new(vec![
                         Statement::VariableDeclaration(
-                            VariableAssignment::<TypedAST>::new(
+                            VariableDeclaration::<TypedAST>::new(
                                 temp.clone(),
                                 Expression::Variable(current.clone()),
                             )
@@ -359,22 +360,22 @@ mod tests {
         let ast = AST::new(vec![TopLevelElement::Function(Function::new(
             fibonacci.clone(),
             Statement::Codeblock(CodeBlock::new(vec![
-                Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
+                Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                     current.clone(),
                     Expression::Literal("1".to_string()),
                 )),
-                Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
+                Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                     previous.clone(),
                     Expression::Literal("0".to_string()),
                 )),
                 Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
                     Statement::Codeblock(CodeBlock::new(vec![
-                        Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
+                        Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                             temp.clone(),
                             Expression::Variable("current".to_string()),
                         )),
                         Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            current.clone(),
+                            "current".to_string(),
                             Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                                 BinaryOpType::Addition,
                                 Expression::Variable("current".to_string()),
@@ -382,11 +383,11 @@ mod tests {
                             ))),
                         )),
                         Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            previous.clone(),
+                            "previous".to_string(),
                             Expression::Variable("temp".to_string()),
                         )),
                         Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            nth.clone(),
+                            "nth".to_string(),
                             Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                                 BinaryOpType::Subtraction,
                                 Expression::Variable("nth".to_string()),
@@ -429,7 +430,7 @@ mod tests {
 
     fn basic_test_variable(
         symbol: Rc<VariableSymbol<TypedAST>>,
-    ) -> Option<VariableAssignment<TypedAST>> {
-        VariableAssignment::<TypedAST>::new(symbol, Expression::Literal(Literal::F32(14.0)))
+    ) -> Option<VariableDeclaration<TypedAST>> {
+        VariableDeclaration::<TypedAST>::new(symbol, Expression::Literal(Literal::F32(14.0)))
     }
 }
