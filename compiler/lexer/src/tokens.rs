@@ -1,6 +1,5 @@
 use logos::Logos;
 use std::num::{ParseFloatError, ParseIntError};
-use std::ops::Index;
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub enum LexError {
@@ -10,7 +9,6 @@ pub enum LexError {
     Float(ParseFloatError),
     InvalidChar(String), 
 }
-
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
