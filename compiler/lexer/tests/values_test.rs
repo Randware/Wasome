@@ -25,7 +25,7 @@ fn test_all_values() {
     let tokens: Vec<_> = lex(input)
         .filter_map(|result| result.ok())
         .collect();
-    
+
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -48,4 +48,37 @@ fn test_brokenformat_decimal() {
 
 
     assert_ne!(tokens, expected_tokens);
+}
+
+#[test]
+fn test_charLiteral() {
+    let input = r#"
+    char var1 <- 'n'
+    char var2 <- '\n'
+    "#;
+    
+    let expected_tokens = vec![
+        Token::StatementSeparator,
+        Token::Char,
+        Token::Identifier("var1".to_string()),
+        Token::Assign,
+        Token::CharLiteral('n'),
+        Token::StatementSeparator,
+        Token::Char,
+        Token::Identifier("var2".to_string()),
+        Token::Assign,
+        Token::CharLiteral('n'),
+        Token::StatementSeparator,
+    ];
+
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .collect();
+
+    for token in &tokens  {
+        println!("{:?}", token);
+    }
+
+    
+    assert_eq!(tokens, expected_tokens);
 }

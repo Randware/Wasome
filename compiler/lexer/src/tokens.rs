@@ -4,16 +4,17 @@ use std::num::{ParseFloatError, ParseIntError};
 #[derive(Debug, PartialEq, Clone, Default)]
 pub enum LexError {
     #[default]
-    Unknown, 
+    Unknown,
     Int(ParseIntError),
     Float(ParseFloatError),
+    InvalidChar(String), 
 }
+
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
+#[logos(skip r"[\t\f]+")]
 pub enum Token {
-    #[regex(r"[ \t\f]+", logos::skip)] 
-    _Skip,
     // --- Datatypes ---
     #[token("s8")]
     S8,
@@ -54,6 +55,9 @@ pub enum Token {
 
     #[regex(r"\d+", |lex| lex.slice().parse().map_err(LexError::Int))]
     Integer(i64),
+
+    #[regex(r"'(\\.|[^\\'])'", parse_char_literal)]
+    CharLiteral(char),
 
     // --- Math Operators ---
     #[token("+")]
@@ -129,7 +133,7 @@ pub enum Token {
     #[token("new")]
     New,
     #[token("::")]
-    PathSeperator,
+    PathSeparator,
     #[token(".")]
     Dot,
     #[token(";")]
@@ -139,4 +143,14 @@ pub enum Token {
     #[token(",")]
     ArgumentSeparator,
 
+}
+
+fn parse_char_literal(lex: &mut logos::Lexer<Token>) -> Result<char, LexError> {
+    let s = lex.slice(); 
+    let content = &s[1..s.len() - 1];
+    
+    println!("char literal: {}", content);
+    
+    Ok('s')
+    
 }
