@@ -54,7 +54,7 @@ fn test_brokenformat_decimal() {
 fn test_charLiteral() {
     let input = r#"
     char var1 <- 'n'
-    char var2 <- '\n'
+    char var2 <- '🎌'
     "#;
     
     let expected_tokens = vec![
@@ -67,7 +67,7 @@ fn test_charLiteral() {
         Token::Char,
         Token::Identifier("var2".to_string()),
         Token::Assign,
-        Token::CharLiteral('n'),
+        Token::CharLiteral('🎌'),
         Token::StatementSeparator,
     ];
 

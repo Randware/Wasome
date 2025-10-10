@@ -1,5 +1,6 @@
 use logos::Logos;
 use std::num::{ParseFloatError, ParseIntError};
+use std::ops::Index;
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub enum LexError {
@@ -148,9 +149,30 @@ pub enum Token {
 fn parse_char_literal(lex: &mut logos::Lexer<Token>) -> Result<char, LexError> {
     let s = lex.slice(); 
     let content = &s[1..s.len() - 1];
-    
-    println!("char literal: {}", content);
-    
-    Ok('s')
-    
+
+    let num_chars = content.chars().count();
+    if num_chars != 0 && num_chars != (1+(content.chars().next().unwrap() == '\\') as usize)
+    {
+        return Err(LexError::InvalidChar(content.to_string()))
+    }
+
+    let mut chars = content.chars();
+    let first_char = chars.next().unwrap();
+    Ok(match first_char
+    {
+        '\\' =>
+            {
+                let second_char = chars.next().unwrap();
+                match second_char
+                {
+                    'n' => '\n',
+                    't' => '\t',
+                    'r' => '\r',
+                    '0' => '\0',
+                    '\\' => '\\',
+                    _ => return Result::Err(LexError::InvalidChar(content.to_string()))
+                }
+            }
+        _ => first_char
+    })
 }
