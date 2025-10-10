@@ -49,6 +49,7 @@ fn test_charLiteral() {
     let input = r#"
     char var1 <- 'n'
     char var2 <- '🎌'
+    char var3 <- '\n'
     "#;
 
     let expected_tokens = vec![
@@ -63,9 +64,18 @@ fn test_charLiteral() {
         Token::Assign,
         Token::CharLiteral('🎌'),
         Token::StatementSeparator,
+        Token::Char,
+        Token::Identifier("var3".to_string()),
+        Token::Assign,
+        Token::CharLiteral('\n'),
+        Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+
+    for token in &tokens {
+        println!("{:?}", token);
+    }
 
     assert_eq!(tokens, expected_tokens);
 }

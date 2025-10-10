@@ -151,7 +151,7 @@ fn parse_char_literal(lex: &mut logos::Lexer<Token>) -> Result<char, LexError> {
     let content = &s[1..s.len() - 1];
 
     let num_chars = content.chars().count();
-    if num_chars != 0 && num_chars != (1 + (content.chars().next().unwrap() == '\\') as usize) {
+    if num_chars != 0 && num_chars != (1 + content.starts_with('\\') as usize) {
         return Err(LexError::InvalidChar(content.to_string()));
     }
 
