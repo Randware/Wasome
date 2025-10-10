@@ -7,12 +7,12 @@ use std::rc::Rc;
 /** This is an arbitiary top-level construct
 For now, there are only functions
 */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TopLevelElement<Type: ASTType> {
     Function(Function<Type>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
     implementation: Statement<Type>,
