@@ -27,7 +27,7 @@ fn test_all_values() {
     assert_eq!(tokens, expected_tokens);
 }
 #[test]
-fn test_brokenformat_decimal() {
+fn test_broken_format_decimal() {
     let input = r#"
     0.1 0.1.1
     "#;
@@ -35,17 +35,19 @@ fn test_brokenformat_decimal() {
     let expected_tokens = vec![
         Token::StatementSeparator,
         Token::Decimal(0.1),
-        Token::Decimal(1.1),
+        Token::Decimal(0.1),
+        Token::Dot,
+        Token::Integer(1),
         Token::StatementSeparator,
     ];
 
     let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
-    assert_ne!(tokens, expected_tokens);
+    assert_eq!(tokens, expected_tokens);
 }
 
 #[test]
-fn test_charLiteral() {
+fn test_char_literal() {
     let input = r#"
     char var1 <- 'n'
     char var2 <- '🎌'
