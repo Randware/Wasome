@@ -1,8 +1,7 @@
 use chumsky::prelude::*;
 use lexer::Token;
 
-pub(crate) fn datatype_parser<'src>() -> impl Parser<'src, &'src [Token], String>+Clone
-{
+pub(crate) fn datatype_parser<'src>() -> impl Parser<'src, &'src [Token], String> + Clone {
     choice((
         just(Token::F32).map(|_| "f32".to_string()),
         just(Token::F64).map(|_| "f64".to_string()),
@@ -17,21 +16,18 @@ pub(crate) fn datatype_parser<'src>() -> impl Parser<'src, &'src [Token], String
         just(Token::Bool).map(|_| "bool".to_string()),
         just(Token::Char).map(|_| "char".to_string()),
     ))
-
-
 }
 
-pub(crate) fn identifier_parser<'a>() -> impl Parser<'a, &'a [Token], String>+Clone
-{
-    custom(|token|
-        match token.next().ok_or(EmptyErr::default())?
-        {
-            Token::Identifier(inner) => Ok(inner),
-            _ => Err(EmptyErr::default())
-        })
+pub(crate) fn identifier_parser<'a>() -> impl Parser<'a, &'a [Token], String> + Clone {
+    custom(|token| match token.next().ok_or(EmptyErr::default())? {
+        Token::Identifier(inner) => Ok(inner),
+        _ => Err(EmptyErr::default()),
+    })
 }
 
-pub(crate) fn statement_seperator<'a>() -> impl Parser<'a, &'a [Token], ()>+Clone
-{
-    just(Token::StatementSeparator).repeated().at_least(1).ignored()
+pub(crate) fn statement_seperator<'a>() -> impl Parser<'a, &'a [Token], ()> + Clone {
+    just(Token::StatementSeparator)
+        .repeated()
+        .at_least(1)
+        .ignored()
 }
