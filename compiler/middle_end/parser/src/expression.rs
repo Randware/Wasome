@@ -53,8 +53,8 @@ pub(crate) fn expression_parser<'src>() -> impl Parser<'src, &'src [Token], Expr
             ));
 
         let unary_op = choice((
-            unary(Token::Subtraction, UnaryOpType::Negative),
-            unary(Token::Not, UnaryOpType::Not)
+            single_unary(Token::Subtraction, UnaryOpType::Negative),
+            single_unary(Token::Not, UnaryOpType::Not)
         ));
         let unary =
         choice((
@@ -121,25 +121,29 @@ fn binary_operator_parser<'a>(
         choice(ops
             .iter()
             .map(|(token, op)|
-                binary(token.clone(), op.clone())).collect::<Vec<_>>())
+                single_binary(token.clone(), *op)).collect::<Vec<_>>())
             .then(input)
             .repeated(),
         |lhs, (op, rhs)| op(lhs, rhs),
     )
 }
 
-fn unary<'a>(input: Token, operator_type: UnaryOpType<UntypedAST>)
-             -> To<Just<Token, &'a [Token], Full<EmptyErr, (), ()>>, Token, impl Clone+Fn(Expression<UntypedAST>) -> Expression<UntypedAST>>
+// There is no way known to me to split the return type up
+#[allow(clippy::type_complexity)]
+fn single_unary<'a>(input: Token, operator_type: UnaryOpType<UntypedAST>)
+                    -> To<Just<Token, &'a [Token], Full<EmptyErr, (), ()>>, Token, impl Clone+Fn(Expression<UntypedAST>) -> Expression<UntypedAST>>
 {
     just(input).to(move |input|
         Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(operator_type.clone(), input))))
 }
 
-fn binary<'a>(input: Token, operator_type: BinaryOpType)
-    -> To<Just<Token, &'a [Token], Full<EmptyErr, (), ()>>, Token, impl Clone+Fn(Expression<UntypedAST>, Expression<UntypedAST>) -> Expression<UntypedAST>>
+// There is no way known to me to split the return type up
+#[allow(clippy::type_complexity)]
+fn single_binary<'a>(input: Token, operator_type: BinaryOpType)
+                          -> To<Just<Token, &'a [Token], Full<EmptyErr, (), ()>>, Token, impl Clone+Fn(Expression<UntypedAST>, Expression<UntypedAST>) -> Expression<UntypedAST>>
 {
     just(input).to(move |lhs, rhs|
-        Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(operator_type.clone(), lhs, rhs))))
+        Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(operator_type, lhs, rhs))))
 }
 
 #[cfg(test)]

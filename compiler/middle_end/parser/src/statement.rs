@@ -36,7 +36,7 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
 
         let return_statement = just(Token::Return)
             .ignore_then(expression.clone().or_not())
-            .map(|ex| Return::new(ex));
+            .map(Return::new);
 
         let conditional = just(Token::If)
             .ignore_then(expression.clone().delimited_by(just(Token::OpenParen), just(Token::CloseScope)))
@@ -85,17 +85,17 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
                     .delimited_by(
                         just(Token::OpenScope).then(just(Token::StatementSeparator)),
                         just(Token::StatementSeparator).then(just(Token::CloseScope)))
-                    .map(|statements| CodeBlock::new(statements));
+                    .map(CodeBlock::new);
 
 
         choice((
-            variable_assignment.map(|var_assign| Statement::VariableAssignment(var_assign)),
-            variable_declaration.map(|var_decl| Statement::VariableDeclaration(var_decl)),
+            variable_assignment.map(Statement::VariableAssignment),
+            variable_declaration.map(Statement::VariableDeclaration),
             conditional.map(|cond| Statement::ControlStructure(Box::new(ControlStructure::Conditional(cond)))),
             loop_statement.map(|lst| Statement::ControlStructure(Box::new(ControlStructure::Loop(lst)))),
-            code_block.map(|code_block| Statement::Codeblock(code_block)),
-            return_statement.map(|ret| Statement::Return(ret)),
-            expression.map(|expr| Statement::Expression(expr)),
+            code_block.map(Statement::Codeblock),
+            return_statement.map(Statement::Return),
+            expression.map(Statement::Expression),
             ))
     })
 }
