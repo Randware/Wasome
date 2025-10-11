@@ -16,7 +16,7 @@ pub fn parser<'src>() -> impl Parser<'src, &'src [Token], AST<UntypedAST>>
     top_level
         .separated_by(just(Token::StatementSeparator))
         .collect::<Vec<_>>()
-        .map(|elems| AST::new(elems))
+        .map(AST::new)
 }
 
 pub fn add(left: u64, right: u64) -> u64 {

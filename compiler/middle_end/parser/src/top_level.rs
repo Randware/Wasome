@@ -10,7 +10,7 @@ use crate::statement::statement_parser;
 pub(crate) fn top_level_parser<'src>() -> impl Parser<'src, &'src [Token], TopLevelElement<UntypedAST>>
 {
     // This currently only handles functions
-    function_parser().map(|func| TopLevelElement::Function(func))
+    function_parser().map(TopLevelElement::Function)
 }
 
 fn function_parser<'src>() -> impl Parser<'src, &'src [Token], Function<UntypedAST>>
