@@ -1,0 +1,167 @@
+use std::rc::Rc;
+use chumsky::prelude::*;
+use ast::block::CodeBlock;
+use ast::statement::{Conditional, LoopType, Return, Statement, VariableAssignment, VariableDeclaration, Loop, ControlStructure};
+use ast::symbol::VariableSymbol;
+use ast::UntypedAST;
+use lexer::Token;
+use lexer::Token::CloseParen;
+use crate::expression::expression_parser;
+use crate::misc::{datatype_parser, identifier_parser};
+
+pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], Statement<UntypedAST>>
+{
+    recursive(|statement| {
+        let data_type = datatype_parser();
+        let ident = identifier_parser();
+
+
+        let expression = expression_parser();
+
+        let variable_assignment = ident.clone()
+            .then_ignore(just(Token::Assign))
+            .then(expression.clone())
+            .map(|(name, val)|
+                VariableAssignment::<UntypedAST>::new(name, val));
+
+        let variable_declaration = data_type.clone()
+            .then(ident)
+            .then_ignore(just(Token::Assign))
+            .then(expression.clone())
+            .map(|((data_type, name), val)|
+                VariableDeclaration::<UntypedAST>::new(
+                    Rc::new(VariableSymbol::new(name, data_type)),
+                    val
+                ));
+
+        let return_statement = just(Token::Return)
+            .ignore_then(expression.clone().or_not())
+            .map(|ex| Return::new(ex));
+
+        let conditional = just(Token::If)
+            .ignore_then(expression.clone().delimited_by(just(Token::OpenParen), just(Token::CloseScope)))
+            .then_ignore(maybe_statement_separator())
+            .then(statement.clone())
+            .then(
+                maybe_statement_separator()
+                    .then_ignore(just(Token::Else))
+                    .then_ignore(maybe_statement_separator())
+                    .ignore_then(statement.clone()).or_not())
+            .map(|((cond, then), else_statement)|
+            Conditional::new(cond, then, else_statement));
+
+        let loop_body = maybe_statement_separator().ignore_then(statement.clone());
+        let loop_statement = just(Token::Loop)
+            .ignore_then(just(Token::OpenParen))
+            .ignore_then(choice((
+
+                just(CloseParen).ignore_then(loop_body.clone())
+                    .map(|body|
+                        (body, LoopType::Infinite)),
+
+                expression.clone()
+                    .then_ignore(just(CloseParen)).then(loop_body.clone())
+                    .map(|(cond, body)|
+                        (body, LoopType::While(cond))),
+
+                statement.clone().then_ignore(just(Token::Semicolon))
+                    .then(expression.clone().then_ignore(just(Token::Semicolon)))
+                    .then(statement.clone())
+                    .then_ignore(just(CloseParen)).then(loop_body.clone())
+                    .map(|(((init, cond), after_each), body)|
+                        (body, LoopType::For {
+                            start: init,
+                            cond,
+                            after_each
+                        }))
+                )))
+            .map(|(body, loop_type)|
+            Loop::new(body, loop_type));
+
+        let code_block =
+                statement.clone()
+                    .separated_by(just(Token::StatementSeparator))
+                    .collect::<Vec<Statement<UntypedAST>>>()
+                    .delimited_by(
+                        just(Token::OpenScope).then(just(Token::StatementSeparator)),
+                        just(Token::StatementSeparator).then(just(Token::CloseScope)))
+                    .map(|statements| CodeBlock::new(statements));
+
+
+        choice((
+            variable_assignment.map(|var_assign| Statement::VariableAssignment(var_assign)),
+            variable_declaration.map(|var_decl| Statement::VariableDeclaration(var_decl)),
+            conditional.map(|cond| Statement::ControlStructure(Box::new(ControlStructure::Conditional(cond)))),
+            loop_statement.map(|lst| Statement::ControlStructure(Box::new(ControlStructure::Loop(lst)))),
+            code_block.map(|code_block| Statement::Codeblock(code_block)),
+            return_statement.map(|ret| Statement::Return(ret)),
+            expression.map(|expr| Statement::Expression(expr)),
+            ))
+    })
+}
+
+fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [Token], ()>+Clone {
+    just(Token::StatementSeparator).or_not().ignored()
+}
+#[cfg(test)]
+mod tests
+{
+    use std::rc::Rc;
+    use lexer::Token;
+    use chumsky::Parser;
+    use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
+    use ast::statement::{Statement, VariableDeclaration};
+    use ast::symbol::{FunctionCall, VariableSymbol};
+    use ast::UntypedAST;
+    use crate::statement::statement_parser;
+
+    #[test]
+    fn parse()
+    {
+        let to_parse = vec![
+            Token::Bool,
+            Token::Identifier("var".to_string()),
+            Token::Assign,
+            Token::Identifier("test".to_string()),
+            Token::OpenParen,
+            Token::Integer(5), Token::As, Token::F32, Token::Semicolon, //TODO
+            Token::Identifier("test2".to_string()), Token::NotEqual, Token::Decimal(5.0), Token::Multiplication, Token::Decimal(10.0),
+            Token::CloseParen
+        ];
+
+        let parser = statement_parser();
+
+        let parsed = parser.parse(&to_parse).unwrap();
+        let expected =  Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+            Rc::new(VariableSymbol::new("var".to_string(), "bool".to_string())),
+            Expression::FunctionCall(
+                FunctionCall::<UntypedAST>::new(
+                    "test".to_string(),
+                    vec![
+                        Expression::UnaryOp(
+                            Box::new(UnaryOp::<UntypedAST>::new(
+                                UnaryOpType::Typecast(
+                                    Typecast::new("f32".to_string())
+                                ),
+                                Expression::Literal("5".to_string())
+                            ))
+                        ),
+                        Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                            BinaryOpType::NotEquals,
+                            Expression::Variable("test2".to_string()),
+                            Expression::BinaryOp(
+                                Box::new(BinaryOp::<UntypedAST>::new(
+                                    BinaryOpType::Multiplication,
+                                    Expression::Literal("5".to_string()),
+                                    Expression::Literal("10".to_string())
+                                ))
+                            )
+                        )))
+                    ]
+                )
+            )
+        ));
+        assert_eq!(parsed, expected);
+
+    }
+}
