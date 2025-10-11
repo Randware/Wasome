@@ -25,7 +25,7 @@ pub(crate) fn expression_parser<'src>() -> impl Parser<'src, &'src [Token], Expr
         let call = ident.clone()
             .then(
                 expr.clone()
-                    .separated_by(just(Token::Semicolon)) //TODO
+                    .separated_by(just(Token::ArgumentSeparator))
                     .collect::<Vec<Expression<UntypedAST>>>()
                     .delimited_by(just(Token::OpenParen), just(Token::CloseParen)),
             )//.then(just(Token::Return).ignore_then(ident).or_not())
@@ -158,7 +158,7 @@ mod tests
         let to_parse = vec![
             Token::Identifier("test".to_string()),
             Token::OpenParen,
-                Token::Integer(5), Token::As, Token::F32, Token::Semicolon, //TODO
+                Token::Integer(5), Token::As, Token::F32, Token::ArgumentSeparator,
                 Token::Identifier("test2".to_string()), Token::NotEqual, Token::Decimal(5.0), Token::Multiplication, Token::Decimal(10.0),
             Token::CloseParen
             //Token::Integer(10), Token::As, Token::Identifier("f32".to_string())
@@ -203,7 +203,7 @@ mod tests
             Token::OpenParen,
             Token::Identifier("test".to_string()),
             Token::OpenParen,
-            Token::Integer(5), Token::As, Token::F32, Token::Semicolon, //TODO
+            Token::Integer(5), Token::As, Token::F32, Token::ArgumentSeparator,
             Token::Identifier("test2".to_string()), Token::NotEqual, Token::Decimal(5.0), Token::Multiplication, Token::Decimal(10.0),
             Token::CloseParen,
             Token::CloseParen
@@ -264,7 +264,7 @@ mod tests
             Token::Assign,
             Token::Identifier("test".to_string()),
             Token::OpenParen,
-            Token::Integer(5), Token::As, Token::F32, Token::Semicolon, //TODO
+            Token::Integer(5), Token::As, Token::F32, Token::ArgumentSeparator,
             Token::Identifier("test2".to_string()), Token::NotEqual, Token::Decimal(5.0), Token::Multiplication, Token::Decimal(10.0),
             Token::CloseParen
         ];

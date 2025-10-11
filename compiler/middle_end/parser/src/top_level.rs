@@ -26,7 +26,7 @@ fn function_parser<'src>() -> impl Parser<'src, &'src [Token], Function<UntypedA
         .ignore_then(ident)
         .then(
         param.clone()
-            .separated_by(just(Token::Semicolon)) //TODO
+            .separated_by(just(Token::ArgumentSeparator))
             .collect::<Vec<Rc<VariableSymbol<UntypedAST>>>>()
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen)),
         )
@@ -65,7 +65,7 @@ mod tests
             Token::Assign,
             Token::Identifier("test".to_string()),
             Token::OpenParen,
-            Token::Integer(5), Token::As, Token::F32, Token::Semicolon, //TODO
+            Token::Integer(5), Token::As, Token::F32, Token::ArgumentSeparator,
             Token::Identifier("test2".to_string()), Token::NotEqual, Token::Decimal(5.0), Token::Multiplication, Token::Decimal(10.0),
             Token::CloseParen,
             Token::StatementSeparator,
