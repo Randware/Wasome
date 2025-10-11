@@ -30,3 +30,8 @@ pub(crate) fn identifier_parser<'a>() -> impl Parser<'a, &'a [Token], String>+Cl
             _ => Err(EmptyErr::default())
         })
 }
+
+pub(crate) fn statement_seperator<'a>() -> impl Parser<'a, &'a [Token], ()>+Clone
+{
+    just(Token::StatementSeparator).repeated().at_least(1).ignored()
+}
