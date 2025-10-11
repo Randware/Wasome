@@ -4,6 +4,7 @@ use ast::{UntypedAST, AST};
 use lexer::Token;
 use crate::top_level::top_level_parser;
 use chumsky::IterParser;
+use crate::misc::statement_seperator;
 
 mod expression;
 mod statement;
@@ -14,7 +15,7 @@ pub fn parser<'src>() -> impl Parser<'src, &'src [Token], AST<UntypedAST>>
 {
     let top_level = top_level_parser();
     top_level
-        .separated_by(just(Token::StatementSeparator))
+        .separated_by(statement_seperator())
         .collect::<Vec<_>>()
         .map(AST::new)
 }

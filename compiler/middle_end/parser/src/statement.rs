@@ -7,7 +7,7 @@ use ast::UntypedAST;
 use lexer::Token;
 use lexer::Token::CloseParen;
 use crate::expression::expression_parser;
-use crate::misc::{datatype_parser, identifier_parser};
+use crate::misc::{datatype_parser, identifier_parser, statement_seperator};
 
 pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], Statement<UntypedAST>>
 {
@@ -80,11 +80,13 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
 
         let code_block =
                 statement.clone()
-                    .separated_by(just(Token::StatementSeparator))
+                    .separated_by(statement_seperator())
+                    .allow_leading()
+                    .allow_trailing()
                     .collect::<Vec<Statement<UntypedAST>>>()
                     .delimited_by(
-                        just(Token::OpenScope).then(just(Token::StatementSeparator)),
-                        just(Token::StatementSeparator).then(just(Token::CloseScope)))
+                        just(Token::OpenScope),
+                        just(Token::CloseScope))
                     .map(CodeBlock::new);
 
 
