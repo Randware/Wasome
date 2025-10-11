@@ -124,7 +124,7 @@ mod tests
             Token::Assign,
             Token::Identifier("test".to_string()),
             Token::OpenParen,
-            Token::Integer(5), Token::As, Token::F32, Token::Semicolon, //TODO
+            Token::Integer(5), Token::As, Token::F32, Token::ArgumentSeparator,
             Token::Identifier("test2".to_string()), Token::NotEqual, Token::Decimal(5.0), Token::Multiplication, Token::Decimal(10.0),
             Token::CloseParen
         ];
