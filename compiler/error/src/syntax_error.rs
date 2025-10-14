@@ -63,10 +63,16 @@ impl SyntaxErrorBuilder
         {
             panic!("Not all fields are set!");
         }
-        SyntaxError::new(self.start.unwrap(),
+        let error = SyntaxError::new(self.start.unwrap(),
                          self.end.unwrap(),
                          self.file_location.unwrap(),
-                         self.error_type.unwrap())
+                         self.error_type.unwrap());
+        if error.start.line >= error.end.line
+            || (error.start.line == error.end.line+1 && error.start.char > error.end.char)
+        {
+            panic!("The error does not include at least parts of one line!");
+        }
+        error
     }
 }
 
