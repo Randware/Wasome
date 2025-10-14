@@ -1,6 +1,9 @@
 use std::ops::Add;
 use colored::{Color, Colorize};
 
+/** A syntax error
+This struct is used for storing and displaying syntax errors
+*/
 pub struct SyntaxError
 {
     start: CodeLocation,
@@ -11,11 +14,18 @@ pub struct SyntaxError
 
 impl SyntaxError
 {
+    /** Creates a new syntax error with the specified fields
+    Only intended for internal use.
+    To create a SyntaxError elsewhere, use a [`SyntaxErrorBuilder`]
+    */
     fn new(start: CodeLocation, end: CodeLocation, file_location: String, error_type: Box<dyn ErrorType>) -> Self {
         Self { start, end, file_location, error_type }
     }
 }
 
+/** A builder for syntax errors
+Expects the user to set every field before building
+*/
 pub struct SyntaxErrorBuilder
 {
     start: Option<CodeLocation>,
@@ -26,34 +36,53 @@ pub struct SyntaxErrorBuilder
 
 impl SyntaxErrorBuilder
 {
+    /** Creates a new and empty [`SyntaxErrorBuilder`]
+    */
     pub fn new() -> Self {
         Self { start: None, end: None, file_location: None, error_type: None }
     }
 
+    /** Sets an error start location
+    Both the line and char are inclusive
+    */
     pub fn with_start(mut self, start: CodeLocation) -> Self
     {
         self.start = Some(start);
         self
     }
 
+    /** Sets an error end location
+    The line is inclusive, the char exclusive
+    */
     pub fn with_end(mut self, end: CodeLocation) -> Self
     {
         self.end = Some(end);
         self
     }
 
+    /** Sets the path of the file that contains the erroneous code
+    This is for display purposes only
+    */
     pub fn with_file_location(mut self, file_location: String) -> Self
     {
         self.file_location = Some(file_location);
         self
     }
 
+    /** Sets the type of error
+    */
     pub fn with_error_type(mut self, error_type: impl ErrorType+'static) -> Self
     {
         self.error_type = Some(Box::new(error_type));
         self
     }
 
+    /** Builds the [`SyntaxError`]
+    # Panics
+    Panics if
+    1. Not all fields are set
+    2. Not at least part of one line is included in the error
+    */
     pub fn build(self) -> SyntaxError
     {
         if self.file_location.is_none() ||
@@ -76,6 +105,9 @@ impl SyntaxErrorBuilder
     }
 }
 
+/** A location in some code.
+Identified by line and char
+*/
 pub struct CodeLocation
 {
     line: usize,
@@ -99,11 +131,13 @@ impl CodeLocation
 
 impl SyntaxError
 {
+    /** Prints the error to stdout
+    */
     pub fn print(&self, code: &str)
     {
-        println!("{} {}", "Error:".red(), self.error_type.to_string());
-        println!();
-        println!("{}{}{}", "[".bright_black().bold(), self.file_location.bright_black().bold(), "]".bright_black().bold());
+        eprintln!("{} {}", "Error:".red(), self.error_type.to_string());
+        eprintln!();
+        eprintln!("{}{}{}", "[".bright_black().bold(), self.file_location.bright_black().bold(), "]".bright_black().bold());
 
         let display_end = self.end.line()+3;
         let display_start = if self.start.line() < 3 {0} else {self.start.line()-3};
@@ -126,21 +160,21 @@ impl SyntaxError
                 else if index == error_end_line {self.end.char()}
                 else {line.len()};
 
-            print!("{}", index.to_string().add(": ").bright_blue().bold());
+            eprint!("{}", index.to_string().add(": ").bright_blue().bold());
             if error_start_char != 0
             {
-                print!("{}", &line[0..error_start_char]);
+                eprint!("{}", &line[0..error_start_char]);
             }
-            print!("{}", &line[error_start_char..error_end_char].color(Color::TrueColor {
+            eprint!("{}", &line[error_start_char..error_end_char].color(Color::TrueColor {
                 r: 255,
                 g: 127,
                 b: 0,
             }));
             if error_end_char != line.len()
             {
-                print!("{}", &line[error_end_char..line.len()]);
+                eprint!("{}", &line[error_end_char..line.len()]);
             }
-            println!()
+            eprintln!()
         }
 
     }
@@ -168,8 +202,8 @@ mod tests {
     fn error()
     {
         let error = SyntaxErrorBuilder::new()
-            .with_start(CodeLocation::new(6,8))
-            .with_end(CodeLocation::new(6,21))
+            .with_start(CodeLocation::new(8,10))
+            .with_end(CodeLocation::new(8,23))
             .with_error_type(ExampleError("CodeLocation".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
