@@ -160,7 +160,7 @@ impl SyntaxError
                 else if index == error_end_line {self.end.char()}
                 else {line.len()};
 
-            eprint!("{}", index.to_string().add(": ").bright_blue().bold());
+            eprint!("{}", index.to_string().add(": \t").bright_blue().bold());
             if error_start_char != 0
             {
                 eprint!("{}", &line[0..error_start_char]);
