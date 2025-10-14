@@ -107,7 +107,8 @@ impl SyntaxErrorBuilder
 }
 
 /** A location in some code.
-Identified by line and char
+Identified by line and char.
+Both line and char are zero-based
 */
 pub struct CodeLocation
 {
@@ -167,7 +168,8 @@ impl SyntaxError
                 else if index == error_end_line {self.end.char()}
                 else {line.len()};
 
-            eprint!("{}", index.to_string().add(": \t").bright_blue().bold());
+            // The line is zero-based
+            eprint!("{}", (index+1).to_string().add(": \t").bright_blue().bold());
             if error_start_char != 0
             {
                 eprint!("{}", &line[0..error_start_char]);
