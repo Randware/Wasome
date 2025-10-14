@@ -6,12 +6,12 @@ pub struct SyntaxError
     start: CodeLocation,
     end: CodeLocation,
     file_location: String,
-    error_type: ErrorType
+    error_type: Box<dyn ErrorType>
 }
 
 impl SyntaxError
 {
-    fn new(start: CodeLocation, end: CodeLocation, file_location: String, error_type: ErrorType) -> Self {
+    fn new(start: CodeLocation, end: CodeLocation, file_location: String, error_type: Box<dyn ErrorType>) -> Self {
         Self { start, end, file_location, error_type }
     }
 }
@@ -21,7 +21,7 @@ pub struct SyntaxErrorBuilder
     start: Option<CodeLocation>,
     end: Option<CodeLocation>,
     file_location: Option<String>,
-    error_type: Option<ErrorType>
+    error_type: Option<Box<dyn ErrorType>>
 }
 
 impl SyntaxErrorBuilder
@@ -48,9 +48,9 @@ impl SyntaxErrorBuilder
         self
     }
 
-    pub fn with_error_type(mut self, error_type: ErrorType) -> Self
+    pub fn with_error_type(mut self, error_type: impl ErrorType+'static) -> Self
     {
-        self.error_type = Some(error_type);
+        self.error_type = Some(Box::new(error_type));
         self
     }
 
@@ -67,8 +67,8 @@ impl SyntaxErrorBuilder
                          self.end.unwrap(),
                          self.file_location.unwrap(),
                          self.error_type.unwrap());
-        if error.start.line >= error.end.line
-            || (error.start.line == error.end.line+1 && error.start.char > error.end.char)
+        if error.start.line > error.end.line
+            || (error.start.line == error.end.line && error.start.char >= error.end.char)
         {
             panic!("The error does not include at least parts of one line!");
         }
@@ -146,34 +146,31 @@ impl SyntaxError
     }
 }
 
-pub enum ErrorType
+pub trait ErrorType
 {
-    IllegalChar(String),
-}
-
-impl ErrorType
-{
-    fn to_string(&self) -> String
-    {
-        match self
-        {
-            ErrorType::IllegalChar(problem) => format!("The provided character \"{}\" is invalid", problem)
-        }
-    }
+    fn to_string(&self) -> String;
 
 }
+
 
 #[cfg(test)]
 mod tests {
     use crate::syntax_error::{CodeLocation, ErrorType, SyntaxErrorBuilder};
 
+    pub struct ExampleError(String);
+    impl ErrorType for ExampleError
+    {
+        fn to_string(&self) -> String {
+            format!("\"{}\" is an invalid data type at this point in the programm", self.0)
+        }
+    }
     #[test]
     fn error()
     {
         let error = SyntaxErrorBuilder::new()
             .with_start(CodeLocation::new(6,8))
             .with_end(CodeLocation::new(6,21))
-            .with_error_type(ErrorType::IllegalChar("invalid".to_string()))
+            .with_error_type(ExampleError("CodeLocation".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
 
