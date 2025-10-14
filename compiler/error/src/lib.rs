@@ -1,6 +1,7 @@
 use std::ops::Add;
 use colored::{Color, Colorize};
 
+const ERROR_CONTEXT_LINES: usize = 3;
 /** A syntax error
 This struct is used for storing and displaying syntax errors
 */
@@ -129,6 +130,12 @@ impl CodeLocation
     }
 }
 
+const ERROR_CODE_COLOR: Color = Color::TrueColor {
+    r: 255,
+    g: 127,
+    b: 0,
+};
+
 impl SyntaxError
 {
     /** Prints the error to stdout
@@ -139,8 +146,8 @@ impl SyntaxError
         eprintln!();
         eprintln!("{}{}{}", "[".bright_black().bold(), self.file_location.bright_black().bold(), "]".bright_black().bold());
 
-        let display_end = self.end.line()+3;
-        let display_start = if self.start.line() < 3 {0} else {self.start.line()-3};
+        let display_end = self.end.line()+ERROR_CONTEXT_LINES;
+        let display_start = if self.start.line() < ERROR_CONTEXT_LINES {0} else {self.start.line()-ERROR_CONTEXT_LINES};
         let error_start_line = self.start.line();
         let error_end_line = self.end.line();
         for (index, line) in code.lines().enumerate()
@@ -165,11 +172,7 @@ impl SyntaxError
             {
                 eprint!("{}", &line[0..error_start_char]);
             }
-            eprint!("{}", &line[error_start_char..error_end_char].color(Color::TrueColor {
-                r: 255,
-                g: 127,
-                b: 0,
-            }));
+            eprint!("{}", &line[error_start_char..error_end_char].color(ERROR_CODE_COLOR));
             if error_end_char != line.len()
             {
                 eprint!("{}", &line[error_end_char..line.len()]);
@@ -202,8 +205,8 @@ mod tests {
     fn error()
     {
         let error = SyntaxErrorBuilder::new()
-            .with_start(CodeLocation::new(8,10))
-            .with_end(CodeLocation::new(8,23))
+            .with_start(CodeLocation::new(9,10))
+            .with_end(CodeLocation::new(9,23))
             .with_error_type(ExampleError("CodeLocation".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
