@@ -223,7 +223,7 @@ impl SyntaxError {
                 line_starting_pos + line_error_start_char..line_starting_pos + line_error_end_char,
             ))
             .with_color(a);
-            if line_num == self.area.start().line() {
+            if line_num == self.area.end().line() {
                 to_add = to_add.with_message(self.error_type.to_string())
             }
             lines.push(to_add);
