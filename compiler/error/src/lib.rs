@@ -2,7 +2,6 @@
 
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use std::fmt::Debug;
-use std::ops::Add;
 
 const ERROR_CONTEXT_LINES: usize = 3;
 /** A syntax error
@@ -229,7 +228,7 @@ impl SyntaxError {
             Self::update_line_starting_pos(code, &mut line_starting_pos);
         }
 
-        let mut report = Report::build(
+        let report = Report::build(
             ReportKind::Error,
             (&self.file_location, error_start_char..error_end_char),
         )
