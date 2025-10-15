@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn error() {
         let error = SyntaxErrorBuilder::new()
-            .with_area(CodeArea::new(CodeLocation::new(14, 10), CodeLocation::new(14, 18)).unwrap())
+            .with_area(CodeArea::new(CodeLocation::new(12, 10), CodeLocation::new(12, 18)).unwrap())
             .with_error_type(ExampleError("CodeArea".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
