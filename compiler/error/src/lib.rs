@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use std::ops::Add;
 use colored::{Color, Colorize};
 
@@ -7,8 +8,7 @@ This struct is used for storing and displaying syntax errors
 */
 pub struct SyntaxError
 {
-    start: CodeLocation,
-    end: CodeLocation,
+    area: CodeArea,
     file_location: String,
     error_type: Box<dyn ErrorType>
 }
@@ -19,8 +19,8 @@ impl SyntaxError
        Only intended for internal use.
        To create a SyntaxError elsewhere, use a [`SyntaxErrorBuilder`]
     */
-    fn new(start: CodeLocation, end: CodeLocation, file_location: String, error_type: Box<dyn ErrorType>) -> Self {
-        Self { start, end, file_location, error_type }
+    fn new(area: CodeArea, file_location: String, error_type: Box<dyn ErrorType>) -> Self {
+        Self { area, file_location, error_type }
     }
 }
 
@@ -29,8 +29,7 @@ Expects the user to set every field before building
 */
 pub struct SyntaxErrorBuilder
 {
-    start: Option<CodeLocation>,
-    end: Option<CodeLocation>,
+    area: Option<CodeArea>,
     file_location: Option<String>,
     error_type: Option<Box<dyn ErrorType>>
 }
@@ -40,24 +39,14 @@ impl SyntaxErrorBuilder
     /** Creates a new and empty [`SyntaxErrorBuilder`]
     */
     pub fn new() -> Self {
-        Self { start: None, end: None, file_location: None, error_type: None }
+        Self { area: None, file_location: None, error_type: None }
     }
 
-    /** Sets an error start location
-       Both the line and char are inclusive
+    /** Sets an error area
     */
-    pub fn with_start(mut self, start: CodeLocation) -> Self
+    pub fn with_area(mut self, area: CodeArea) -> Self
     {
-        self.start = Some(start);
-        self
-    }
-
-    /** Sets an error end location
-       The line is inclusive, the char exclusive
-    */
-    pub fn with_end(mut self, end: CodeLocation) -> Self
-    {
-        self.end = Some(end);
+        self.area = Some(area);
         self
     }
 
@@ -79,30 +68,20 @@ impl SyntaxErrorBuilder
     }
 
     /** Builds the [`SyntaxError`]
-       # Panics
-       Panics if
-       1. Not all fields are set
-       2. Not at least part of one line is included in the error
+    # Panics
+    Panics if not all fields are set
     */
     pub fn build(self) -> SyntaxError
     {
         if self.file_location.is_none() ||
             self.error_type.is_none() ||
-            self.start.is_none() ||
-            self.end.is_none()
+            self.area.is_none()
         {
             panic!("Not all fields are set!");
         }
-        let error = SyntaxError::new(self.start.unwrap(),
-                                     self.end.unwrap(),
+        SyntaxError::new(self.area.unwrap(),
                                      self.file_location.unwrap(),
-                                     self.error_type.unwrap());
-        if error.start.line > error.end.line
-            || (error.start.line == error.end.line && error.start.char >= error.end.char)
-        {
-            panic!("The error does not include at least parts of one line!");
-        }
-        error
+                                     self.error_type.unwrap())
     }
 }
 
@@ -131,6 +110,40 @@ impl CodeLocation
     }
 }
 
+/** A area of code represented by start and end.
+The start is inclusive
+The line of the end is inclusive, the char exclusive
+ */
+pub struct CodeArea
+{
+    start: CodeLocation,
+    end: CodeLocation
+}
+
+impl CodeArea
+{
+    /** Creates a new [`CodeArea`]
+       # Panics
+       Panics if start is not before end
+    */
+    pub fn new(start: CodeLocation, end: CodeLocation) -> Option<Self> {
+        if start.line > end.line
+            || (start.line == end.line && start.char >= end.char)
+        {
+            return None;
+        }
+        Some(Self { start, end })
+    }
+
+    pub fn start(&self) -> &CodeLocation {
+        &self.start
+    }
+
+    pub fn end(&self) -> &CodeLocation {
+        &self.end
+    }
+}
+
 const ERROR_CODE_COLOR: Color = Color::TrueColor {
     r: 255,
     g: 127,
@@ -149,8 +162,8 @@ impl SyntaxError
         eprintln!("{}{}{}", "[".bright_black().bold(), self.file_location.bright_black().bold(), "]".bright_black().bold());
 
         // The start and end
-        let error_start_line = self.start.line();
-        let error_end_line = self.end.line();
+        let error_start_line = self.area.start.line();
+        let error_end_line = self.area.end.line();
         // The start and end including the padding
         let display_end = error_end_line+ERROR_CONTEXT_LINES;
         let display_start = if error_start_line < ERROR_CONTEXT_LINES {0} else {error_start_line-ERROR_CONTEXT_LINES};
@@ -167,12 +180,12 @@ impl SyntaxError
             // Used for making the text white or yellow
             let error_start_char =
                 if index < error_start_line {line.len()} //Before the error lines, so it doesn't begin at all
-                else if index == error_start_line {self.start.char()}
+                else if index == error_start_line {self.area.start.char()}
                 else {0};
 
             let error_end_char =
                 if index > error_end_line {0} //After the error lines, so it end immediately
-                else if index == error_end_line {self.end.char()}
+                else if index == error_end_line {self.area.end.char()}
                 else {line.len()};
 
             // Print the line
@@ -202,7 +215,7 @@ pub trait ErrorType
 
 #[cfg(test)]
 mod tests {
-    use crate::{CodeLocation, ErrorType, SyntaxErrorBuilder};
+    use crate::{CodeArea, CodeLocation, ErrorType, SyntaxErrorBuilder};
 
     pub struct ExampleError(String);
     impl ErrorType for ExampleError
@@ -215,9 +228,8 @@ mod tests {
     fn error()
     {
         let error = SyntaxErrorBuilder::new()
-            .with_start(CodeLocation::new(9,10))
-            .with_end(CodeLocation::new(9,23))
-            .with_error_type(ExampleError("CodeLocation".to_string()))
+            .with_area(CodeArea::new(CodeLocation::new(9,10), CodeLocation::new(9,18)).unwrap())
+            .with_error_type(ExampleError("CodeArea".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
 
