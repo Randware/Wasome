@@ -1,4 +1,6 @@
 #![forbid(unsafe_code)]
+
+use std::fmt::Debug;
 use std::ops::Add;
 use colored::{Color, Colorize};
 
@@ -6,6 +8,8 @@ const ERROR_CONTEXT_LINES: usize = 3;
 /** A syntax error
 This struct is used for storing and displaying syntax errors
 */
+#[derive(Debug)]
+
 pub struct SyntaxError
 {
     area: CodeArea,
@@ -27,6 +31,8 @@ impl SyntaxError
 /** A builder for syntax errors
 Expects the user to set every field before building
 */
+#[derive(Debug)]
+
 pub struct SyntaxErrorBuilder
 {
     area: Option<CodeArea>,
@@ -89,6 +95,7 @@ impl SyntaxErrorBuilder
 Identified by line and char.
 Both line and char are zero-based
 */
+#[derive(Debug, PartialEq)]
 pub struct CodeLocation
 {
     line: usize,
@@ -114,6 +121,7 @@ impl CodeLocation
 The start is inclusive
 The line of the end is inclusive, the char exclusive
  */
+#[derive(Debug, PartialEq)]
 pub struct CodeArea
 {
     start: CodeLocation,
@@ -206,7 +214,7 @@ impl SyntaxError
     }
 }
 
-pub trait ErrorType
+pub trait ErrorType: Debug
 {
     fn to_string(&self) -> String;
 
@@ -217,6 +225,7 @@ pub trait ErrorType
 mod tests {
     use crate::{CodeArea, CodeLocation, ErrorType, SyntaxErrorBuilder};
 
+    #[derive(Debug)]
     pub struct ExampleError(String);
     impl ErrorType for ExampleError
     {
@@ -228,11 +237,24 @@ mod tests {
     fn error()
     {
         let error = SyntaxErrorBuilder::new()
-            .with_area(CodeArea::new(CodeLocation::new(10,10), CodeLocation::new(10,18)).unwrap())
+            .with_area(CodeArea::new(CodeLocation::new(14,10), CodeLocation::new(14,18)).unwrap())
             .with_error_type(ExampleError("CodeArea".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
 
         error.print(include_str!("lib.rs"));
+    }
+
+    fn codearea_invalid_should_return_none()
+    {
+        let codearea = CodeArea::new(CodeLocation::new(10,10),
+        CodeLocation::new(5,10));
+
+        assert_eq!(None, codearea);
+
+        let codearea = CodeArea::new(CodeLocation::new(10,10),
+                                     CodeLocation::new(10,10));
+
+        assert_eq!(None, codearea);
     }
 }
