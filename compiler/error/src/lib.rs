@@ -40,6 +40,12 @@ pub struct SyntaxErrorBuilder
     error_type: Option<Box<dyn ErrorType>>
 }
 
+impl Default for SyntaxErrorBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SyntaxErrorBuilder
 {
     /** Creates a new and empty [`SyntaxErrorBuilder`]
@@ -188,11 +194,14 @@ impl SyntaxError
 
             // Where the error begins and where it ends in the current line
             // Used for making the text white or yellow
+            #[allow(clippy::comparison_chain)]
             let error_start_char =
                 if index < error_start_line {line.len()} //Before the error lines, so it doesn't begin at all
                 else if index == error_start_line {self.area.start.char()}
                 else {0};
 
+            // Using a match makes this hard to read
+            #[allow(clippy::comparison_chain)]
             let error_end_char =
                 if index > error_end_line {0} //After the error lines, so it end immediately
                 else if index == error_end_line {self.area.end.char()}
