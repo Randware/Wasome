@@ -1,9 +1,8 @@
 #![forbid(unsafe_code)]
 
-
+use ariadne::{Color, Label, Report, ReportKind, Source};
 use std::fmt::Debug;
 use std::ops::Add;
-use ariadne::{Color, Label, Report, ReportKind, Source};
 
 const ERROR_CONTEXT_LINES: usize = 3;
 /** A syntax error
@@ -152,7 +151,6 @@ impl CodeArea {
     }
 }
 
-
 impl SyntaxError {
     /** Prints the error to stdout
     # Panic
@@ -188,13 +186,11 @@ impl SyntaxError {
             }
 
             // Update the error start and end
-            if line_num == error_start_line
-            {
-                error_start_char = line_starting_pos +self.area.start().char();
+            if line_num == error_start_line {
+                error_start_char = line_starting_pos + self.area.start().char();
             }
-            if line_num == error_end_line
-            {
-                error_end_char = line_starting_pos +line.len()+self.area.end().char();
+            if line_num == error_end_line {
+                error_end_char = line_starting_pos + line.len() + self.area.end().char();
             }
             // Where the error begins and where it ends in the current line
             // Used for making the text white or yellow
@@ -221,59 +217,51 @@ impl SyntaxError {
                 line.len()
             };
 
-            let mut to_add =
-                Label::new((
-                    &self.file_location,
-                    line_starting_pos +error_start_char..line_starting_pos + error_end_char
-                ))
-                .with_color(a);
-            if line_num == self.area.start().line()
-            {
+            let mut to_add = Label::new((
+                &self.file_location,
+                line_starting_pos + error_start_char..line_starting_pos + error_end_char,
+            ))
+            .with_color(a);
+            if line_num == self.area.start().line() {
                 to_add = to_add.with_message(self.error_type.to_string())
             }
             lines.push(to_add);
             Self::update_line_starting_pos(code, &mut line_starting_pos);
         }
 
-        let mut report =
-            Report::build(
-                ReportKind::Error,
-                (&self.file_location, error_start_char..error_end_char)
-            )
-            .with_message(self.error_type.to_string()).with_labels(lines);
+        let mut report = Report::build(
+            ReportKind::Error,
+            (&self.file_location, error_start_char..error_end_char),
+        )
+        .with_message(self.error_type.to_string())
+        .with_labels(lines);
         // Prints Error and the error message
-        report.finish()
+        report
+            .finish()
             .print((&self.file_location, Source::from(code)))
             .unwrap();
-
     }
 
     fn update_line_starting_pos(code: &str, line_starting_pos: &mut usize) {
-        if let Some(new_start) = advance_till_next_line(code, *line_starting_pos)
-        {
+        if let Some(new_start) = advance_till_next_line(code, *line_starting_pos) {
             *line_starting_pos = new_start;
         }
     }
 }
 
-fn advance_till_next_line(to_advance: &str, current_index: usize) -> Option<usize>
-{
+fn advance_till_next_line(to_advance: &str, current_index: usize) -> Option<usize> {
     let mut found_lf = false;
     let mut found_cr = false;
-    for (char_index, char) in to_advance[current_index..to_advance.len()].char_indices()
-    {
-        if char == '\n' && !found_lf
-        {
+    for (char_index, char) in to_advance[current_index..to_advance.len()].char_indices() {
+        if char == '\n' && !found_lf {
             found_lf = true;
             continue;
         }
-        if char == '\r' && !found_cr
-        {
+        if char == '\r' && !found_cr {
             found_cr = true;
             continue;
         }
-        if found_lf || found_cr
-        {
+        if found_lf || found_cr {
             return Some(char_index + current_index);
         }
     }
