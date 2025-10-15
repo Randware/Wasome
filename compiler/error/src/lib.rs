@@ -228,7 +228,7 @@ mod tests {
     fn error()
     {
         let error = SyntaxErrorBuilder::new()
-            .with_area(CodeArea::new(CodeLocation::new(9,10), CodeLocation::new(9,18)).unwrap())
+            .with_area(CodeArea::new(CodeLocation::new(10,10), CodeLocation::new(10,18)).unwrap())
             .with_error_type(ExampleError("CodeArea".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
