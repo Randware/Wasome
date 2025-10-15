@@ -195,7 +195,8 @@ impl SyntaxError {
             // Used for making the text white or yellow
             #[allow(clippy::comparison_chain)]
             // Lines without annotations always have the lf selected
-            let line_error_start_char = if line_num < error_start_line || line_num > error_end_line {
+            let line_error_start_char = if line_num < error_start_line || line_num > error_end_line
+            {
                 line.len()
             }
             //Before the error lines, so it doesn't begin at all
