@@ -1,8 +1,9 @@
 #![forbid(unsafe_code)]
 
-use colored::{Color, Colorize};
+
 use std::fmt::Debug;
 use std::ops::Add;
+use ariadne::{Color, Label, Report, ReportKind, Source};
 
 const ERROR_CONTEXT_LINES: usize = 3;
 /** A syntax error
@@ -151,31 +152,20 @@ impl CodeArea {
     }
 }
 
-const ERROR_CODE_COLOR: Color = Color::TrueColor {
-    r: 255,
-    g: 127,
-    b: 0,
-};
 
 impl SyntaxError {
     /** Prints the error to stdout
     # Panic
-    Will panic if the area is referencing to locations that don't exist in the the provided code
+    May panic if the area is referencing to locations that don't exist in the the provided code
     */
     pub fn print(&self, code: &str) {
-        // Prints Error and the error message
-        eprintln!("{} {}", "Error:".red(), self.error_type.to_string());
-        eprintln!();
-        eprintln!(
-            "{}{}{}",
-            "[".bright_black().bold(),
-            self.file_location.bright_black().bold(),
-            "]".bright_black().bold()
-        );
+        // Yellow
+        let a = Color::Fixed(11);
 
+        let mut line_starting_pos = 0;
         // The start and end
-        let error_start_line = self.area.start.line();
-        let error_end_line = self.area.end.line();
+        let error_start_line = self.area.start().line();
+        let error_end_line = self.area.end().line();
         // The start and end including the padding
         let display_end = error_end_line + ERROR_CONTEXT_LINES;
         let display_start = if error_start_line < ERROR_CONTEXT_LINES {
@@ -183,59 +173,111 @@ impl SyntaxError {
         } else {
             error_start_line - ERROR_CONTEXT_LINES
         };
-        // Print the codelines
-        for (index, line) in code.lines().enumerate() {
+
+        // The processed lines with annotations
+        let mut lines = Vec::new();
+        // Where the error begins, relative to the start of code
+        let mut error_start_char = 0;
+        let mut error_end_char = 0;
+        // Process the codelines
+        for (line_num, line) in code.lines().enumerate() {
             // If the code line is out of the window to print, skip it
-            if index < display_start || index > display_end {
+            if line_num < display_start || line_num > display_end {
+                Self::update_line_starting_pos(code, &mut line_starting_pos);
                 continue;
             }
 
+            // Update the error start and end
+            if line_num == error_start_line
+            {
+                error_start_char = line_starting_pos +self.area.start().char();
+            }
+            if line_num == error_end_line
+            {
+                error_end_char = line_starting_pos +line.len()+self.area.end().char();
+            }
             // Where the error begins and where it ends in the current line
             // Used for making the text white or yellow
             #[allow(clippy::comparison_chain)]
-            let error_start_char = if index < error_start_line {
+            let error_start_char = if line_num < error_start_line {
                 line.len()
             }
             //Before the error lines, so it doesn't begin at all
-            else if index == error_start_line {
-                self.area.start.char()
+            else if line_num == error_start_line {
+                self.area.start().char()
             } else {
                 0
             };
 
             // Using a match makes this hard to read
             #[allow(clippy::comparison_chain)]
-            let error_end_char = if index > error_end_line {
+            let error_end_char = if line_num > error_end_line {
                 0
             }
             //After the error lines, so it end immediately
-            else if index == error_end_line {
-                self.area.end.char()
+            else if line_num == error_end_line {
+                self.area.end().char()
             } else {
                 line.len()
             };
 
-            // Print the line
-            // The line is zero-based
-            eprint!(
-                "{}",
-                (index + 1).to_string().add(": \t").bright_blue().bold()
-            );
-            if error_start_char != 0
-            // If the error starts at the beginning of the line, don't include a white portion
+            let mut to_add =
+                Label::new((
+                    &self.file_location,
+                    line_starting_pos +error_start_char..line_starting_pos + error_end_char
+                ))
+                .with_color(a);
+            if line_num == self.area.start().line()
             {
-                eprint!("{}", &line[0..error_start_char]);
+                to_add = to_add.with_message(self.error_type.to_string())
             }
-            eprint!(
-                "{}",
-                &line[error_start_char..error_end_char].color(ERROR_CODE_COLOR)
-            );
-            if error_end_char != line.len() {
-                eprint!("{}", &line[error_end_char..line.len()]);
-            }
-            eprintln!()
+            lines.push(to_add);
+            Self::update_line_starting_pos(code, &mut line_starting_pos);
+        }
+
+        let mut report =
+            Report::build(
+                ReportKind::Error,
+                (&self.file_location, error_start_char..error_end_char)
+            )
+            .with_message(self.error_type.to_string()).with_labels(lines);
+        // Prints Error and the error message
+        report.finish()
+            .print((&self.file_location, Source::from(code)))
+            .unwrap();
+
+    }
+
+    fn update_line_starting_pos(code: &str, line_starting_pos: &mut usize) {
+        if let Some(new_start) = advance_till_next_line(code, *line_starting_pos)
+        {
+            *line_starting_pos = new_start;
         }
     }
+}
+
+fn advance_till_next_line(to_advance: &str, current_index: usize) -> Option<usize>
+{
+    let mut found_lf = false;
+    let mut found_cr = false;
+    for (char_index, char) in to_advance[current_index..to_advance.len()].char_indices()
+    {
+        if char == '\n' && !found_lf
+        {
+            found_lf = true;
+            continue;
+        }
+        if char == '\r' && !found_cr
+        {
+            found_cr = true;
+            continue;
+        }
+        if found_lf || found_cr
+        {
+            return Some(char_index + current_index);
+        }
+    }
+    None
 }
 
 pub trait ErrorType: Debug {
@@ -259,7 +301,7 @@ mod tests {
     #[test]
     fn error() {
         let error = SyntaxErrorBuilder::new()
-            .with_area(CodeArea::new(CodeLocation::new(13, 10), CodeLocation::new(13, 18)).unwrap())
+            .with_area(CodeArea::new(CodeLocation::new(14, 10), CodeLocation::new(14, 18)).unwrap())
             .with_error_type(ExampleError("CodeArea".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
@@ -267,6 +309,7 @@ mod tests {
         error.print(include_str!("lib.rs"));
     }
 
+    #[test]
     fn codearea_invalid_should_return_none() {
         let codearea = CodeArea::new(CodeLocation::new(10, 10), CodeLocation::new(5, 10));
 
