@@ -161,6 +161,8 @@ const ERROR_CODE_COLOR: Color = Color::TrueColor {
 impl SyntaxError
 {
     /** Prints the error to stdout
+    # Panic
+    Will panic if the area is referencing to locations that don't exist in the the provided code
     */
     pub fn print(&self, code: &str)
     {
