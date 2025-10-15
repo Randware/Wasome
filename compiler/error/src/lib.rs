@@ -143,21 +143,28 @@ impl SyntaxError
     */
     pub fn print(&self, code: &str)
     {
+        // Prints Error and the error message
         eprintln!("{} {}", "Error:".red(), self.error_type.to_string());
         eprintln!();
         eprintln!("{}{}{}", "[".bright_black().bold(), self.file_location.bright_black().bold(), "]".bright_black().bold());
 
-        let display_end = self.end.line()+ERROR_CONTEXT_LINES;
-        let display_start = if self.start.line() < ERROR_CONTEXT_LINES {0} else {self.start.line()-ERROR_CONTEXT_LINES};
+        // The start and end
         let error_start_line = self.start.line();
         let error_end_line = self.end.line();
+        // The start and end including the padding
+        let display_end = error_end_line+ERROR_CONTEXT_LINES;
+        let display_start = if error_start_line < ERROR_CONTEXT_LINES {0} else {error_start_line-ERROR_CONTEXT_LINES};
+        // Print the codelines
         for (index, line) in code.lines().enumerate()
         {
+            // If the code line is out of the window to print, skip it
             if index < display_start || index > display_end
             {
                 continue;
             }
 
+            // Where the error begins and where it ends in the current line
+            // Used for making the text white or yellow
             let error_start_char =
                 if index < error_start_line {line.len()} //Before the error lines, so it doesn't begin at all
                 else if index == error_start_line {self.start.char()}
@@ -168,9 +175,10 @@ impl SyntaxError
                 else if index == error_end_line {self.end.char()}
                 else {line.len()};
 
+            // Print the line
             // The line is zero-based
             eprint!("{}", (index+1).to_string().add(": \t").bright_blue().bold());
-            if error_start_char != 0
+            if error_start_char != 0 // If the error starts at the beginning of the line, don't include a white portion
             {
                 eprint!("{}", &line[0..error_start_char]);
             }
