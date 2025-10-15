@@ -180,10 +180,10 @@ impl SyntaxError {
         for (line_num, line) in code.lines().enumerate() {
             // If the code line is out of the window to print, skip it
             if line_num < display_start || line_num > display_end {
+                //
                 Self::update_line_starting_pos(code, &mut line_starting_pos);
                 continue;
             }
-
             // Update the error start and end
             if line_num == error_start_line {
                 error_start_char = line_starting_pos + self.area.start().char();
@@ -194,7 +194,8 @@ impl SyntaxError {
             // Where the error begins and where it ends in the current line
             // Used for making the text white or yellow
             #[allow(clippy::comparison_chain)]
-            let error_start_char = if line_num < error_start_line {
+            // Lines without annotations always have the lf selected
+            let line_error_start_char = if line_num < error_start_line || line_num > error_end_line {
                 line.len()
             }
             //Before the error lines, so it doesn't begin at all
@@ -206,8 +207,9 @@ impl SyntaxError {
 
             // Using a match makes this hard to read
             #[allow(clippy::comparison_chain)]
-            let error_end_char = if line_num > error_end_line {
-                0
+            let line_error_end_char = if line_num > error_end_line {
+                // Lines without annotations always have the lf selected
+                line.len()
             }
             //After the error lines, so it end immediately
             else if line_num == error_end_line {
@@ -218,7 +220,7 @@ impl SyntaxError {
 
             let mut to_add = Label::new((
                 &self.file_location,
-                line_starting_pos + error_start_char..line_starting_pos + error_end_char,
+                line_starting_pos + line_error_start_char..line_starting_pos + line_error_end_char,
             ))
             .with_color(a);
             if line_num == self.area.start().line() {
@@ -232,7 +234,7 @@ impl SyntaxError {
             ReportKind::Error,
             (&self.file_location, error_start_char..error_end_char),
         )
-        .with_message(self.error_type.to_string())
+        .with_message("A syntax error was found during compilation")
         .with_labels(lines);
         // Prints Error and the error message
         report
@@ -289,6 +291,17 @@ mod tests {
     fn error() {
         let error = SyntaxErrorBuilder::new()
             .with_area(CodeArea::new(CodeLocation::new(12, 10), CodeLocation::new(12, 18)).unwrap())
+            .with_error_type(ExampleError("CodeArea".to_string()))
+            .with_file_location("main.waso".to_string())
+            .build();
+
+        error.print(include_str!("lib.rs"));
+    }
+
+    #[test]
+    fn error_multiline() {
+        let error = SyntaxErrorBuilder::new()
+            .with_area(CodeArea::new(CodeLocation::new(6, 0), CodeLocation::new(8, 2)).unwrap())
             .with_error_type(ExampleError("CodeArea".to_string()))
             .with_file_location("main.waso".to_string())
             .build();
