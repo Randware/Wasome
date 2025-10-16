@@ -157,9 +157,10 @@ impl SyntaxError {
     */
     pub fn print(&self, code: &str) {
         // Orange
-        let error_color = Color::Rgb(255,102,17);
+        let error_color = Color::Red;
         let error_msg_color = Color::BrightRed;
-        let code_color = Color::Rgb(220,240,255);
+        let syntax_error_color = Color::Rgb(255, 249, 210);
+        let code_color = Color::BrightWhite;
 
         let mut line_starting_pos = 0;
         // The start and end
@@ -243,7 +244,7 @@ impl SyntaxError {
             ReportKind::Custom("Error", error_color),
             (&self.file_location, error_start_char..error_end_char),
         )
-        .with_message("A syntax error was found during compilation".fg(Color::BrightWhite))
+        .with_message("A syntax error was found during compilation".fg(syntax_error_color))
         .with_labels(lines);
         // Prints Error and the error message
         report
