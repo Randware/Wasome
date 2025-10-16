@@ -222,24 +222,27 @@ impl SyntaxError {
                 line.len()
             };
 
+            // Add the line
             let line_label = Label::new((
                 &self.file_location,
                 line_starting_pos..line_starting_pos + line.len(),
             )).with_color(code_color);
+            // Mark the error
             let mut error_label = Label::new((
                 &self.file_location,
                 line_starting_pos + line_error_start_char..line_starting_pos + line_error_end_char,
             )).with_priority(1)
             .with_color(error_code_color);
+            // Add the error message
             if line_num == self.area.end().line() {
                 error_label = error_label.with_message(
-                    format!("{}", self.error_type.to_string().fg(error_msg_color)))
+                    self.error_type.to_string().fg(error_msg_color))
             }
             lines.push(line_label);
             lines.push(error_label);
             Self::update_line_starting_pos(code, &mut line_starting_pos);
         }
-
+        
         let report = Report::build(
             ReportKind::Custom("Error", error_msg_color),
             (&self.file_location, error_start_char..error_end_char),
