@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use ariadne::{Color, Label, Report, ReportKind, Source};
+use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use std::fmt::Debug;
 
 const ERROR_CONTEXT_LINES: usize = 3;
@@ -156,8 +156,10 @@ impl SyntaxError {
     May panic if the area is referencing to locations that don't exist in the the provided code
     */
     pub fn print(&self, code: &str) {
-        // Yellow
-        let a = Color::Fixed(11);
+        // Orange
+        let error_color = Color::Rgb(255,102,17);
+        let error_msg_color = Color::BrightRed;
+        let code_color = Color::Rgb(220,240,255);
 
         let mut line_starting_pos = 0;
         // The start and end
@@ -219,15 +221,21 @@ impl SyntaxError {
                 line.len()
             };
 
-            let mut to_add = Label::new((
+            let line_label = Label::new((
+                &self.file_location,
+                line_starting_pos..line_starting_pos + line.len(),
+            )).with_color(code_color);
+            let mut error_label = Label::new((
                 &self.file_location,
                 line_starting_pos + line_error_start_char..line_starting_pos + line_error_end_char,
-            ))
-            .with_color(a);
+            )).with_priority(1)
+            .with_color(error_color);
             if line_num == self.area.end().line() {
-                to_add = to_add.with_message(self.error_type.to_string())
+                error_label = error_label.with_message(
+                    format!("{}", self.error_type.to_string().fg(error_msg_color)))
             }
-            lines.push(to_add);
+            lines.push(line_label);
+            lines.push(error_label);
             Self::update_line_starting_pos(code, &mut line_starting_pos);
         }
 
@@ -235,7 +243,7 @@ impl SyntaxError {
             ReportKind::Error,
             (&self.file_location, error_start_char..error_end_char),
         )
-        .with_message("A syntax error was found during compilation")
+        .with_message("A syntax error was found during compilation".fg(Color::BrightWhite))
         .with_labels(lines);
         // Prints Error and the error message
         report
