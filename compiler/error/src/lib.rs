@@ -157,10 +157,10 @@ impl SyntaxError {
     */
     pub fn print(&self, code: &str) {
         // Orange
-        let error_color = Color::Red;
-        let error_msg_color = Color::BrightRed;
-        let syntax_error_color = Color::Rgb(255, 249, 210);
-        let code_color = Color::BrightWhite;
+        let error_code_color = Color::BrightWhite;
+        let error_msg_color = Color::Red;
+        let syntax_error_color = Color::BrightWhite;
+        let code_color = Color::Primary;
 
         let mut line_starting_pos = 0;
         // The start and end
@@ -230,7 +230,7 @@ impl SyntaxError {
                 &self.file_location,
                 line_starting_pos + line_error_start_char..line_starting_pos + line_error_end_char,
             )).with_priority(1)
-            .with_color(error_color);
+            .with_color(error_code_color);
             if line_num == self.area.end().line() {
                 error_label = error_label.with_message(
                     format!("{}", self.error_type.to_string().fg(error_msg_color)))
@@ -241,7 +241,7 @@ impl SyntaxError {
         }
 
         let report = Report::build(
-            ReportKind::Custom("Error", error_color),
+            ReportKind::Custom("Error", error_msg_color),
             (&self.file_location, error_start_char..error_end_char),
         )
         .with_message("A syntax error was found during compilation".fg(syntax_error_color))
