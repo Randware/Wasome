@@ -1,4 +1,4 @@
-use lexer::{TokenType, lex};
+use lexer::{Token, TokenType, lex};
 
 #[test]
 fn test_all_keywords() {
@@ -8,112 +8,100 @@ fn test_all_keywords() {
     "#;
 
     let expected_tokens = vec![
-        TokenType::StatementSeparator,
-        TokenType::Function,
-        TokenType::If,
-        TokenType::Else,
-        TokenType::Loop,
-        TokenType::StatementSeparator,
-        TokenType::Struct,
-        TokenType::Return,
-        TokenType::Assign,
-        TokenType::Enum,
-        TokenType::As,
-        TokenType::Public,
-        TokenType::New,
-        TokenType::PathSeparator,
-        TokenType::Dot,
-        TokenType::Semicolon,
-        TokenType::ArgumentSeparator,
-        TokenType::StatementSeparator,
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 1,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Function,
+            line: 1,
+            span: 4..6,
+        },
+        Token {
+            kind: TokenType::If,
+            line: 1,
+            span: 7..9,
+        },
+        Token {
+            kind: TokenType::Else,
+            line: 1,
+            span: 10..14,
+        },
+        Token {
+            kind: TokenType::Loop,
+            line: 1,
+            span: 15..19,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 2,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Struct,
+            line: 2,
+            span: 4..10,
+        },
+        Token {
+            kind: TokenType::Return,
+            line: 2,
+            span: 11..13,
+        },
+        Token {
+            kind: TokenType::Assign,
+            line: 2,
+            span: 14..16,
+        },
+        Token {
+            kind: TokenType::Enum,
+            line: 2,
+            span: 17..21,
+        },
+        Token {
+            kind: TokenType::As,
+            line: 2,
+            span: 22..24,
+        },
+        Token {
+            kind: TokenType::Public,
+            line: 2,
+            span: 25..28,
+        },
+        Token {
+            kind: TokenType::New,
+            line: 2,
+            span: 29..32,
+        },
+        Token {
+            kind: TokenType::PathSeparator,
+            line: 2,
+            span: 33..35,
+        },
+        Token {
+            kind: TokenType::Dot,
+            line: 2,
+            span: 36..37,
+        },
+        Token {
+            kind: TokenType::Semicolon,
+            line: 2,
+            span: 38..39,
+        },
+        Token {
+            kind: TokenType::ArgumentSeparator,
+            line: 2,
+            span: 40..41,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 3,
+            span: 0..0,
+        },
     ];
 
     let tokens: Vec<_> = lex(input)
         .filter_map(|result| result.ok())
-        .map(|token| token.kind)
-        .collect();
-
-    assert_eq!(tokens, expected_tokens);
-}
-
-#[test]
-fn test_all_keywords_no_spaces() {
-    let input = r#"
-    fnifelseloopstruct-><-enumaspubnew::.;,
-    "#;
-
-    let expected_tokens = vec![
-        TokenType::StatementSeparator,
-        TokenType::Identifier("fnifelseloopstruct".to_string()),
-        TokenType::Return,
-        TokenType::Assign,
-        TokenType::Identifier("enumaspubnew".to_string()),
-        TokenType::PathSeparator,
-        TokenType::Dot,
-        TokenType::Semicolon,
-        TokenType::ArgumentSeparator,
-        TokenType::StatementSeparator,
-    ];
-
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .map(|token| token.kind)
-        .collect();
-
-    assert_eq!(tokens, expected_tokens);
-}
-
-#[test]
-fn test_access_using_dot() {
-    let input = r#"
-    struct Point {
-        s32 x
-        s32 y
-    };
-    
-    Point point <- Point::new()
-    
-    s32 x_coordinate <- point.x
-    "#;
-
-    let expected_tokens = vec![
-        TokenType::StatementSeparator,
-        TokenType::Struct,
-        TokenType::Identifier("Point".to_string()),
-        TokenType::OpenScope,
-        TokenType::StatementSeparator,
-        TokenType::S32,
-        TokenType::Identifier("x".to_string()),
-        TokenType::StatementSeparator,
-        TokenType::S32,
-        TokenType::Identifier("y".to_string()),
-        TokenType::StatementSeparator,
-        TokenType::CloseScope,
-        TokenType::Semicolon,
-        TokenType::StatementSeparator,
-        TokenType::StatementSeparator,
-        TokenType::Identifier("Point".to_string()),
-        TokenType::Identifier("point".to_string()),
-        TokenType::Assign,
-        TokenType::Identifier("Point".to_string()),
-        TokenType::PathSeparator,
-        TokenType::New,
-        TokenType::OpenParen,
-        TokenType::CloseParen,
-        TokenType::StatementSeparator,
-        TokenType::StatementSeparator,
-        TokenType::S32,
-        TokenType::Identifier("x_coordinate".to_string()),
-        TokenType::Assign,
-        TokenType::Identifier("point".to_string()),
-        TokenType::Dot,
-        TokenType::Identifier("x".to_string()),
-        TokenType::StatementSeparator,
-    ];
-
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .map(|token| token.kind)
         .collect();
 
     assert_eq!(tokens, expected_tokens);

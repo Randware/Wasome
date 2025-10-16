@@ -1,4 +1,4 @@
-use lexer::{TokenType, lex};
+use lexer::{Token, TokenType, lex};
 
 #[test]
 fn test_all_values() {
@@ -9,22 +9,65 @@ fn test_all_values() {
     "#;
 
     let expected_tokens = vec![
-        TokenType::StatementSeparator,
-        TokenType::Identifier("name".to_string()),
-        TokenType::Identifier("name_trimmed".to_string()),
-        TokenType::StatementSeparator,
-        TokenType::Decimal(0.123),
-        TokenType::Decimal(123.0),
-        TokenType::Decimal(123.01),
-        TokenType::StatementSeparator,
-        TokenType::Integer(0),
-        TokenType::Integer(123),
-        TokenType::StatementSeparator,
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 1,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Identifier("name".to_string()),
+            line: 1,
+            span: 4..8,
+        },
+        Token {
+            kind: TokenType::Identifier("name_trimmed".to_string()),
+            line: 1,
+            span: 9..21,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 2,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Decimal(0.123),
+            line: 2,
+            span: 4..9,
+        },
+        Token {
+            kind: TokenType::Decimal(123.0),
+            line: 2,
+            span: 10..15,
+        },
+        Token {
+            kind: TokenType::Decimal(123.01),
+            line: 2,
+            span: 16..22,
+        }, 
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 3,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Integer(0),
+            line: 3,
+            span: 4..5,
+        },
+        Token {
+            kind: TokenType::Integer(123),
+            line: 3,
+            span: 6..9,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 4,
+            span: 0..0,
+        },
     ];
 
     let tokens: Vec<_> = lex(input)
         .filter_map(|result| result.ok())
-        .map(|token| token.kind)
         .collect();
 
     assert_eq!(tokens, expected_tokens);
@@ -36,17 +79,40 @@ fn test_broken_format_decimal() {
     "#;
 
     let expected_tokens = vec![
-        TokenType::StatementSeparator,
-        TokenType::Decimal(0.1),
-        TokenType::Decimal(0.1),
-        TokenType::Dot,
-        TokenType::Integer(1),
-        TokenType::StatementSeparator,
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 1,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Decimal(0.1),
+            line: 1,
+            span: 4..7,
+        },
+        Token {
+            kind: TokenType::Decimal(0.1),
+            line: 1,
+            span: 8..11,
+        },
+        Token {
+            kind: TokenType::Dot,
+            line: 1,
+            span: 11..12,
+        },
+        Token {
+            kind: TokenType::Integer(1),
+            line: 1,
+            span: 12..13,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 2,
+            span: 0..0,
+        },
     ];
 
     let tokens: Vec<_> = lex(input)
         .filter_map(|result| result.ok())
-        .map(|token| token.kind)
         .collect();
 
     assert_eq!(tokens, expected_tokens);
@@ -61,27 +127,90 @@ fn test_char_literal() {
     "#;
 
     let expected_tokens = vec![
-        TokenType::StatementSeparator,
-        TokenType::Char,
-        TokenType::Identifier("var1".to_string()),
-        TokenType::Assign,
-        TokenType::CharLiteral('n'),
-        TokenType::StatementSeparator,
-        TokenType::Char,
-        TokenType::Identifier("var2".to_string()),
-        TokenType::Assign,
-        TokenType::CharLiteral('🎌'),
-        TokenType::StatementSeparator,
-        TokenType::Char,
-        TokenType::Identifier("var3".to_string()),
-        TokenType::Assign,
-        TokenType::CharLiteral('\n'),
-        TokenType::StatementSeparator,
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 1,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Char,
+            line: 1,
+            span: 4..8,
+        },
+        Token {
+            kind: TokenType::Identifier("var1".to_string()),
+            line: 1,
+            span: 9..13,
+        },
+        Token {
+            kind: TokenType::Assign,
+            line: 1,
+            span: 14..16,
+        },
+        Token {
+            kind: TokenType::CharLiteral('n'),
+            line: 1,
+            span: 17..20,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 2,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Char,
+            line: 2,
+            span: 4..8,
+        },
+        Token {
+            kind: TokenType::Identifier("var2".to_string()),
+            line: 2,
+            span: 9..13,
+        },
+        Token {
+            kind: TokenType::Assign,
+            line: 2,
+            span: 14..16,
+        },
+        Token {
+            kind: TokenType::CharLiteral('🎌'),
+            line: 2,
+            span: 17..23,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 3,
+            span: 0..0,
+        },
+        Token {
+            kind: TokenType::Char,
+            line: 3,
+            span: 4..8,
+        },
+        Token {
+            kind: TokenType::Identifier("var3".to_string()),
+            line: 3,
+            span: 9..13,
+        },
+        Token {
+            kind: TokenType::Assign,
+            line: 3,
+            span: 14..16,
+        },
+        Token {
+            kind: TokenType::CharLiteral('\n'),
+            line: 3,
+            span: 17..21,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 4,
+            span: 0..0,
+        },
     ];
 
     let tokens: Vec<_> = lex(input)
         .filter_map(|result| result.ok())
-        .map(|token| token.kind)
         .collect();
 
     assert_eq!(tokens, expected_tokens);

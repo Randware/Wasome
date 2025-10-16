@@ -55,12 +55,5 @@ fn test_location() {
         .filter_map(|result| result.ok()) // keep only Ok tokens
         .collect();
 
-    for token in &tokens {
-        println!(
-            "Token {:?} at line {}, ran {}",
-            token.kind, token.line, token.span.start
-        );
-    }
-
     assert_eq!(tokens, expected_tokens);
 }
