@@ -10,33 +10,26 @@ use std::rc::Rc;
 /** This represents a Statement Type and its location
 */
 #[derive(PartialEq, Debug)]
-pub struct Statement<Type: ASTType>
-{
-    inner: StatementType<Type>
+pub struct Statement<Type: ASTType> {
+    inner: StatementType<Type>,
 }
 
-impl<Type: ASTType> Statement<Type>
-{
-    pub fn new(inner: StatementType<Type>) -> Self
-    {
+impl<Type: ASTType> Statement<Type> {
+    pub fn new(inner: StatementType<Type>) -> Self {
         Self { inner }
     }
 }
 
-impl<Type: ASTType> Deref for Statement<Type>
-{
+impl<Type: ASTType> Deref for Statement<Type> {
     type Target = StatementType<Type>;
 
-    fn deref(&self) -> &Self::Target
-    {
+    fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<Type: ASTType> DerefMut for Statement<Type>
-{
-    fn deref_mut(&mut self) -> &mut Self::Target
-    {
+impl<Type: ASTType> DerefMut for Statement<Type> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
@@ -357,6 +350,9 @@ mod tests {
     fn basic_test_variable(
         symbol: Rc<VariableSymbol<TypedAST>>,
     ) -> Option<VariableAssignment<TypedAST>> {
-        VariableAssignment::<TypedAST>::new(symbol, Expression::new(ExpressionType::Literal(Literal::F32(14.0))))
+        VariableAssignment::<TypedAST>::new(
+            symbol,
+            Expression::new(ExpressionType::Literal(Literal::F32(14.0))),
+        )
     }
 }

@@ -1,37 +1,31 @@
-use std::ops::{Deref, DerefMut};
 use crate::data_type::{DataType, Typed};
 use crate::symbol::FunctionCall;
 use crate::{ASTType, TypedAST, UntypedAST, eq_return_option};
+use std::ops::{Deref, DerefMut};
 
 /** This represents an Expression Type and its location
 */
 #[derive(PartialEq, Debug)]
-pub struct Expression<Type: ASTType>
-{
-    inner: ExpressionType<Type>
+pub struct Expression<Type: ASTType> {
+    inner: ExpressionType<Type>,
 }
 
-impl<Type: ASTType> Expression<Type>
-{
+impl<Type: ASTType> Expression<Type> {
     pub fn new(inner: ExpressionType<Type>) -> Self {
         Self { inner }
     }
 }
 
-impl<Type: ASTType> Deref for Expression<Type>
-{
+impl<Type: ASTType> Deref for Expression<Type> {
     type Target = ExpressionType<Type>;
 
-    fn deref(&self) -> &Self::Target
-    {
+    fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<Type: ASTType> DerefMut for Expression<Type>
-{
-    fn deref_mut(&mut self) -> &mut Self::Target
-    {
+impl<Type: ASTType> DerefMut for Expression<Type> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
