@@ -240,7 +240,7 @@ impl SyntaxError {
         }
 
         let report = Report::build(
-            ReportKind::Error,
+            ReportKind::Custom("Error", error_color),
             (&self.file_location, error_start_char..error_end_char),
         )
         .with_message("A syntax error was found during compilation".fg(Color::BrightWhite))
