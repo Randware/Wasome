@@ -1,5 +1,6 @@
-use logos::Logos;
+use logos::{Lexer, Logos};
 use std::num::{ParseFloatError, ParseIntError};
+use std::ops::Range;
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub enum LexError {
@@ -10,10 +11,18 @@ pub enum LexError {
     InvalidChar(String),
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Token {
+    pub kind: TokenType,
+    pub line: usize,
+    pub span: Range<usize>,
+}
+
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
+#[logos(extras = (usize, Range<usize>))]
 #[logos(skip r"[\t\f]+")]
-pub enum Token {
+pub enum TokenType {
     // Datatypes
     #[token("s8")]
     S8,
@@ -23,7 +32,6 @@ pub enum Token {
     S32,
     #[token("s64")]
     S64,
-
     #[token("u8")]
     U8,
     #[token("u16")]
@@ -32,12 +40,10 @@ pub enum Token {
     U32,
     #[token("u64")]
     U64,
-
     #[token("f32")]
     F32,
     #[token("f64")]
     F64,
-
     #[token("bool")]
     Bool,
     #[token("char")]
@@ -48,14 +54,11 @@ pub enum Token {
     // Values
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
-
     #[regex(r"\d+\.\d+", |lex| lex.slice().parse().map_err(LexError::Float))]
     Decimal(f64),
-
     #[regex(r"\d+", |lex| lex.slice().parse().map_err(LexError::Int))]
     Integer(i64),
-
-    #[regex(r"'(\\.|[^\\'])'", parse_char_literal)]
+    #[regex(r"'(\\.|[^\\'])'", char_callback)]
     CharLiteral(char),
 
     // Math Operators
@@ -108,7 +111,7 @@ pub enum Token {
     #[token(")")]
     CloseParen,
 
-    //Keywords
+    // Keywords
     #[token("fn")]
     Function,
     #[token("if")]
@@ -133,20 +136,35 @@ pub enum Token {
     Return,
     #[token("<-")]
     Assign,
-
     #[token("::")]
     PathSeparator,
     #[token(".")]
     Dot,
     #[token(";")]
     Semicolon,
-    #[regex(r"\r?\n")]
+    #[regex(r"\r?\n", newline_callback)]
     StatementSeparator,
     #[token(",")]
     ArgumentSeparator,
 }
+/**
+This function is called when a "StatementSeparator" / '\n' is detected.
+extras.0 is the line number, which is incremented.
+extras.1 is the range of each Token, which will start with 0..0 on each new line.
+*/
+fn newline_callback(lex: &mut Lexer<TokenType>) -> TokenType {
+    lex.extras.0 += 1;
+    let new_line = lex.span().end;
+    lex.extras.1 = new_line..new_line;
 
-fn parse_char_literal(lex: &mut logos::Lexer<Token>) -> Result<char, LexError> {
+    TokenType::StatementSeparator
+}
+
+/**
+This function is called when any character is detected.
+It handles escape sequences and ensures that only valid characters are processed.
+*/
+fn char_callback(lex: &mut Lexer<TokenType>) -> Result<char, LexError> {
     let s = lex.slice();
     let content = &s[1..s.len() - 1];
 
@@ -157,7 +175,8 @@ fn parse_char_literal(lex: &mut logos::Lexer<Token>) -> Result<char, LexError> {
 
     let mut chars = content.chars();
     let first_char = chars.next().unwrap();
-    Ok(match first_char {
+
+    let value = match first_char {
         '\\' => {
             let second_char = chars.next().unwrap();
             match second_char {
@@ -166,9 +185,13 @@ fn parse_char_literal(lex: &mut logos::Lexer<Token>) -> Result<char, LexError> {
                 'r' => '\r',
                 '0' => '\0',
                 '\\' => '\\',
-                _ => return Result::Err(LexError::InvalidChar(content.to_string())),
+                '\'' => '\'',
+                '"' => '"',
+                _ => return Err(LexError::InvalidChar(content.to_string())),
             }
         }
         _ => first_char,
-    })
+    };
+
+    Ok(value)
 }

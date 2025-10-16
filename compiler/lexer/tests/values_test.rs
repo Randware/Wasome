@@ -1,4 +1,4 @@
-use lexer::{Token, lex};
+use lexer::{TokenType, lex};
 
 #[test]
 fn test_all_values() {
@@ -9,20 +9,23 @@ fn test_all_values() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Identifier("name".to_string()),
-        Token::Identifier("name_trimmed".to_string()),
-        Token::StatementSeparator,
-        Token::Decimal(0.123),
-        Token::Decimal(123.0),
-        Token::Decimal(123.01),
-        Token::StatementSeparator,
-        Token::Integer(0),
-        Token::Integer(123),
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Identifier("name".to_string()),
+        TokenType::Identifier("name_trimmed".to_string()),
+        TokenType::StatementSeparator,
+        TokenType::Decimal(0.123),
+        TokenType::Decimal(123.0),
+        TokenType::Decimal(123.01),
+        TokenType::StatementSeparator,
+        TokenType::Integer(0),
+        TokenType::Integer(123),
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -33,15 +36,18 @@ fn test_broken_format_decimal() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Decimal(0.1),
-        Token::Decimal(0.1),
-        Token::Dot,
-        Token::Integer(1),
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Decimal(0.1),
+        TokenType::Decimal(0.1),
+        TokenType::Dot,
+        TokenType::Integer(1),
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -55,29 +61,28 @@ fn test_char_literal() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Char,
-        Token::Identifier("var1".to_string()),
-        Token::Assign,
-        Token::CharLiteral('n'),
-        Token::StatementSeparator,
-        Token::Char,
-        Token::Identifier("var2".to_string()),
-        Token::Assign,
-        Token::CharLiteral('🎌'),
-        Token::StatementSeparator,
-        Token::Char,
-        Token::Identifier("var3".to_string()),
-        Token::Assign,
-        Token::CharLiteral('\n'),
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Char,
+        TokenType::Identifier("var1".to_string()),
+        TokenType::Assign,
+        TokenType::CharLiteral('n'),
+        TokenType::StatementSeparator,
+        TokenType::Char,
+        TokenType::Identifier("var2".to_string()),
+        TokenType::Assign,
+        TokenType::CharLiteral('🎌'),
+        TokenType::StatementSeparator,
+        TokenType::Char,
+        TokenType::Identifier("var3".to_string()),
+        TokenType::Assign,
+        TokenType::CharLiteral('\n'),
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
-
-    for token in &tokens {
-        println!("{:?}", token);
-    }
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }

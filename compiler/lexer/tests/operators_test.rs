@@ -1,4 +1,4 @@
-use lexer::{Token, lex};
+use lexer::{TokenType, lex};
 
 #[test]
 fn test_math_operators() {
@@ -7,16 +7,19 @@ fn test_math_operators() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Addition,
-        Token::Subtraction,
-        Token::Multiplication,
-        Token::Division,
-        Token::Modulo,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Addition,
+        TokenType::Subtraction,
+        TokenType::Multiplication,
+        TokenType::Division,
+        TokenType::Modulo,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -27,24 +30,27 @@ fn test_logic_operators() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::LessThan,
-        Token::GreaterThan,
-        Token::LessThanEqual,
-        Token::GreaterThanEqual,
-        Token::NotEqual,
-        Token::Comparison,
-        Token::LShift,
-        Token::RShift,
-        Token::Or,
-        Token::BitOr,
-        Token::And,
-        Token::BitAnd,
-        Token::Not,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::LessThan,
+        TokenType::GreaterThan,
+        TokenType::LessThanEqual,
+        TokenType::GreaterThanEqual,
+        TokenType::NotEqual,
+        TokenType::Comparison,
+        TokenType::LShift,
+        TokenType::RShift,
+        TokenType::Or,
+        TokenType::BitOr,
+        TokenType::And,
+        TokenType::BitAnd,
+        TokenType::Not,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -56,16 +62,19 @@ fn test_math_operators_no_spaces() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Addition,
-        Token::Subtraction,
-        Token::Multiplication,
-        Token::Division,
-        Token::Modulo,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Addition,
+        TokenType::Subtraction,
+        TokenType::Multiplication,
+        TokenType::Division,
+        TokenType::Modulo,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -76,24 +85,27 @@ fn test_logic_operators_no_spaces() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::LessThan,
-        Token::GreaterThan,
-        Token::LessThanEqual,
-        Token::GreaterThanEqual,
-        Token::NotEqual,
-        Token::Comparison,
-        Token::LShift,
-        Token::RShift,
-        Token::Or,
-        Token::BitOr,
-        Token::And,
-        Token::BitAnd,
-        Token::Not,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::LessThan,
+        TokenType::GreaterThan,
+        TokenType::LessThanEqual,
+        TokenType::GreaterThanEqual,
+        TokenType::NotEqual,
+        TokenType::Comparison,
+        TokenType::LShift,
+        TokenType::RShift,
+        TokenType::Or,
+        TokenType::BitOr,
+        TokenType::And,
+        TokenType::BitAnd,
+        TokenType::Not,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -109,15 +121,18 @@ fn test_greedy_tokens() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Or,
-        Token::BitOr,
-        Token::And,
-        Token::BitAnd,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Or,
+        TokenType::BitOr,
+        TokenType::And,
+        TokenType::BitAnd,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }

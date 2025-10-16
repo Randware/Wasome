@@ -1,4 +1,4 @@
-use lexer::{Token, lex};
+use lexer::{TokenType, lex};
 
 #[test]
 fn test_infinite_loop() {
@@ -7,14 +7,17 @@ fn test_infinite_loop() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Loop,
-        Token::OpenScope,
-        Token::CloseScope,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Loop,
+        TokenType::OpenScope,
+        TokenType::CloseScope,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -29,31 +32,34 @@ fn test_while_loop() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::U32,
-        Token::Identifier("count".to_string()),
-        Token::Assign,
-        Token::Integer(0),
-        Token::StatementSeparator,
-        Token::Loop,
-        Token::OpenParen,
-        Token::Identifier("count".to_string()),
-        Token::LessThan,
-        Token::Integer(5),
-        Token::CloseParen,
-        Token::OpenScope,
-        Token::StatementSeparator,
-        Token::Identifier("count".to_string()),
-        Token::Assign,
-        Token::Identifier("count".to_string()),
-        Token::Addition,
-        Token::Integer(1),
-        Token::StatementSeparator,
-        Token::CloseScope,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::U32,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Assign,
+        TokenType::Integer(0),
+        TokenType::StatementSeparator,
+        TokenType::Loop,
+        TokenType::OpenParen,
+        TokenType::Identifier("count".to_string()),
+        TokenType::LessThan,
+        TokenType::Integer(5),
+        TokenType::CloseParen,
+        TokenType::OpenScope,
+        TokenType::StatementSeparator,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Assign,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Addition,
+        TokenType::Integer(1),
+        TokenType::StatementSeparator,
+        TokenType::CloseScope,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -67,37 +73,40 @@ fn test_for_loop() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Loop,
-        Token::OpenParen,
-        Token::U32,
-        Token::Identifier("count".to_string()),
-        Token::Assign,
-        Token::Integer(0),
-        Token::Semicolon,
-        Token::Identifier("count".to_string()),
-        Token::LessThan,
-        Token::Integer(5),
-        Token::Semicolon,
-        Token::Identifier("count".to_string()),
-        Token::Assign,
-        Token::Identifier("count".to_string()),
-        Token::Addition,
-        Token::Integer(1),
-        Token::CloseParen,
-        Token::OpenScope,
-        Token::StatementSeparator,
-        Token::Identifier("count".to_string()),
-        Token::Assign,
-        Token::Identifier("count".to_string()),
-        Token::Addition,
-        Token::Integer(1),
-        Token::StatementSeparator,
-        Token::CloseScope,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Loop,
+        TokenType::OpenParen,
+        TokenType::U32,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Assign,
+        TokenType::Integer(0),
+        TokenType::Semicolon,
+        TokenType::Identifier("count".to_string()),
+        TokenType::LessThan,
+        TokenType::Integer(5),
+        TokenType::Semicolon,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Assign,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Addition,
+        TokenType::Integer(1),
+        TokenType::CloseParen,
+        TokenType::OpenScope,
+        TokenType::StatementSeparator,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Assign,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Addition,
+        TokenType::Integer(1),
+        TokenType::StatementSeparator,
+        TokenType::CloseScope,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -111,37 +120,40 @@ fn test_for_loop_no_spaces() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Loop,
-        Token::OpenParen,
-        Token::U32,
-        Token::Identifier("count".to_string()),
-        Token::Assign,
-        Token::Integer(0),
-        Token::Semicolon,
-        Token::Identifier("count".to_string()),
-        Token::LessThan,
-        Token::Integer(5),
-        Token::Semicolon,
-        Token::Identifier("count".to_string()),
-        Token::Assign,
-        Token::Identifier("count".to_string()),
-        Token::Addition,
-        Token::Integer(1),
-        Token::CloseParen,
-        Token::OpenScope,
-        Token::StatementSeparator,
-        Token::Identifier("count".to_string()),
-        Token::Assign,
-        Token::Identifier("count".to_string()),
-        Token::Addition,
-        Token::Integer(1),
-        Token::StatementSeparator,
-        Token::CloseScope,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Loop,
+        TokenType::OpenParen,
+        TokenType::U32,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Assign,
+        TokenType::Integer(0),
+        TokenType::Semicolon,
+        TokenType::Identifier("count".to_string()),
+        TokenType::LessThan,
+        TokenType::Integer(5),
+        TokenType::Semicolon,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Assign,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Addition,
+        TokenType::Integer(1),
+        TokenType::CloseParen,
+        TokenType::OpenScope,
+        TokenType::StatementSeparator,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Assign,
+        TokenType::Identifier("count".to_string()),
+        TokenType::Addition,
+        TokenType::Integer(1),
+        TokenType::StatementSeparator,
+        TokenType::CloseScope,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }

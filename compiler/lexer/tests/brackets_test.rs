@@ -1,4 +1,4 @@
-use lexer::{Token, lex};
+use lexer::{TokenType, lex};
 
 #[test]
 fn test_all_brackets() {
@@ -7,15 +7,18 @@ fn test_all_brackets() {
      "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::OpenScope,
-        Token::CloseScope,
-        Token::OpenParen,
-        Token::CloseParen,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::OpenScope,
+        TokenType::CloseScope,
+        TokenType::OpenParen,
+        TokenType::CloseParen,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -27,15 +30,18 @@ fn test_all_brackets_no_spaces() {
      "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::OpenScope,
-        Token::CloseScope,
-        Token::OpenParen,
-        Token::CloseParen,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::OpenScope,
+        TokenType::CloseScope,
+        TokenType::OpenParen,
+        TokenType::CloseParen,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }

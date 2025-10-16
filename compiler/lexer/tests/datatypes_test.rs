@@ -1,4 +1,4 @@
-use lexer::{Token, lex};
+use lexer::{TokenType, lex};
 #[test]
 fn test_all_datatypes() {
     let input = r#"
@@ -6,24 +6,27 @@ fn test_all_datatypes() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::S8,
-        Token::S16,
-        Token::S32,
-        Token::S64,
-        Token::U8,
-        Token::U16,
-        Token::U32,
-        Token::U64,
-        Token::F32,
-        Token::F64,
-        Token::Bool,
-        Token::Char,
-        Token::SelfType,
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::S8,
+        TokenType::S16,
+        TokenType::S32,
+        TokenType::S64,
+        TokenType::U8,
+        TokenType::U16,
+        TokenType::U32,
+        TokenType::U64,
+        TokenType::F32,
+        TokenType::F64,
+        TokenType::Bool,
+        TokenType::Char,
+        TokenType::SelfType,
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -35,12 +38,17 @@ fn test_all_datatypes_no_spaces() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Identifier("s8s16s32s64u8u16u32u64f32f64boolcharself".to_string()),
-        Token::StatementSeparator,
+        TokenType::StatementSeparator,
+        TokenType::Identifier("s8s16s32s64u8u16u32u64f32f64boolcharself".to_string()),
+        TokenType::StatementSeparator,
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    let tokens: Vec<_> = lex(input)
+        .filter_map(|result| result.ok())
+        .map(|token| token.kind)
+        .collect();
+
+    assert_eq!(tokens, expected_tokens);
 
     assert_eq!(tokens, expected_tokens);
 }
