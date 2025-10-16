@@ -4,13 +4,47 @@ use crate::expression::Expression;
 use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
 use crate::{ASTType, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
-use std::ops::Index;
+use std::ops::{Deref, DerefMut, Index};
 use std::rc::Rc;
+
+/** This represents a Statement Type and its location
+*/
+#[derive(PartialEq, Debug)]
+pub struct Statement<Type: ASTType>
+{
+    inner: StatementType<Type>
+}
+
+impl<Type: ASTType> Statement<Type>
+{
+    pub fn new(inner: StatementType<Type>) -> Self
+    {
+        Self { inner }
+    }
+}
+
+impl<Type: ASTType> Deref for Statement<Type>
+{
+    type Target = StatementType<Type>;
+
+    fn deref(&self) -> &Self::Target
+    {
+        &self.inner
+    }
+}
+
+impl<Type: ASTType> DerefMut for Statement<Type>
+{
+    fn deref_mut(&mut self) -> &mut Self::Target
+    {
+        &mut self.inner
+    }
+}
 
 /** This represents a Statement as per section 4 of the lang spec
 */
 #[derive(Debug, PartialEq)]
-pub enum Statement<Type: ASTType> {
+pub enum StatementType<Type: ASTType> {
     // Assignment to existing variable
     VariableAssignment(VariableAssignment<Type>),
     // Creation of new variable
@@ -24,7 +58,7 @@ pub enum Statement<Type: ASTType> {
     VoidFunctionCall(FunctionCall<Type>),
 }
 
-impl<Type: ASTType> Statement<Type> {
+impl<Type: ASTType> StatementType<Type> {
     /** Gets the symbol defined in this expression
     Only this is considered, while subexpressions are ignored
     @return
@@ -33,7 +67,7 @@ impl<Type: ASTType> Statement<Type> {
     */
     pub fn get_direct_symbol(&self) -> Option<Symbol<Type>> {
         match self {
-            Statement::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
+            StatementType::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
             _ => None,
         }
     }
@@ -42,14 +76,14 @@ impl<Type: ASTType> Statement<Type> {
      */
     pub fn len_children(&self) -> usize {
         match self {
-            Statement::ControlStructure(structure) => structure.child_len(),
-            Statement::Codeblock(codeblock) => codeblock.len(),
+            StatementType::ControlStructure(structure) => structure.child_len(),
+            StatementType::Codeblock(codeblock) => codeblock.len(),
             _ => 0,
         }
     }
 }
 
-impl<Type: ASTType> Index<usize> for Statement<Type> {
+impl<Type: ASTType> Index<usize> for StatementType<Type> {
     type Output = Statement<Type>;
 
     /** Gets the indexth child statement
@@ -57,8 +91,8 @@ impl<Type: ASTType> Index<usize> for Statement<Type> {
     */
     fn index(&self, index: usize) -> &Self::Output {
         match self {
-            Statement::Codeblock(block) => &block[index],
-            Statement::ControlStructure(structure) => structure.child_statement_at(index),
+            StatementType::Codeblock(block) => &block[index],
+            StatementType::ControlStructure(structure) => structure.child_statement_at(index),
             _ => panic!("This has no child members!"),
         }
     }
@@ -213,7 +247,7 @@ impl<Type: ASTType> Loop<Type> {
         self.loop_type.len() + 1
     }
 
-    pub fn to_loop_on(&self) -> &Statement<Type> {
+    pub fn to_loop_on(&self) -> &StatementType<Type> {
         &self.to_loop_on
     }
 
@@ -310,7 +344,7 @@ mod tests {
     use super::*;
     use crate::TypedAST;
     use crate::data_type::DataType;
-    use crate::expression::Literal;
+    use crate::expression::{ExpressionType, Literal};
     #[test]
     fn variable_assignement() {
         basic_test_variable(Rc::new(VariableSymbol::new(
@@ -323,6 +357,6 @@ mod tests {
     fn basic_test_variable(
         symbol: Rc<VariableSymbol<TypedAST>>,
     ) -> Option<VariableAssignment<TypedAST>> {
-        VariableAssignment::<TypedAST>::new(symbol, Expression::Literal(Literal::F32(14.0)))
+        VariableAssignment::<TypedAST>::new(symbol, Expression::new(ExpressionType::Literal(Literal::F32(14.0))))
     }
 }

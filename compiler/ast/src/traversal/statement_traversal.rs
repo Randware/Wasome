@@ -1,5 +1,5 @@
 use crate::ASTType;
-use crate::statement::Statement;
+use crate::statement::{Statement, StatementType};
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use std::ops::{Deref, Index};
@@ -76,14 +76,14 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
     */
     pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'a, Type>> // Returning an iterator would require a trait object
     {
-        let statement_to_symbol = Statement::get_direct_symbol;
-        match self.inner {
-            Statement::ControlStructure(control) => Self::indexable_into_vec(
+        let statement_to_symbol = StatementType::get_direct_symbol;
+        match &**self.inner {
+            StatementType::ControlStructure(control) => Self::indexable_into_vec(
                 |index| control.child_statement_at(index),
                 control.child_len(),
                 statement_to_symbol,
             ),
-            Statement::Codeblock(codeblock) => Self::indexable_into_vec(
+            StatementType::Codeblock(codeblock) => Self::indexable_into_vec(
                 |index| &codeblock[index],
                 codeblock.len(),
                 statement_to_symbol,
@@ -116,7 +116,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
 }
 
 impl<Type: ASTType> Deref for StatementTraversalHelper<'_, Type> {
-    type Target = Statement<Type>;
+    type Target = StatementType<Type>;
 
     fn deref(&self) -> &Self::Target {
         self.inner
@@ -126,7 +126,7 @@ impl<Type: ASTType> Deref for StatementTraversalHelper<'_, Type> {
 // Helper struct for getting a symbols defined at a current location
 struct DefaultSymbolTable<'a, Type: ASTType> {
     source: &'a StatementTraversalHelper<'a, Type>,
-    current: &'a Statement<Type>,
+    current: &'a StatementType<Type>,
     current_location: Option<&'a StatementLocation<'a>>,
     prev_index: usize,
     // The symbols from the root, for example functions

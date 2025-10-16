@@ -1,11 +1,44 @@
+use std::ops::{Deref, DerefMut};
 use crate::data_type::{DataType, Typed};
 use crate::symbol::FunctionCall;
 use crate::{ASTType, TypedAST, UntypedAST, eq_return_option};
 
+/** This represents an Expression Type and its location
+*/
+#[derive(PartialEq, Debug)]
+pub struct Expression<Type: ASTType>
+{
+    inner: ExpressionType<Type>
+}
+
+impl<Type: ASTType> Expression<Type>
+{
+    pub fn new(inner: ExpressionType<Type>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<Type: ASTType> Deref for Expression<Type>
+{
+    type Target = ExpressionType<Type>;
+
+    fn deref(&self) -> &Self::Target
+    {
+        &self.inner
+    }
+}
+
+impl<Type: ASTType> DerefMut for Expression<Type>
+{
+    fn deref_mut(&mut self) -> &mut Self::Target
+    {
+        &mut self.inner
+    }
+}
 /** This represents an expression as per section 2 of the lang spec
 */
 #[derive(Debug, PartialEq)]
-pub enum Expression<Type: ASTType> {
+pub enum ExpressionType<Type: ASTType> {
     // Only valid if it doesn't return void
     FunctionCall(FunctionCall<Type>),
     Variable(Type::VariableUse),
@@ -14,9 +47,9 @@ pub enum Expression<Type: ASTType> {
     BinaryOp(Box<BinaryOp<Type>>),
 }
 
-impl Typed for Expression<TypedAST> {
+impl Typed for ExpressionType<TypedAST> {
     fn data_type(&self) -> DataType {
-        use Expression as Ex;
+        use ExpressionType as Ex;
         match self {
             // Unwrap safety:
             // It may only exist if the return type is not void
@@ -463,17 +496,17 @@ mod tests {
 
     #[test]
     fn expression() {
-        let expression = Expression::BinaryOp(Box::new(
+        let expression = ExpressionType::BinaryOp(Box::new(
             BinaryOp::<TypedAST>::new(
                 BinaryOpType::Addition,
-                Expression::Literal(Literal::S32(5)),
-                Expression::UnaryOp(Box::new(
+                Expression::new(ExpressionType::Literal(Literal::S32(5))),
+                Expression::new(ExpressionType::UnaryOp(Box::new(
                     UnaryOp::<TypedAST>::new(
                         UnaryOpType::Typecast(Typecast::new(DataType::S32)),
-                        Expression::Literal(Literal::F32(10.3)),
+                        Expression::new(ExpressionType::Literal(Literal::F32(10.3))),
                     )
                     .unwrap(),
-                )),
+                ))),
             )
             .unwrap(),
         ));
