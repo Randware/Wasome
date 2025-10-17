@@ -12,4 +12,5 @@ There are traversak helpers, who are available for both types <br>
 These traversal helpers allow an easy determination of all symbols 
 available at a specific point in the ast
 
-
+### error
+Handles error messanges and printing
