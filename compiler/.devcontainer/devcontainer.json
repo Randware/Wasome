@@ -1,0 +1,10 @@
+{
+  "name": "Rust 1.89.0 + LLVM 21",
+
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+
+  "remoteUser": "root"
+}
