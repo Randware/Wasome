@@ -100,9 +100,7 @@ fn test_all_keywords() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }

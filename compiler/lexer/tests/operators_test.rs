@@ -44,9 +44,7 @@ fn test_math_operators() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -134,9 +132,7 @@ fn test_logic_operators() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -184,9 +180,7 @@ fn test_greedy_tokens() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }

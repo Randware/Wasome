@@ -34,9 +34,7 @@ fn test_infinite_loop() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -71,7 +69,7 @@ fn test_while_loop() {
             line: 1,
             span: 14..16,
         },
-        Token {            
+        Token {
             kind: TokenType::Integer(0),
             line: 1,
             span: 17..18,
@@ -162,10 +160,8 @@ fn test_while_loop() {
             span: 5..6,
         },
     ];
-    
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -209,7 +205,7 @@ fn test_for_loop() {
             line: 1,
             span: 20..22,
         },
-        Token {            
+        Token {
             kind: TokenType::Integer(0),
             line: 1,
             span: 23..24,
@@ -321,9 +317,7 @@ fn test_for_loop() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }

@@ -43,7 +43,7 @@ fn test_all_values() {
             kind: TokenType::Decimal(123.01),
             line: 2,
             span: 16..22,
-        }, 
+        },
         Token {
             kind: TokenType::StatementSeparator,
             line: 2,
@@ -66,9 +66,7 @@ fn test_all_values() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -111,9 +109,7 @@ fn test_broken_format_decimal() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
@@ -209,9 +205,7 @@ fn test_char_literal() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
+    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }
