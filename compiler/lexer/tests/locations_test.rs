@@ -11,8 +11,8 @@ fn test_location() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::S32,
@@ -36,18 +36,18 @@ fn test_location() {
         },
         Token {
             kind: TokenType::StatementSeparator,
+            line: 1,
+            span: 18..19,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
             line: 2,
-            span: 0..0,
+            span: 4..5,
         },
         Token {
             kind: TokenType::StatementSeparator,
             line: 3,
-            span: 0..0,
-        },
-        Token {
-            kind: TokenType::StatementSeparator,
-            line: 4,
-            span: 0..0,
+            span: 4..5,
         },
     ];
 

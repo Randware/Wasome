@@ -3,7 +3,7 @@ use lexer::{Token, TokenType, lex};
 #[test]
 fn test_all_values() {
     let input = r#"
-    name name_trimmed 
+    name name_trimmed
     0.123 123.0 123.01
     0 123
     "#;
@@ -11,8 +11,8 @@ fn test_all_values() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Identifier("name".to_string()),
@@ -26,8 +26,8 @@ fn test_all_values() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 21..22,
         },
         Token {
             kind: TokenType::Decimal(0.123),
@@ -46,8 +46,8 @@ fn test_all_values() {
         }, 
         Token {
             kind: TokenType::StatementSeparator,
-            line: 3,
-            span: 0..0,
+            line: 2,
+            span: 22..23,
         },
         Token {
             kind: TokenType::Integer(0),
@@ -61,8 +61,8 @@ fn test_all_values() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 4,
-            span: 0..0,
+            line: 3,
+            span: 9..10,
         },
     ];
 
@@ -81,8 +81,8 @@ fn test_broken_format_decimal() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Decimal(0.1),
@@ -106,8 +106,8 @@ fn test_broken_format_decimal() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 13..14,
         },
     ];
 
@@ -129,8 +129,8 @@ fn test_char_literal() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Char,
@@ -154,8 +154,8 @@ fn test_char_literal() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 20..21,
         },
         Token {
             kind: TokenType::Char,
@@ -179,8 +179,8 @@ fn test_char_literal() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 3,
-            span: 0..0,
+            line: 2,
+            span: 23..24,
         },
         Token {
             kind: TokenType::Char,
@@ -204,8 +204,8 @@ fn test_char_literal() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 4,
-            span: 0..0,
+            line: 3,
+            span: 21..22,
         },
     ];
 

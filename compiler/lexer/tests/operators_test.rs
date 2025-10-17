@@ -9,8 +9,8 @@ fn test_math_operators() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Addition,
@@ -39,8 +39,8 @@ fn test_math_operators() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 13..14,
         },
     ];
 
@@ -59,8 +59,8 @@ fn test_logic_operators() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::LessThan,
@@ -129,8 +129,8 @@ fn test_logic_operators() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 37..38,
         },
     ];
 
@@ -154,8 +154,8 @@ fn test_greedy_tokens() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Or,
@@ -179,8 +179,8 @@ fn test_greedy_tokens() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 11..12,
         },
     ];
 

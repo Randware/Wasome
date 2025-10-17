@@ -3,15 +3,15 @@ use lexer::{Token, TokenType, lex};
 #[test]
 fn test_all_keywords() {
     let input = r#"
-    fn if else loop 
+    fn if else loop
     struct -> <- enum as pub new :: . ; ,
     "#;
 
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Function,
@@ -35,8 +35,8 @@ fn test_all_keywords() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 19..20,
         },
         Token {
             kind: TokenType::Struct,
@@ -95,8 +95,8 @@ fn test_all_keywords() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 3,
-            span: 0..0,
+            line: 2,
+            span: 41..42,
         },
     ];
 

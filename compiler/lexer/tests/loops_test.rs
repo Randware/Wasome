@@ -9,8 +9,8 @@ fn test_infinite_loop() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Loop,
@@ -29,8 +29,8 @@ fn test_infinite_loop() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 12..13,
         },
     ];
 
@@ -53,8 +53,8 @@ fn test_while_loop() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::U32,
@@ -78,8 +78,8 @@ fn test_while_loop() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 18..19,
         },
         Token {
             kind: TokenType::Loop,
@@ -118,8 +118,8 @@ fn test_while_loop() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 3,
-            span: 0..0,
+            line: 2,
+            span: 22..23,
         },
         Token {
             kind: TokenType::Identifier("count".to_string()),
@@ -148,8 +148,8 @@ fn test_while_loop() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 4,
-            span: 0..0,
+            line: 3,
+            span: 25..26,
         },
         Token {
             kind: TokenType::CloseScope,
@@ -158,8 +158,8 @@ fn test_while_loop() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 5,
-            span: 0..0,
+            line: 4,
+            span: 5..6,
         },
     ];
     
@@ -181,8 +181,8 @@ fn test_for_loop() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Loop,
@@ -276,8 +276,8 @@ fn test_for_loop() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 59..60,
         },
         Token {
             kind: TokenType::Identifier("count".to_string()),
@@ -306,8 +306,8 @@ fn test_for_loop() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 3,
-            span: 0..0,
+            line: 2,
+            span: 25..26,
         },
         Token {
             kind: TokenType::CloseScope,
@@ -316,8 +316,8 @@ fn test_for_loop() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 4,
-            span: 0..0,
+            line: 3,
+            span: 5..6,
         },
     ];
 

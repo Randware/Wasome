@@ -9,8 +9,8 @@ fn test_all_datatypes() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::S8,
@@ -79,8 +79,8 @@ fn test_all_datatypes() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 56..57,
         },
     ];
 
@@ -97,8 +97,8 @@ fn test_all_datatypes_no_spaces() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::Identifier("s8s16s32s64u8u16u32u64f32f64boolcharself".to_string()),
@@ -107,8 +107,8 @@ fn test_all_datatypes_no_spaces() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 44..45,
         },
     ];
 

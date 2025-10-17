@@ -9,8 +9,8 @@ fn test_all_brackets() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 0..0,
+            line: 0,
+            span: 0..1,
         },
         Token {
             kind: TokenType::OpenScope,
@@ -34,8 +34,8 @@ fn test_all_brackets() {
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 0..0,
+            line: 1,
+            span: 11..12,
         },
     ];
 

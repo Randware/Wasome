@@ -20,7 +20,7 @@ pub struct Token {
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
-#[logos(extras = (usize, Range<usize>))]
+#[logos(extras = (usize,usize))]
 #[logos(skip r"[\t\f]+")]
 pub enum TokenType {
     // Datatypes
@@ -142,22 +142,10 @@ pub enum TokenType {
     Dot,
     #[token(";")]
     Semicolon,
-    #[regex(r"\r?\n", newline_callback)]
+    #[regex(r"\r?\n")]
     StatementSeparator,
     #[token(",")]
     ArgumentSeparator,
-}
-/**
-This function is called when a "StatementSeparator" / '\n' is detected.
-extras.0 is the line number, which is incremented.
-extras.1 is the range of each Token, which will start with 0..0 on each new line.
-*/
-fn newline_callback(lex: &mut Lexer<TokenType>) -> TokenType {
-    lex.extras.0 += 1;
-    let new_line = lex.span().end;
-    lex.extras.1 = new_line..new_line;
-
-    TokenType::StatementSeparator
 }
 
 /**
