@@ -7,12 +7,16 @@ use chumsky::prelude::*;
 use lexer::Token;
 use std::rc::Rc;
 
+/** This parses a slice of tokens into an arbitiary top-level element
+*/
 pub(crate) fn top_level_parser<'src>()
 -> impl Parser<'src, &'src [Token], TopLevelElement<UntypedAST>> {
     // This currently only handles functions
     function_parser().map(TopLevelElement::Function)
 }
 
+/** This parses a slice of tokens into a function
+*/
 fn function_parser<'src>() -> impl Parser<'src, &'src [Token], Function<UntypedAST>> {
     let statement = statement_parser();
     let data_type = datatype_parser();

@@ -1,6 +1,8 @@
 use chumsky::prelude::*;
 use lexer::Token;
 
+/** This parses arbitiary data types
+*/
 pub(crate) fn datatype_parser<'src>() -> impl Parser<'src, &'src [Token], String> + Clone {
     choice((
         just(Token::F32).map(|_| "f32".to_string()),
@@ -18,6 +20,8 @@ pub(crate) fn datatype_parser<'src>() -> impl Parser<'src, &'src [Token], String
     ))
 }
 
+/** This parses idendifierts
+*/
 pub(crate) fn identifier_parser<'a>() -> impl Parser<'a, &'a [Token], String> + Clone {
     custom(|token| match token.next().ok_or(EmptyErr::default())? {
         Token::Identifier(inner) => Ok(inner),
@@ -25,6 +29,8 @@ pub(crate) fn identifier_parser<'a>() -> impl Parser<'a, &'a [Token], String> + 
     })
 }
 
+/** This parses statement seperators.
+*/
 pub(crate) fn statement_seperator<'a>() -> impl Parser<'a, &'a [Token], ()> + Clone {
     just(Token::StatementSeparator)
         .repeated()

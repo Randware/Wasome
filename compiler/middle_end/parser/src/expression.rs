@@ -8,6 +8,8 @@ use chumsky::prelude::*;
 use chumsky::primitive::Just;
 use lexer::Token;
 
+/** This parses a slice of tokens into an expression
+*/
 pub(crate) fn expression_parser<'src>()
 -> impl Parser<'src, &'src [Token], Expression<UntypedAST>> + Clone {
     recursive(|expr| {
