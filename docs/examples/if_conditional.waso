@@ -1,0 +1,9 @@
+fn main() -> char {
+  bool wasome_is_awesome <- true
+
+  if (wasome_is_awesome) {
+    -> '✨'
+    }
+  -> '🤥' 
+
+}
