@@ -3,7 +3,6 @@ use crate::top_level::top_level_parser;
 use ast::{AST, UntypedAST};
 use chumsky::IterParser;
 use chumsky::Parser;
-use chumsky::prelude::just;
 use lexer::Token;
 
 mod expression;
