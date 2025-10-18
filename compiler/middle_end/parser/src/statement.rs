@@ -12,6 +12,8 @@ use lexer::Token;
 use lexer::Token::CloseParen;
 use std::rc::Rc;
 
+/** This parses a slice of tokens into a statement
+*/
 pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], Statement<UntypedAST>> {
     recursive(|statement| {
         let data_type = datatype_parser();
@@ -114,6 +116,8 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
     })
 }
 
+/** This parses a statement seperator or nothing
+*/
 fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [Token], ()> + Clone {
     just(Token::StatementSeparator).or_not().ignored()
 }

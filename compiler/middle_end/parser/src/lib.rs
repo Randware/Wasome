@@ -11,6 +11,8 @@ mod misc;
 mod statement;
 mod top_level;
 
+/** This parses a slice of tokens into an ast
+*/
 pub fn parser<'src>() -> impl Parser<'src, &'src [Token], AST<UntypedAST>> {
     let top_level = top_level_parser();
     top_level
