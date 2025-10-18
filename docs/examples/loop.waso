@@ -1,0 +1,24 @@
+fn main {
+
+s32 count <- 0
+
+// infinite loop
+loop {
+    count = count + 1
+}  
+
+s32 count2 <- 0
+
+// while loop
+loop (count2 < 100) {
+    count2 = count2 + 1
+}
+
+// for loop
+s32 sum <- 0
+
+loop (s32 count3 <- 0; count3 < 100; count3 <- count3 + 1) {
+    sum = sum + count3
+}
+
+}

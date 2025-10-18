@@ -1,9 +1,11 @@
 fn main() -> char {
+
+// simple if conditional showcase
   bool wasome_is_awesome <- true
 
   if (wasome_is_awesome) {
     -> '✨'
-    }
-  -> '🤥' 
-
+  } else {
+    -> '🤥'   
+  }
 }
