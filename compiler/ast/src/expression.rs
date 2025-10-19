@@ -37,7 +37,7 @@ pub enum Literal {
     S32(i32),
     Bool(bool),
     Char(u32), //UTF-8 character
-    F32(f32),
+    //F32(f32),
     F64(f64),
 }
 
@@ -63,6 +63,7 @@ pub struct UnaryOp<Type: ASTType> {
     // The expression to "process"
     input: Expression<Type>,
 }
+
 
 impl<Type: ASTType> UnaryOp<Type>
 {
@@ -227,6 +228,25 @@ pub struct BinaryOp<Type: ASTType> {
     left: Expression<Type>,
     // The left expression to process
     right: Expression<Type>,
+}
+
+impl<Type: ASTType> BinaryOp<Type>
+{
+    pub fn left(&self) -> &Expression<Type> {
+        &self.left
+    }
+
+    pub fn right(&self) -> &Expression<Type> {
+        &self.right
+    }
+
+    pub fn op_type(&self) -> &BinaryOpType {
+        &self.op_type
+    }
+
+    pub fn destructure(self) -> (BinaryOpType, Expression<Type>, Expression<Type>) {
+        (self.op_type, self.left, self.right)
+    }
 }
 
 impl BinaryOp<TypedAST> {
