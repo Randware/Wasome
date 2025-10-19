@@ -282,7 +282,7 @@ impl Typed for BinaryOp<TypedAST> {
     }
 }
 
-/** This is the type of an unary operator
+/** This is the type of an binary operator
 */
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BinaryOpType {
