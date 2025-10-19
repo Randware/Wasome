@@ -1,17 +1,15 @@
 mod expression_sa;
+mod mics_sa;
 mod statement_sa;
 mod top_level_sa;
-mod mics_sa;
 
-use ast::{TypedAST, UntypedAST, AST};
+use ast::{AST, TypedAST, UntypedAST};
 
-pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>>
-{
+pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
     todo!()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 }
