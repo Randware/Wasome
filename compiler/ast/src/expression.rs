@@ -64,6 +64,23 @@ pub struct UnaryOp<Type: ASTType> {
     input: Expression<Type>,
 }
 
+impl<Type: ASTType> UnaryOp<Type>
+{
+
+    pub fn input(&self) -> &Expression<Type> {
+        &self.input
+    }
+
+    pub fn op_type(&self) -> &UnaryOpType<Type> {
+        &self.op_type
+    }
+
+    pub fn destructure(self) -> (UnaryOpType<Type>, Expression<Type>)
+    {
+        (self.op_type, self.input)
+    }
+}
+
 impl UnaryOp<TypedAST> {
     /** Creates a new instance of UnaryOp
     @params
@@ -158,6 +175,13 @@ impl UnaryOpType<TypedAST> {
 */
 pub struct Typecast<Type: ASTType> {
     target: Type::GeneralDataType,
+}
+
+impl<Type: ASTType> Typecast<Type>
+{
+    pub fn target(&self) -> &Type::GeneralDataType {
+        &self.target
+    }
 }
 
 impl<Type: ASTType> Typecast<Type> {
