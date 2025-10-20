@@ -2,6 +2,7 @@
 
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use std::fmt::Debug;
+use std::io::{stderr, Write};
 
 const ERROR_CONTEXT_LINES: usize = 3;
 /** A syntax error
@@ -36,11 +37,19 @@ impl SyntaxError {
         SyntaxErrorBuilder::new()
     }
 
-    /** Prints the error to stdout
-       # Panic
-       May panic if the area is referencing to locations that don't exist in the the provided code
+    /** Prints the error to stderr
+          # Panic
+          May panic if the area is referencing to locations that don't exist in the provided code
     */
-    pub fn print(&self) {
+    pub fn print_to_stderr(&self) {
+        self.write(stderr())
+    }
+
+    /** Writes the error to the specified output
+       # Panic
+       May panic if the area is referencing to locations that don't exist in the provided code
+    */
+    pub fn write(&self, to_print_to: impl Write) {
         // Orange
         let error_code_color = Color::BrightWhite;
         let error_msg_color = Color::Red;
@@ -139,7 +148,7 @@ impl SyntaxError {
         // Prints Error and the error message
         report
             .finish()
-            .print((&self.file_location, Source::from(&self.code)))
+            .write((&self.file_location, Source::from(&self.code)), to_print_to)
             .unwrap();
     }
 
@@ -419,7 +428,7 @@ impl ErrorType
     {
         match self
         {
-            ErrorType::Error => ReportKind::Custom("Error", Color::Red),
+            ErrorType::Error => ReportKind::Error,
             ErrorType::Warning => ReportKind::Warning,
             ErrorType::Info => ReportKind::Advice
         }
@@ -449,7 +458,7 @@ mod tests {
             .with_code(include_str!("lib.rs").to_string())
             .build();
 
-        error.print();
+        error.print_to_stderr();
     }
 
     #[test]
@@ -462,7 +471,7 @@ mod tests {
             .with_code(include_str!("lib.rs").to_string())
             .build();
 
-        error.print();
+        error.print_to_stderr();
     }
 
     #[test]
