@@ -4,12 +4,45 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use std::fmt::Debug;
 use std::io::{stderr, Write};
 
-const ERROR_CONTEXT_LINES: usize = 3;
+const DEFAULT_ERROR_CONTEXT_LINES: usize = 3;
+
+/** Decided details of how errors should be outputted
+*/
+pub struct ErrorOutputConfig
+{
+    // This uses a trait object as PrintConfig having a generic parameter would expose its implementation
+    // details
+    /// Where the error should be written to
+    output: Box<dyn Write>,
+    /// The context for the error message
+    context: usize
+}
+
+impl ErrorOutputConfig
+{
+    pub fn new(output: impl Write+'static, context: usize) -> Self {
+        Self { output: Box::new(output), context }
+    }
+
+    fn output(self) -> Box<dyn Write> {
+        self.output
+    }
+
+    fn context(&self) -> usize {
+        self.context
+    }
+}
+
+impl Default for ErrorOutputConfig
+{
+    fn default() -> Self {
+        ErrorOutputConfig::new(stderr(), DEFAULT_ERROR_CONTEXT_LINES)
+    }
+}
 /** A syntax error
 This struct is used for storing and displaying syntax errors
 */
 #[derive(Debug)]
-
 pub struct SyntaxError {
     area: CodeArea,
     file_location: String,
@@ -37,19 +70,20 @@ impl SyntaxError {
         SyntaxErrorBuilder::new()
     }
 
-    /** Prints the error to stderr
+    /** Prints the error to stderr with the default context
           # Panic
           May panic if the area is referencing to locations that don't exist in the provided code
     */
-    pub fn print_to_stderr(&self) {
-        self.write(stderr())
+    pub fn print_to_stderr_default_context(&self) {
+        self.write(ErrorOutputConfig::default())
     }
 
     /** Writes the error to the specified output
        # Panic
        May panic if the area is referencing to locations that don't exist in the provided code
     */
-    pub fn write(&self, to_print_to: impl Write) {
+    pub fn write(&self, print_config: ErrorOutputConfig) {
+        let error_context = print_config.context();
         // Orange
         let error_code_color = Color::BrightWhite;
         let error_msg_color = Color::Red;
@@ -61,11 +95,11 @@ impl SyntaxError {
         let error_start_line = self.area.start().line();
         let error_end_line = self.area.end().line();
         // The start and end including the padding
-        let display_end = error_end_line + ERROR_CONTEXT_LINES;
-        let display_start = if error_start_line < ERROR_CONTEXT_LINES {
+        let display_end = error_end_line + error_context;
+        let display_start = if error_start_line < error_context {
             0
         } else {
-            error_start_line - ERROR_CONTEXT_LINES
+            error_start_line - error_context
         };
 
         // The processed lines with annotations
@@ -148,7 +182,7 @@ impl SyntaxError {
         // Prints Error and the error message
         report
             .finish()
-            .write((&self.file_location, Source::from(&self.code)), to_print_to)
+            .write((&self.file_location, Source::from(&self.code)), print_config.output())
             .unwrap();
     }
 
@@ -451,27 +485,27 @@ mod tests {
     #[test]
     fn error() {
         let error = SyntaxError::builder()
-            .with_area(CodeArea::new(CodeLocation::new(12, 10), CodeLocation::new(12, 18)).unwrap())
+            .with_area(CodeArea::new(CodeLocation::new(46, 10), CodeLocation::new(46, 18)).unwrap())
             .with_error_type(ErrorType::Error)
             .with_error_msg("CodeArea is an invalid data type at this point in the programm".to_string())
             .with_file_location("main.waso".to_string())
             .with_code(include_str!("lib.rs").to_string())
             .build();
 
-        error.print_to_stderr();
+        error.print_to_stderr_default_context();
     }
 
     #[test]
     fn error_multiline() {
         let error = SyntaxError::builder()
-            .with_area(CodeArea::new(CodeLocation::new(6, 0), CodeLocation::new(8, 2)).unwrap())
+            .with_area(CodeArea::new(CodeLocation::new(2, 0), CodeLocation::new(4, 29)).unwrap())
             .with_error_type(ErrorType::Error)
             .with_error_msg("CodeArea is an invalid data type at this point in the programm".to_string())
             .with_file_location("main.waso".to_string())
             .with_code(include_str!("lib.rs").to_string())
             .build();
 
-        error.print_to_stderr();
+        error.print_to_stderr_default_context();
     }
 
     #[test]
