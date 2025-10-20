@@ -6,9 +6,8 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 #[derive(Debug)]
-pub struct TopLevelElementNode<Type: ASTType>
-{
-    inner: TopLevelElement<Type>
+pub struct TopLevelElementNode<Type: ASTType> {
+    inner: TopLevelElement<Type>,
 }
 
 impl<Type: ASTType> TopLevelElementNode<Type> {

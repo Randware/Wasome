@@ -116,7 +116,10 @@ impl VariableAssignment<TypedAST> {
 impl VariableAssignment<UntypedAST> {
     /** Creates a new instance
      */
-    pub fn new(variable: Rc<VariableSymbol<UntypedAST>>, value: ExpressionNode<UntypedAST>) -> Self {
+    pub fn new(
+        variable: Rc<VariableSymbol<UntypedAST>>,
+        value: ExpressionNode<UntypedAST>,
+    ) -> Self {
         Self { variable, value }
     }
 }

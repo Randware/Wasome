@@ -116,9 +116,9 @@ impl ASTType for UntypedAST {
 mod tests {
     use crate::block::CodeBlock;
     use crate::data_type::DataType;
-    use crate::expression::{BinaryOp, BinaryOpType, ExpressionNode, Expression, Literal};
+    use crate::expression::{BinaryOp, BinaryOpType, Expression, ExpressionNode, Literal};
     use crate::statement::{
-        ControlStructure, Loop, LoopType, Return, StatementNode, Statement, VariableAssignment,
+        ControlStructure, Loop, LoopType, Return, Statement, StatementNode, VariableAssignment,
     };
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
     use crate::top_level::{Function, TopLevelElement, TopLevelElementNode};
@@ -144,7 +144,9 @@ mod tests {
             StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![statement]))),
         );
 
-        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(function))]);
+        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(
+            function,
+        ))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -191,7 +193,9 @@ mod tests {
             statement,
         );
 
-        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(function))]);
+        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(
+            function,
+        ))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -241,92 +245,96 @@ mod tests {
             Some(DataType::S32),
             vec![nth.clone()],
         ));
-        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(Function::new(
-            fibonacci.clone(),
-            StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                StatementNode::new(Statement::VariableDeclaration(
-                    VariableAssignment::<TypedAST>::new(
-                        current.clone(),
-                        ExpressionNode::new(Expression::Literal(Literal::S32(1))),
-                    )
-                    .unwrap(),
-                )),
-                StatementNode::new(Statement::VariableDeclaration(
-                    VariableAssignment::<TypedAST>::new(
-                        previous.clone(),
-                        ExpressionNode::new(Expression::Literal(Literal::S32(0))),
-                    )
-                    .unwrap(),
-                )),
-                StatementNode::new(Statement::ControlStructure(Box::new(
-                    ControlStructure::Loop(Loop::new(
-                        StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                            StatementNode::new(Statement::VariableDeclaration(
-                                VariableAssignment::<TypedAST>::new(
-                                    temp.clone(),
-                                    ExpressionNode::new(Expression::Variable(current.clone())),
-                                )
-                                .unwrap(),
-                            )),
-                            StatementNode::new(Statement::VariableAssignment(
-                                VariableAssignment::<TypedAST>::new(
-                                    current.clone(),
-                                    ExpressionNode::new(Expression::BinaryOp(Box::new(
-                                        BinaryOp::<TypedAST>::new(
-                                            BinaryOpType::Addition,
-                                            ExpressionNode::new(Expression::Variable(
-                                                current.clone(),
-                                            )),
-                                            ExpressionNode::new(Expression::Variable(
-                                                previous.clone(),
-                                            )),
-                                        )
-                                        .unwrap(),
-                                    ))),
-                                )
-                                .unwrap(),
-                            )),
-                            StatementNode::new(Statement::VariableAssignment(
-                                VariableAssignment::<TypedAST>::new(
-                                    previous.clone(),
-                                    ExpressionNode::new(Expression::Variable(temp.clone())),
-                                )
-                                .unwrap(),
-                            )),
-                            StatementNode::new(Statement::VariableAssignment(
-                                VariableAssignment::<TypedAST>::new(
-                                    nth.clone(),
-                                    ExpressionNode::new(Expression::BinaryOp(Box::new(
-                                        BinaryOp::<TypedAST>::new(
-                                            BinaryOpType::Subtraction,
-                                            ExpressionNode::new(Expression::Variable(nth.clone())),
-                                            ExpressionNode::new(Expression::Literal(Literal::S32(
-                                                1,
-                                            ))),
-                                        )
-                                        .unwrap(),
-                                    ))),
-                                )
-                                .unwrap(),
-                            )),
-                        ]))),
-                        LoopType::While(ExpressionNode::new(Expression::BinaryOp(Box::new(
-                            BinaryOp::<TypedAST>::new(
-                                BinaryOpType::Greater,
-                                ExpressionNode::new(Expression::Variable(nth.clone())),
-                                ExpressionNode::new(Expression::Literal(Literal::S32(
-                                    1, //The fibonacci number of 1 is 1
-                                ))),
-                            )
-                            .unwrap(),
-                        )))),
+        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(
+            Function::new(
+                fibonacci.clone(),
+                StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
+                    StatementNode::new(Statement::VariableDeclaration(
+                        VariableAssignment::<TypedAST>::new(
+                            current.clone(),
+                            ExpressionNode::new(Expression::Literal(Literal::S32(1))),
+                        )
+                        .unwrap(),
                     )),
-                ))),
-                StatementNode::new(Statement::Return(Return::new(Some(ExpressionNode::new(
-                    Expression::Variable(current.clone()),
-                ))))),
-            ]))),
-        )))]);
+                    StatementNode::new(Statement::VariableDeclaration(
+                        VariableAssignment::<TypedAST>::new(
+                            previous.clone(),
+                            ExpressionNode::new(Expression::Literal(Literal::S32(0))),
+                        )
+                        .unwrap(),
+                    )),
+                    StatementNode::new(Statement::ControlStructure(Box::new(
+                        ControlStructure::Loop(Loop::new(
+                            StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
+                                StatementNode::new(Statement::VariableDeclaration(
+                                    VariableAssignment::<TypedAST>::new(
+                                        temp.clone(),
+                                        ExpressionNode::new(Expression::Variable(current.clone())),
+                                    )
+                                    .unwrap(),
+                                )),
+                                StatementNode::new(Statement::VariableAssignment(
+                                    VariableAssignment::<TypedAST>::new(
+                                        current.clone(),
+                                        ExpressionNode::new(Expression::BinaryOp(Box::new(
+                                            BinaryOp::<TypedAST>::new(
+                                                BinaryOpType::Addition,
+                                                ExpressionNode::new(Expression::Variable(
+                                                    current.clone(),
+                                                )),
+                                                ExpressionNode::new(Expression::Variable(
+                                                    previous.clone(),
+                                                )),
+                                            )
+                                            .unwrap(),
+                                        ))),
+                                    )
+                                    .unwrap(),
+                                )),
+                                StatementNode::new(Statement::VariableAssignment(
+                                    VariableAssignment::<TypedAST>::new(
+                                        previous.clone(),
+                                        ExpressionNode::new(Expression::Variable(temp.clone())),
+                                    )
+                                    .unwrap(),
+                                )),
+                                StatementNode::new(Statement::VariableAssignment(
+                                    VariableAssignment::<TypedAST>::new(
+                                        nth.clone(),
+                                        ExpressionNode::new(Expression::BinaryOp(Box::new(
+                                            BinaryOp::<TypedAST>::new(
+                                                BinaryOpType::Subtraction,
+                                                ExpressionNode::new(Expression::Variable(
+                                                    nth.clone(),
+                                                )),
+                                                ExpressionNode::new(Expression::Literal(
+                                                    Literal::S32(1),
+                                                )),
+                                            )
+                                            .unwrap(),
+                                        ))),
+                                    )
+                                    .unwrap(),
+                                )),
+                            ]))),
+                            LoopType::While(ExpressionNode::new(Expression::BinaryOp(Box::new(
+                                BinaryOp::<TypedAST>::new(
+                                    BinaryOpType::Greater,
+                                    ExpressionNode::new(Expression::Variable(nth.clone())),
+                                    ExpressionNode::new(Expression::Literal(Literal::S32(
+                                        1, //The fibonacci number of 1 is 1
+                                    ))),
+                                )
+                                .unwrap(),
+                            )))),
+                        )),
+                    ))),
+                    StatementNode::new(Statement::Return(Return::new(Some(ExpressionNode::new(
+                        Expression::Variable(current.clone()),
+                    ))))),
+                ]))),
+            ),
+        ))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -369,87 +377,91 @@ mod tests {
             Some("s32".to_string()),
             vec![nth.clone()],
         ));
-        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(Function::new(
-            fibonacci.clone(),
-            StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                StatementNode::new(Statement::VariableDeclaration(VariableAssignment::<
-                    UntypedAST,
-                >::new(
-                    current.clone(),
-                    ExpressionNode::new(Expression::Literal("1".to_string())),
-                ))),
-                StatementNode::new(Statement::VariableDeclaration(VariableAssignment::<
-                    UntypedAST,
-                >::new(
-                    previous.clone(),
-                    ExpressionNode::new(Expression::Literal("0".to_string())),
-                ))),
-                StatementNode::new(Statement::ControlStructure(Box::new(
-                    ControlStructure::Loop(Loop::new(
-                        StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                            StatementNode::new(Statement::VariableDeclaration(
-                                VariableAssignment::<UntypedAST>::new(
-                                    temp.clone(),
-                                    ExpressionNode::new(Expression::Variable(
-                                        "current".to_string(),
+        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(
+            Function::new(
+                fibonacci.clone(),
+                StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
+                    StatementNode::new(Statement::VariableDeclaration(VariableAssignment::<
+                        UntypedAST,
+                    >::new(
+                        current.clone(),
+                        ExpressionNode::new(Expression::Literal("1".to_string())),
+                    ))),
+                    StatementNode::new(Statement::VariableDeclaration(VariableAssignment::<
+                        UntypedAST,
+                    >::new(
+                        previous.clone(),
+                        ExpressionNode::new(Expression::Literal("0".to_string())),
+                    ))),
+                    StatementNode::new(Statement::ControlStructure(Box::new(
+                        ControlStructure::Loop(Loop::new(
+                            StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
+                                StatementNode::new(Statement::VariableDeclaration(
+                                    VariableAssignment::<UntypedAST>::new(
+                                        temp.clone(),
+                                        ExpressionNode::new(Expression::Variable(
+                                            "current".to_string(),
+                                        )),
+                                    ),
+                                )),
+                                StatementNode::new(Statement::VariableAssignment(
+                                    VariableAssignment::<UntypedAST>::new(
+                                        current.clone(),
+                                        ExpressionNode::new(Expression::BinaryOp(Box::new(
+                                            BinaryOp::<UntypedAST>::new(
+                                                BinaryOpType::Addition,
+                                                ExpressionNode::new(Expression::Variable(
+                                                    "current".to_string(),
+                                                )),
+                                                ExpressionNode::new(Expression::Variable(
+                                                    "previous".to_string(),
+                                                )),
+                                            ),
+                                        ))),
+                                    ),
+                                )),
+                                StatementNode::new(Statement::VariableAssignment(
+                                    VariableAssignment::<UntypedAST>::new(
+                                        previous.clone(),
+                                        ExpressionNode::new(Expression::Variable(
+                                            "temp".to_string(),
+                                        )),
+                                    ),
+                                )),
+                                StatementNode::new(Statement::VariableAssignment(
+                                    VariableAssignment::<UntypedAST>::new(
+                                        nth.clone(),
+                                        ExpressionNode::new(Expression::BinaryOp(Box::new(
+                                            BinaryOp::<UntypedAST>::new(
+                                                BinaryOpType::Subtraction,
+                                                ExpressionNode::new(Expression::Variable(
+                                                    "nth".to_string(),
+                                                )),
+                                                ExpressionNode::new(Expression::Literal(
+                                                    "1".to_string(),
+                                                )),
+                                            ),
+                                        ))),
+                                    ),
+                                )),
+                            ]))),
+                            LoopType::While(ExpressionNode::new(Expression::BinaryOp(Box::new(
+                                BinaryOp::<UntypedAST>::new(
+                                    BinaryOpType::Greater,
+                                    ExpressionNode::new(Expression::Variable("nth".to_string())),
+                                    ExpressionNode::new(Expression::Literal(
+                                        "1".to_string(), //The fibonacci number of 1 is 1
                                     )),
                                 ),
-                            )),
-                            StatementNode::new(Statement::VariableAssignment(
-                                VariableAssignment::<UntypedAST>::new(
-                                    current.clone(),
-                                    ExpressionNode::new(Expression::BinaryOp(Box::new(
-                                        BinaryOp::<UntypedAST>::new(
-                                            BinaryOpType::Addition,
-                                            ExpressionNode::new(Expression::Variable(
-                                                "current".to_string(),
-                                            )),
-                                            ExpressionNode::new(Expression::Variable(
-                                                "previous".to_string(),
-                                            )),
-                                        ),
-                                    ))),
-                                ),
-                            )),
-                            StatementNode::new(Statement::VariableAssignment(
-                                VariableAssignment::<UntypedAST>::new(
-                                    previous.clone(),
-                                    ExpressionNode::new(Expression::Variable("temp".to_string())),
-                                ),
-                            )),
-                            StatementNode::new(Statement::VariableAssignment(
-                                VariableAssignment::<UntypedAST>::new(
-                                    nth.clone(),
-                                    ExpressionNode::new(Expression::BinaryOp(Box::new(
-                                        BinaryOp::<UntypedAST>::new(
-                                            BinaryOpType::Subtraction,
-                                            ExpressionNode::new(Expression::Variable(
-                                                "nth".to_string(),
-                                            )),
-                                            ExpressionNode::new(Expression::Literal(
-                                                "1".to_string(),
-                                            )),
-                                        ),
-                                    ))),
-                                ),
-                            )),
-                        ]))),
-                        LoopType::While(ExpressionNode::new(Expression::BinaryOp(Box::new(
-                            BinaryOp::<UntypedAST>::new(
-                                BinaryOpType::Greater,
-                                ExpressionNode::new(Expression::Variable("nth".to_string())),
-                                ExpressionNode::new(Expression::Literal(
-                                    "1".to_string(), //The fibonacci number of 1 is 1
-                                )),
-                            ),
-                        )))),
-                    )),
-                ))),
-                StatementNode::new(Statement::Return(Return::new(Some(ExpressionNode::new(
-                    Expression::Variable("current".to_string()),
-                ))))),
-            ]))),
-        )))]);
+                            )))),
+                        )),
+                    ))),
+                    StatementNode::new(Statement::Return(Return::new(Some(ExpressionNode::new(
+                        Expression::Variable("current".to_string()),
+                    ))))),
+                ]))),
+            ),
+        ))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 

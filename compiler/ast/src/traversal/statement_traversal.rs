@@ -1,5 +1,5 @@
 use crate::ASTType;
-use crate::statement::{StatementNode, Statement};
+use crate::statement::{Statement, StatementNode};
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use std::ops::{Deref, Index};
