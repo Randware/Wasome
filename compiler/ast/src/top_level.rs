@@ -1,8 +1,29 @@
 use crate::ASTType;
-use crate::statement::StatementNode;
+use crate::statement::{Statement, StatementNode};
 use crate::symbol::FunctionSymbol;
 use std::fmt::Debug;
+use std::ops::Deref;
 use std::rc::Rc;
+
+#[derive(Debug)]
+pub struct TopLevelElementNode<Type: ASTType>
+{
+    inner: TopLevelElement<Type>
+}
+
+impl<Type: ASTType> TopLevelElementNode<Type> {
+    pub fn new(inner: TopLevelElement<Type>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<Type: ASTType> Deref for TopLevelElementNode<Type> {
+    type Target = TopLevelElement<Type>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
 
 /** This is an arbitiary top-level construct
 For now, there are only functions

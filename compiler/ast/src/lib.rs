@@ -17,7 +17,7 @@
 use crate::data_type::DataType;
 use crate::expression::Literal;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
-use crate::top_level::{Function, TopLevelElement};
+use crate::top_level::{Function, TopLevelElement, TopLevelElementNode};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -32,11 +32,11 @@ pub mod traversal;
 
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
-    inner: Vec<TopLevelElement<Type>>,
+    inner: Vec<TopLevelElementNode<Type>>,
 }
 
 impl<Type: ASTType> AST<Type> {
-    pub fn new(inner: Vec<TopLevelElement<Type>>) -> Self {
+    pub fn new(inner: Vec<TopLevelElementNode<Type>>) -> Self {
         Self { inner }
     }
 
@@ -44,7 +44,7 @@ impl<Type: ASTType> AST<Type> {
         #[allow(irrefutable_let_patterns)]
         // This only temporarily matches for everything, more TopLevelElements to come
         self.inner.iter().filter_map(|element| {
-            if let TopLevelElement::Function(func) = element {
+            if let TopLevelElement::Function(func) = element.deref() {
                 Some(func)
             } else {
                 None
@@ -54,7 +54,7 @@ impl<Type: ASTType> AST<Type> {
 }
 
 impl<Type: ASTType> Deref for AST<Type> {
-    type Target = [TopLevelElement<Type>];
+    type Target = [TopLevelElementNode<Type>];
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -121,7 +121,7 @@ mod tests {
         ControlStructure, Loop, LoopType, Return, StatementNode, Statement, VariableAssignment,
     };
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
-    use crate::top_level::{Function, TopLevelElement};
+    use crate::top_level::{Function, TopLevelElement, TopLevelElementNode};
     use crate::traversal::function_traversal::FunctionTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::{AST, TypedAST, UntypedAST};
@@ -144,7 +144,7 @@ mod tests {
             StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![statement]))),
         );
 
-        let ast = AST::new(vec![TopLevelElement::Function(function)]);
+        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(function))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -191,7 +191,7 @@ mod tests {
             statement,
         );
 
-        let ast = AST::new(vec![TopLevelElement::Function(function)]);
+        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(function))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -241,7 +241,7 @@ mod tests {
             Some(DataType::S32),
             vec![nth.clone()],
         ));
-        let ast = AST::new(vec![TopLevelElement::Function(Function::new(
+        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(Function::new(
             fibonacci.clone(),
             StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
                 StatementNode::new(Statement::VariableDeclaration(
@@ -326,7 +326,7 @@ mod tests {
                     Expression::Variable(current.clone()),
                 ))))),
             ]))),
-        ))]);
+        )))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -369,7 +369,7 @@ mod tests {
             Some("s32".to_string()),
             vec![nth.clone()],
         ));
-        let ast = AST::new(vec![TopLevelElement::Function(Function::new(
+        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(Function::new(
             fibonacci.clone(),
             StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
                 StatementNode::new(Statement::VariableDeclaration(VariableAssignment::<
@@ -449,7 +449,7 @@ mod tests {
                     Expression::Variable("current".to_string()),
                 ))))),
             ]))),
-        ))]);
+        )))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
