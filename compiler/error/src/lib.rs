@@ -24,12 +24,32 @@ impl ErrorOutputConfig
         Self { output: Box::new(output), context }
     }
 
+
+
     fn output(self) -> Box<dyn Write> {
         self.output
     }
 
     fn context(&self) -> usize {
         self.context
+    }
+
+    pub fn set_output(&mut self, output: Box<dyn Write>) {
+        self.output = output;
+    }
+
+    pub fn set_context(&mut self, context: usize) {
+        self.context = context;
+    }
+
+    pub fn with_output(mut self, output: Box<dyn Write>) -> Self {
+        self.set_output(output);
+        self
+    }
+
+    pub fn with_context(mut self, context: usize) -> Self {
+        self.set_context(context);
+        self
     }
 }
 
@@ -481,11 +501,11 @@ impl ErrorType
 
 #[cfg(test)]
 mod tests {
-    use crate::{CodeArea, CodeLocation, ErrorType, SyntaxError};
+    use crate::{CodeArea, CodeLocation, ErrorOutputConfig, ErrorType, SyntaxError};
     #[test]
     fn error() {
         let error = SyntaxError::builder()
-            .with_area(CodeArea::new(CodeLocation::new(46, 10), CodeLocation::new(46, 18)).unwrap())
+            .with_area(CodeArea::new(CodeLocation::new(66, 10), CodeLocation::new(66, 18)).unwrap())
             .with_error_type(ErrorType::Error)
             .with_error_msg("CodeArea is an invalid data type at this point in the programm".to_string())
             .with_file_location("main.waso".to_string())
@@ -493,6 +513,19 @@ mod tests {
             .build();
 
         error.print_to_stderr_default_context();
+    }
+
+    #[test]
+    fn error_long_context() {
+        let error = SyntaxError::builder()
+            .with_area(CodeArea::new(CodeLocation::new(66, 10), CodeLocation::new(66, 18)).unwrap())
+            .with_error_type(ErrorType::Error)
+            .with_error_msg("CodeArea is an invalid data type at this point in the programm".to_string())
+            .with_file_location("main.waso".to_string())
+            .with_code(include_str!("lib.rs").to_string())
+            .build();
+
+        error.write(ErrorOutputConfig::default().with_context(20));
     }
 
     #[test]
