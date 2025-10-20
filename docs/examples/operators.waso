@@ -1,0 +1,26 @@
+fn main {
+
+    s32 math_showcase <- 10 * 2 + 5 - 3 / 1
+    
+    if (num < 10) {
+        // less than
+    }
+    if (num <= 10) {
+        // less than or equal
+    }
+    if (num == 10) {
+        // equal
+    }
+    if (num != 10) {
+        // not equal
+    }
+    if (num > 10) {
+        // greater than
+    }
+    if (num >= 10) {
+        // greater than or equal
+    }
+    if (num == 10 && true) {
+        // logical and
+    }
+}
