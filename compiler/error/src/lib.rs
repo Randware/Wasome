@@ -27,6 +27,10 @@ impl SyntaxError {
             error_type,
         }
     }
+
+    pub fn builder() -> SyntaxErrorBuilder<NotSet, NotSet, NotSet> {
+        SyntaxErrorBuilder::new()
+    }
 }
 
 pub trait AttributeStatus<T> {
@@ -67,7 +71,7 @@ impl Default for SyntaxErrorBuilder<NotSet, NotSet, NotSet> {
 impl SyntaxErrorBuilder<NotSet, NotSet, NotSet> {
     /** Creates a new and empty [`SyntaxErrorBuilder`]
      */
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             area: (),
             file_location: (),
@@ -335,7 +339,7 @@ pub trait ErrorType: Debug {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CodeArea, CodeLocation, ErrorType, SyntaxErrorBuilder};
+    use crate::{CodeArea, CodeLocation, ErrorType, SyntaxError};
 
     #[derive(Debug)]
     pub struct ExampleError(String);
@@ -349,7 +353,7 @@ mod tests {
     }
     #[test]
     fn error() {
-        let error = SyntaxErrorBuilder::new()
+        let error = SyntaxError::builder()
             .with_area(CodeArea::new(CodeLocation::new(12, 10), CodeLocation::new(12, 18)).unwrap())
             .with_error_type(ExampleError("CodeArea".to_string()))
             .with_file_location("main.waso".to_string())
@@ -360,7 +364,7 @@ mod tests {
 
     #[test]
     fn error_multiline() {
-        let error = SyntaxErrorBuilder::new()
+        let error = SyntaxError::builder()
             .with_area(CodeArea::new(CodeLocation::new(6, 0), CodeLocation::new(8, 2)).unwrap())
             .with_error_type(ExampleError("CodeArea".to_string()))
             .with_file_location("main.waso".to_string())
