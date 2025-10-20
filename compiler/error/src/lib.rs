@@ -29,69 +29,114 @@ impl SyntaxError {
     }
 }
 
+pub trait AttributeStatus<T> {
+    type Attribute;
+}
+pub struct NotSet;
+impl<T> AttributeStatus<T> for NotSet {
+    // Not set, no data
+    type Attribute = ();
+}
+pub struct Set;
+
+impl<T> AttributeStatus<T> for Set {
+    type Attribute = T;
+}
+
 /** A builder for syntax errors
 Expects the user to set every field before building
 */
 #[derive(Debug)]
 
-pub struct SyntaxErrorBuilder {
-    area: Option<CodeArea>,
-    file_location: Option<String>,
-    error_type: Option<Box<dyn ErrorType>>,
+pub struct SyntaxErrorBuilder<
+    AreaStatus: AttributeStatus<CodeArea>,
+    FileLocationStatus: AttributeStatus<String>,
+    ErrorTypeStatus: AttributeStatus<Box<dyn ErrorType>>,
+> {
+    area: AreaStatus::Attribute,
+    file_location: FileLocationStatus::Attribute,
+    error_type: ErrorTypeStatus::Attribute,
 }
 
-impl Default for SyntaxErrorBuilder {
+impl Default for SyntaxErrorBuilder<NotSet, NotSet, NotSet> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SyntaxErrorBuilder {
+impl SyntaxErrorBuilder<NotSet, NotSet, NotSet> {
     /** Creates a new and empty [`SyntaxErrorBuilder`]
      */
     pub fn new() -> Self {
         Self {
-            area: None,
-            file_location: None,
-            error_type: None,
+            area: (),
+            file_location: (),
+            error_type: (),
         }
     }
+}
 
+impl<
+    FileLocationStatus: AttributeStatus<String>,
+    ErrorTypeStatus: AttributeStatus<Box<dyn ErrorType>>,
+> SyntaxErrorBuilder<NotSet, FileLocationStatus, ErrorTypeStatus>
+{
     /** Sets an error area
      */
-    pub fn with_area(mut self, area: CodeArea) -> Self {
-        self.area = Some(area);
-        self
+    pub fn with_area(
+        self,
+        area: CodeArea,
+    ) -> SyntaxErrorBuilder<Set, FileLocationStatus, ErrorTypeStatus> {
+        SyntaxErrorBuilder {
+            area,
+            file_location: self.file_location,
+            error_type: self.error_type,
+        }
     }
+}
 
+impl<AreaStatus: AttributeStatus<CodeArea>, ErrorTypeStatus: AttributeStatus<Box<dyn ErrorType>>>
+    SyntaxErrorBuilder<AreaStatus, NotSet, ErrorTypeStatus>
+{
     /** Sets the path of the file that contains the erroneous code
-       This is for display purposes only
+          This is for display purposes only
     */
-    pub fn with_file_location(mut self, file_location: String) -> Self {
-        self.file_location = Some(file_location);
-        self
+    pub fn with_file_location(
+        self,
+        file_location: String,
+    ) -> SyntaxErrorBuilder<AreaStatus, Set, ErrorTypeStatus> {
+        SyntaxErrorBuilder {
+            area: self.area,
+            file_location,
+            error_type: self.error_type,
+        }
     }
+}
 
+impl<AreaStatus: AttributeStatus<CodeArea>, FileLocationStatus: AttributeStatus<String>>
+    SyntaxErrorBuilder<AreaStatus, FileLocationStatus, NotSet>
+{
     /** Sets the type of error
      */
-    pub fn with_error_type(mut self, error_type: impl ErrorType + 'static) -> Self {
-        self.error_type = Some(Box::new(error_type));
-        self
+    pub fn with_error_type(
+        self,
+        error_type: impl ErrorType + 'static,
+    ) -> SyntaxErrorBuilder<AreaStatus, FileLocationStatus, Set> {
+        SyntaxErrorBuilder {
+            area: self.area,
+            file_location: self.file_location,
+            error_type: Box::new(error_type),
+        }
     }
+}
 
+impl SyntaxErrorBuilder<Set, Set, Set> {
     /** Builds the [`SyntaxError`]
     # Panics
     Panics if not all fields are set
     */
     pub fn build(self) -> SyntaxError {
-        if self.file_location.is_none() || self.error_type.is_none() || self.area.is_none() {
-            panic!("Not all fields are set!");
-        }
-        SyntaxError::new(
-            self.area.unwrap(),
-            self.file_location.unwrap(),
-            self.error_type.unwrap(),
-        )
+        SyntaxError::new(self.area, self.file_location, self.error_type)
     }
 }
 
@@ -226,23 +271,25 @@ impl SyntaxError {
             let line_label = Label::new((
                 &self.file_location,
                 line_starting_pos..line_starting_pos + line.len(),
-            )).with_color(code_color);
+            ))
+            .with_color(code_color);
             // Mark the error
             let mut error_label = Label::new((
                 &self.file_location,
                 line_starting_pos + line_error_start_char..line_starting_pos + line_error_end_char,
-            )).with_priority(1)
+            ))
+            .with_priority(1)
             .with_color(error_code_color);
             // Add the error message
             if line_num == self.area.end().line() {
-                error_label = error_label.with_message(
-                    self.error_type.to_string().fg(error_msg_color))
+                error_label =
+                    error_label.with_message(self.error_type.to_string().fg(error_msg_color))
             }
             lines.push(line_label);
             lines.push(error_label);
             Self::update_line_starting_pos(code, &mut line_starting_pos);
         }
-        
+
         let report = Report::build(
             ReportKind::Custom("Error", error_msg_color),
             (&self.file_location, error_start_char..error_end_char),
