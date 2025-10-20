@@ -1,5 +1,5 @@
 use crate::ASTType;
-use crate::statement::{Statement, StatementNode};
+use crate::statement::StatementNode;
 use crate::symbol::FunctionSymbol;
 use std::fmt::Debug;
 use std::ops::Deref;

@@ -58,7 +58,7 @@ impl<Type: ASTType> Statement<Type> {
     Some(symbol) if symbol is defined here
     None if no symbols are defined here
     */
-    pub fn get_direct_symbol(&self) -> Option<Symbol<Type>> {
+    pub fn get_direct_symbol(&self) -> Option<Symbol<'_, Type>> {
         match self {
             Statement::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
             _ => None,

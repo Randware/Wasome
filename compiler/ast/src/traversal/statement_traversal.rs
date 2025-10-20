@@ -57,7 +57,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
        Some(table) The requested table
        None if self is the root statement
     */
-    pub fn symbols_available_at(&self) -> Option<impl SymbolTable<Type>> {
+    pub fn symbols_available_at(&self) -> Option<impl SymbolTable<'_, Type>> {
         DefaultSymbolTable::new_available_to_statement(self)
     }
 
@@ -67,7 +67,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
        Some(table) The requested table
        None if self is the root statement
     */
-    pub fn symbols_available_after(&self) -> Option<impl SymbolTable<Type>> {
+    pub fn symbols_available_after(&self) -> Option<impl SymbolTable<'_, Type>> {
         DefaultSymbolTable::new_available_after_statement(self)
     }
 
