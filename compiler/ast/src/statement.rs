@@ -1,6 +1,6 @@
 use crate::block::CodeBlock;
 use crate::data_type::{DataType, Typed};
-use crate::expression::Expression;
+use crate::expression::ExpressionNode;
 use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
 use crate::{ASTType, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
@@ -10,25 +10,25 @@ use std::rc::Rc;
 /** This represents a Statement Type and its location
 */
 #[derive(PartialEq, Debug)]
-pub struct Statement<Type: ASTType> {
-    inner: StatementType<Type>,
+pub struct StatementNode<Type: ASTType> {
+    inner: Statement<Type>,
 }
 
-impl<Type: ASTType> Statement<Type> {
-    pub fn new(inner: StatementType<Type>) -> Self {
+impl<Type: ASTType> StatementNode<Type> {
+    pub fn new(inner: Statement<Type>) -> Self {
         Self { inner }
     }
 }
 
-impl<Type: ASTType> Deref for Statement<Type> {
-    type Target = StatementType<Type>;
+impl<Type: ASTType> Deref for StatementNode<Type> {
+    type Target = Statement<Type>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<Type: ASTType> DerefMut for Statement<Type> {
+impl<Type: ASTType> DerefMut for StatementNode<Type> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -37,12 +37,12 @@ impl<Type: ASTType> DerefMut for Statement<Type> {
 /** This represents a Statement as per section 4 of the lang spec
 */
 #[derive(Debug, PartialEq)]
-pub enum StatementType<Type: ASTType> {
+pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
     VariableAssignment(VariableAssignment<Type>),
     // Creation of new variable
     VariableDeclaration(VariableAssignment<Type>),
-    Expression(Expression<Type>),
+    Expression(ExpressionNode<Type>),
     Return(Return<Type>),
     ControlStructure(Box<ControlStructure<Type>>),
     Codeblock(CodeBlock<Type>),
@@ -51,7 +51,7 @@ pub enum StatementType<Type: ASTType> {
     VoidFunctionCall(FunctionCall<Type>),
 }
 
-impl<Type: ASTType> StatementType<Type> {
+impl<Type: ASTType> Statement<Type> {
     /** Gets the symbol defined in this expression
     Only this is considered, while subexpressions are ignored
     @return
@@ -60,7 +60,7 @@ impl<Type: ASTType> StatementType<Type> {
     */
     pub fn get_direct_symbol(&self) -> Option<Symbol<Type>> {
         match self {
-            StatementType::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
+            Statement::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
             _ => None,
         }
     }
@@ -69,23 +69,23 @@ impl<Type: ASTType> StatementType<Type> {
      */
     pub fn len_children(&self) -> usize {
         match self {
-            StatementType::ControlStructure(structure) => structure.child_len(),
-            StatementType::Codeblock(codeblock) => codeblock.len(),
+            Statement::ControlStructure(structure) => structure.child_len(),
+            Statement::Codeblock(codeblock) => codeblock.len(),
             _ => 0,
         }
     }
 }
 
-impl<Type: ASTType> Index<usize> for StatementType<Type> {
-    type Output = Statement<Type>;
+impl<Type: ASTType> Index<usize> for Statement<Type> {
+    type Output = StatementNode<Type>;
 
     /** Gets the indexth child statement
     panics if self has no children or index is out of bounds
     */
     fn index(&self, index: usize) -> &Self::Output {
         match self {
-            StatementType::Codeblock(block) => &block[index],
-            StatementType::ControlStructure(structure) => structure.child_statement_at(index),
+            Statement::Codeblock(block) => &block[index],
+            Statement::ControlStructure(structure) => structure.child_statement_at(index),
             _ => panic!("This has no child members!"),
         }
     }
@@ -96,7 +96,7 @@ impl<Type: ASTType> Index<usize> for StatementType<Type> {
 #[derive(Debug, PartialEq)]
 pub struct VariableAssignment<Type: ASTType> {
     variable: Rc<VariableSymbol<Type>>,
-    value: Expression<Type>,
+    value: ExpressionNode<Type>,
 }
 
 impl VariableAssignment<TypedAST> {
@@ -106,7 +106,7 @@ impl VariableAssignment<TypedAST> {
     */
     pub fn new(
         variable: Rc<VariableSymbol<TypedAST>>,
-        value: Expression<TypedAST>,
+        value: ExpressionNode<TypedAST>,
     ) -> Option<Self> {
         eq_return_option(*variable.data_type(), value.data_type())?;
         Some(Self { variable, value })
@@ -116,7 +116,7 @@ impl VariableAssignment<TypedAST> {
 impl VariableAssignment<UntypedAST> {
     /** Creates a new instance
      */
-    pub fn new(variable: Rc<VariableSymbol<UntypedAST>>, value: Expression<UntypedAST>) -> Self {
+    pub fn new(variable: Rc<VariableSymbol<UntypedAST>>, value: ExpressionNode<UntypedAST>) -> Self {
         Self { variable, value }
     }
 }
@@ -132,7 +132,7 @@ impl<Type: ASTType> VariableAssignment<Type> {
         self.variable.clone()
     }
 
-    pub fn value(&self) -> &Expression<Type> {
+    pub fn value(&self) -> &ExpressionNode<Type> {
         &self.value
     }
 }
@@ -157,7 +157,7 @@ impl<Type: ASTType> ControlStructure<Type> {
 
     /** Returns the child statement at index
      */
-    pub(crate) fn child_statement_at(&self, index: usize) -> &Statement<Type> {
+    pub(crate) fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
         match self {
             ControlStructure::Conditional(cond) => cond.child_statement_at(index),
             ControlStructure::Loop(inner) => inner.child_statement_at(index),
@@ -169,16 +169,16 @@ impl<Type: ASTType> ControlStructure<Type> {
 */
 #[derive(Debug, PartialEq)]
 pub struct Conditional<Type: ASTType> {
-    condition: Expression<Type>,
-    then_statement: Statement<Type>,
-    else_statement: Option<Statement<Type>>,
+    condition: ExpressionNode<Type>,
+    then_statement: StatementNode<Type>,
+    else_statement: Option<StatementNode<Type>>,
 }
 
 impl<Type: ASTType> Conditional<Type> {
     pub fn new(
-        condition: Expression<Type>,
-        then_statement: Statement<Type>,
-        else_statement: Option<Statement<Type>>,
+        condition: ExpressionNode<Type>,
+        then_statement: StatementNode<Type>,
+        else_statement: Option<StatementNode<Type>>,
     ) -> Self {
         Self {
             condition,
@@ -193,15 +193,15 @@ impl<Type: ASTType> Conditional<Type> {
         1 + self.else_statement.is_some() as usize
     }
 
-    pub fn condition(&self) -> &Expression<Type> {
+    pub fn condition(&self) -> &ExpressionNode<Type> {
         &self.condition
     }
 
-    pub fn then_statement(&self) -> &Statement<Type> {
+    pub fn then_statement(&self) -> &StatementNode<Type> {
         &self.then_statement
     }
 
-    pub fn else_statement(&self) -> Option<&Statement<Type>> {
+    pub fn else_statement(&self) -> Option<&StatementNode<Type>> {
         self.else_statement.as_ref()
     }
 
@@ -209,7 +209,7 @@ impl<Type: ASTType> Conditional<Type> {
     0 is the then-statement
     1 is the else-statement
     */
-    fn child_statement_at(&self, index: usize) -> &Statement<Type> {
+    fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
         match index {
             0 => &self.then_statement,
             1 => self.else_statement.as_ref().unwrap(),
@@ -222,12 +222,12 @@ impl<Type: ASTType> Conditional<Type> {
 */
 #[derive(Debug, PartialEq)]
 pub struct Loop<Type: ASTType> {
-    to_loop_on: Statement<Type>,
+    to_loop_on: StatementNode<Type>,
     loop_type: LoopType<Type>,
 }
 
 impl<Type: ASTType> Loop<Type> {
-    pub fn new(to_loop_on: Statement<Type>, loop_type: LoopType<Type>) -> Self {
+    pub fn new(to_loop_on: StatementNode<Type>, loop_type: LoopType<Type>) -> Self {
         Self {
             to_loop_on,
             loop_type,
@@ -240,7 +240,7 @@ impl<Type: ASTType> Loop<Type> {
         self.loop_type.len() + 1
     }
 
-    pub fn to_loop_on(&self) -> &StatementType<Type> {
+    pub fn to_loop_on(&self) -> &Statement<Type> {
         &self.to_loop_on
     }
 
@@ -250,7 +250,7 @@ impl<Type: ASTType> Loop<Type> {
 
     /** Returns the child statement at index
      */
-    fn child_statement_at(&self, index: usize) -> &Statement<Type> {
+    fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
         if index == self.loop_type.len() {
             &self.to_loop_on
         } else {
@@ -264,11 +264,11 @@ impl<Type: ASTType> Loop<Type> {
 #[derive(Debug, PartialEq)]
 pub enum LoopType<Type: ASTType> {
     Infinite,
-    While(Expression<Type>),
+    While(ExpressionNode<Type>),
     For {
-        start: Statement<Type>,
-        cond: Expression<Type>,
-        after_each: Statement<Type>,
+        start: StatementNode<Type>,
+        cond: ExpressionNode<Type>,
+        after_each: StatementNode<Type>,
     },
 }
 
@@ -285,7 +285,7 @@ impl<Type: ASTType> LoopType<Type> {
 
     /** Returns the child statement at index
      */
-    fn child_statement_at(&self, index: usize) -> &Statement<Type> {
+    fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
         if let LoopType::For {
             start,
             cond: _cond,
@@ -308,15 +308,15 @@ This is a wrapper around Expression with the wrapped one being the one's result 
 */
 #[derive(Debug, PartialEq)]
 pub struct Return<Type: ASTType> {
-    to_return: Option<Expression<Type>>,
+    to_return: Option<ExpressionNode<Type>>,
 }
 
 impl<Type: ASTType> Return<Type> {
-    pub fn new(to_return: Option<Expression<Type>>) -> Self {
+    pub fn new(to_return: Option<ExpressionNode<Type>>) -> Self {
         Self { to_return }
     }
 
-    pub fn to_return(&self) -> Option<&Expression<Type>> {
+    pub fn to_return(&self) -> Option<&ExpressionNode<Type>> {
         self.to_return.as_ref()
     }
 }
@@ -337,7 +337,7 @@ mod tests {
     use super::*;
     use crate::TypedAST;
     use crate::data_type::DataType;
-    use crate::expression::{ExpressionType, Literal};
+    use crate::expression::{Expression, Literal};
     #[test]
     fn variable_assignement() {
         basic_test_variable(Rc::new(VariableSymbol::new(
@@ -352,7 +352,7 @@ mod tests {
     ) -> Option<VariableAssignment<TypedAST>> {
         VariableAssignment::<TypedAST>::new(
             symbol,
-            Expression::new(ExpressionType::Literal(Literal::F32(14.0))),
+            ExpressionNode::new(Expression::Literal(Literal::F32(14.0))),
         )
     }
 }

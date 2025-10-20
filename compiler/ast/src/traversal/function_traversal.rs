@@ -1,4 +1,4 @@
-use crate::statement::StatementType;
+use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
 use crate::traversal::statement_traversal::{StatementLocation, StatementTraversalHelper};
@@ -42,7 +42,7 @@ impl<'a, Type: ASTType> FunctionTraversalHelper<'a, Type> {
     pub(crate) fn index_implementation<'b>(
         &'b self,
         index: &StatementLocation,
-    ) -> &'b StatementType<Type> {
+    ) -> &'b Statement<Type> {
         let mut current_statement = self.implementation();
         let starting_index_size = index.len();
         let mut current_index_size = starting_index_size;

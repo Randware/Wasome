@@ -1,5 +1,5 @@
 use crate::data_type::Typed;
-use crate::expression::Expression;
+use crate::expression::ExpressionNode;
 use crate::{ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
 
@@ -72,7 +72,7 @@ impl<Type: ASTType> FunctionSymbol<Type> {
 #[derive(Debug, PartialEq)]
 pub struct FunctionCall<Type: ASTType> {
     function: Type::FunctionCallSymbol,
-    args: Vec<Expression<Type>>,
+    args: Vec<ExpressionNode<Type>>,
 }
 
 impl<Type: ASTType> FunctionCall<Type> {
@@ -80,7 +80,7 @@ impl<Type: ASTType> FunctionCall<Type> {
         &self.function
     }
 
-    pub fn args(&self) -> &Vec<Expression<Type>> {
+    pub fn args(&self) -> &Vec<ExpressionNode<Type>> {
         &self.args
     }
 }
@@ -93,7 +93,7 @@ impl FunctionCall<TypedAST> {
     */
     pub fn new(
         function: Rc<FunctionSymbol<TypedAST>>,
-        args: Vec<Expression<TypedAST>>,
+        args: Vec<ExpressionNode<TypedAST>>,
     ) -> Option<Self> {
         if function.params().len() != args.len()
             || !function
@@ -111,7 +111,7 @@ impl FunctionCall<TypedAST> {
 impl FunctionCall<UntypedAST> {
     /** Creates a new function call
      */
-    pub fn new(function: String, args: Vec<Expression<UntypedAST>>) -> Self {
+    pub fn new(function: String, args: Vec<ExpressionNode<UntypedAST>>) -> Self {
         Self { function, args }
     }
 }

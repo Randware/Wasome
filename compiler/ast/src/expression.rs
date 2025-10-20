@@ -6,25 +6,25 @@ use std::ops::{Deref, DerefMut};
 /** This represents an Expression Type and its location
 */
 #[derive(PartialEq, Debug)]
-pub struct Expression<Type: ASTType> {
-    inner: ExpressionType<Type>,
+pub struct ExpressionNode<Type: ASTType> {
+    inner: Expression<Type>,
 }
 
-impl<Type: ASTType> Expression<Type> {
-    pub fn new(inner: ExpressionType<Type>) -> Self {
+impl<Type: ASTType> ExpressionNode<Type> {
+    pub fn new(inner: Expression<Type>) -> Self {
         Self { inner }
     }
 }
 
-impl<Type: ASTType> Deref for Expression<Type> {
-    type Target = ExpressionType<Type>;
+impl<Type: ASTType> Deref for ExpressionNode<Type> {
+    type Target = Expression<Type>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-impl<Type: ASTType> DerefMut for Expression<Type> {
+impl<Type: ASTType> DerefMut for ExpressionNode<Type> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -32,7 +32,7 @@ impl<Type: ASTType> DerefMut for Expression<Type> {
 /** This represents an expression as per section 2 of the lang spec
 */
 #[derive(Debug, PartialEq)]
-pub enum ExpressionType<Type: ASTType> {
+pub enum Expression<Type: ASTType> {
     // Only valid if it doesn't return void
     FunctionCall(FunctionCall<Type>),
     Variable(Type::VariableUse),
@@ -41,9 +41,9 @@ pub enum ExpressionType<Type: ASTType> {
     BinaryOp(Box<BinaryOp<Type>>),
 }
 
-impl Typed for ExpressionType<TypedAST> {
+impl Typed for Expression<TypedAST> {
     fn data_type(&self) -> DataType {
-        use ExpressionType as Ex;
+        use Expression as Ex;
         match self {
             // Unwrap safety:
             // It may only exist if the return type is not void
@@ -88,7 +88,7 @@ pub struct UnaryOp<Type: ASTType> {
     // The type of the expression
     op_type: UnaryOpType<Type>,
     // The expression to "process"
-    input: Expression<Type>,
+    input: ExpressionNode<Type>,
 }
 
 impl UnaryOp<TypedAST> {
@@ -100,7 +100,7 @@ impl UnaryOp<TypedAST> {
     Some(output data type) if the provided type can be processed to the output type
     None if the processed type can't be processed
     */
-    pub fn new(op_type: UnaryOpType<TypedAST>, input: Expression<TypedAST>) -> Option<Self> {
+    pub fn new(op_type: UnaryOpType<TypedAST>, input: ExpressionNode<TypedAST>) -> Option<Self> {
         // Can't process
         op_type.result_type(input.data_type())?;
         Some(Self { op_type, input })
@@ -113,7 +113,7 @@ impl UnaryOp<UntypedAST> {
        op_type: The type of this expression
        input: The expression to base this on
     */
-    pub fn new(op_type: UnaryOpType<UntypedAST>, input: Expression<UntypedAST>) -> Self {
+    pub fn new(op_type: UnaryOpType<UntypedAST>, input: ExpressionNode<UntypedAST>) -> Self {
         Self { op_type, input }
     }
 }
@@ -227,9 +227,9 @@ pub struct BinaryOp<Type: ASTType> {
     // The type of the expression
     op_type: BinaryOpType,
     // The left expression to process
-    left: Expression<Type>,
+    left: ExpressionNode<Type>,
     // The left expression to process
-    right: Expression<Type>,
+    right: ExpressionNode<Type>,
 }
 
 impl BinaryOp<TypedAST> {
@@ -243,8 +243,8 @@ impl BinaryOp<TypedAST> {
     */
     pub fn new(
         op_type: BinaryOpType,
-        left: Expression<TypedAST>,
-        right: Expression<TypedAST>,
+        left: ExpressionNode<TypedAST>,
+        right: ExpressionNode<TypedAST>,
     ) -> Option<Self> {
         // Can't process
         op_type.result_type(left.data_type(), right.data_type())?;
@@ -264,8 +264,8 @@ impl BinaryOp<UntypedAST> {
     */
     pub fn new(
         op_type: BinaryOpType,
-        left: Expression<UntypedAST>,
-        right: Expression<UntypedAST>,
+        left: ExpressionNode<UntypedAST>,
+        right: ExpressionNode<UntypedAST>,
     ) -> Self {
         Self {
             op_type,
@@ -490,14 +490,14 @@ mod tests {
 
     #[test]
     fn expression() {
-        let expression = ExpressionType::BinaryOp(Box::new(
+        let expression = Expression::BinaryOp(Box::new(
             BinaryOp::<TypedAST>::new(
                 BinaryOpType::Addition,
-                Expression::new(ExpressionType::Literal(Literal::S32(5))),
-                Expression::new(ExpressionType::UnaryOp(Box::new(
+                ExpressionNode::new(Expression::Literal(Literal::S32(5))),
+                ExpressionNode::new(Expression::UnaryOp(Box::new(
                     UnaryOp::<TypedAST>::new(
                         UnaryOpType::Typecast(Typecast::new(DataType::S32)),
-                        Expression::new(ExpressionType::Literal(Literal::F32(10.3))),
+                        ExpressionNode::new(Expression::Literal(Literal::F32(10.3))),
                     )
                     .unwrap(),
                 ))),

@@ -1,5 +1,5 @@
 use crate::ASTType;
-use crate::statement::Statement;
+use crate::statement::StatementNode;
 use crate::symbol::FunctionSymbol;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -15,11 +15,11 @@ pub enum TopLevelElement<Type: ASTType> {
 #[derive(Debug)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
-    implementation: Statement<Type>,
+    implementation: StatementNode<Type>,
 }
 
 impl<Type: ASTType> Function<Type> {
-    pub fn new(declaration: Rc<FunctionSymbol<Type>>, implementation: Statement<Type>) -> Self {
+    pub fn new(declaration: Rc<FunctionSymbol<Type>>, implementation: StatementNode<Type>) -> Self {
         Self {
             declaration,
             implementation,
@@ -36,7 +36,7 @@ impl<Type: ASTType> Function<Type> {
         self.declaration.clone()
     }
 
-    pub fn implementation(&self) -> &Statement<Type> {
+    pub fn implementation(&self) -> &StatementNode<Type> {
         &self.implementation
     }
 }
