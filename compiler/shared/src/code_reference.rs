@@ -63,7 +63,7 @@ impl CodeArea {
     else None
     */
     pub fn new(start: CodeLocation, end: CodeLocation) -> Option<Self> {
-        if start.line > end.line || (start.line == end.line && start.char >= end.char) {
+        if start > end {
             return None;
         }
         Some(Self { start, end })
