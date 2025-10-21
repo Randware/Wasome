@@ -2,7 +2,7 @@ fn main() {
     char wasome <- showcase_if_conditionals()
 }
 
-fn showcase_if_conditionals -> char {
+fn showcase_if_conditionals() -> char {
     // simple if conditional showcase
     bool wasome_is_awesome <- true
  

@@ -1,4 +1,4 @@
-fn main {
+fn main() {
 
     s32 count <- 0
 
