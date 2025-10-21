@@ -140,7 +140,7 @@ impl SyntaxError {
                 error_start_char = line_starting_pos + self.area.start().char();
             }
             if line_num == error_end_line {
-                error_end_char = line_starting_pos + line.len() + self.area.end().char();
+                error_end_char = line_starting_pos + self.area.end().char();
             }
             // Where the error begins and where it ends in the current line
             // Used for making the text white or yellow
