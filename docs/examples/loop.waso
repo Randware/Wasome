@@ -1,23 +1,23 @@
 fn main() {
 
-    s32 count <- 0
-
-    // infinite loop
-    loop {
-        count = count + 1
-    }  
-
-    s32 count2 <- 0
-
     // while loop
-    loop (count2 < 100) {
-        count2 = count2 + 1
+    s32 count1 <- 0
+
+    loop (count1 < 10) {
+        count1 = count1 + 1
     }
 
     // for loop
     s32 sum <- 0
 
-    loop (s32 count3 <- 0; count3 < 100; count3 <- count3 + 1) {
-        sum = sum + count3
+    loop (s32 count2 <- 0; count2 < 100; counts <- count2 + 1) {
+        sum = sum + count2
+    }
+    
+    // infinite loop
+    s32 count3 <- 0
+    
+    loop {
+        count3 = count3 + 1
     }
 }
