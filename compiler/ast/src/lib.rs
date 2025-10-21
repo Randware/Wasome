@@ -29,6 +29,7 @@ pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
+pub mod id;
 
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
