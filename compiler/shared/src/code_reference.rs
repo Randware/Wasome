@@ -1,8 +1,10 @@
+use std::cmp::Ordering;
+
 /** A location in some code.
 Identified by line and char.
 Both line and char are zero-based
 */
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CodeLocation {
     line: usize,
     char: usize,
@@ -22,11 +24,39 @@ impl CodeLocation {
     }
 }
 
+impl PartialOrd for CodeLocation
+{
+    // CodeLocations can always be compared, so we use the implementation from Ord
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CodeLocation
+{
+    fn cmp(&self, other: &Self) -> Ordering
+    {
+        match self.line()
+        {
+            line if line < other.line() => return Ordering::Less,
+            line if line > other.line() => return Ordering::Greater,
+            _ => ()
+        }
+        match self.char()
+        {
+            line if line < other.char() => return Ordering::Less,
+            line if line > other.char() => return Ordering::Greater,
+            _ => ()
+        }
+        Ordering::Equal
+    }
+}
+
 /** A area of code represented by start and end.
 The start is inclusive
 The line of the end is inclusive, the char exclusive
 */
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CodeArea {
     start: CodeLocation,
     end: CodeLocation,
@@ -55,6 +85,7 @@ impl CodeArea {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
     use crate::code_reference::{CodeArea, CodeLocation};
 
     #[test]
@@ -74,5 +105,34 @@ mod tests {
             None,
             CodeArea::new(CodeLocation::new(15, 0), CodeLocation::new(10, 10))
         );
+    }
+
+    #[test]
+    fn compare_codelocations()
+    {
+        let small = CodeLocation::new(5,5);
+        let big = CodeLocation::new(10,5);
+
+        assert_eq!(Ordering::Less ,small.cmp(&big));
+        assert_eq!(small.partial_cmp(&big), Some(small.cmp(&big)));
+    }
+
+    #[test]
+    fn compare_codelocations_2()
+    {
+        let small = CodeLocation::new(10,4);
+        let big = CodeLocation::new(10,5);
+
+        assert_eq!(Ordering::Less, small.cmp(&big));
+        assert_eq!(small.partial_cmp(&big), Some(small.cmp(&big)));
+    }
+
+    #[test]
+    fn compare_codelocations_3()
+    {
+        let cl = CodeLocation::new(5,5);
+
+        assert_eq!(Ordering::Equal, cl.cmp(&cl));
+        assert_eq!(cl.partial_cmp(&cl), Some(cl.cmp(&cl)));
     }
 }
