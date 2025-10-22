@@ -6,9 +6,9 @@ static NEXT_ID: RwLock<u64> = RwLock::new(0);
 /** Returns the next id.
 Two values returned by different calls to this will never be the same
 */
-fn next_id() -> u64
-{
-    let mut id_lock = NEXT_ID.write()
+fn next_id() -> u64 {
+    let mut id_lock = NEXT_ID
+        .write()
         // write returns an error if and only if the lock is poisoned
         // If the lock is poisoned, we panicked
         // Therefore, there has already been an unrecoverable error
@@ -54,42 +54,34 @@ let id2_clone = id2.clone();
 assert_ne!(id1_clone1, id2_clone);
 ```
 */
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub struct Id
-{
-    inner: u64
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Default)]
+pub struct Id {
+    inner: u64,
 }
 
-impl Id
-{
-    pub fn new() -> Self
-    {
-        Self{
-            inner: next_id()
-        }
+impl Id {
+    pub fn new() -> Self {
+        Self { inner: next_id() }
     }
 }
 
 #[cfg(test)]
-mod tests
-{
+mod tests {
     use crate::id::Id;
 
     #[test]
-    fn multiple_ids_should_not_be_equal()
-    {
+    fn multiple_ids_should_not_be_equal() {
         let ids = (0..100).map(|_| Id::new()).collect::<Vec<Id>>();
-        ids.iter().enumerate().for_each(|(index_1, id_1)|
-            ids.iter().enumerate().filter(|(index_2, _)| index_1 != *index_2)
-                .for_each(|(_, id_2)|
-                    assert_ne!(id_1, id_2),
-            )
-        )
+        ids.iter().enumerate().for_each(|(index_1, id_1)| {
+            ids.iter()
+                .enumerate()
+                .filter(|(index_2, _)| index_1 != *index_2)
+                .for_each(|(_, id_2)| assert_ne!(id_1, id_2))
+        })
     }
 
     #[test]
-    fn cloned_ids_should_be_equal()
-    {
+    fn cloned_ids_should_be_equal() {
         let id = Id::new();
         assert_eq!(id, id.clone());
         assert_eq!(id.clone(), id.clone());

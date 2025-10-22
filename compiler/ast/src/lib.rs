@@ -25,11 +25,49 @@ use std::rc::Rc;
 pub mod block;
 pub mod data_type;
 pub mod expression;
+pub mod id;
 pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
-pub mod id;
+
+/** Comparing semantics only.
+
+More precisely, this checks if two language constructs have the same meaning
+while disregarding identifiers such as ids and positional information.
+The only exception are symbols, where it is required that the same are used.
+*/
+// Its primary intended use case it for tests, but it may find application elsewhere
+pub trait SemanticEquality {
+    /** The equality method. <br>
+    For more information, refer to the trait documentation
+    */
+    fn semantic_equals(&self, other: &Self) -> bool;
+}
+
+// SemanticEquality for common containers of types implementing SemanticEquality
+impl<T: SemanticEquality> SemanticEquality for [T] {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.len() == other.len()
+            && self
+                .iter()
+                .zip(other.iter())
+                .all(|(self_statement, other_statement)| {
+                    self_statement.semantic_equals(other_statement)
+                })
+    }
+}
+
+impl<T: SemanticEquality> SemanticEquality for Option<T> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        // Check if both are some and compare then
+        // Or both are none
+        self.as_ref()
+            .zip(other.as_ref())
+            .map(|(a, b)| a.semantic_equals(b))
+            .unwrap_or(self.is_none() && other.is_none())
+    }
+}
 
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
@@ -59,6 +97,12 @@ impl<Type: ASTType> Deref for AST<Type> {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for AST<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.inner.semantic_equals(&other.inner)
     }
 }
 

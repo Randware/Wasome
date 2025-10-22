@@ -1,6 +1,7 @@
 use crate::data_type::Typed;
 use crate::expression::ExpressionNode;
-use crate::{ASTType, TypedAST, UntypedAST};
+use crate::id::Id;
+use crate::{ASTType, SemanticEquality, TypedAST, UntypedAST};
 use std::rc::Rc;
 
 /**  Any type that has symbols available for use
@@ -13,23 +14,37 @@ pub enum Symbol<'a, Type: ASTType> {
     Variable(&'a VariableSymbol<Type>),
 }
 
+/** A function symbol
+# Equality
+Two different FunctionSymbols are never equal
+*/
 #[derive(Debug, Eq, PartialEq)]
 pub struct FunctionSymbol<Type: ASTType> {
+    id: Id,
     name: String,
     // None = no return type/void
     return_type: Option<Type::GeneralDataType>,
     params: Vec<Rc<VariableSymbol<Type>>>,
 }
 
+/** A variable symbol
+# Equality
+Two different VariableSymbols are never equal
+*/
 #[derive(Debug, Eq, PartialEq)]
 pub struct VariableSymbol<Type: ASTType> {
+    id: Id,
     name: String,
     data_type: Type::GeneralDataType,
 }
 
 impl<Type: ASTType> VariableSymbol<Type> {
     pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
-        Self { name, data_type }
+        Self {
+            id: Id::new(),
+            name,
+            data_type,
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -48,6 +63,7 @@ impl<Type: ASTType> FunctionSymbol<Type> {
         params: Vec<Rc<VariableSymbol<Type>>>,
     ) -> Self {
         Self {
+            id: Id::new(),
             name,
             return_type,
             params,
@@ -82,6 +98,12 @@ impl<Type: ASTType> FunctionCall<Type> {
 
     pub fn args(&self) -> &Vec<ExpressionNode<Type>> {
         &self.args
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for FunctionCall<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.function == other.function && self.args.semantic_equals(&other.args)
     }
 }
 

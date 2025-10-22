@@ -1,18 +1,26 @@
 use crate::data_type::{DataType, Typed};
+use crate::id::Id;
 use crate::symbol::FunctionCall;
-use crate::{ASTType, TypedAST, UntypedAST, eq_return_option};
+use crate::{ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 use std::ops::{Deref, DerefMut};
 
 /** This represents an Expression Type and its location
+# Equality
+Two different ExpressionNodes are never equal.
+Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 #[derive(PartialEq, Debug)]
 pub struct ExpressionNode<Type: ASTType> {
     inner: Expression<Type>,
+    id: Id,
 }
 
 impl<Type: ASTType> ExpressionNode<Type> {
     pub fn new(inner: Expression<Type>) -> Self {
-        Self { inner }
+        Self {
+            inner,
+            id: Id::new(),
+        }
     }
 }
 
@@ -29,7 +37,17 @@ impl<Type: ASTType> DerefMut for ExpressionNode<Type> {
         &mut self.inner
     }
 }
+
+impl<Type: ASTType> SemanticEquality for ExpressionNode<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.inner.semantic_equals(&other.inner)
+    }
+}
+
 /** This represents an expression as per section 2 of the lang spec
+# Equality
+Two different Expressions are never equal.
+Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 #[derive(Debug, PartialEq)]
 pub enum Expression<Type: ASTType> {
@@ -52,6 +70,24 @@ impl Typed for Expression<TypedAST> {
             Ex::UnaryOp(inner) => inner.data_type(),
             Ex::BinaryOp(inner) => inner.data_type(),
             Ex::Variable(inner) => *inner.data_type(),
+        }
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for Expression<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        use Expression as Exp;
+        match (self, other) {
+            // For FunctionCalls and Variables, we want to ensure that the same symbols are used
+            // For Literals, there are no inner structs with ids
+            (Exp::FunctionCall(_), Exp::FunctionCall(_))
+            | (Exp::Variable(_), Exp::Variable(_))
+            | (Exp::Literal(_), Exp::Literal(_)) => self == other,
+            (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_equals(other_inner),
+            (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => {
+                inner.semantic_equals(other_inner)
+            }
+            _ => false,
         }
     }
 }
@@ -82,6 +118,9 @@ impl Literal {
 }
 
 /** This is a type of operator that only takes one input
+# Equality
+Two different UnaryOps are never equal.
+Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 #[derive(Debug, PartialEq)]
 pub struct UnaryOp<Type: ASTType> {
@@ -104,6 +143,12 @@ impl UnaryOp<TypedAST> {
         // Can't process
         op_type.result_type(input.data_type())?;
         Some(Self { op_type, input })
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for UnaryOp<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.op_type == other.op_type && self.input.semantic_equals(&other.input)
     }
 }
 
@@ -221,6 +266,9 @@ impl Typecast<TypedAST> {
 }
 
 /** This is a type of operator that takes two inputs
+# Equality
+Two different BinaryOps are never equal.
+Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 #[derive(Debug, PartialEq)]
 pub struct BinaryOp<Type: ASTType> {
@@ -230,6 +278,14 @@ pub struct BinaryOp<Type: ASTType> {
     left: ExpressionNode<Type>,
     // The left expression to process
     right: ExpressionNode<Type>,
+}
+
+impl<Type: ASTType> SemanticEquality for BinaryOp<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.op_type == other.op_type
+            && self.left.semantic_equals(&other.left)
+            && self.right.semantic_equals(&other.right)
+    }
 }
 
 impl BinaryOp<TypedAST> {
@@ -490,7 +546,28 @@ mod tests {
 
     #[test]
     fn expression() {
-        let expression = Expression::BinaryOp(Box::new(
+        let expression = generate_sample_expression();
+        assert_eq!(DataType::S32, expression.data_type());
+    }
+
+    #[test]
+    fn two_expression_not_equal() {
+        // Two expressions have different ids and are not equal
+        let expression_1 = generate_sample_expression();
+        let expression_2 = generate_sample_expression();
+        assert_ne!(expression_1, expression_2)
+    }
+
+    #[test]
+    fn two_expression_semantically_equal() {
+        // Two expressions have different ids and are not equal
+        let expression_1 = generate_sample_expression();
+        let expression_2 = generate_sample_expression();
+        assert!(expression_1.semantic_equals(&expression_2))
+    }
+
+    fn generate_sample_expression() -> Expression<TypedAST> {
+        Expression::BinaryOp(Box::new(
             BinaryOp::<TypedAST>::new(
                 BinaryOpType::Addition,
                 ExpressionNode::new(Expression::Literal(Literal::S32(5))),
@@ -503,7 +580,6 @@ mod tests {
                 ))),
             )
             .unwrap(),
-        ));
-        assert_eq!(DataType::S32, expression.data_type());
+        ))
     }
 }
