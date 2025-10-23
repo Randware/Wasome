@@ -101,7 +101,7 @@ mod tests {
     use super::*;
     use ast::expression::Literal;
     use ast::expression::Expression;
-    use ast::UntypedAST;
+    use ast::{UntypedAST, AST};
 
     #[test]
     fn analyze_literal_recognizes_values() {
@@ -131,6 +131,47 @@ mod tests {
             other => panic!("unexpected result: {:?}", other),
         }
 
+    }
 
+    #[test]
+    fn analyze_unary_negative_converts_op() {
+        use ast::expression::{UnaryOp, UnaryOpType, Expression, Literal};
+        let inner = Expression::Literal(String::from("42"));
+        let untyped = UnaryOp::<UntypedAST>::new(UnaryOpType::Negative, inner);
+
+        let result = analyze_unary_op(Box::new(untyped)).expect("should analyze unary op");
+
+        let (op_type, expr) = result.destructure();
+        match op_type {
+            UnaryOpType::Negative => (),
+            other => panic!("unexpected unary op: {:?}", other),
+        }
+        match expr {
+            Expression::Literal(Literal::S32(42)) => (),
+            other => panic!("unexpected unary operand: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn analyze_binary_add_converts_op(){
+        use ast::expression::{BinaryOp,BinaryOpType,Expression,Literal};
+        let left = Expression::Literal(String::from("17"));
+        let right = Expression::Literal(String::from("5"));
+        let untyped = BinaryOp::<UntypedAST>::new(BinaryOpType::Addition,left,right);
+        let result = analyze_binary_op(Box::new(untyped)).expect("should analyze binary op");
+
+        let (op_type, l_expr, r_expr) = result.destructure();
+        match op_type {
+            BinaryOpType::Addition => (),
+            other => panic!("unexpected binary op: {:?}", other),
+        }
+        match l_expr {
+            Expression::Literal(Literal::S32(17)) => (),
+            other => panic!("unexpected left operand: {:?}", other),
+        }
+        match r_expr {
+            Expression::Literal(Literal::S32(5)) => (),
+            other => panic!("unexpected right operand: {:?}", other),
+        }
     }
 }
