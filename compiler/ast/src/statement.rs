@@ -1,12 +1,12 @@
 use crate::block::CodeBlock;
 use crate::data_type::{DataType, Typed};
+use crate::expression::Expression;
 use crate::id::Id;
 use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
-use crate::{ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option, ASTNode};
+use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
 use std::ops::{Deref, DerefMut, Index};
 use std::rc::Rc;
-use crate::expression::Expression;
 
 /** This represents a Statement Type and its location
 # Equality
@@ -341,6 +341,21 @@ impl<Type: ASTType> Loop<Type> {
     /** Returns the child statement at index
      */
     fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
+        // The after each statement comes after the looped on code
+        // So it needs special handling
+        if let LoopType::For {
+            start,
+            cond: _cond,
+            after_each,
+        } = &self.loop_type
+        {
+            return match index {
+                0 => start,
+                1 => &self.to_loop_on,
+                2 => after_each,
+                _ => panic!("Index out of bounds!"),
+            };
+        }
         if index == self.loop_type.len() {
             &self.to_loop_on
         } else {

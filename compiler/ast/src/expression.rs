@@ -1,7 +1,7 @@
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
 use crate::symbol::FunctionCall;
-use crate::{ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option, ASTNode};
+use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 use std::ops::{Deref, DerefMut};
 
 /** This represents an expression as per section 2 of the lang spec
@@ -99,7 +99,10 @@ impl UnaryOp<TypedAST> {
     Some(output data type) if the provided type can be processed to the output type
     None if the processed type can't be processed
     */
-    pub fn new(op_type: UnaryOpType<TypedAST>, input: ASTNode<Expression<TypedAST>>) -> Option<Self> {
+    pub fn new(
+        op_type: UnaryOpType<TypedAST>,
+        input: ASTNode<Expression<TypedAST>>,
+    ) -> Option<Self> {
         // Can't process
         op_type.result_type(input.data_type())?;
         Some(Self { op_type, input })

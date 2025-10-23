@@ -16,12 +16,12 @@
 
 use crate::data_type::DataType;
 use crate::expression::{Expression, Literal};
+use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
 use crate::top_level::{Function, TopLevelElement, TopLevelElementNode};
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use crate::id::Id;
 
 pub mod block;
 pub mod data_type;
@@ -115,13 +115,12 @@ Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 
 #[derive(Debug, PartialEq)]
-pub struct ASTNode<T: Debug+PartialEq>
-{
+pub struct ASTNode<T: Debug + PartialEq> {
     id: Id,
-    inner: T
+    inner: T,
 }
 
-impl<T: Debug+PartialEq> ASTNode<T> {
+impl<T: Debug + PartialEq> ASTNode<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
@@ -130,7 +129,7 @@ impl<T: Debug+PartialEq> ASTNode<T> {
     }
 }
 
-impl<T: Debug+PartialEq> Deref for ASTNode<T> {
+impl<T: Debug + PartialEq> Deref for ASTNode<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -138,13 +137,13 @@ impl<T: Debug+PartialEq> Deref for ASTNode<T> {
     }
 }
 
-impl<T: Debug+PartialEq> DerefMut for ASTNode<T> {
+impl<T: Debug + PartialEq> DerefMut for ASTNode<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl<T: SemanticEquality+Debug+PartialEq> SemanticEquality for ASTNode<T> {
+impl<T: SemanticEquality + Debug + PartialEq> SemanticEquality for ASTNode<T> {
     fn semantic_equals(&self, other: &Self) -> bool {
         self.inner.semantic_equals(&other.inner)
     }
@@ -213,7 +212,7 @@ mod tests {
     use crate::top_level::{Function, TopLevelElement, TopLevelElementNode};
     use crate::traversal::function_traversal::FunctionTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
-    use crate::{AST, TypedAST, UntypedAST, ASTNode};
+    use crate::{AST, ASTNode, TypedAST, UntypedAST};
     use std::rc::Rc;
 
     #[test]
@@ -368,9 +367,7 @@ mod tests {
                                         ASTNode::new(Expression::BinaryOp(Box::new(
                                             BinaryOp::<TypedAST>::new(
                                                 BinaryOpType::Addition,
-                                                ASTNode::new(Expression::Variable(
-                                                    current.clone(),
-                                                )),
+                                                ASTNode::new(Expression::Variable(current.clone())),
                                                 ASTNode::new(Expression::Variable(
                                                     previous.clone(),
                                                 )),
@@ -393,12 +390,8 @@ mod tests {
                                         ASTNode::new(Expression::BinaryOp(Box::new(
                                             BinaryOp::<TypedAST>::new(
                                                 BinaryOpType::Subtraction,
-                                                ASTNode::new(Expression::Variable(
-                                                    nth.clone(),
-                                                )),
-                                                ASTNode::new(Expression::Literal(
-                                                    Literal::S32(1),
-                                                )),
+                                                ASTNode::new(Expression::Variable(nth.clone())),
+                                                ASTNode::new(Expression::Literal(Literal::S32(1))),
                                             )
                                             .unwrap(),
                                         ))),
@@ -488,49 +481,41 @@ mod tests {
                                 StatementNode::new(Statement::VariableDeclaration(
                                     VariableAssignment::<UntypedAST>::new(
                                         temp.clone(),
-                                        ASTNode::new(Expression::Variable(
-                                            "current".to_string(),
-                                        )),
+                                        ASTNode::new(Expression::Variable("current".to_string())),
                                     ),
                                 )),
                                 StatementNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<UntypedAST>::new(
                                         current.clone(),
-                                        ASTNode::new(Expression::BinaryOp(Box::new(
-                                            BinaryOp::<UntypedAST>::new(
-                                                BinaryOpType::Addition,
-                                                ASTNode::new(Expression::Variable(
-                                                    "current".to_string(),
-                                                )),
-                                                ASTNode::new(Expression::Variable(
-                                                    "previous".to_string(),
-                                                )),
-                                            ),
-                                        ))),
+                                        ASTNode::new(Expression::BinaryOp(Box::new(BinaryOp::<
+                                            UntypedAST,
+                                        >::new(
+                                            BinaryOpType::Addition,
+                                            ASTNode::new(Expression::Variable(
+                                                "current".to_string(),
+                                            )),
+                                            ASTNode::new(Expression::Variable(
+                                                "previous".to_string(),
+                                            )),
+                                        )))),
                                     ),
                                 )),
                                 StatementNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<UntypedAST>::new(
                                         previous.clone(),
-                                        ASTNode::new(Expression::Variable(
-                                            "temp".to_string(),
-                                        )),
+                                        ASTNode::new(Expression::Variable("temp".to_string())),
                                     ),
                                 )),
                                 StatementNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<UntypedAST>::new(
                                         nth.clone(),
-                                        ASTNode::new(Expression::BinaryOp(Box::new(
-                                            BinaryOp::<UntypedAST>::new(
-                                                BinaryOpType::Subtraction,
-                                                ASTNode::new(Expression::Variable(
-                                                    "nth".to_string(),
-                                                )),
-                                                ASTNode::new(Expression::Literal(
-                                                    "1".to_string(),
-                                                )),
-                                            ),
-                                        ))),
+                                        ASTNode::new(Expression::BinaryOp(Box::new(BinaryOp::<
+                                            UntypedAST,
+                                        >::new(
+                                            BinaryOpType::Subtraction,
+                                            ASTNode::new(Expression::Variable("nth".to_string())),
+                                            ASTNode::new(Expression::Literal("1".to_string())),
+                                        )))),
                                     ),
                                 )),
                             ]))),

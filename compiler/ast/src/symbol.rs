@@ -1,8 +1,8 @@
 use crate::data_type::Typed;
+use crate::expression::Expression;
 use crate::id::Id;
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
 use std::rc::Rc;
-use crate::expression::Expression;
 
 /**  Any type that has symbols available for use
 */
