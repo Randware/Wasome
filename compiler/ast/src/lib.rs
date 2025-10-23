@@ -15,7 +15,7 @@
 //! Note that unlike in the tests, ASTs are not supposed to be hardcoded
 
 use crate::data_type::DataType;
-use crate::expression::{Expression, Literal};
+use crate::expression::{Literal};
 use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
 use crate::top_level::{Function, TopLevelElement, TopLevelElementNode};

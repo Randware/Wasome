@@ -1,8 +1,6 @@
 use crate::data_type::{DataType, Typed};
-use crate::id::Id;
 use crate::symbol::FunctionCall;
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
-use std::ops::{Deref, DerefMut};
 
 /** This represents an expression as per section 2 of the lang spec
 # Equality
