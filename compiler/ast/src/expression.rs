@@ -48,7 +48,7 @@ impl Literal {
             Literal::S32(_) => DT::S32,
             Literal::Bool(_) => DT::Bool,
             Literal::Char(_) => DT::Char,
-            Literal::F32(_) => DT::F32,
+            //Literal::F32(_) => DT::F32,
             Literal::F64(_) => DT::F64,
         }
     }
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn literal() {
-        let literal_f32 = Literal::F32(5.0);
+        let literal_f32 = Literal::F64(5.0);
         assert_eq!(DataType::F32, literal_f32.data_type());
 
         let literal_char = Literal::Char('a' as u32);
@@ -514,7 +514,7 @@ mod tests {
                 Expression::UnaryOp(Box::new(
                     UnaryOp::<TypedAST>::new(
                         UnaryOpType::Typecast(Typecast::new(DataType::S32)),
-                        Expression::Literal(Literal::F32(10.3)),
+                        Expression::Literal(Literal::F64(10.3)),
                     )
                     .unwrap(),
                 )),

@@ -1,8 +1,10 @@
+use std::task::Context;
 use crate::mics_sa::analyze_data_type;
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, Literal, Typecast, UnaryOp, UnaryOpType,
 };
 use ast::{ASTType, TypedAST, UntypedAST};
+use ast::symbol::FunctionCall;
 
 pub(crate) fn analyze_expression(
     to_analyze: Expression<UntypedAST>,
@@ -88,29 +90,47 @@ fn analyze_binary_op(to_analyze: Box<BinaryOp<UntypedAST>>) -> Option<Box<Binary
     let converted_left = analyze_expression(left_expr)?;
     let converted_right = analyze_expression(right_expr)?;
 
-    let converted_binary_op_type = match op_type {
-        BinaryOpType::Addition => BinaryOpType::Addition,
-        BinaryOpType::Subtraction => BinaryOpType::Subtraction,
-        BinaryOpType::Multiplication => BinaryOpType::Multiplication,
-        BinaryOpType::Division => BinaryOpType::Division,
-        BinaryOpType::Modulo => BinaryOpType::Modulo,
-        BinaryOpType::LeftShift => BinaryOpType::LeftShift,
-        BinaryOpType::RightShift => BinaryOpType::RightShift,
-        BinaryOpType::BitwiseOr => BinaryOpType::BitwiseOr,
-        BinaryOpType::Or => BinaryOpType::Or,
-        BinaryOpType::BitwiseAnd => BinaryOpType::BitwiseAnd,
-        BinaryOpType::And => BinaryOpType::And,
-        BinaryOpType::BitwiseXor => BinaryOpType::BitwiseXor,
-        BinaryOpType::Xor => BinaryOpType::Xor,
-        BinaryOpType::Equals => BinaryOpType::Equals,
-        BinaryOpType::NotEquals => BinaryOpType::NotEquals,
-        BinaryOpType::Greater => BinaryOpType::Greater,
-        BinaryOpType::GreaterEquals => BinaryOpType::GreaterEquals,
-        BinaryOpType::Lesser => BinaryOpType::Lesser,
-        BinaryOpType::LesserEquals => BinaryOpType::LesserEquals,
-    };
     let analyzed =
-        BinaryOp::<TypedAST>::new(converted_binary_op_type, converted_left, converted_right)?;
+        BinaryOp::<TypedAST>::new(op_type, converted_left, converted_right)?;
 
     Some(Box::new(analyzed))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ast::expression::Literal;
+    use ast::expression::Expression;
+    use ast::UntypedAST;
+
+    #[test]
+    fn analyze_literal_recognizes_values() {
+        assert_eq!(analyze_literal("true"), Some(Literal::Bool(true)));
+        assert_eq!(analyze_literal("false"), Some(Literal::Bool(false)));
+        assert_eq!(analyze_literal("'\\n'"), Some(Literal::Char('\n' as u32)));
+        assert_eq!(analyze_literal("3.14"), Some(Literal::F64(3.14)));
+        assert_eq!(analyze_literal("42"), Some(Literal::S32(42)));
+        assert_eq!(analyze_literal("nope"), None);
+    }
+
+    #[test]
+    fn analyze_expression_literal_converts_to_typed_literal() {
+        let input: Expression<UntypedAST> = Expression::Literal(String::from("42"));
+        let output = analyze_expression(input).expect("should convert literal");
+
+        let input2: Expression<UntypedAST> = Expression::Literal(String::from("12.2"));
+        let output2 = analyze_expression(input2).expect("should convert literal (2)");
+
+        match output {
+            Expression::Literal(Literal::S32(42)) => (),
+            other => panic!("unexpected result: {:?}", other),
+        }
+
+        match output2 {
+            Expression::Literal(Literal::F64(12.2)) => (),
+            other => panic!("unexpected result: {:?}", other),
+        }
+
+
+    }
 }
