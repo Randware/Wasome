@@ -1,12 +1,12 @@
 use crate::block::CodeBlock;
 use crate::data_type::{DataType, Typed};
-use crate::expression::ExpressionNode;
 use crate::id::Id;
 use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
-use crate::{ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
+use crate::{ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option, ASTNode};
 use std::cmp::PartialEq;
 use std::ops::{Deref, DerefMut, Index};
 use std::rc::Rc;
+use crate::expression::Expression;
 
 /** This represents a Statement Type and its location
 # Equality
@@ -59,7 +59,7 @@ pub enum Statement<Type: ASTType> {
     VariableAssignment(VariableAssignment<Type>),
     // Creation of new variable
     VariableDeclaration(VariableAssignment<Type>),
-    Expression(ExpressionNode<Type>),
+    Expression(ASTNode<Expression<Type>>),
     Return(Return<Type>),
     ControlStructure(Box<ControlStructure<Type>>),
     Codeblock(CodeBlock<Type>),
@@ -142,7 +142,7 @@ Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct VariableAssignment<Type: ASTType> {
     variable: Rc<VariableSymbol<Type>>,
-    value: ExpressionNode<Type>,
+    value: ASTNode<Expression<Type>>,
 }
 
 impl<Type: ASTType> SemanticEquality for VariableAssignment<Type> {
@@ -158,7 +158,7 @@ impl VariableAssignment<TypedAST> {
     */
     pub fn new(
         variable: Rc<VariableSymbol<TypedAST>>,
-        value: ExpressionNode<TypedAST>,
+        value: ASTNode<Expression<TypedAST>>,
     ) -> Option<Self> {
         eq_return_option(*variable.data_type(), value.data_type())?;
         Some(Self { variable, value })
@@ -170,7 +170,7 @@ impl VariableAssignment<UntypedAST> {
      */
     pub fn new(
         variable: Rc<VariableSymbol<UntypedAST>>,
-        value: ExpressionNode<UntypedAST>,
+        value: ASTNode<Expression<UntypedAST>>,
     ) -> Self {
         Self { variable, value }
     }
@@ -187,7 +187,7 @@ impl<Type: ASTType> VariableAssignment<Type> {
         self.variable.clone()
     }
 
-    pub fn value(&self) -> &ExpressionNode<Type> {
+    pub fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
 }
@@ -244,14 +244,14 @@ Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 #[derive(Debug, PartialEq)]
 pub struct Conditional<Type: ASTType> {
-    condition: ExpressionNode<Type>,
+    condition: ASTNode<Expression<Type>>,
     then_statement: StatementNode<Type>,
     else_statement: Option<StatementNode<Type>>,
 }
 
 impl<Type: ASTType> Conditional<Type> {
     pub fn new(
-        condition: ExpressionNode<Type>,
+        condition: ASTNode<Expression<Type>>,
         then_statement: StatementNode<Type>,
         else_statement: Option<StatementNode<Type>>,
     ) -> Self {
@@ -268,7 +268,7 @@ impl<Type: ASTType> Conditional<Type> {
         1 + self.else_statement.is_some() as usize
     }
 
-    pub fn condition(&self) -> &ExpressionNode<Type> {
+    pub fn condition(&self) -> &ASTNode<Expression<Type>> {
         &self.condition
     }
 
@@ -361,10 +361,10 @@ impl<Type: ASTType> SemanticEquality for Loop<Type> {
 #[derive(Debug, PartialEq)]
 pub enum LoopType<Type: ASTType> {
     Infinite,
-    While(ExpressionNode<Type>),
+    While(ASTNode<Expression<Type>>),
     For {
         start: StatementNode<Type>,
-        cond: ExpressionNode<Type>,
+        cond: ASTNode<Expression<Type>>,
         after_each: StatementNode<Type>,
     },
 }
@@ -436,15 +436,15 @@ Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 #[derive(Debug, PartialEq)]
 pub struct Return<Type: ASTType> {
-    to_return: Option<ExpressionNode<Type>>,
+    to_return: Option<ASTNode<Expression<Type>>>,
 }
 
 impl<Type: ASTType> Return<Type> {
-    pub fn new(to_return: Option<ExpressionNode<Type>>) -> Self {
+    pub fn new(to_return: Option<ASTNode<Expression<Type>>>) -> Self {
         Self { to_return }
     }
 
-    pub fn to_return(&self) -> Option<&ExpressionNode<Type>> {
+    pub fn to_return(&self) -> Option<&ASTNode<Expression<Type>>> {
         self.to_return.as_ref()
     }
 }
@@ -486,7 +486,7 @@ mod tests {
     ) -> Option<VariableAssignment<TypedAST>> {
         VariableAssignment::<TypedAST>::new(
             symbol,
-            ExpressionNode::new(Expression::Literal(Literal::F32(14.0))),
+            ASTNode::new(Expression::Literal(Literal::F32(14.0))),
         )
     }
 }

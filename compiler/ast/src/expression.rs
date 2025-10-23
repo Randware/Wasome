@@ -1,48 +1,8 @@
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
 use crate::symbol::FunctionCall;
-use crate::{ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
+use crate::{ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option, ASTNode};
 use std::ops::{Deref, DerefMut};
-
-/** This represents an Expression Type and its location
-# Equality
-Two different ExpressionNodes are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
-#[derive(PartialEq, Debug)]
-pub struct ExpressionNode<Type: ASTType> {
-    inner: Expression<Type>,
-    id: Id,
-}
-
-impl<Type: ASTType> ExpressionNode<Type> {
-    pub fn new(inner: Expression<Type>) -> Self {
-        Self {
-            inner,
-            id: Id::new(),
-        }
-    }
-}
-
-impl<Type: ASTType> Deref for ExpressionNode<Type> {
-    type Target = Expression<Type>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl<Type: ASTType> DerefMut for ExpressionNode<Type> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
-}
-
-impl<Type: ASTType> SemanticEquality for ExpressionNode<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.inner.semantic_equals(&other.inner)
-    }
-}
 
 /** This represents an expression as per section 2 of the lang spec
 # Equality
@@ -127,7 +87,7 @@ pub struct UnaryOp<Type: ASTType> {
     // The type of the expression
     op_type: UnaryOpType<Type>,
     // The expression to "process"
-    input: ExpressionNode<Type>,
+    input: ASTNode<Expression<Type>>,
 }
 
 impl UnaryOp<TypedAST> {
@@ -139,7 +99,7 @@ impl UnaryOp<TypedAST> {
     Some(output data type) if the provided type can be processed to the output type
     None if the processed type can't be processed
     */
-    pub fn new(op_type: UnaryOpType<TypedAST>, input: ExpressionNode<TypedAST>) -> Option<Self> {
+    pub fn new(op_type: UnaryOpType<TypedAST>, input: ASTNode<Expression<TypedAST>>) -> Option<Self> {
         // Can't process
         op_type.result_type(input.data_type())?;
         Some(Self { op_type, input })
@@ -158,7 +118,7 @@ impl UnaryOp<UntypedAST> {
        op_type: The type of this expression
        input: The expression to base this on
     */
-    pub fn new(op_type: UnaryOpType<UntypedAST>, input: ExpressionNode<UntypedAST>) -> Self {
+    pub fn new(op_type: UnaryOpType<UntypedAST>, input: ASTNode<Expression<UntypedAST>>) -> Self {
         Self { op_type, input }
     }
 }
@@ -275,9 +235,9 @@ pub struct BinaryOp<Type: ASTType> {
     // The type of the expression
     op_type: BinaryOpType,
     // The left expression to process
-    left: ExpressionNode<Type>,
+    left: ASTNode<Expression<Type>>,
     // The left expression to process
-    right: ExpressionNode<Type>,
+    right: ASTNode<Expression<Type>>,
 }
 
 impl<Type: ASTType> SemanticEquality for BinaryOp<Type> {
@@ -299,8 +259,8 @@ impl BinaryOp<TypedAST> {
     */
     pub fn new(
         op_type: BinaryOpType,
-        left: ExpressionNode<TypedAST>,
-        right: ExpressionNode<TypedAST>,
+        left: ASTNode<Expression<TypedAST>>,
+        right: ASTNode<Expression<TypedAST>>,
     ) -> Option<Self> {
         // Can't process
         op_type.result_type(left.data_type(), right.data_type())?;
@@ -320,8 +280,8 @@ impl BinaryOp<UntypedAST> {
     */
     pub fn new(
         op_type: BinaryOpType,
-        left: ExpressionNode<UntypedAST>,
-        right: ExpressionNode<UntypedAST>,
+        left: ASTNode<Expression<UntypedAST>>,
+        right: ASTNode<Expression<UntypedAST>>,
     ) -> Self {
         Self {
             op_type,
@@ -570,11 +530,11 @@ mod tests {
         Expression::BinaryOp(Box::new(
             BinaryOp::<TypedAST>::new(
                 BinaryOpType::Addition,
-                ExpressionNode::new(Expression::Literal(Literal::S32(5))),
-                ExpressionNode::new(Expression::UnaryOp(Box::new(
+                ASTNode::new(Expression::Literal(Literal::S32(5))),
+                ASTNode::new(Expression::UnaryOp(Box::new(
                     UnaryOp::<TypedAST>::new(
                         UnaryOpType::Typecast(Typecast::new(DataType::S32)),
-                        ExpressionNode::new(Expression::Literal(Literal::F32(10.3))),
+                        ASTNode::new(Expression::Literal(Literal::F32(10.3))),
                     )
                     .unwrap(),
                 ))),
