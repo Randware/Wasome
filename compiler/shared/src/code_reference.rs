@@ -1,3 +1,4 @@
+use crate::code_file::CodeFile;
 use std::cmp::Ordering;
 
 /** A location in some code.
@@ -47,7 +48,7 @@ impl Ord for CodeLocation {
     }
 }
 
-/** A area of code represented by start and end.
+/** A area of code represented by start and end and a file where it is located
 The start is inclusive
 The line of the end is inclusive, the char exclusive
 */
@@ -55,6 +56,7 @@ The line of the end is inclusive, the char exclusive
 pub struct CodeArea {
     start: CodeLocation,
     end: CodeLocation,
+    file: CodeFile,
 }
 
 impl CodeArea {
@@ -62,11 +64,11 @@ impl CodeArea {
     Returns some if start is not before end
     else None
     */
-    pub fn new(start: CodeLocation, end: CodeLocation) -> Option<Self> {
+    pub fn new(start: CodeLocation, end: CodeLocation, file: CodeFile) -> Option<Self> {
         if start > end {
             return None;
         }
-        Some(Self { start, end })
+        Some(Self { start, end, file })
     }
 
     pub fn start(&self) -> &CodeLocation {
@@ -76,28 +78,51 @@ impl CodeArea {
     pub fn end(&self) -> &CodeLocation {
         &self.end
     }
+
+    pub fn file(&self) -> &CodeFile {
+        &self.file
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::code_file::CodeFile;
     use crate::code_reference::{CodeArea, CodeLocation};
     use std::cmp::Ordering;
+    use std::path::PathBuf;
 
+    fn test_code_file() -> CodeFile {
+        CodeFile::new(PathBuf::from("test/test"))
+    }
     #[test]
     fn create_codearea() {
-        let codearea = CodeArea::new(CodeLocation::new(5, 5), CodeLocation::new(10, 0)).unwrap();
+        let codearea = CodeArea::new(
+            CodeLocation::new(5, 5),
+            CodeLocation::new(10, 0),
+            test_code_file(),
+        )
+        .unwrap();
         assert_eq!(codearea.start(), &CodeLocation::new(5, 5));
+        assert_eq!(codearea.file.to_string(), "test/test".to_string())
     }
 
     #[test]
     fn create_codearea_start_not_before_end_should_fail() {
         assert_eq!(
             None,
-            CodeArea::new(CodeLocation::new(10, 5), CodeLocation::new(10, 0))
+            CodeArea::new(
+                CodeLocation::new(10, 5),
+                CodeLocation::new(10, 0),
+                test_code_file()
+            )
         );
         assert_eq!(
             None,
-            CodeArea::new(CodeLocation::new(15, 0), CodeLocation::new(10, 10))
+            CodeArea::new(
+                CodeLocation::new(15, 0),
+                CodeLocation::new(10, 10),
+                test_code_file()
+            )
         );
     }
 
