@@ -33,7 +33,6 @@ impl<Type: ASTType> SemanticEquality for Statement<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
         use Statement as St;
         match (self, other) {
-            (St::VoidFunctionCall(_), St::VoidFunctionCall(_)) => self == other,
             (St::VariableAssignment(inner), St::VariableAssignment(other_inner)) => {
                 inner.semantic_equals(other_inner)
             }
@@ -50,7 +49,8 @@ impl<Type: ASTType> SemanticEquality for Statement<Type> {
             (St::Codeblock(inner), St::Codeblock(other_inner)) => {
                 inner.semantic_equals(other_inner)
             }
-            _ => false,
+            // All cases where equality == semantic equality
+            _ => self == other,
         }
     }
 }
@@ -475,6 +475,13 @@ mod tests {
         assert!(for_loop.child_statement_at(2).semantic_equals(
             &create_literal_statement(Literal::S32(2))
         ));
+    }
+
+    #[test]
+    fn break_statement_semantic_equality_should_be_true()
+    {
+        let break_statement: Statement<TypedAST> = Statement::Break;
+        assert!(break_statement.semantic_equals(&break_statement))
     }
 
     fn create_literal_expr(literal: Literal) -> ASTNode<Expression<TypedAST>>
