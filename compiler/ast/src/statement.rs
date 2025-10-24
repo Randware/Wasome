@@ -25,6 +25,8 @@ pub enum Statement<Type: ASTType> {
     // A call of a void function
     // It can't be an expression as it does not have a return type
     VoidFunctionCall(FunctionCall<Type>),
+    // Terminates a loop
+    Break,
 }
 
 impl<Type: ASTType> SemanticEquality for Statement<Type> {
