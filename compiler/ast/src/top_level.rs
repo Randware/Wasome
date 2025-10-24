@@ -1,39 +1,8 @@
-use crate::id::Id;
-use crate::statement::StatementNode;
+use crate::statement::Statement;
 use crate::symbol::FunctionSymbol;
-use crate::{ASTType, SemanticEquality};
+use crate::{ASTNode, ASTType, SemanticEquality};
 use std::fmt::Debug;
-use std::ops::Deref;
 use std::rc::Rc;
-
-#[derive(Debug, PartialEq)]
-pub struct TopLevelElementNode<Type: ASTType> {
-    inner: TopLevelElement<Type>,
-    id: Id,
-}
-
-impl<Type: ASTType> TopLevelElementNode<Type> {
-    pub fn new(inner: TopLevelElement<Type>) -> Self {
-        Self {
-            inner,
-            id: Id::new(),
-        }
-    }
-}
-
-impl<Type: ASTType> Deref for TopLevelElementNode<Type> {
-    type Target = TopLevelElement<Type>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl<Type: ASTType> SemanticEquality for TopLevelElementNode<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.inner.semantic_equals(&other.inner)
-    }
-}
 
 /** This is an arbitiary top-level construct
 For now, there are only functions
@@ -54,11 +23,11 @@ impl<Type: ASTType> SemanticEquality for TopLevelElement<Type> {
 #[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
-    implementation: StatementNode<Type>,
+    implementation: ASTNode<Statement<Type>>,
 }
 
 impl<Type: ASTType> Function<Type> {
-    pub fn new(declaration: Rc<FunctionSymbol<Type>>, implementation: StatementNode<Type>) -> Self {
+    pub fn new(declaration: Rc<FunctionSymbol<Type>>, implementation: ASTNode<Statement<Type>>) -> Self {
         Self {
             declaration,
             implementation,
@@ -75,7 +44,7 @@ impl<Type: ASTType> Function<Type> {
         self.declaration.clone()
     }
 
-    pub fn implementation(&self) -> &StatementNode<Type> {
+    pub fn implementation(&self) -> &ASTNode<Statement<Type>> {
         &self.implementation
     }
 }

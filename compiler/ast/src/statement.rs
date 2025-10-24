@@ -1,52 +1,11 @@
 use crate::block::CodeBlock;
 use crate::data_type::{DataType, Typed};
 use crate::expression::Expression;
-use crate::id::Id;
 use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
-use std::ops::{Deref, DerefMut, Index};
+use std::ops::Index;
 use std::rc::Rc;
-
-/** This represents a Statement Type and its location
-# Equality
-Two different StatementNodes are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
-#[derive(PartialEq, Debug)]
-pub struct StatementNode<Type: ASTType> {
-    inner: Statement<Type>,
-    id: Id,
-}
-
-impl<Type: ASTType> StatementNode<Type> {
-    pub fn new(inner: Statement<Type>) -> Self {
-        Self {
-            inner,
-            id: Id::new(),
-        }
-    }
-}
-
-impl<Type: ASTType> SemanticEquality for StatementNode<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.inner.semantic_equals(&other.inner)
-    }
-}
-
-impl<Type: ASTType> Deref for StatementNode<Type> {
-    type Target = Statement<Type>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl<Type: ASTType> DerefMut for StatementNode<Type> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
-}
 
 /** This represents a Statement as per section 4 of the lang spec
 # Equality
@@ -120,7 +79,7 @@ impl<Type: ASTType> Statement<Type> {
 }
 
 impl<Type: ASTType> Index<usize> for Statement<Type> {
-    type Output = StatementNode<Type>;
+    type Output = ASTNode<Statement<Type>>;
 
     /** Gets the indexth child statement
     panics if self has no children or index is out of bounds
@@ -229,7 +188,7 @@ impl<Type: ASTType> ControlStructure<Type> {
 
     /** Returns the child statement at index
      */
-    pub(crate) fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
+    pub(crate) fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match self {
             ControlStructure::Conditional(cond) => cond.child_statement_at(index),
             ControlStructure::Loop(inner) => inner.child_statement_at(index),
@@ -245,15 +204,15 @@ Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Conditional<Type: ASTType> {
     condition: ASTNode<Expression<Type>>,
-    then_statement: StatementNode<Type>,
-    else_statement: Option<StatementNode<Type>>,
+    then_statement: ASTNode<Statement<Type>>,
+    else_statement: Option<ASTNode<Statement<Type>>>,
 }
 
 impl<Type: ASTType> Conditional<Type> {
     pub fn new(
         condition: ASTNode<Expression<Type>>,
-        then_statement: StatementNode<Type>,
-        else_statement: Option<StatementNode<Type>>,
+        then_statement: ASTNode<Statement<Type>>,
+        else_statement: Option<ASTNode<Statement<Type>>>,
     ) -> Self {
         Self {
             condition,
@@ -272,11 +231,11 @@ impl<Type: ASTType> Conditional<Type> {
         &self.condition
     }
 
-    pub fn then_statement(&self) -> &StatementNode<Type> {
+    pub fn then_statement(&self) -> &ASTNode<Statement<Type>> {
         &self.then_statement
     }
 
-    pub fn else_statement(&self) -> Option<&StatementNode<Type>> {
+    pub fn else_statement(&self) -> Option<&ASTNode<Statement<Type>>> {
         self.else_statement.as_ref()
     }
 
@@ -284,7 +243,7 @@ impl<Type: ASTType> Conditional<Type> {
     0 is the then-statement
     1 is the else-statement
     */
-    fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
+    fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match index {
             0 => &self.then_statement,
             1 => self.else_statement.as_ref().unwrap(),
@@ -312,12 +271,12 @@ Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 #[derive(Debug, PartialEq)]
 pub struct Loop<Type: ASTType> {
-    to_loop_on: StatementNode<Type>,
+    to_loop_on: ASTNode<Statement<Type>>,
     loop_type: LoopType<Type>,
 }
 
 impl<Type: ASTType> Loop<Type> {
-    pub fn new(to_loop_on: StatementNode<Type>, loop_type: LoopType<Type>) -> Self {
+    pub fn new(to_loop_on: ASTNode<Statement<Type>>, loop_type: LoopType<Type>) -> Self {
         Self {
             to_loop_on,
             loop_type,
@@ -340,7 +299,7 @@ impl<Type: ASTType> Loop<Type> {
 
     /** Returns the child statement at index
      */
-    fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
+    fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         // The after each statement comes after the looped on code
         // So it needs special handling
         if let LoopType::For {
@@ -378,9 +337,9 @@ pub enum LoopType<Type: ASTType> {
     Infinite,
     While(ASTNode<Expression<Type>>),
     For {
-        start: StatementNode<Type>,
+        start: ASTNode<Statement<Type>>,
         cond: ASTNode<Expression<Type>>,
-        after_each: StatementNode<Type>,
+        after_each: ASTNode<Statement<Type>>,
     },
 }
 
@@ -397,7 +356,7 @@ impl<Type: ASTType> LoopType<Type> {
 
     /** Returns the child statement at index
      */
-    fn child_statement_at(&self, index: usize) -> &StatementNode<Type> {
+    fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         if let LoopType::For {
             start,
             cond: _cond,

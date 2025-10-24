@@ -1,5 +1,5 @@
-use crate::ASTType;
-use crate::statement::{Statement, StatementNode};
+use crate::{ASTNode, ASTType};
+use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use std::ops::{Deref, Index};
@@ -12,7 +12,7 @@ It is supposed to be created by either a FunctionTraversalHelper or the Statemen
 #[derive(Debug)]
 pub struct StatementTraversalHelper<'a, Type: ASTType> {
     // The referenced statement
-    inner: &'a StatementNode<Type>,
+    inner: &'a ASTNode<Statement<Type>>,
     // The location of this statement, relative to the root
     location: Option<StatementLocation<'a>>,
     // The root of the statement tree (should eventually become the function)
@@ -33,7 +33,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
     /** Creates a new StatementRef that is the child of the specified statementRef at the specified index
      */
     fn new_child(
-        inner: &'a StatementNode<Type>,
+        inner: &'a ASTNode<Statement<Type>>,
         parent: &'a StatementTraversalHelper<'a, Type>,
         location: usize,
     ) -> Self {

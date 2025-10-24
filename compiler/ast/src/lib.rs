@@ -18,7 +18,7 @@ use crate::data_type::DataType;
 use crate::expression::{Literal};
 use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
-use crate::top_level::{Function, TopLevelElement, TopLevelElementNode};
+use crate::top_level::{Function, TopLevelElement};
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
@@ -72,11 +72,11 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
 
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
-    inner: Vec<TopLevelElementNode<Type>>,
+    inner: Vec<ASTNode<TopLevelElement<Type>>>,
 }
 
 impl<Type: ASTType> AST<Type> {
-    pub fn new(inner: Vec<TopLevelElementNode<Type>>) -> Self {
+    pub fn new(inner: Vec<ASTNode<TopLevelElement<Type>>>) -> Self {
         Self { inner }
     }
 
@@ -94,7 +94,7 @@ impl<Type: ASTType> AST<Type> {
 }
 
 impl<Type: ASTType> Deref for AST<Type> {
-    type Target = [TopLevelElementNode<Type>];
+    type Target = [ASTNode<TopLevelElement<Type>>];
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -206,10 +206,10 @@ mod tests {
     use crate::data_type::DataType;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
     use crate::statement::{
-        ControlStructure, Loop, LoopType, Return, Statement, StatementNode, VariableAssignment,
+        ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
     };
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
-    use crate::top_level::{Function, TopLevelElement, TopLevelElementNode};
+    use crate::top_level::{Function, TopLevelElement};
     use crate::traversal::function_traversal::FunctionTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::{AST, ASTNode, TypedAST, UntypedAST};
@@ -218,7 +218,7 @@ mod tests {
     #[test]
     fn ast() {
         let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
-        let statement = StatementNode::new(Statement::VariableDeclaration(
+        let statement = ASTNode::new(Statement::VariableDeclaration(
             basic_test_variable(symbol.clone()).unwrap(),
         ));
 
@@ -229,10 +229,10 @@ mod tests {
 
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
-            StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![statement]))),
+            ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![statement]))),
         );
 
-        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(
             function,
         ))]);
 
@@ -254,17 +254,17 @@ mod tests {
         let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
 
         let symbol2 = Rc::new(VariableSymbol::new("test2".to_string(), DataType::Bool));
-        let statement = StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-            StatementNode::new(Statement::VariableDeclaration(
+        let statement = ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![
+            ASTNode::new(Statement::VariableDeclaration(
                 VariableAssignment::<TypedAST>::new(
                     symbol.clone(),
                     ASTNode::new(Expression::Literal(Literal::F32(10.0))),
                 )
                 .unwrap(),
             )),
-            StatementNode::new(Statement::ControlStructure(Box::new(
+            ASTNode::new(Statement::ControlStructure(Box::new(
                 ControlStructure::Loop(Loop::new(
-                    StatementNode::new(Statement::VariableDeclaration(
+                    ASTNode::new(Statement::VariableDeclaration(
                         VariableAssignment::<TypedAST>::new(
                             symbol2.clone(),
                             ASTNode::new(Expression::Literal(Literal::Bool(true))),
@@ -281,7 +281,7 @@ mod tests {
             statement,
         );
 
-        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(
             function,
         ))]);
 
@@ -333,35 +333,35 @@ mod tests {
             Some(DataType::S32),
             vec![nth.clone()],
         ));
-        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(
             Function::new(
                 fibonacci.clone(),
-                StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                    StatementNode::new(Statement::VariableDeclaration(
+                ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![
+                    ASTNode::new(Statement::VariableDeclaration(
                         VariableAssignment::<TypedAST>::new(
                             current.clone(),
                             ASTNode::new(Expression::Literal(Literal::S32(1))),
                         )
                         .unwrap(),
                     )),
-                    StatementNode::new(Statement::VariableDeclaration(
+                    ASTNode::new(Statement::VariableDeclaration(
                         VariableAssignment::<TypedAST>::new(
                             previous.clone(),
                             ASTNode::new(Expression::Literal(Literal::S32(0))),
                         )
                         .unwrap(),
                     )),
-                    StatementNode::new(Statement::ControlStructure(Box::new(
+                    ASTNode::new(Statement::ControlStructure(Box::new(
                         ControlStructure::Loop(Loop::new(
-                            StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                                StatementNode::new(Statement::VariableDeclaration(
+                            ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![
+                                ASTNode::new(Statement::VariableDeclaration(
                                     VariableAssignment::<TypedAST>::new(
                                         temp.clone(),
                                         ASTNode::new(Expression::Variable(current.clone())),
                                     )
                                     .unwrap(),
                                 )),
-                                StatementNode::new(Statement::VariableAssignment(
+                                ASTNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<TypedAST>::new(
                                         current.clone(),
                                         ASTNode::new(Expression::BinaryOp(Box::new(
@@ -377,14 +377,14 @@ mod tests {
                                     )
                                     .unwrap(),
                                 )),
-                                StatementNode::new(Statement::VariableAssignment(
+                                ASTNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<TypedAST>::new(
                                         previous.clone(),
                                         ASTNode::new(Expression::Variable(temp.clone())),
                                     )
                                     .unwrap(),
                                 )),
-                                StatementNode::new(Statement::VariableAssignment(
+                                ASTNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<TypedAST>::new(
                                         nth.clone(),
                                         ASTNode::new(Expression::BinaryOp(Box::new(
@@ -411,7 +411,7 @@ mod tests {
                             )))),
                         )),
                     ))),
-                    StatementNode::new(Statement::Return(Return::new(Some(ASTNode::new(
+                    ASTNode::new(Statement::Return(Return::new(Some(ASTNode::new(
                         Expression::Variable(current.clone()),
                     ))))),
                 ]))),
@@ -459,32 +459,32 @@ mod tests {
             Some("s32".to_string()),
             vec![nth.clone()],
         ));
-        let ast = AST::new(vec![TopLevelElementNode::new(TopLevelElement::Function(
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(
             Function::new(
                 fibonacci.clone(),
-                StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                    StatementNode::new(Statement::VariableDeclaration(VariableAssignment::<
+                ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![
+                    ASTNode::new(Statement::VariableDeclaration(VariableAssignment::<
                         UntypedAST,
                     >::new(
                         current.clone(),
                         ASTNode::new(Expression::Literal("1".to_string())),
                     ))),
-                    StatementNode::new(Statement::VariableDeclaration(VariableAssignment::<
+                    ASTNode::new(Statement::VariableDeclaration(VariableAssignment::<
                         UntypedAST,
                     >::new(
                         previous.clone(),
                         ASTNode::new(Expression::Literal("0".to_string())),
                     ))),
-                    StatementNode::new(Statement::ControlStructure(Box::new(
+                    ASTNode::new(Statement::ControlStructure(Box::new(
                         ControlStructure::Loop(Loop::new(
-                            StatementNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                                StatementNode::new(Statement::VariableDeclaration(
+                            ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![
+                                ASTNode::new(Statement::VariableDeclaration(
                                     VariableAssignment::<UntypedAST>::new(
                                         temp.clone(),
                                         ASTNode::new(Expression::Variable("current".to_string())),
                                     ),
                                 )),
-                                StatementNode::new(Statement::VariableAssignment(
+                                ASTNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<UntypedAST>::new(
                                         current.clone(),
                                         ASTNode::new(Expression::BinaryOp(Box::new(BinaryOp::<
@@ -500,13 +500,13 @@ mod tests {
                                         )))),
                                     ),
                                 )),
-                                StatementNode::new(Statement::VariableAssignment(
+                                ASTNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<UntypedAST>::new(
                                         previous.clone(),
                                         ASTNode::new(Expression::Variable("temp".to_string())),
                                     ),
                                 )),
-                                StatementNode::new(Statement::VariableAssignment(
+                                ASTNode::new(Statement::VariableAssignment(
                                     VariableAssignment::<UntypedAST>::new(
                                         nth.clone(),
                                         ASTNode::new(Expression::BinaryOp(Box::new(BinaryOp::<
@@ -530,7 +530,7 @@ mod tests {
                             )))),
                         )),
                     ))),
-                    StatementNode::new(Statement::Return(Return::new(Some(ASTNode::new(
+                    ASTNode::new(Statement::Return(Return::new(Some(ASTNode::new(
                         Expression::Variable("current".to_string()),
                     ))))),
                 ]))),
