@@ -1,10 +1,10 @@
-use std::task::Context;
 use crate::mics_sa::analyze_data_type;
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, Literal, Typecast, UnaryOp, UnaryOpType,
 };
-use ast::{ASTType, TypedAST, UntypedAST};
 use ast::symbol::FunctionCall;
+use ast::{ASTType, TypedAST, UntypedAST};
+use std::task::Context;
 
 pub(crate) fn analyze_expression(
     to_analyze: Expression<UntypedAST>,
@@ -90,8 +90,7 @@ fn analyze_binary_op(to_analyze: Box<BinaryOp<UntypedAST>>) -> Option<Box<Binary
     let converted_left = analyze_expression(left_expr)?;
     let converted_right = analyze_expression(right_expr)?;
 
-    let analyzed =
-        BinaryOp::<TypedAST>::new(op_type, converted_left, converted_right)?;
+    let analyzed = BinaryOp::<TypedAST>::new(op_type, converted_left, converted_right)?;
 
     Some(Box::new(analyzed))
 }
@@ -99,9 +98,9 @@ fn analyze_binary_op(to_analyze: Box<BinaryOp<UntypedAST>>) -> Option<Box<Binary
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::expression::Literal;
     use ast::expression::Expression;
-    use ast::{UntypedAST, AST};
+    use ast::expression::Literal;
+    use ast::{AST, UntypedAST};
 
     #[test]
     fn analyze_literal_recognizes_values() {
@@ -121,57 +120,38 @@ mod tests {
         let input2: Expression<UntypedAST> = Expression::Literal(String::from("12.2"));
         let output2 = analyze_expression(input2).expect("should convert literal (2)");
 
-        match output {
-            Expression::Literal(Literal::S32(42)) => (),
-            other => panic!("unexpected result: {:?}", other),
-        }
+        assert_eq!(Expression::Literal(Literal::S32(42)), output);
 
-        match output2 {
-            Expression::Literal(Literal::F64(12.2)) => (),
-            other => panic!("unexpected result: {:?}", other),
-        }
-
+        assert_eq!(Expression::Literal(Literal::F64(12.2)), output2);
     }
 
     #[test]
     fn analyze_unary_negative_converts_op() {
-        use ast::expression::{UnaryOp, UnaryOpType, Expression, Literal};
+        use ast::expression::{Expression, Literal, UnaryOp, UnaryOpType};
         let inner = Expression::Literal(String::from("42"));
         let untyped = UnaryOp::<UntypedAST>::new(UnaryOpType::Negative, inner);
 
         let result = analyze_unary_op(Box::new(untyped)).expect("should analyze unary op");
 
         let (op_type, expr) = result.destructure();
-        match op_type {
-            UnaryOpType::Negative => (),
-            other => panic!("unexpected unary op: {:?}", other),
-        }
-        match expr {
-            Expression::Literal(Literal::S32(42)) => (),
-            other => panic!("unexpected unary operand: {:?}", other),
-        }
+
+        assert_eq!(UnaryOpType::Negative, op_type);
+        assert_eq!(Expression::Literal(Literal::S32(42)), expr);
     }
 
     #[test]
-    fn analyze_binary_add_converts_op(){
-        use ast::expression::{BinaryOp,BinaryOpType,Expression,Literal};
+    fn analyze_binary_add_converts_op() {
+        use ast::expression::{BinaryOp, BinaryOpType, Expression, Literal};
         let left = Expression::Literal(String::from("17"));
         let right = Expression::Literal(String::from("5"));
-        let untyped = BinaryOp::<UntypedAST>::new(BinaryOpType::Addition,left,right);
+        let untyped = BinaryOp::<UntypedAST>::new(BinaryOpType::Addition, left, right);
         let result = analyze_binary_op(Box::new(untyped)).expect("should analyze binary op");
 
         let (op_type, l_expr, r_expr) = result.destructure();
-        match op_type {
-            BinaryOpType::Addition => (),
-            other => panic!("unexpected binary op: {:?}", other),
-        }
-        match l_expr {
-            Expression::Literal(Literal::S32(17)) => (),
-            other => panic!("unexpected left operand: {:?}", other),
-        }
-        match r_expr {
-            Expression::Literal(Literal::S32(5)) => (),
-            other => panic!("unexpected right operand: {:?}", other),
-        }
+        assert_eq!(BinaryOpType::Addition, op_type);
+
+        assert_eq!(Expression::Literal(Literal::S32(17)), l_expr);
+
+        assert_eq!(Expression::Literal(Literal::S32(5)), r_expr);
     }
 }
