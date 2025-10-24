@@ -168,7 +168,7 @@ mod tests {
             Statement::VariableDeclaration(
                 VariableDeclaration::<TypedAST>::new(
                     symbol.clone(),
-                    Expression::Literal(Literal::F32(10.0)),
+                    Expression::Literal(Literal::F64(10.0)),
                 )
                 .unwrap(),
             ),
@@ -431,6 +431,6 @@ mod tests {
     fn basic_test_variable(
         symbol: Rc<VariableSymbol<TypedAST>>,
     ) -> Option<VariableDeclaration<TypedAST>> {
-        VariableDeclaration::<TypedAST>::new(symbol, Expression::Literal(Literal::F32(14.0)))
+        VariableDeclaration::<TypedAST>::new(symbol, Expression::Literal(Literal::F64(14.0)))
     }
 }

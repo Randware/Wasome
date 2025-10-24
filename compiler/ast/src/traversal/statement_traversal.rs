@@ -20,6 +20,20 @@ pub struct StatementTraversalHelper<'a, Type: ASTType> {
 }
 
 impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
+    pub fn get_inner(&self) -> &Statement<Type> {
+        self.inner
+    }
+
+    pub fn child_len(&self) -> usize {
+        self.inner.len_children()
+    }
+
+    pub fn root_helper(&self) -> &'a FunctionTraversalHelper<'a, Type> {
+        self.root
+    }
+}
+
+impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
     /** Creates a new StatementRef where inner is the root
      */
     pub fn new_root(inner: &'a FunctionTraversalHelper<'a, Type>) -> Self {
