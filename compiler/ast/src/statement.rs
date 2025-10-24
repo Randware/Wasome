@@ -459,7 +459,7 @@ mod tests {
 
 
     #[test]
-    fn for_loop_inner_order_should() {
+    fn for_loop_inner_order() {
         let cond = create_literal_expr(Literal::Bool(true));
         let before = create_literal_statement(Literal::S32(1));
         let after = create_literal_statement(Literal::S32(2));
