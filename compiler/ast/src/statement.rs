@@ -455,6 +455,35 @@ mod tests {
         .unwrap();
     }
 
+
+    #[test]
+    fn for_loop_inner_order_should() {
+        let cond = create_literal_expr(Literal::Bool(true));
+        let before = create_literal_statement(Literal::S32(1));
+        let after = create_literal_statement(Literal::S32(2));
+        let inner = create_literal_statement(Literal::S32(3));
+        let for_loop = Loop::new(inner, LoopType::For {start: before, cond, after_each: after});
+        assert!(for_loop.child_statement_at(0).semantic_equals(
+            &create_literal_statement(Literal::S32(1))
+        ));
+        assert!(for_loop.child_statement_at(1).semantic_equals(
+            &create_literal_statement(Literal::S32(3))
+        ));
+
+        assert!(for_loop.child_statement_at(2).semantic_equals(
+            &create_literal_statement(Literal::S32(2))
+        ));
+    }
+
+    fn create_literal_expr(literal: Literal) -> ASTNode<Expression<TypedAST>>
+    {
+        ASTNode::new(Expression::Literal(literal))
+    }
+
+    fn create_literal_statement(literal: Literal) -> ASTNode<Statement<TypedAST>>
+    {
+        ASTNode::new(Statement::Expression(create_literal_expr(literal)))
+    }
     fn basic_test_variable(
         symbol: Rc<VariableSymbol<TypedAST>>,
     ) -> Option<VariableAssignment<TypedAST>> {
