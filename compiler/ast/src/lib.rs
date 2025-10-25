@@ -108,8 +108,8 @@ impl<Type: ASTType> SemanticEquality for AST<Type> {
     }
 }
 
-/** This represents an AST Type and its location. Which type of AST node this is depends on its
-generic
+/** This represents an AST Type and its location. Which type of AST node this is depends on its first
+generic. The second generic decides what is used to store positional information.
 # Equality
 Two different ExpressionNodes are never equal.
 Use semantic_equals from [`SemanticEquality`] to check semantics only
