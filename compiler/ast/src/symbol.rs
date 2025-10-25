@@ -1,6 +1,7 @@
 use crate::data_type::Typed;
 use crate::expression::Expression;
-use crate::{ASTType, TypedAST, UntypedAST};
+use crate::id::Id;
+use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
 use std::rc::Rc;
 
 /**  Any type that has symbols available for use
@@ -13,23 +14,37 @@ pub enum Symbol<'a, Type: ASTType> {
     Variable(&'a VariableSymbol<Type>),
 }
 
+/** A function symbol
+# Equality
+Two different FunctionSymbols are never equal
+*/
 #[derive(Debug, Eq, PartialEq)]
 pub struct FunctionSymbol<Type: ASTType> {
+    id: Id,
     name: String,
     // None = no return type/void
     return_type: Option<Type::GeneralDataType>,
     params: Vec<Rc<VariableSymbol<Type>>>,
 }
 
+/** A variable symbol
+# Equality
+Two different VariableSymbols are never equal
+*/
 #[derive(Debug, Eq, PartialEq)]
 pub struct VariableSymbol<Type: ASTType> {
+    id: Id,
     name: String,
     data_type: Type::GeneralDataType,
 }
 
 impl<Type: ASTType> VariableSymbol<Type> {
     pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
-        Self { name, data_type }
+        Self {
+            id: Id::new(),
+            name,
+            data_type,
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -48,6 +63,7 @@ impl<Type: ASTType> FunctionSymbol<Type> {
         params: Vec<Rc<VariableSymbol<Type>>>,
     ) -> Self {
         Self {
+            id: Id::new(),
             name,
             return_type,
             params,
@@ -72,7 +88,7 @@ impl<Type: ASTType> FunctionSymbol<Type> {
 #[derive(Debug, PartialEq)]
 pub struct FunctionCall<Type: ASTType> {
     function: Type::FunctionCallSymbol,
-    args: Vec<Expression<Type>>,
+    args: Vec<ASTNode<Expression<Type>>>,
 }
 
 impl<Type: ASTType> FunctionCall<Type> {
@@ -80,8 +96,14 @@ impl<Type: ASTType> FunctionCall<Type> {
         &self.function
     }
 
-    pub fn args(&self) -> &Vec<Expression<Type>> {
+    pub fn args(&self) -> &Vec<ASTNode<Expression<Type>>> {
         &self.args
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for FunctionCall<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.function == other.function && self.args.semantic_equals(&other.args)
     }
 }
 
@@ -93,7 +115,7 @@ impl FunctionCall<TypedAST> {
     */
     pub fn new(
         function: Rc<FunctionSymbol<TypedAST>>,
-        args: Vec<Expression<TypedAST>>,
+        args: Vec<ASTNode<Expression<TypedAST>>>,
     ) -> Option<Self> {
         if function.params().len() != args.len()
             || !function
@@ -111,7 +133,76 @@ impl FunctionCall<TypedAST> {
 impl FunctionCall<UntypedAST> {
     /** Creates a new function call
      */
-    pub fn new(function: String, args: Vec<Expression<UntypedAST>>) -> Self {
+    pub fn new(function: String, args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
         Self { function, args }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::data_type::DataType;
+    use crate::expression::{Expression, Literal};
+    use crate::symbol::{FunctionCall, FunctionSymbol, VariableSymbol};
+    use crate::test_shared::sample_codearea;
+    use crate::{ASTNode, SemanticEquality, TypedAST, UntypedAST};
+    use std::rc::Rc;
+
+    #[test]
+    fn create_function_call_untyped() {
+        let name = "test".to_string();
+        let arg = ASTNode::new(
+            Expression::<UntypedAST>::Literal("10".to_string()),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
+        assert_eq!("test", call.function());
+        assert_eq!(1, call.args().len());
+    }
+
+    #[test]
+    fn create_function_call_typed_wrong_args() {
+        let symbol = Rc::new(FunctionSymbol::new(
+            "test".to_string(),
+            None,
+            vec![Rc::new(VariableSymbol::new(
+                "test1".to_string(),
+                DataType::Bool,
+            ))],
+        ));
+        let arg = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::S32(10)),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call);
+
+        let call_empty = FunctionCall::<TypedAST>::new(symbol, Vec::new());
+        assert_eq!(None, call_empty)
+    }
+
+    #[test]
+    fn create_function_call_typed() {
+        let symbol = Rc::new(FunctionSymbol::new(
+            "test".to_string(),
+            None,
+            vec![Rc::new(VariableSymbol::new(
+                "test1".to_string(),
+                DataType::Bool,
+            ))],
+        ));
+        let arg = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::Bool(true)),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call.as_ref().unwrap().function().return_type());
+        assert_eq!("test", call.as_ref().unwrap().function().name());
+
+        let arg2 = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::Bool(true)),
+            sample_codearea(),
+        );
+        let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
+        assert!(call.semantic_equals(&call2));
     }
 }
