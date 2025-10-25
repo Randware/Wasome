@@ -355,7 +355,7 @@ mod tests {
     fn variable_assignement() {
         basic_test_variable(Rc::new(VariableSymbol::new(
             "test".to_string(),
-            DataType::F32,
+            DataType::F64,
         )))
         .unwrap();
     }

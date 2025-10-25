@@ -64,10 +64,7 @@ pub struct UnaryOp<Type: ASTType> {
     input: Expression<Type>,
 }
 
-
-impl<Type: ASTType> UnaryOp<Type>
-{
-
+impl<Type: ASTType> UnaryOp<Type> {
     pub fn input(&self) -> &Expression<Type> {
         &self.input
     }
@@ -76,8 +73,7 @@ impl<Type: ASTType> UnaryOp<Type>
         &self.op_type
     }
 
-    pub fn destructure(&self) -> (&UnaryOpType<Type>, &Expression<Type>)
-    {
+    pub fn destructure(&self) -> (&UnaryOpType<Type>, &Expression<Type>) {
         (&self.op_type, &self.input)
     }
 }
@@ -178,8 +174,7 @@ pub struct Typecast<Type: ASTType> {
     target: Type::GeneralDataType,
 }
 
-impl<Type: ASTType> Typecast<Type>
-{
+impl<Type: ASTType> Typecast<Type> {
     pub fn target(&self) -> &Type::GeneralDataType {
         &self.target
     }
@@ -230,8 +225,7 @@ pub struct BinaryOp<Type: ASTType> {
     right: Expression<Type>,
 }
 
-impl<Type: ASTType> BinaryOp<Type>
-{
+impl<Type: ASTType> BinaryOp<Type> {
     pub fn left(&self) -> &Expression<Type> {
         &self.left
     }
@@ -480,8 +474,8 @@ mod tests {
 
     #[test]
     fn literal() {
-        let literal_f32 = Literal::F64(5.0);
-        assert_eq!(DataType::F32, literal_f32.data_type());
+        let literal_f64 = Literal::F64(5.0);
+        assert_eq!(DataType::F64, literal_f64.data_type());
 
         let literal_char = Literal::Char('a' as u32);
         assert_eq!(DataType::Char, literal_char.data_type());
@@ -510,10 +504,16 @@ mod tests {
         let expression = Expression::BinaryOp(Box::new(
             BinaryOp::<TypedAST>::new(
                 BinaryOpType::Addition,
-                Expression::Literal(Literal::S32(5)),
                 Expression::UnaryOp(Box::new(
                     UnaryOp::<TypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new(DataType::S32)),
+                        UnaryOpType::Typecast(Typecast::new(DataType::S64)),
+                        Expression::Literal(Literal::S32(5)),
+                    )
+                    .unwrap(),
+                )),
+                Expression::UnaryOp(Box::new(
+                    UnaryOp::<TypedAST>::new(
+                        UnaryOpType::Typecast(Typecast::new(DataType::S64)),
                         Expression::Literal(Literal::F64(10.3)),
                     )
                     .unwrap(),
@@ -521,6 +521,6 @@ mod tests {
             )
             .unwrap(),
         ));
-        assert_eq!(DataType::S32, expression.data_type());
+        assert_eq!(DataType::S64, expression.data_type());
     }
 }

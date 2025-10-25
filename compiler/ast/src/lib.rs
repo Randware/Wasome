@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn ast() {
-        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
+        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F64));
         let statement =
             Statement::VariableDeclaration(basic_test_variable(symbol.clone()).unwrap());
 
@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn ast_2() {
-        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
+        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F64));
 
         let symbol2 = Rc::new(VariableSymbol::new("test2".to_string(), DataType::Bool));
         let statement = Statement::Codeblock(CodeBlock::new(vec![
