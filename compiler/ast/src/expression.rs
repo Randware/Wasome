@@ -440,8 +440,8 @@ impl BinaryOpType {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_shared::sample_codearea;
     use super::*;
+    use crate::test_shared::sample_codearea;
     #[test]
     fn binary_op_type() {
         let add = BinaryOpType::Addition;
@@ -533,13 +533,19 @@ mod tests {
             BinaryOp::<TypedAST>::new(
                 BinaryOpType::Addition,
                 ASTNode::new(Expression::Literal(Literal::S32(5)), sample_codearea()),
-                ASTNode::new(Expression::UnaryOp(Box::new(
-                    UnaryOp::<TypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new(DataType::S32)),
-                        ASTNode::new(Expression::Literal(Literal::F32(10.3)), sample_codearea()),
-                    )
-                    .unwrap(),
-                )), sample_codearea()),
+                ASTNode::new(
+                    Expression::UnaryOp(Box::new(
+                        UnaryOp::<TypedAST>::new(
+                            UnaryOpType::Typecast(Typecast::new(DataType::S32)),
+                            ASTNode::new(
+                                Expression::Literal(Literal::F32(10.3)),
+                                sample_codearea(),
+                            ),
+                        )
+                        .unwrap(),
+                    )),
+                    sample_codearea(),
+                ),
             )
             .unwrap(),
         ))

@@ -502,6 +502,9 @@ mod tests {
     }
 
     fn create_literal_statement(literal: Literal) -> ASTNode<Statement<TypedAST>> {
-        ASTNode::new(Statement::Expression(create_literal_expr(literal)), sample_codearea())
+        ASTNode::new(
+            Statement::Expression(create_literal_expr(literal)),
+            sample_codearea(),
+        )
     }
 }
