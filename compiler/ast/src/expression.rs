@@ -36,11 +36,14 @@ impl<Type: ASTType> SemanticEquality for Expression<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
         use Expression as Exp;
         match (self, other) {
-            (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => inner.semantic_equals(other_inner),
+            (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
+                inner.semantic_equals(other_inner)
+            }
             // For Variables, we want to ensure that the same symbols are used
             // For Literals, there are no inner structs with ids
-            (Exp::Variable(_), Exp::Variable(_))
-            | (Exp::Literal(_), Exp::Literal(_)) => self == other,
+            (Exp::Variable(_), Exp::Variable(_)) | (Exp::Literal(_), Exp::Literal(_)) => {
+                self == other
+            }
             (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_equals(other_inner),
             (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => {
                 inner.semantic_equals(other_inner)
