@@ -457,40 +457,49 @@ mod tests {
         .unwrap();
     }
 
-
     #[test]
     fn for_loop_inner_order() {
         let cond = create_literal_expr(Literal::Bool(true));
         let before = create_literal_statement(Literal::S32(1));
         let after = create_literal_statement(Literal::S32(2));
         let inner = create_literal_statement(Literal::S32(3));
-        let for_loop = Loop::new(inner, LoopType::For {start: before, cond, after_each: after});
-        assert!(for_loop.child_statement_at(0).semantic_equals(
-            &create_literal_statement(Literal::S32(1))
-        ));
-        assert!(for_loop.child_statement_at(1).semantic_equals(
-            &create_literal_statement(Literal::S32(3))
-        ));
+        let for_loop = Loop::new(
+            inner,
+            LoopType::For {
+                start: before,
+                cond,
+                after_each: after,
+            },
+        );
+        assert!(
+            for_loop
+                .child_statement_at(0)
+                .semantic_equals(&create_literal_statement(Literal::S32(1)))
+        );
+        assert!(
+            for_loop
+                .child_statement_at(1)
+                .semantic_equals(&create_literal_statement(Literal::S32(3)))
+        );
 
-        assert!(for_loop.child_statement_at(2).semantic_equals(
-            &create_literal_statement(Literal::S32(2))
-        ));
+        assert!(
+            for_loop
+                .child_statement_at(2)
+                .semantic_equals(&create_literal_statement(Literal::S32(2)))
+        );
     }
 
     #[test]
-    fn break_statement_semantic_equality_should_be_true()
-    {
+    fn break_statement_semantic_equality_should_be_true() {
         let break_statement: Statement<TypedAST> = Statement::Break;
         assert!(break_statement.semantic_equals(&break_statement))
     }
 
-    fn create_literal_expr(literal: Literal) -> ASTNode<Expression<TypedAST>>
-    {
+    fn create_literal_expr(literal: Literal) -> ASTNode<Expression<TypedAST>> {
         ASTNode::new(Expression::Literal(literal))
     }
 
-    fn create_literal_statement(literal: Literal) -> ASTNode<Statement<TypedAST>>
-    {
+    fn create_literal_statement(literal: Literal) -> ASTNode<Statement<TypedAST>> {
         ASTNode::new(Statement::Expression(create_literal_expr(literal)))
     }
     fn basic_test_variable(

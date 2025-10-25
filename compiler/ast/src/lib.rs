@@ -15,7 +15,7 @@
 //! Note that unlike in the tests, ASTs are not supposed to be hardcoded
 
 use crate::data_type::DataType;
-use crate::expression::{Literal};
+use crate::expression::Literal;
 use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
 use crate::top_level::{Function, TopLevelElement};
@@ -232,9 +232,7 @@ mod tests {
             ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![statement]))),
         );
 
-        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(
-            function,
-        ))]);
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(function))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -281,9 +279,7 @@ mod tests {
             statement,
         );
 
-        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(
-            function,
-        ))]);
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(function))]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -478,46 +474,42 @@ mod tests {
                     ASTNode::new(Statement::ControlStructure(Box::new(
                         ControlStructure::Loop(Loop::new(
                             ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![
-                                ASTNode::new(Statement::VariableDeclaration(
-                                    VariableAssignment::<UntypedAST>::new(
-                                        temp.clone(),
+                                ASTNode::new(Statement::VariableDeclaration(VariableAssignment::<
+                                    UntypedAST,
+                                >::new(
+                                    temp.clone(),
+                                    ASTNode::new(Expression::Variable("current".to_string())),
+                                ))),
+                                ASTNode::new(Statement::VariableAssignment(VariableAssignment::<
+                                    UntypedAST,
+                                >::new(
+                                    current.clone(),
+                                    ASTNode::new(Expression::BinaryOp(Box::new(BinaryOp::<
+                                        UntypedAST,
+                                    >::new(
+                                        BinaryOpType::Addition,
                                         ASTNode::new(Expression::Variable("current".to_string())),
-                                    ),
-                                )),
-                                ASTNode::new(Statement::VariableAssignment(
-                                    VariableAssignment::<UntypedAST>::new(
-                                        current.clone(),
-                                        ASTNode::new(Expression::BinaryOp(Box::new(BinaryOp::<
-                                            UntypedAST,
-                                        >::new(
-                                            BinaryOpType::Addition,
-                                            ASTNode::new(Expression::Variable(
-                                                "current".to_string(),
-                                            )),
-                                            ASTNode::new(Expression::Variable(
-                                                "previous".to_string(),
-                                            )),
-                                        )))),
-                                    ),
-                                )),
-                                ASTNode::new(Statement::VariableAssignment(
-                                    VariableAssignment::<UntypedAST>::new(
-                                        previous.clone(),
-                                        ASTNode::new(Expression::Variable("temp".to_string())),
-                                    ),
-                                )),
-                                ASTNode::new(Statement::VariableAssignment(
-                                    VariableAssignment::<UntypedAST>::new(
-                                        nth.clone(),
-                                        ASTNode::new(Expression::BinaryOp(Box::new(BinaryOp::<
-                                            UntypedAST,
-                                        >::new(
-                                            BinaryOpType::Subtraction,
-                                            ASTNode::new(Expression::Variable("nth".to_string())),
-                                            ASTNode::new(Expression::Literal("1".to_string())),
-                                        )))),
-                                    ),
-                                )),
+                                        ASTNode::new(Expression::Variable("previous".to_string())),
+                                    )))),
+                                ))),
+                                ASTNode::new(Statement::VariableAssignment(VariableAssignment::<
+                                    UntypedAST,
+                                >::new(
+                                    previous.clone(),
+                                    ASTNode::new(Expression::Variable("temp".to_string())),
+                                ))),
+                                ASTNode::new(Statement::VariableAssignment(VariableAssignment::<
+                                    UntypedAST,
+                                >::new(
+                                    nth.clone(),
+                                    ASTNode::new(Expression::BinaryOp(Box::new(BinaryOp::<
+                                        UntypedAST,
+                                    >::new(
+                                        BinaryOpType::Subtraction,
+                                        ASTNode::new(Expression::Variable("nth".to_string())),
+                                        ASTNode::new(Expression::Literal("1".to_string())),
+                                    )))),
+                                ))),
                             ]))),
                             LoopType::While(ASTNode::new(Expression::BinaryOp(Box::new(
                                 BinaryOp::<UntypedAST>::new(

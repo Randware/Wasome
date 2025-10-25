@@ -1,6 +1,6 @@
+use crate::statement::Statement;
 use crate::{ASTNode, ASTType, SemanticEquality};
 use std::ops::Deref;
-use crate::statement::Statement;
 
 /** This represents a codeblock as per section 4 of the lang spec
 */

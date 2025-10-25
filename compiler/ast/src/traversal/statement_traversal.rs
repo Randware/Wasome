@@ -1,7 +1,7 @@
-use crate::{ASTNode, ASTType};
 use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
+use crate::{ASTNode, ASTType};
 use std::ops::{Deref, Index};
 
 /** This struct helps with traversing statements
@@ -76,8 +76,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
     Symbols declared by self directly are not included. <br>
     Panics if `index > self.len_children()`
     */
-    pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Vec<Symbol<'a, Type>>
-    {
+    pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Vec<Symbol<'a, Type>> {
         let statement_to_symbol = Statement::get_direct_symbol;
         match &**self.inner {
             Statement::ControlStructure(control) => Self::indexable_into_vec(
@@ -85,11 +84,9 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
                 index,
                 statement_to_symbol,
             ),
-            Statement::Codeblock(codeblock) => Self::indexable_into_vec(
-                |index| &codeblock[index],
-                index,
-                statement_to_symbol,
-            ),
+            Statement::Codeblock(codeblock) => {
+                Self::indexable_into_vec(|index| &codeblock[index], index, statement_to_symbol)
+            }
             _ => Vec::new(),
         }
     }
@@ -101,8 +98,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
         self.symbols_defined_directly_in_before_index(self.len_children())
     }
 
-    pub fn len_children(&self) -> usize
-    {
+    pub fn len_children(&self) -> usize {
         self.inner.len_children()
     }
 

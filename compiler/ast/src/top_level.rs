@@ -27,7 +27,10 @@ pub struct Function<Type: ASTType> {
 }
 
 impl<Type: ASTType> Function<Type> {
-    pub fn new(declaration: Rc<FunctionSymbol<Type>>, implementation: ASTNode<Statement<Type>>) -> Self {
+    pub fn new(
+        declaration: Rc<FunctionSymbol<Type>>,
+        implementation: ASTNode<Statement<Type>>,
+    ) -> Self {
         Self {
             declaration,
             implementation,
