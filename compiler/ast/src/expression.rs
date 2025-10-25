@@ -440,6 +440,7 @@ impl BinaryOpType {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_shared::sample_codearea;
     use super::*;
     #[test]
     fn binary_op_type() {
@@ -531,14 +532,14 @@ mod tests {
         Expression::BinaryOp(Box::new(
             BinaryOp::<TypedAST>::new(
                 BinaryOpType::Addition,
-                ASTNode::new(Expression::Literal(Literal::S32(5))),
+                ASTNode::new(Expression::Literal(Literal::S32(5)), sample_codearea()),
                 ASTNode::new(Expression::UnaryOp(Box::new(
                     UnaryOp::<TypedAST>::new(
                         UnaryOpType::Typecast(Typecast::new(DataType::S32)),
-                        ASTNode::new(Expression::Literal(Literal::F32(10.3))),
+                        ASTNode::new(Expression::Literal(Literal::F32(10.3)), sample_codearea()),
                     )
                     .unwrap(),
-                ))),
+                )), sample_codearea()),
             )
             .unwrap(),
         ))

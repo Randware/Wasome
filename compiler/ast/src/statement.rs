@@ -448,6 +448,8 @@ mod tests {
     use crate::TypedAST;
     use crate::data_type::DataType;
     use crate::expression::{Expression, Literal};
+    use crate::test_shared::{basic_test_variable, sample_codearea};
+
     #[test]
     fn variable_assignement() {
         basic_test_variable(Rc::new(VariableSymbol::new(
@@ -496,18 +498,10 @@ mod tests {
     }
 
     fn create_literal_expr(literal: Literal) -> ASTNode<Expression<TypedAST>> {
-        ASTNode::new(Expression::Literal(literal))
+        ASTNode::new(Expression::Literal(literal), sample_codearea())
     }
 
     fn create_literal_statement(literal: Literal) -> ASTNode<Statement<TypedAST>> {
-        ASTNode::new(Statement::Expression(create_literal_expr(literal)))
-    }
-    fn basic_test_variable(
-        symbol: Rc<VariableSymbol<TypedAST>>,
-    ) -> Option<VariableAssignment<TypedAST>> {
-        VariableAssignment::<TypedAST>::new(
-            symbol,
-            ASTNode::new(Expression::Literal(Literal::F32(14.0))),
-        )
+        ASTNode::new(Statement::Expression(create_literal_expr(literal)), sample_codearea())
     }
 }
