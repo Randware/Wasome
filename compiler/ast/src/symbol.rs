@@ -137,3 +137,51 @@ impl FunctionCall<UntypedAST> {
         Self { function, args }
     }
 }
+
+#[cfg(test)]
+mod tests
+{
+    use std::rc::Rc;
+    use crate::expression::{Expression, Literal};
+    use crate::symbol::{FunctionCall, FunctionSymbol, VariableSymbol};
+    use crate::{ASTNode, SemanticEquality, TypedAST, UntypedAST};
+    use crate::data_type::DataType;
+    use crate::test_shared::sample_codearea;
+
+    #[test]
+    fn create_function_call_untyped()
+    {
+        let name = "test".to_string();
+        let arg = ASTNode::new(Expression::<UntypedAST>::Literal("10".to_string()), sample_codearea());
+        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
+        assert_eq!("test", call.function());
+        assert_eq!(1, call.args().len());
+
+    }
+
+    #[test]
+    fn create_function_call_typed_wrong_args()
+    {
+        let symbol = Rc::new(FunctionSymbol::new("test".to_string(), None, vec![Rc::new(VariableSymbol::new("test1".to_string(), DataType::Bool))]));
+        let arg = ASTNode::new(Expression::<TypedAST>::Literal(Literal::S32(10)), sample_codearea());
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call);
+
+        let call_empty = FunctionCall::<TypedAST>::new(symbol, Vec::new());
+        assert_eq!(None, call_empty)
+    }
+
+    #[test]
+    fn create_function_call_typed()
+    {
+        let symbol = Rc::new(FunctionSymbol::new("test".to_string(), None, vec![Rc::new(VariableSymbol::new("test1".to_string(), DataType::Bool))]));
+        let arg = ASTNode::new(Expression::<TypedAST>::Literal(Literal::Bool(true)), sample_codearea());
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call.as_ref().unwrap().function().return_type());
+        assert_eq!("test", call.as_ref().unwrap().function().name());
+
+        let arg2 = ASTNode::new(Expression::<TypedAST>::Literal(Literal::Bool(true)), sample_codearea());
+        let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
+        assert!(call.semantic_equals(&call2));
+    }
+}
