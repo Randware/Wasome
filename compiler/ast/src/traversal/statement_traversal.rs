@@ -1,7 +1,7 @@
-use crate::ASTType;
 use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
+use crate::{ASTNode, ASTType};
 use std::ops::{Deref, Index};
 
 /** This struct helps with traversing statements
@@ -12,7 +12,7 @@ It is supposed to be created by either a FunctionTraversalHelper or the Statemen
 #[derive(Debug)]
 pub struct StatementTraversalHelper<'a, Type: ASTType> {
     // The referenced statement
-    inner: &'a Statement<Type>,
+    inner: &'a ASTNode<Statement<Type>>,
     // The location of this statement, relative to the root
     location: Option<StatementLocation<'a>>,
     // The root of the statement tree (should eventually become the function)
@@ -33,7 +33,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
     /** Creates a new StatementRef that is the child of the specified statementRef at the specified index
      */
     fn new_child(
-        inner: &'a Statement<Type>,
+        inner: &'a ASTNode<Statement<Type>>,
         parent: &'a StatementTraversalHelper<'a, Type>,
         location: usize,
     ) -> Self {
@@ -57,7 +57,7 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
        Some(table) The requested table
        None if self is the root statement
     */
-    pub fn symbols_available_at(&self) -> Option<impl SymbolTable<Type>> {
+    pub fn symbols_available_at(&self) -> Option<impl SymbolTable<'_, Type>> {
         DefaultSymbolTable::new_available_to_statement(self)
     }
 
@@ -67,29 +67,39 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
        Some(table) The requested table
        None if self is the root statement
     */
-    pub fn symbols_available_after(&self) -> Option<impl SymbolTable<Type>> {
+    pub fn symbols_available_after(&self) -> Option<impl SymbolTable<'_, Type>> {
         DefaultSymbolTable::new_available_after_statement(self)
     }
 
+    /** Gets a vec of all symbols declared in a direct child of self where the index
+    of the child is less than index. <br>
+    Symbols declared by self directly are not included. <br>
+    Panics if `index > self.len_children()`
+    */
+    pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Vec<Symbol<'a, Type>> {
+        let statement_to_symbol = Statement::get_direct_symbol;
+        match &**self.inner {
+            Statement::ControlStructure(control) => Self::indexable_into_vec(
+                |index| control.child_statement_at(index),
+                index,
+                statement_to_symbol,
+            ),
+            Statement::Codeblock(codeblock) => {
+                Self::indexable_into_vec(|index| &codeblock[index], index, statement_to_symbol)
+            }
+            _ => Vec::new(),
+        }
+    }
     /** Gets a vec of all symbols declared in a direct child of self
     Symbols declared by self directly are not included
     */
     pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'a, Type>> // Returning an iterator would require a trait object
     {
-        let statement_to_symbol = Statement::get_direct_symbol;
-        match self.inner {
-            Statement::ControlStructure(control) => Self::indexable_into_vec(
-                |index| control.child_statement_at(index),
-                control.child_len(),
-                statement_to_symbol,
-            ),
-            Statement::Codeblock(codeblock) => Self::indexable_into_vec(
-                |index| &codeblock[index],
-                codeblock.len(),
-                statement_to_symbol,
-            ),
-            _ => Vec::new(),
-        }
+        self.symbols_defined_directly_in_before_index(self.len_children())
+    }
+
+    pub fn len_children(&self) -> usize {
+        self.inner.len_children()
     }
 
     // I was unable to find a better solution
