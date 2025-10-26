@@ -6,18 +6,18 @@ use chumsky::combinator::To;
 use chumsky::extra::Full;
 use chumsky::prelude::*;
 use chumsky::primitive::Just;
-use lexer::Token;
+use lexer::TokenType;
 
 /** This parses a slice of tokens into an expression
 */
 pub(crate) fn expression_parser<'src>()
--> impl Parser<'src, &'src [Token], Expression<UntypedAST>> + Clone {
+-> impl Parser<'src, &'src [TokenType], Expression<UntypedAST>> + Clone {
     recursive(|expr| {
-        let literal = custom::<_, &[Token], _, _>(|token| {
+        let literal = custom::<_, &[TokenType], _, _>(|token| {
             Ok(Expression::Literal(
                 match token.next().ok_or(EmptyErr::default())? {
-                    Token::Decimal(inner) => inner.to_string(),
-                    Token::Integer(inner) => inner.to_string(),
+                    TokenType::Decimal(inner) => inner.to_string(),
+                    TokenType::Integer(inner) => inner.to_string(),
                     _ => return Err(EmptyErr::default()),
                 },
             ))
@@ -29,10 +29,10 @@ pub(crate) fn expression_parser<'src>()
             .clone()
             .then(
                 expr.clone()
-                    .separated_by(just(Token::ArgumentSeparator))
+                    .separated_by(just(TokenType::ArgumentSeparator))
                     .collect::<Vec<Expression<UntypedAST>>>()
-                    .delimited_by(just(Token::OpenParen), just(Token::CloseParen)),
-            ) //.then(just(Token::Return).ignore_then(ident).or_not())
+                    .delimited_by(just(TokenType::OpenParen), just(TokenType::CloseParen)),
+            ) //.then(just(TokenType::Return).ignore_then(ident).or_not())
             .map(|(name, args)| {
                 Expression::FunctionCall(FunctionCall::<UntypedAST>::new(name, args))
             });
@@ -40,11 +40,11 @@ pub(crate) fn expression_parser<'src>()
         let atom = call
             .or(literal)
             .or(ident.map(Expression::Variable))
-            .or(expr.delimited_by(just(Token::OpenParen), just(Token::CloseParen)));
+            .or(expr.delimited_by(just(TokenType::OpenParen), just(TokenType::CloseParen)));
 
         let typecast = atom
             .clone()
-            .then_ignore(just(Token::As))
+            .then_ignore(just(TokenType::As))
             .then(datatype_parser())
             .map(|(expr, new_type)| {
                 Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
@@ -54,17 +54,17 @@ pub(crate) fn expression_parser<'src>()
             });
 
         let unary_op = choice((
-            single_unary(Token::Subtraction, UnaryOpType::Negative),
-            single_unary(Token::Not, UnaryOpType::Not),
+            single_unary(TokenType::Subtraction, UnaryOpType::Negative),
+            single_unary(TokenType::Not, UnaryOpType::Not),
         ));
         let unary = choice((typecast, unary_op.repeated().foldr(atom, |op, rhs| op(rhs))));
 
         let product = binary_operator_parser(
             unary,
             &[
-                (Token::Multiplication, BinaryOpType::Multiplication),
-                (Token::Division, BinaryOpType::Division),
-                (Token::Modulo, BinaryOpType::Modulo),
+                (TokenType::Multiplication, BinaryOpType::Multiplication),
+                (TokenType::Division, BinaryOpType::Division),
+                (TokenType::Modulo, BinaryOpType::Modulo),
             ],
         )
         .boxed();
@@ -72,16 +72,16 @@ pub(crate) fn expression_parser<'src>()
         let sum = binary_operator_parser(
             product,
             &[
-                (Token::Addition, BinaryOpType::Addition),
-                (Token::Subtraction, BinaryOpType::Subtraction),
+                (TokenType::Addition, BinaryOpType::Addition),
+                (TokenType::Subtraction, BinaryOpType::Subtraction),
             ],
         );
 
         let bitshift = binary_operator_parser(
             sum,
             &[
-                (Token::RShift, BinaryOpType::RightShift),
-                (Token::LShift, BinaryOpType::RightShift),
+                (TokenType::RShift, BinaryOpType::RightShift),
+                (TokenType::LShift, BinaryOpType::RightShift),
             ],
         )
         .boxed();
@@ -89,39 +89,39 @@ pub(crate) fn expression_parser<'src>()
         let comparison = binary_operator_parser(
             bitshift,
             &[
-                (Token::LessThan, BinaryOpType::Lesser),
-                (Token::LessThanEqual, BinaryOpType::LesserEquals),
-                (Token::GreaterThanEqual, BinaryOpType::GreaterEquals),
-                (Token::GreaterThan, BinaryOpType::Greater),
+                (TokenType::LessThan, BinaryOpType::Lesser),
+                (TokenType::LessThanEqual, BinaryOpType::LesserEquals),
+                (TokenType::GreaterThanEqual, BinaryOpType::GreaterEquals),
+                (TokenType::GreaterThan, BinaryOpType::Greater),
             ],
         );
 
         let equals = binary_operator_parser(
             comparison,
             &[
-                (Token::Comparison, BinaryOpType::Equals),
-                (Token::NotEqual, BinaryOpType::NotEquals),
+                (TokenType::Comparison, BinaryOpType::Equals),
+                (TokenType::NotEqual, BinaryOpType::NotEquals),
             ],
         )
         .boxed();
 
-        let bitand = binary_operator_parser(equals, &[(Token::BitAnd, BinaryOpType::BitwiseAnd)]);
+        let bitand = binary_operator_parser(equals, &[(TokenType::BitAnd, BinaryOpType::BitwiseAnd)]);
 
         let bitor =
-            binary_operator_parser(bitand, &[(Token::BitOr, BinaryOpType::BitwiseOr)]).boxed();
+            binary_operator_parser(bitand, &[(TokenType::BitOr, BinaryOpType::BitwiseOr)]).boxed();
 
-        let and = binary_operator_parser(bitor, &[(Token::And, BinaryOpType::And)]);
+        let and = binary_operator_parser(bitor, &[(TokenType::And, BinaryOpType::And)]);
 
-        let or = binary_operator_parser(and, &[(Token::Or, BinaryOpType::Or)]).boxed();
+        let or = binary_operator_parser(and, &[(TokenType::Or, BinaryOpType::Or)]).boxed();
 
         or
     })
 }
 
 fn binary_operator_parser<'a>(
-    input: impl Parser<'a, &'a [Token], Expression<UntypedAST>> + Clone,
-    ops: &[(Token, BinaryOpType)],
-) -> impl Parser<'a, &'a [Token], Expression<UntypedAST>> + Clone {
+    input: impl Parser<'a, &'a [TokenType], Expression<UntypedAST>> + Clone,
+    ops: &[(TokenType, BinaryOpType)],
+) -> impl Parser<'a, &'a [TokenType], Expression<UntypedAST>> + Clone {
     input.clone().foldl(
         choice(
             ops.iter()
@@ -137,11 +137,11 @@ fn binary_operator_parser<'a>(
 // There is no way known to me to split the return type up
 #[allow(clippy::type_complexity)]
 fn single_unary<'a>(
-    input: Token,
+    input: TokenType,
     operator_type: UnaryOpType<UntypedAST>,
 ) -> To<
-    Just<Token, &'a [Token], Full<EmptyErr, (), ()>>,
-    Token,
+    Just<TokenType, &'a [TokenType], Full<EmptyErr, (), ()>>,
+    TokenType,
     impl Clone + Fn(Expression<UntypedAST>) -> Expression<UntypedAST>,
 > {
     just(input).to(move |input| {
@@ -155,11 +155,11 @@ fn single_unary<'a>(
 // There is no way known to me to split the return type up
 #[allow(clippy::type_complexity)]
 fn single_binary<'a>(
-    input: Token,
+    input: TokenType,
     operator_type: BinaryOpType,
 ) -> To<
-    Just<Token, &'a [Token], Full<EmptyErr, (), ()>>,
-    Token,
+    Just<TokenType, &'a [TokenType], Full<EmptyErr, (), ()>>,
+    TokenType,
     impl Clone + Fn(Expression<UntypedAST>, Expression<UntypedAST>) -> Expression<UntypedAST>,
 > {
     just(input).to(move |lhs, rhs| {
@@ -178,23 +178,23 @@ mod tests {
     use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
     use ast::symbol::FunctionCall;
     use chumsky::Parser;
-    use lexer::Token;
+    use lexer::TokenType;
 
     #[test]
     fn parse() {
         let to_parse = vec![
-            Token::Identifier("test".to_string()),
-            Token::OpenParen,
-            Token::Integer(5),
-            Token::As,
-            Token::F32,
-            Token::ArgumentSeparator,
-            Token::Identifier("test2".to_string()),
-            Token::NotEqual,
-            Token::Decimal(5.0),
-            Token::Multiplication,
-            Token::Decimal(10.0),
-            Token::CloseParen, //Token::Integer(10), Token::As, Token::Identifier("f32".to_string())
+            TokenType::Identifier("test".to_string()),
+            TokenType::OpenParen,
+            TokenType::Integer(5),
+            TokenType::As,
+            TokenType::F32,
+            TokenType::ArgumentSeparator,
+            TokenType::Identifier("test2".to_string()),
+            TokenType::NotEqual,
+            TokenType::Decimal(5.0),
+            TokenType::Multiplication,
+            TokenType::Decimal(10.0),
+            TokenType::CloseParen, //TokenType::Integer(10), TokenType::As, TokenType::Identifier("f32".to_string())
         ];
 
         let parser = expression_parser();
@@ -224,20 +224,20 @@ mod tests {
     #[test]
     fn parse_parens() {
         let to_parse = vec![
-            Token::OpenParen,
-            Token::Identifier("test".to_string()),
-            Token::OpenParen,
-            Token::Integer(5),
-            Token::As,
-            Token::F32,
-            Token::ArgumentSeparator,
-            Token::Identifier("test2".to_string()),
-            Token::NotEqual,
-            Token::Decimal(5.0),
-            Token::Multiplication,
-            Token::Decimal(10.0),
-            Token::CloseParen,
-            Token::CloseParen, //Token::Integer(10), Token::As, Token::Identifier("f32".to_string())
+            TokenType::OpenParen,
+            TokenType::Identifier("test".to_string()),
+            TokenType::OpenParen,
+            TokenType::Integer(5),
+            TokenType::As,
+            TokenType::F32,
+            TokenType::ArgumentSeparator,
+            TokenType::Identifier("test2".to_string()),
+            TokenType::NotEqual,
+            TokenType::Decimal(5.0),
+            TokenType::Multiplication,
+            TokenType::Decimal(10.0),
+            TokenType::CloseParen,
+            TokenType::CloseParen, //TokenType::Integer(10), TokenType::As, TokenType::Identifier("f32".to_string())
         ];
 
         let parser = expression_parser();
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn parse_just_idendifier() {
-        let to_parse = vec![Token::Identifier("test".to_string())];
+        let to_parse = vec![TokenType::Identifier("test".to_string())];
 
         let parser = expression_parser();
 
@@ -277,21 +277,21 @@ mod tests {
     #[test]
     fn parse_invalid() {
         let to_parse = vec![
-            Token::Bool,
-            Token::Identifier("var".to_string()),
-            Token::Assign,
-            Token::Identifier("test".to_string()),
-            Token::OpenParen,
-            Token::Integer(5),
-            Token::As,
-            Token::F32,
-            Token::ArgumentSeparator,
-            Token::Identifier("test2".to_string()),
-            Token::NotEqual,
-            Token::Decimal(5.0),
-            Token::Multiplication,
-            Token::Decimal(10.0),
-            Token::CloseParen,
+            TokenType::Bool,
+            TokenType::Identifier("var".to_string()),
+            TokenType::Assign,
+            TokenType::Identifier("test".to_string()),
+            TokenType::OpenParen,
+            TokenType::Integer(5),
+            TokenType::As,
+            TokenType::F32,
+            TokenType::ArgumentSeparator,
+            TokenType::Identifier("test2".to_string()),
+            TokenType::NotEqual,
+            TokenType::Decimal(5.0),
+            TokenType::Multiplication,
+            TokenType::Decimal(10.0),
+            TokenType::CloseParen,
         ];
 
         let parser = expression_parser();

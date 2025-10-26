@@ -4,20 +4,20 @@ use ast::UntypedAST;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::{Function, TopLevelElement};
 use chumsky::prelude::*;
-use lexer::Token;
+use lexer::TokenType;
 use std::rc::Rc;
 
 /** This parses a slice of tokens into an arbitiary top-level element
 */
 pub(crate) fn top_level_parser<'src>()
--> impl Parser<'src, &'src [Token], TopLevelElement<UntypedAST>> {
+-> impl Parser<'src, &'src [TokenType], TopLevelElement<UntypedAST>> {
     // This currently only handles functions
     function_parser().map(TopLevelElement::Function)
 }
 
 /** This parses a slice of tokens into a function
 */
-fn function_parser<'src>() -> impl Parser<'src, &'src [Token], Function<UntypedAST>> {
+fn function_parser<'src>() -> impl Parser<'src, &'src [TokenType], Function<UntypedAST>> {
     let statement = statement_parser();
     let data_type = datatype_parser();
     let ident = identifier_parser();
@@ -26,16 +26,16 @@ fn function_parser<'src>() -> impl Parser<'src, &'src [Token], Function<UntypedA
         .then(ident.clone())
         .map(|(data_type, name)| Rc::new(VariableSymbol::new(name, data_type)));
 
-    just(Token::Function)
+    just(TokenType::Function)
         .ignore_then(ident)
         .then(
             param
                 .clone()
-                .separated_by(just(Token::ArgumentSeparator))
+                .separated_by(just(TokenType::ArgumentSeparator))
                 .collect::<Vec<Rc<VariableSymbol<UntypedAST>>>>()
-                .delimited_by(just(Token::OpenParen), just(Token::CloseParen)),
+                .delimited_by(just(TokenType::OpenParen), just(TokenType::CloseParen)),
         )
-        .then(just(Token::Return).ignore_then(data_type).or_not())
+        .then(just(TokenType::Return).ignore_then(data_type).or_not())
         .then(statement)
         .map(|(((name, params), return_type), implementation)| {
             Function::new(
@@ -54,35 +54,35 @@ mod tests {
     use ast::symbol::{FunctionCall, FunctionSymbol, VariableSymbol};
     use ast::top_level::{Function, TopLevelElement};
     use chumsky::Parser;
-    use lexer::Token;
+    use lexer::TokenType;
     use std::rc::Rc;
 
     #[test]
     fn parse() {
         let to_parse = vec![
-            Token::Function,
-            Token::Identifier("func".to_string()),
-            Token::OpenParen,
-            Token::CloseParen,
-            Token::OpenScope,
-            Token::StatementSeparator,
-            Token::Bool,
-            Token::Identifier("var".to_string()),
-            Token::Assign,
-            Token::Identifier("test".to_string()),
-            Token::OpenParen,
-            Token::Integer(5),
-            Token::As,
-            Token::F32,
-            Token::ArgumentSeparator,
-            Token::Identifier("test2".to_string()),
-            Token::NotEqual,
-            Token::Decimal(5.0),
-            Token::Multiplication,
-            Token::Decimal(10.0),
-            Token::CloseParen,
-            Token::StatementSeparator,
-            Token::CloseScope,
+            TokenType::Function,
+            TokenType::Identifier("func".to_string()),
+            TokenType::OpenParen,
+            TokenType::CloseParen,
+            TokenType::OpenScope,
+            TokenType::StatementSeparator,
+            TokenType::Bool,
+            TokenType::Identifier("var".to_string()),
+            TokenType::Assign,
+            TokenType::Identifier("test".to_string()),
+            TokenType::OpenParen,
+            TokenType::Integer(5),
+            TokenType::As,
+            TokenType::F32,
+            TokenType::ArgumentSeparator,
+            TokenType::Identifier("test2".to_string()),
+            TokenType::NotEqual,
+            TokenType::Decimal(5.0),
+            TokenType::Multiplication,
+            TokenType::Decimal(10.0),
+            TokenType::CloseParen,
+            TokenType::StatementSeparator,
+            TokenType::CloseScope,
         ];
 
         let parser = top_level_parser();

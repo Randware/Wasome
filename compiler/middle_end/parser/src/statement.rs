@@ -8,13 +8,13 @@ use ast::statement::{
 };
 use ast::symbol::VariableSymbol;
 use chumsky::prelude::*;
-use lexer::Token;
-use lexer::Token::CloseParen;
+use lexer::TokenType;
+use lexer::TokenType::CloseParen;
 use std::rc::Rc;
 
 /** This parses a slice of tokens into a statement
 */
-pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], Statement<UntypedAST>> {
+pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [TokenType], Statement<UntypedAST>> {
     recursive(|statement| {
         let data_type = datatype_parser();
         let ident = identifier_parser();
@@ -23,14 +23,14 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
 
         let variable_assignment = ident
             .clone()
-            .then_ignore(just(Token::Assign))
+            .then_ignore(just(TokenType::Assign))
             .then(expression.clone())
             .map(|(name, val)| VariableAssignment::<UntypedAST>::new(name, val));
 
         let variable_declaration = data_type
             .clone()
             .then(ident)
-            .then_ignore(just(Token::Assign))
+            .then_ignore(just(TokenType::Assign))
             .then(expression.clone())
             .map(|((data_type, name), val)| {
                 VariableDeclaration::<UntypedAST>::new(
@@ -39,21 +39,21 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
                 )
             });
 
-        let return_statement = just(Token::Return)
+        let return_statement = just(TokenType::Return)
             .ignore_then(expression.clone().or_not())
             .map(Return::new);
 
-        let conditional = just(Token::If)
+        let conditional = just(TokenType::If)
             .ignore_then(
                 expression
                     .clone()
-                    .delimited_by(just(Token::OpenParen), just(Token::CloseScope)),
+                    .delimited_by(just(TokenType::OpenParen), just(TokenType::CloseScope)),
             )
             .then_ignore(maybe_statement_separator())
             .then(statement.clone())
             .then(
                 maybe_statement_separator()
-                    .then_ignore(just(Token::Else))
+                    .then_ignore(just(TokenType::Else))
                     .then_ignore(maybe_statement_separator())
                     .ignore_then(statement.clone())
                     .or_not(),
@@ -61,8 +61,8 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
             .map(|((cond, then), else_statement)| Conditional::new(cond, then, else_statement));
 
         let loop_body = maybe_statement_separator().ignore_then(statement.clone());
-        let loop_statement = just(Token::Loop)
-            .ignore_then(just(Token::OpenParen))
+        let loop_statement = just(TokenType::Loop)
+            .ignore_then(just(TokenType::OpenParen))
             .ignore_then(choice((
                 just(CloseParen)
                     .ignore_then(loop_body.clone())
@@ -74,8 +74,8 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
                     .map(|(cond, body)| (body, LoopType::While(cond))),
                 statement
                     .clone()
-                    .then_ignore(just(Token::Semicolon))
-                    .then(expression.clone().then_ignore(just(Token::Semicolon)))
+                    .then_ignore(just(TokenType::Semicolon))
+                    .then(expression.clone().then_ignore(just(TokenType::Semicolon)))
                     .then(statement.clone())
                     .then_ignore(just(CloseParen))
                     .then(loop_body.clone())
@@ -98,7 +98,7 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
             .allow_leading()
             .allow_trailing()
             .collect::<Vec<Statement<UntypedAST>>>()
-            .delimited_by(just(Token::OpenScope), just(Token::CloseScope))
+            .delimited_by(just(TokenType::OpenScope), just(TokenType::CloseScope))
             .map(CodeBlock::new);
 
         choice((
@@ -118,8 +118,8 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [Token], State
 
 /** This parses a statement seperator or nothing
 */
-fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [Token], ()> + Clone {
-    just(Token::StatementSeparator).or_not().ignored()
+fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [TokenType], ()> + Clone {
+    just(TokenType::StatementSeparator).or_not().ignored()
 }
 #[cfg(test)]
 mod tests {
@@ -129,27 +129,27 @@ mod tests {
     use ast::statement::{Statement, VariableDeclaration};
     use ast::symbol::{FunctionCall, VariableSymbol};
     use chumsky::Parser;
-    use lexer::Token;
+    use lexer::TokenType;
     use std::rc::Rc;
 
     #[test]
     fn parse() {
         let to_parse = vec![
-            Token::Bool,
-            Token::Identifier("var".to_string()),
-            Token::Assign,
-            Token::Identifier("test".to_string()),
-            Token::OpenParen,
-            Token::Integer(5),
-            Token::As,
-            Token::F32,
-            Token::ArgumentSeparator,
-            Token::Identifier("test2".to_string()),
-            Token::NotEqual,
-            Token::Decimal(5.0),
-            Token::Multiplication,
-            Token::Decimal(10.0),
-            Token::CloseParen,
+            TokenType::Bool,
+            TokenType::Identifier("var".to_string()),
+            TokenType::Assign,
+            TokenType::Identifier("test".to_string()),
+            TokenType::OpenParen,
+            TokenType::Integer(5),
+            TokenType::As,
+            TokenType::F32,
+            TokenType::ArgumentSeparator,
+            TokenType::Identifier("test2".to_string()),
+            TokenType::NotEqual,
+            TokenType::Decimal(5.0),
+            TokenType::Multiplication,
+            TokenType::Decimal(10.0),
+            TokenType::CloseParen,
         ];
 
         let parser = statement_parser();
