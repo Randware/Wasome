@@ -122,8 +122,8 @@ pub struct ASTNode<T: Debug + PartialEq, Position = CodeArea> {
     position: Position,
 }
 
-impl<T: Debug + PartialEq> ASTNode<T> {
-    pub fn new(inner: T, position: CodeArea) -> Self {
+impl<T: Debug + PartialEq, Position> ASTNode<T, Position> {
+    pub fn new(inner: T, position: Position) -> Self {
         Self {
             inner,
             id: Id::new(),
@@ -131,12 +131,12 @@ impl<T: Debug + PartialEq> ASTNode<T> {
         }
     }
 
-    pub fn position(&self) -> &CodeArea {
+    pub fn position(&self) -> &Position {
         &self.position
     }
 }
 
-impl<T: Debug + PartialEq> Deref for ASTNode<T> {
+impl<T: Debug + PartialEq, Position> Deref for ASTNode<T, Position> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -144,13 +144,13 @@ impl<T: Debug + PartialEq> Deref for ASTNode<T> {
     }
 }
 
-impl<T: Debug + PartialEq> DerefMut for ASTNode<T> {
+impl<T: Debug + PartialEq, Position> DerefMut for ASTNode<T, Position> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl<T: SemanticEquality + Debug + PartialEq> SemanticEquality for ASTNode<T> {
+impl<T: SemanticEquality + Debug + PartialEq, Position> SemanticEquality for ASTNode<T, Position> {
     fn semantic_equals(&self, other: &Self) -> bool {
         self.inner.semantic_equals(&other.inner)
     }
