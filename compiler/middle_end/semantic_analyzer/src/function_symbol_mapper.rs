@@ -151,4 +151,107 @@ impl FunctionSymbolMapper {
     pub fn get_current_function_return_type(&self) -> Option<DataType> {
         self.current_function_return_type
     }
+
+
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::FunctionSymbolMapper;
+    use ast::data_type::DataType;
+
+    #[test]
+    fn new_and_default_have_no_return_type() {
+        let mapper = FunctionSymbolMapper::new();
+        let default = FunctionSymbolMapper::default();
+
+        assert!(mapper.get_current_function_return_type().is_none(), "Expected no current return type for new mapper.");
+        assert!(default.get_current_function_return_type().is_none(), "Expected no current return type for default mapper.");
+    }
+
+    #[test]
+    fn lookup_empty_returns_none() {
+        let mapper = FunctionSymbolMapper::new();
+
+        assert!(mapper.lookup_variable("x").is_none(), "Expected lookup_variable to return None for unknown name.");
+        assert!(mapper.lookup_function("f").is_none(), "Expected lookup_function to return None for unknown name.");
+    }
+
+    #[test]
+    fn set_and_get_current_function_return_type() {
+        let mut mapper = FunctionSymbolMapper::new();
+
+        mapper.set_current_function_return_type(Some(DataType::S32));
+        assert_eq!(mapper.get_current_function_return_type(), Some(DataType::S32), "Should return the set return type.");
+
+        mapper.set_current_function_return_type(None);
+        assert!(mapper.get_current_function_return_type().is_none(), "Should be None after clearing the return type.");
+    }
+
+    #[test]
+    fn enter_and_exit_scope_do_not_panic_and_keep_lookups_none() {
+        let mut mapper = FunctionSymbolMapper::new();
+
+        mapper.enter_scope();
+        assert!(mapper.lookup_variable("nope").is_none(), "Lookup should still be None in new inner scope.");
+        mapper.exit_scope();
+
+        mapper.exit_scope();
+        assert!(mapper.lookup_function("nope").is_none(), "Lookup should remain None after extra exit.");
+    }
+
+    #[test]
+    fn add_multiple_variables_same_scope() {
+        use std::rc::Rc;
+        use ast::symbol::VariableSymbol;
+
+        let mut mapper = FunctionSymbolMapper::new();
+
+        let v1 = Rc::new(VariableSymbol::new(String::from("a"), DataType::S32));
+        let v2 = Rc::new(VariableSymbol::new(String::from("b"), DataType::S64));
+
+        assert!(mapper.add_variable(v1.clone()).is_ok(), "Should add first variable");
+        assert!(mapper.add_variable(v2.clone()).is_ok(), "Should add second variable with different name");
+
+        let found_a = mapper.lookup_variable("a").expect("`a` should be found");
+        assert_eq!(found_a.name(), "a", "Found variable should have name 'a'");
+
+        let found_b = mapper.lookup_variable("b").expect("`b` should be found");
+        assert_eq!(found_b.name(), "b", "Found variable should have name 'b'");
+    }
+
+    #[test]
+    fn add_duplicate_variable_errors() {
+        use std::rc::Rc;
+        use ast::symbol::VariableSymbol;
+
+        let mut mapper = FunctionSymbolMapper::new();
+
+        let v1 = Rc::new(VariableSymbol::new(String::from("x"), DataType::S32));
+        let v2 = Rc::new(VariableSymbol::new(String::from("x"), DataType::S64));
+
+        assert!(mapper.add_variable(v1).is_ok(), "First definition should succeed");
+        assert!(mapper.add_variable(v2).is_err(), "Second definition with same name should error");
+    }
+
+    #[test]
+    fn shadow_variable_in_inner_scope() {
+        use std::rc::Rc;
+        use ast::symbol::VariableSymbol;
+
+        let mut mapper = FunctionSymbolMapper::new();
+
+        let outer = Rc::new(VariableSymbol::new(String::from("s"), DataType::S32));
+        mapper.add_variable(outer).expect("Add outer variable");
+
+        mapper.enter_scope();
+
+        let inner = Rc::new(VariableSymbol::new(String::from("s"), DataType::S64));
+        assert!(mapper.add_variable(inner).is_ok(), "Inner scope should allow same name (shadowing)");
+
+        let found = mapper.lookup_variable("s").expect("`s` should be found");
+        assert_eq!(found.name(), "s", "Lookup should return the (inner) symbol named 's'");
+    }
+
 }
