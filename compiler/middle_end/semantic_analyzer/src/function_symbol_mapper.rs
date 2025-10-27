@@ -9,12 +9,12 @@ pub struct Scope {
     functions: HashMap<String, Rc<FunctionSymbol<TypedAST>>>,
 }
 
-pub struct SymbolMapper {
+pub struct FunctionSymbolMapper {
     scope_stack: Vec<Scope>,
     current_function_return_type: Option<DataType>,
 }
 
-impl SymbolMapper {
+impl FunctionSymbolMapper {
     /** Creates a new instance of SymbolMapper
      *  @params  None
      *  @return A new SymbolMapper initialized with a base scope and no current function return type
@@ -52,13 +52,13 @@ impl SymbolMapper {
  *  @params  None
  *  @return Self - same as SymbolMapper::new(), used for Default trait implementation
  */
-impl Default for SymbolMapper {
+impl Default for FunctionSymbolMapper {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SymbolMapper {
+impl FunctionSymbolMapper {
     /** Looks up a variable symbol by name in the scope stack
      *  @params  self: The SymbolMapper performing the lookup
      *           name: &str - the identifier of the variable to search for
@@ -111,17 +111,27 @@ impl SymbolMapper {
     }
 }
 
-impl SymbolMapper {
+impl FunctionSymbolMapper {
     /** Adds a variable symbol to the current scope
      *  @params  self: The SymbolMapper to modify
      *           symbol: Rc<VariableSymbol<TypedAST>> - the variable symbol to insert into the current scope
      *  @return () - inserts the symbol into the variables map of the last scope if present
      */
-    pub fn add_variable(&mut self, symbol: Rc<VariableSymbol<TypedAST>>) {
+    pub fn add_variable(&mut self, symbol: Rc<VariableSymbol<TypedAST>>) -> Result<(), String> {
         if let Some(current_scope) = self.scope_stack.last_mut() {
-            current_scope
-                .variables
-                .insert(symbol.name().to_string(), symbol);
+            let name = symbol.name().to_string();
+
+            if current_scope.variables.contains_key(&name) {
+                return Err(format!(
+                    "Error: Variable '{}' is already defined in the current scope.",
+                    name
+                ));
+            }
+
+            current_scope.variables.insert(name, symbol);
+            Ok(())
+        } else {
+            Err("Cannot define variable: No active scope.".to_string())
         }
     }
 

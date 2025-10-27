@@ -1,6 +1,6 @@
 use crate::expression_sa;
 use crate::expression_sa::analyze_expression;
-use crate::symbol_mapper::SymbolMapper;
+use crate::function_symbol_mapper::FunctionSymbolMapper;
 use ast::data_type::Typed;
 use ast::expression::Expression;
 use ast::statement::{Return, Statement};
@@ -9,17 +9,17 @@ use ast::{TypedAST, UntypedAST};
 
 pub(crate) fn analyze_statement(
     to_analyze: StatementTraversalHelper<UntypedAST>,
-    symbol_mapper: &mut SymbolMapper,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Statement<TypedAST>> {
     match to_analyze.get_inner() {
         Statement::VariableAssignment(_) => todo!(),
         Statement::VariableDeclaration(_) => todo!(),
         Statement::Expression(inner) => {
-            let typed_expr = analyze_expression(inner, symbol_mapper)?;
+            let typed_expr = analyze_expression(inner, function_symbol_mapper)?;
             Some(Statement::Expression(typed_expr))
         }
         Statement::Return(inner) => {
-            let typed_return = analyze_return(inner, symbol_mapper)?;
+            let typed_return = analyze_return(inner, function_symbol_mapper)?;
             Some(Statement::Return(typed_return))
         }
         Statement::ControlStructure(_) => todo!(), //3
@@ -36,26 +36,26 @@ pub(crate) fn analyze_statement(
 */
 fn analyze_return(
     to_analyze: &Return<UntypedAST>,
-    symbol_mapper: &mut SymbolMapper,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Return<TypedAST>> {
-    let expected_type = symbol_mapper.get_current_function_return_type();
+    let expected_type = function_symbol_mapper.get_current_function_return_type();
 
     let untyped_expr_option = to_analyze.to_return();
 
     match (expected_type, untyped_expr_option) {
         (None, Some(untyped_expr_ref)) => {
-            eprintln!(
+            /*eprintln!(
                 "Error: Void function cannot return a value. Found value of type: {:?}",
                 untyped_expr_ref
-            );
+            );*/
             None
         }
 
         (Some(expected), None) => {
-            eprintln!(
+            /*eprintln!(
                 "Error: Function expects a return value of type {:?} but got 'return;'.",
                 expected
-            );
+            );*/
             None
         }
 
@@ -63,14 +63,14 @@ fn analyze_return(
 
         (Some(expected), Some(untyped_expr_ref)) => {
             let untyped_expr = untyped_expr_ref.clone();
-            let typed_expr = analyze_expression(untyped_expr, symbol_mapper)?;
+            let typed_expr = analyze_expression(untyped_expr, function_symbol_mapper)?;
             let actual_type = typed_expr.data_type();
 
             if actual_type != expected {
-                eprintln!(
+                /* eprintln!(
                     "Error: Return type mismatch. Expected {:?} but returned {:?}.",
                     expected, actual_type
-                );
+                );*/
                 return None;
             }
 
@@ -81,14 +81,14 @@ fn analyze_return(
 
 #[cfg(test)]
 mod tests {
-    use ast::data_type::DataType;
     use super::*;
     use ast::UntypedAST;
+    use ast::data_type::DataType;
     use ast::statement::Return;
 
     #[test]
     fn analyze_return_ok_matching_void() {
-        let mut mapper = SymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new();
         let ret: Return<UntypedAST> = Return::new(None);
         let analyzed = analyze_return(&ret, &mut mapper);
         assert!(
@@ -104,16 +104,14 @@ mod tests {
 
     #[test]
     fn analyze_return_ok_matching_types() {
-
         let expected_type = DataType::S32;
-        let mut mapper = SymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new();
         mapper.set_current_function_return_type(Some(expected_type));
 
         let untyped_literal = Expression::Literal(String::from("42"));
         let untyped_return = Return::new(Some(untyped_literal));
 
         let result = analyze_return(&untyped_return, &mut mapper);
-
 
         assert!(result.is_some(), "Should be successful and return");
 
@@ -124,8 +122,7 @@ mod tests {
             .expect("Should contain a return type.");
 
         assert_eq!(
-            expected_type,
-            actual_returned_type,
+            expected_type, actual_returned_type,
             "The actual returned type of the statement should be S32."
         );
 
