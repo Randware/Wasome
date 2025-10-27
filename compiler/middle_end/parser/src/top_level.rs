@@ -1,3 +1,4 @@
+use crate::PosInfoWrapper;
 use crate::misc::{datatype_parser, identifier_parser, just_token};
 use crate::statement::statement_parser;
 use ast::UntypedAST;
@@ -5,23 +6,26 @@ use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::{Function, TopLevelElement};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
-use std::rc::Rc;
-use ast::statement::Statement;
 use shared::code_file::CodeFile;
 use shared::code_reference::CodeArea;
-use crate::PosInfoWrapper;
+use std::rc::Rc;
 
 /** This parses a slice of tokens into an arbitiary top-level element
 */
-pub(crate) fn top_level_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<TopLevelElement<UntypedAST>>> {
+pub(crate) fn top_level_parser<'src>() -> impl Parser<
+    'src,
+    &'src [PosInfoWrapper<Token, CodeFile>],
+    PosInfoWrapper<TopLevelElement<UntypedAST>>,
+> {
     // This currently only handles functions
     function_parser().map(|func| func.map(TopLevelElement::Function))
 }
 
 /** This parses a slice of tokens into a function
 */
-fn function_parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Function<UntypedAST>>> {
+fn function_parser<'src>()
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Function<UntypedAST>>>
+{
     let statement = statement_parser();
     let data_type = datatype_parser();
     let ident = identifier_parser();
@@ -29,9 +33,17 @@ fn function_parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, Cod
         .clone()
         .then(ident.clone())
         .map(|(data_type, name)| {
-            let pos = CodeArea::new(data_type.pos_info().start().clone(), name.pos_info.end().clone(), data_type.pos_info().file().clone()).unwrap();
+            let pos = CodeArea::new(
+                data_type.pos_info().start().clone(),
+                name.pos_info.end().clone(),
+                data_type.pos_info().file().clone(),
+            )
+            .unwrap();
 
-            PosInfoWrapper::new(Rc::new(VariableSymbol::new(name.inner, data_type.inner)), pos)
+            PosInfoWrapper::new(
+                Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
+                pos,
+            )
         });
 
     just_token(TokenType::Function)
@@ -41,21 +53,41 @@ fn function_parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, Cod
                 .clone()
                 .separated_by(just_token(TokenType::ArgumentSeparator))
                 .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
-                .delimited_by(just_token(TokenType::OpenParen), just_token(TokenType::CloseParen)),
+                .delimited_by(
+                    just_token(TokenType::OpenParen),
+                    just_token(TokenType::CloseParen),
+                ),
         )
-        .then(just_token(TokenType::Return).ignore_then(data_type).or_not())
+        .then(
+            just_token(TokenType::Return)
+                .ignore_then(data_type)
+                .or_not(),
+        )
         .then(statement)
         .map(|(((name, params), return_type), implementation)| {
-            let pos = CodeArea::new(name.pos_info().start().clone(), implementation.pos_info.end().clone(), name.pos_info().file().clone()).unwrap();
+            let pos = CodeArea::new(
+                name.pos_info().start().clone(),
+                implementation.pos_info.end().clone(),
+                name.pos_info().file().clone(),
+            )
+            .unwrap();
 
-            PosInfoWrapper::new(Function::new(
-                Rc::new(FunctionSymbol::new(name.inner, return_type.map(|to_map| to_map.inner), params.into_iter().map(|param| param.inner).collect())),
-                implementation.inner,
-            ), pos)
+            PosInfoWrapper::new(
+                Function::new(
+                    Rc::new(FunctionSymbol::new(
+                        name.inner,
+                        return_type.map(|to_map| to_map.inner),
+                        params.into_iter().map(|param| param.inner).collect(),
+                    )),
+                    implementation.inner,
+                ),
+                pos,
+            )
         })
 }
 #[cfg(test)]
 mod tests {
+    use crate::test_shared::prepare_token;
     use crate::top_level::top_level_parser;
     use ast::UntypedAST;
     use ast::block::CodeBlock;
@@ -66,7 +98,6 @@ mod tests {
     use chumsky::Parser;
     use lexer::TokenType;
     use std::rc::Rc;
-    use crate::test_shared::prepare_token;
 
     #[test]
     fn parse() {
@@ -94,7 +125,8 @@ mod tests {
             TokenType::CloseParen,
             TokenType::StatementSeparator,
             TokenType::CloseScope,
-        ].map(prepare_token);
+        ]
+        .map(prepare_token);
 
         let parser = top_level_parser();
 

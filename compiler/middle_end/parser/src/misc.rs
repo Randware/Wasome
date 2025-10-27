@@ -1,12 +1,13 @@
+use crate::PosInfoWrapper;
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
 use shared::code_reference::{CodeArea, CodeLocation};
-use crate::PosInfoWrapper;
 
 /** This parses arbitiary data types
 */
-pub(crate) fn datatype_parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<String>> + Clone {
+pub(crate) fn datatype_parser<'src>()
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<String>> + Clone {
     choice((
         just_token(TokenType::F32).map(|to_map| to_map.map(|_| "f32".to_string())),
         just_token(TokenType::F64).map(|to_map| to_map.map(|_| "f64".to_string())),
@@ -25,7 +26,8 @@ pub(crate) fn datatype_parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper
 
 /** This parses idendifierts
 */
-pub(crate) fn identifier_parser<'a>() -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<String>> + Clone {
+pub(crate) fn identifier_parser<'a>()
+-> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<String>> + Clone {
     custom(|token| {
         let token: PosInfoWrapper<Token, CodeFile> = token.next().ok_or(EmptyErr::default())?;
         let (next_token, next_pos_info) = (token.inner, token.pos_info);
@@ -33,7 +35,15 @@ pub(crate) fn identifier_parser<'a>() -> impl Parser<'a, &'a [PosInfoWrapper<Tok
             // new only returns None if start > end
             // If this is the case, then there is a bug
             // So the error is unrecoverable
-            TokenType::Identifier(inner) => Ok(PosInfoWrapper::new(inner, CodeArea::new(CodeLocation::new(next_token.line, next_token.span.start), CodeLocation::new(next_token.line, next_token.span.end), next_pos_info).unwrap())),
+            TokenType::Identifier(inner) => Ok(PosInfoWrapper::new(
+                inner,
+                CodeArea::new(
+                    CodeLocation::new(next_token.line, next_token.span.start),
+                    CodeLocation::new(next_token.line, next_token.span.end),
+                    next_pos_info,
+                )
+                .unwrap(),
+            )),
             _ => Err(EmptyErr::default()),
         }
     })
@@ -41,33 +51,36 @@ pub(crate) fn identifier_parser<'a>() -> impl Parser<'a, &'a [PosInfoWrapper<Tok
 
 /** This parses statement seperators.
 */
-pub(crate) fn statement_seperator<'a>() -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ()> + Clone {
+pub(crate) fn statement_seperator<'a>()
+-> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ()> + Clone {
     just_token(TokenType::StatementSeparator)
         .repeated()
         .at_least(1)
         .ignored()
 }
 
-pub(crate) fn just_token<'a>(token: TokenType) -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<TokenType, CodeArea>> + Clone
+pub(crate) fn just_token<'a>(
+    token: TokenType,
+) -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<TokenType, CodeArea>> + Clone
 {
-    custom(move |tokens|
-        {
-            let next: PosInfoWrapper<Token, CodeFile> = tokens.next().ok_or(EmptyErr::default())?;
-            let (next_token, next_pos_info) = (next.inner, next.pos_info);
-            if &token == &next_token.kind
-            {
-                Ok(PosInfoWrapper::new(
-                    next_token.kind,
-                    CodeArea::new(CodeLocation::new(next_token.line, next_token.span.start), CodeLocation::new(next_token.line, next_token.span.end), next_pos_info)
-                        // new only returns None if start > end
-                        // If this is the case, then there is a bug
-                        // So the error is unrecoverable
-                        .unwrap()
-                ))
-            }
-            else
-            {
-                Err(EmptyErr::default())
-            }
-        })
+    custom(move |tokens| {
+        let next: PosInfoWrapper<Token, CodeFile> = tokens.next().ok_or(EmptyErr::default())?;
+        let (next_token, next_pos_info) = (next.inner, next.pos_info);
+        if token == next_token.kind {
+            Ok(PosInfoWrapper::new(
+                next_token.kind,
+                CodeArea::new(
+                    CodeLocation::new(next_token.line, next_token.span.start),
+                    CodeLocation::new(next_token.line, next_token.span.end),
+                    next_pos_info,
+                )
+                // new only returns None if start > end
+                // If this is the case, then there is a bug
+                // So the error is unrecoverable
+                .unwrap(),
+            ))
+        } else {
+            Err(EmptyErr::default())
+        }
+    })
 }

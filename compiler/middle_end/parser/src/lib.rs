@@ -1,13 +1,13 @@
-use std::fmt::Debug;
-use std::ops::Deref;
 use crate::misc::statement_seperator;
 use crate::top_level::top_level_parser;
 use ast::{AST, UntypedAST};
 use chumsky::IterParser;
 use chumsky::Parser;
-use lexer::{Token, TokenType};
+use lexer::Token;
 use shared::code_file::CodeFile;
 use shared::code_reference::CodeArea;
+use std::fmt::Debug;
+use std::ops::Deref;
 
 mod expression;
 mod misc;
@@ -16,12 +16,20 @@ mod top_level;
 
 /** This parses a slice of tokens into an ast
 */
-pub fn parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], AST<UntypedAST>> {
+pub fn parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], AST<UntypedAST>>
+{
     let top_level = top_level_parser();
     top_level
         .separated_by(statement_seperator())
         .collect::<Vec<_>>()
-        .map(|top_level_elements| AST::new(top_level_elements.into_iter().map(|top_level_elem| top_level_elem.inner).collect()))
+        .map(|top_level_elements| {
+            AST::new(
+                top_level_elements
+                    .into_iter()
+                    .map(|top_level_elem| top_level_elem.inner)
+                    .collect(),
+            )
+        })
 }
 
 pub fn add(left: u64, right: u64) -> u64 {
@@ -29,14 +37,12 @@ pub fn add(left: u64, right: u64) -> u64 {
 }
 
 #[derive(PartialEq, Debug)]
-pub(crate) struct PosInfoWrapper<T: PartialEq+Debug, Pos: PartialEq+Debug=CodeArea>
-{
+pub(crate) struct PosInfoWrapper<T: PartialEq + Debug, Pos: PartialEq + Debug = CodeArea> {
     pub inner: T,
-    pub pos_info: Pos
+    pub pos_info: Pos,
 }
 
-impl<T: PartialEq+Debug, Pos: PartialEq+Debug> PosInfoWrapper<T, Pos>
-{
+impl<T: PartialEq + Debug, Pos: PartialEq + Debug> PosInfoWrapper<T, Pos> {
     pub fn new(inner: T, pos_info: Pos) -> Self {
         Self { inner, pos_info }
     }
@@ -49,14 +55,12 @@ impl<T: PartialEq+Debug, Pos: PartialEq+Debug> PosInfoWrapper<T, Pos>
         &self.pos_info
     }
 
-    pub fn map<O: PartialEq+Debug>(self, mapper: impl FnOnce(T) -> O) -> PosInfoWrapper<O, Pos>
-    {
+    pub fn map<O: PartialEq + Debug>(self, mapper: impl FnOnce(T) -> O) -> PosInfoWrapper<O, Pos> {
         PosInfoWrapper::new(mapper(self.inner), self.pos_info)
     }
 }
 
-impl<T: PartialEq+Debug, Pos: PartialEq+Debug> Deref for PosInfoWrapper<T, Pos>
-{
+impl<T: PartialEq + Debug, Pos: PartialEq + Debug> Deref for PosInfoWrapper<T, Pos> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -64,7 +68,8 @@ impl<T: PartialEq+Debug, Pos: PartialEq+Debug> Deref for PosInfoWrapper<T, Pos>
     }
 }
 
-impl<T: PartialEq+Debug+Clone, Pos: PartialEq+Debug+Clone> Clone for PosInfoWrapper<T, Pos>
+impl<T: PartialEq + Debug + Clone, Pos: PartialEq + Debug + Clone> Clone
+    for PosInfoWrapper<T, Pos>
 {
     fn clone(&self) -> Self {
         Self::new(self.inner.clone(), self.pos_info.clone())
@@ -74,6 +79,7 @@ impl<T: PartialEq+Debug+Clone, Pos: PartialEq+Debug+Clone> Clone for PosInfoWrap
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_shared::prepare_token;
     use ast::block::CodeBlock;
     use ast::expression::{BinaryOp, BinaryOpType, Expression};
     use ast::statement::{
@@ -82,8 +88,8 @@ mod tests {
     };
     use ast::symbol::{FunctionSymbol, VariableSymbol};
     use ast::top_level::{Function, TopLevelElement};
+    use lexer::TokenType;
     use std::rc::Rc;
-    use crate::test_shared::prepare_token;
 
     #[test]
     fn parse() {
@@ -143,7 +149,8 @@ mod tests {
             TokenType::Identifier("current".to_string()),
             TokenType::StatementSeparator,
             TokenType::CloseScope,
-        ].map(prepare_token);
+        ]
+        .map(prepare_token);
 
         // The how manyth fibonacci number we want
         let nth = Rc::new(VariableSymbol::<UntypedAST>::new(
@@ -225,19 +232,20 @@ mod tests {
 }
 
 #[cfg(test)]
-pub(crate) mod test_shared
-{
-    use std::path::PathBuf;
+pub(crate) mod test_shared {
+    use crate::PosInfoWrapper;
     use lexer::{Token, TokenType};
     use shared::code_file::CodeFile;
-    use crate::PosInfoWrapper;
+    use std::path::PathBuf;
 
-    pub(crate) fn prepare_token(to_convert: TokenType) -> PosInfoWrapper<Token, CodeFile>
-    {
-        PosInfoWrapper::new(Token {
-            kind: to_convert,
-            line: 0,
-            span: Default::default(),
-        }, CodeFile::new(PathBuf::from("test/test")))
+    pub(crate) fn prepare_token(to_convert: TokenType) -> PosInfoWrapper<Token, CodeFile> {
+        PosInfoWrapper::new(
+            Token {
+                kind: to_convert,
+                line: 0,
+                span: Default::default(),
+            },
+            CodeFile::new(PathBuf::from("test/test")),
+        )
     }
 }
