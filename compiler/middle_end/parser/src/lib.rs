@@ -32,10 +32,6 @@ pub fn parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile
         })
 }
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
 #[derive(PartialEq, Debug)]
 pub(crate) struct PosInfoWrapper<T: PartialEq + Debug, Pos: PartialEq + Debug = CodeArea> {
     pub inner: T,
