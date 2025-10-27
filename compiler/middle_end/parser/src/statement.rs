@@ -11,7 +11,6 @@ use ast::symbol::VariableSymbol;
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
-use shared::code_reference::CodeArea;
 use std::rc::Rc;
 
 fn narrow<

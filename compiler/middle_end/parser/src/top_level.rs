@@ -1,13 +1,12 @@
-use crate::PosInfoWrapper;
 use crate::misc::{datatype_parser, identifier_parser, just_token};
 use crate::statement::statement_parser;
+use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::UntypedAST;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::{Function, TopLevelElement};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
-use shared::code_reference::CodeArea;
 use std::rc::Rc;
 
 /** This parses a slice of tokens into an arbitiary top-level element
@@ -33,16 +32,9 @@ fn function_parser<'src>()
         .clone()
         .then(ident.clone())
         .map(|(data_type, name)| {
-            let pos = CodeArea::new(
-                data_type.pos_info().start().clone(),
-                name.pos_info.end().clone(),
-                data_type.pos_info().file().clone(),
-            )
-            .unwrap();
-
             PosInfoWrapper::new(
                 Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
-                pos,
+                combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
             )
         });
 
@@ -65,13 +57,6 @@ fn function_parser<'src>()
         )
         .then(statement)
         .map(|(((name, params), return_type), implementation)| {
-            let pos = CodeArea::new(
-                name.pos_info().start().clone(),
-                implementation.pos_info.end().clone(),
-                name.pos_info().file().clone(),
-            )
-            .unwrap();
-
             PosInfoWrapper::new(
                 Function::new(
                     Rc::new(FunctionSymbol::new(
@@ -81,7 +66,7 @@ fn function_parser<'src>()
                     )),
                     implementation.inner,
                 ),
-                pos,
+                combine_code_areas_succeeding(&name.pos_info, &implementation.pos_info),
             )
         })
 }
