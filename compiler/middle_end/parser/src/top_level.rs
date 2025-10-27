@@ -1,47 +1,57 @@
-use crate::misc::{datatype_parser, identifier_parser};
+use crate::misc::{datatype_parser, identifier_parser, just_token};
 use crate::statement::statement_parser;
 use ast::UntypedAST;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::{Function, TopLevelElement};
 use chumsky::prelude::*;
-use lexer::TokenType;
+use lexer::{Token, TokenType};
 use std::rc::Rc;
+use ast::statement::Statement;
+use shared::code_file::CodeFile;
+use shared::code_reference::CodeArea;
+use crate::PosInfoWrapper;
 
 /** This parses a slice of tokens into an arbitiary top-level element
 */
 pub(crate) fn top_level_parser<'src>()
--> impl Parser<'src, &'src [TokenType], TopLevelElement<UntypedAST>> {
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<TopLevelElement<UntypedAST>>> {
     // This currently only handles functions
-    function_parser().map(TopLevelElement::Function)
+    function_parser().map(|func| func.map(TopLevelElement::Function))
 }
 
 /** This parses a slice of tokens into a function
 */
-fn function_parser<'src>() -> impl Parser<'src, &'src [TokenType], Function<UntypedAST>> {
+fn function_parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Function<UntypedAST>>> {
     let statement = statement_parser();
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let param = data_type
         .clone()
         .then(ident.clone())
-        .map(|(data_type, name)| Rc::new(VariableSymbol::new(name, data_type)));
+        .map(|(data_type, name)| {
+            let pos = CodeArea::new(data_type.pos_info().start().clone(), name.pos_info.end().clone(), data_type.pos_info().file().clone()).unwrap();
 
-    just(TokenType::Function)
+            PosInfoWrapper::new(Rc::new(VariableSymbol::new(name.inner, data_type.inner)), pos)
+        });
+
+    just_token(TokenType::Function)
         .ignore_then(ident)
         .then(
             param
                 .clone()
-                .separated_by(just(TokenType::ArgumentSeparator))
-                .collect::<Vec<Rc<VariableSymbol<UntypedAST>>>>()
-                .delimited_by(just(TokenType::OpenParen), just(TokenType::CloseParen)),
+                .separated_by(just_token(TokenType::ArgumentSeparator))
+                .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
+                .delimited_by(just_token(TokenType::OpenParen), just_token(TokenType::CloseParen)),
         )
-        .then(just(TokenType::Return).ignore_then(data_type).or_not())
+        .then(just_token(TokenType::Return).ignore_then(data_type).or_not())
         .then(statement)
         .map(|(((name, params), return_type), implementation)| {
-            Function::new(
-                Rc::new(FunctionSymbol::new(name, return_type, params)),
-                implementation,
-            )
+            let pos = CodeArea::new(name.pos_info().start().clone(), implementation.pos_info.end().clone(), name.pos_info().file().clone()).unwrap();
+
+            PosInfoWrapper::new(Function::new(
+                Rc::new(FunctionSymbol::new(name.inner, return_type.map(|to_map| to_map.inner), params.into_iter().map(|param| param.inner).collect())),
+                implementation.inner,
+            ), pos)
         })
 }
 #[cfg(test)]
@@ -56,10 +66,11 @@ mod tests {
     use chumsky::Parser;
     use lexer::TokenType;
     use std::rc::Rc;
+    use crate::test_shared::prepare_token;
 
     #[test]
     fn parse() {
-        let to_parse = vec![
+        let to_parse = [
             TokenType::Function,
             TokenType::Identifier("func".to_string()),
             TokenType::OpenParen,
@@ -83,7 +94,7 @@ mod tests {
             TokenType::CloseParen,
             TokenType::StatementSeparator,
             TokenType::CloseScope,
-        ];
+        ].map(prepare_token);
 
         let parser = top_level_parser();
 
@@ -115,6 +126,6 @@ mod tests {
                 ),
             )])),
         ));
-        assert_eq!(parsed, expected);
+        assert_eq!(parsed.inner(), &expected);
     }
 }

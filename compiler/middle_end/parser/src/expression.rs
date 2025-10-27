@@ -1,4 +1,4 @@
-use crate::misc::{datatype_parser, identifier_parser};
+use crate::misc::{datatype_parser, identifier_parser, just_token};
 use ast::UntypedAST;
 use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
 use ast::symbol::FunctionCall;
@@ -6,21 +6,33 @@ use chumsky::combinator::To;
 use chumsky::extra::Full;
 use chumsky::prelude::*;
 use chumsky::primitive::Just;
-use lexer::TokenType;
+use lexer::{Token, TokenType};
+use shared::code_file::CodeFile;
+use shared::code_reference::{CodeArea, CodeLocation};
+use crate::PosInfoWrapper;
 
+fn narrow<'src, T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Expression<UntypedAST>>> + Clone>(input: T) -> T {input}
 /** This parses a slice of tokens into an expression
 */
 pub(crate) fn expression_parser<'src>()
--> impl Parser<'src, &'src [TokenType], Expression<UntypedAST>> + Clone {
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Expression<UntypedAST>>> + Clone {
     recursive(|expr| {
-        let literal = custom::<_, &[TokenType], _, _>(|token| {
-            Ok(Expression::Literal(
-                match token.next().ok_or(EmptyErr::default())? {
-                    TokenType::Decimal(inner) => inner.to_string(),
-                    TokenType::Integer(inner) => inner.to_string(),
-                    _ => return Err(EmptyErr::default()),
-                },
-            ))
+        let expr = narrow(expr);
+        let literal = custom::<_, &[PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Expression<UntypedAST>>, _>(|token| {
+            {
+                let next_token = token.next().ok_or(EmptyErr::default())?;
+                let (tok, pos) = (next_token.inner, next_token.pos_info);
+                Ok(PosInfoWrapper::new(Expression::Literal(
+                    match tok.kind {
+                        TokenType::Decimal(inner) => inner.to_string(),
+                        TokenType::Integer(inner) => inner.to_string(),
+                        _ => return Err(EmptyErr::default()),
+                    },
+                    // new only returns None if start > end
+                    // If this is the case, then there is a bug
+                    // So the error is unrecoverable
+                ), CodeArea::new(CodeLocation::new(tok.line, tok.span.start), CodeLocation::new(tok.line, tok.span.end), pos).unwrap()))
+            }
         });
 
         let ident = identifier_parser();
@@ -29,28 +41,38 @@ pub(crate) fn expression_parser<'src>()
             .clone()
             .then(
                 expr.clone()
-                    .separated_by(just(TokenType::ArgumentSeparator))
-                    .collect::<Vec<Expression<UntypedAST>>>()
-                    .delimited_by(just(TokenType::OpenParen), just(TokenType::CloseParen)),
+                    .separated_by(just_token(TokenType::ArgumentSeparator))
+                    .collect::<Vec<PosInfoWrapper<Expression<UntypedAST>>>>()
+                    .delimited_by(just_token(TokenType::OpenParen), just_token(TokenType::CloseParen)),
             ) //.then(just(TokenType::Return).ignore_then(ident).or_not())
             .map(|(name, args)| {
-                Expression::FunctionCall(FunctionCall::<UntypedAST>::new(name, args))
-            });
+                // new only returns None if start > end
+                // If this is the case, then there is a bug
+                // So the error is unrecoverable
+                let pos = CodeArea::new(name.pos_info.start().clone(), args.last().map(|arg| arg.pos_info.end()).unwrap_or(name.pos_info.end()).clone(), name.pos_info.file().clone()).unwrap();
+                PosInfoWrapper::new(
+                Expression::FunctionCall(FunctionCall::<UntypedAST>::new(name.inner, args.into_iter().map(|arg| arg.inner).collect()))
+
+                , pos)});
 
         let atom = call
             .or(literal)
-            .or(ident.map(Expression::Variable))
-            .or(expr.delimited_by(just(TokenType::OpenParen), just(TokenType::CloseParen)));
+            .or(ident.map(|input| input.map(Expression::Variable)))
+            .or(expr.delimited_by(just_token(TokenType::OpenParen), just_token(TokenType::CloseParen)));
 
         let typecast = atom
             .clone()
-            .then_ignore(just(TokenType::As))
+            .then_ignore(just_token(TokenType::As))
             .then(datatype_parser())
             .map(|(expr, new_type)| {
-                Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new(new_type)),
-                    expr,
-                )))
+                // new only returns None if start > end
+                // If this is the case, then there is a bug
+                // So the error is unrecoverable
+                let pos = CodeArea::new(expr.pos_info.start().clone(), new_type.pos_info().end().clone(), expr.pos_info.file().clone()).unwrap();
+                PosInfoWrapper::new(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                    UnaryOpType::Typecast(Typecast::new(new_type.inner)),
+                    expr.inner,
+                ))), pos)
             });
 
         let unary_op = choice((
@@ -119,9 +141,9 @@ pub(crate) fn expression_parser<'src>()
 }
 
 fn binary_operator_parser<'a>(
-    input: impl Parser<'a, &'a [TokenType], Expression<UntypedAST>> + Clone,
+    input: impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Expression<UntypedAST>>> + Clone,
     ops: &[(TokenType, BinaryOpType)],
-) -> impl Parser<'a, &'a [TokenType], Expression<UntypedAST>> + Clone {
+) -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Expression<UntypedAST>>> + Clone {
     input.clone().foldl(
         choice(
             ops.iter()
@@ -140,15 +162,19 @@ fn single_unary<'a>(
     input: TokenType,
     operator_type: UnaryOpType<UntypedAST>,
 ) -> To<
-    Just<TokenType, &'a [TokenType], Full<EmptyErr, (), ()>>,
-    TokenType,
-    impl Clone + Fn(Expression<UntypedAST>) -> Expression<UntypedAST>,
+    impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<TokenType, CodeArea>> + Clone,
+    //Just<TokenType, &'a [PosInfoWrapper<Token>], Full<EmptyErr, (), ()>>,
+    PosInfoWrapper<TokenType>,
+    impl Clone + Fn(PosInfoWrapper<Expression<UntypedAST>>) -> PosInfoWrapper<Expression<UntypedAST>>,
 > {
-    just(input).to(move |input| {
-        Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-            operator_type.clone(),
-            input,
-        )))
+    just_token(input).to(move |input: PosInfoWrapper<Expression<UntypedAST>>| {
+        {
+            let (expr, pos) = (input.inner, input.pos_info);
+            PosInfoWrapper::new(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                operator_type.clone(),
+                expr,
+            ))), pos)
+        }
     })
 }
 
@@ -158,16 +184,24 @@ fn single_binary<'a>(
     input: TokenType,
     operator_type: BinaryOpType,
 ) -> To<
-    Just<TokenType, &'a [TokenType], Full<EmptyErr, (), ()>>,
-    TokenType,
-    impl Clone + Fn(Expression<UntypedAST>, Expression<UntypedAST>) -> Expression<UntypedAST>,
+    impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<TokenType>> + Clone,
+    //Just<TokenType, &'a [TokenType], Full<EmptyErr, (), ()>>,
+    PosInfoWrapper<TokenType>,
+    impl Clone + Fn(PosInfoWrapper<Expression<UntypedAST>>, PosInfoWrapper<Expression<UntypedAST>>) -> PosInfoWrapper<Expression<UntypedAST>>,
 > {
-    just(input).to(move |lhs, rhs| {
-        Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-            operator_type,
-            lhs,
-            rhs,
-        )))
+    just_token(input).to(move |lhs: PosInfoWrapper<Expression<UntypedAST>>, rhs: PosInfoWrapper<Expression<UntypedAST>>| {
+        {
+            let (lhs_expr, lhs_pos) = (lhs.inner, lhs.pos_info);
+            let (rhs_expr, rhs_pos) = (rhs.inner, rhs.pos_info);
+            PosInfoWrapper::new(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                operator_type,
+                lhs_expr,
+                rhs_expr,
+                // new only returns None if start > end
+                // If this is the case, then there is a bug
+                // So the error is unrecoverable
+            ))), CodeArea::new(lhs_pos.start().clone(), rhs_pos.end().clone(), lhs_pos.file().clone()).unwrap())
+        }
     })
 }
 
@@ -179,10 +213,11 @@ mod tests {
     use ast::symbol::FunctionCall;
     use chumsky::Parser;
     use lexer::TokenType;
+    use crate::test_shared::prepare_token;
 
     #[test]
     fn parse() {
-        let to_parse = vec![
+        let to_parse = [
             TokenType::Identifier("test".to_string()),
             TokenType::OpenParen,
             TokenType::Integer(5),
@@ -195,7 +230,7 @@ mod tests {
             TokenType::Multiplication,
             TokenType::Decimal(10.0),
             TokenType::CloseParen, //TokenType::Integer(10), TokenType::As, TokenType::Identifier("f32".to_string())
-        ];
+        ].map(prepare_token);
 
         let parser = expression_parser();
 
@@ -218,12 +253,12 @@ mod tests {
                 ))),
             ],
         ));
-        assert_eq!(parsed, expected);
+        assert_eq!(parsed.inner(), &expected);
     }
 
     #[test]
     fn parse_parens() {
-        let to_parse = vec![
+        let to_parse = [
             TokenType::OpenParen,
             TokenType::Identifier("test".to_string()),
             TokenType::OpenParen,
@@ -238,7 +273,7 @@ mod tests {
             TokenType::Decimal(10.0),
             TokenType::CloseParen,
             TokenType::CloseParen, //TokenType::Integer(10), TokenType::As, TokenType::Identifier("f32".to_string())
-        ];
+        ].map(prepare_token);
 
         let parser = expression_parser();
 
@@ -261,22 +296,22 @@ mod tests {
                 ))),
             ],
         ));
-        assert_eq!(parsed, expected);
+        assert_eq!(parsed.inner, expected);
     }
 
     #[test]
     fn parse_just_idendifier() {
-        let to_parse = vec![TokenType::Identifier("test".to_string())];
+        let to_parse = [TokenType::Identifier("test".to_string())].map(prepare_token);
 
         let parser = expression_parser();
 
         let expected = Expression::Variable("test".to_string());
-        assert_eq!(expected, parser.parse(&to_parse).unwrap());
+        assert_eq!(&expected, parser.parse(&to_parse).unwrap().inner());
     }
 
     #[test]
     fn parse_invalid() {
-        let to_parse = vec![
+        let to_parse = [
             TokenType::Bool,
             TokenType::Identifier("var".to_string()),
             TokenType::Assign,
@@ -292,7 +327,7 @@ mod tests {
             TokenType::Multiplication,
             TokenType::Decimal(10.0),
             TokenType::CloseParen,
-        ];
+        ].map(prepare_token);
 
         let parser = expression_parser();
 

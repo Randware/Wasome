@@ -7,3 +7,5 @@ edition = "2024"
 chumsky = "1.0.0-alpha.8"
 ast = { path = "../../ast"}
 lexer = { path = "../../lexer"}
+shared = { path = "../../shared"}
+lazy_static = "1.5.0"

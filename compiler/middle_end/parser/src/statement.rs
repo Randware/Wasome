@@ -1,5 +1,5 @@
 use crate::expression::expression_parser;
-use crate::misc::{datatype_parser, identifier_parser, statement_seperator};
+use crate::misc::{datatype_parser, identifier_parser, just_token, statement_seperator};
 use ast::UntypedAST;
 use ast::block::CodeBlock;
 use ast::statement::{
@@ -8,14 +8,22 @@ use ast::statement::{
 };
 use ast::symbol::VariableSymbol;
 use chumsky::prelude::*;
-use lexer::TokenType;
-use lexer::TokenType::CloseParen;
+use lexer::{Token, TokenType};
 use std::rc::Rc;
+use ast::expression::Expression;
+use lazy_static::lazy_static;
+use shared::code_file;
+use shared::code_file::CodeFile;
+use shared::code_reference::CodeArea;
+use crate::PosInfoWrapper;
+
+fn narrow<'src, T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Statement<UntypedAST>>>+Clone> (input: T) -> T {input}
 
 /** This parses a slice of tokens into a statement
 */
-pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [TokenType], Statement<UntypedAST>> {
+pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Statement<UntypedAST>>> {
     recursive(|statement| {
+        let statement = narrow(statement);
         let data_type = datatype_parser();
         let ident = identifier_parser();
 
@@ -23,103 +31,140 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<'src, &'src [TokenType], S
 
         let variable_assignment = ident
             .clone()
-            .then_ignore(just(TokenType::Assign))
+            .then_ignore(just_token(TokenType::Assign))
             .then(expression.clone())
-            .map(|(name, val)| VariableAssignment::<UntypedAST>::new(name, val));
+            .map(|(name, val)| {
+                // new only returns None if start > end
+                // If this is the case, then there is a bug
+                // So the error is unrecoverable
+                let pos = CodeArea::new(name.pos_info().start().clone(), val.pos_info().end().clone(), name.pos_info().file().clone()).unwrap();
+                PosInfoWrapper::new(VariableAssignment::<UntypedAST>::new(name.inner, val.inner), pos)
+            });
 
         let variable_declaration = data_type
             .clone()
             .then(ident)
-            .then_ignore(just(TokenType::Assign))
+            .then_ignore(just_token(TokenType::Assign))
             .then(expression.clone())
             .map(|((data_type, name), val)| {
-                VariableDeclaration::<UntypedAST>::new(
-                    Rc::new(VariableSymbol::new(name, data_type)),
-                    val,
-                )
+                // new only returns None if start > end
+                // If this is the case, then there is a bug
+                // So the error is unrecoverable
+                let pos = CodeArea::new(data_type.pos_info().start().clone(), val.pos_info().end().clone(), name.pos_info().file().clone()).unwrap();
+                PosInfoWrapper::new(VariableDeclaration::<UntypedAST>::new(
+                    Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
+                    val.inner,
+                ), pos)
             });
 
-        let return_statement = just(TokenType::Return)
-            .ignore_then(expression.clone().or_not())
-            .map(Return::new);
+        let return_statement = just_token(TokenType::Return)
+            .then(expression.clone().or_not())
+            .map(|(return_keyword, to_return)|
+                {
+                    // new only returns None if start > end
+                    // If this is the case, then there is a bug
+                    // So the error is unrecoverable
+                    let pos = CodeArea::new(return_keyword.pos_info().start().clone(), to_return.as_ref().map(|pos| pos.pos_info.end().clone()).unwrap_or(return_keyword.pos_info().end().clone()), return_keyword.pos_info().file().clone()).unwrap();
+                    PosInfoWrapper::new(Return::<UntypedAST>::new(
+                        to_return.map(|to_map| to_map.inner),
+                    ), pos)
+                });
 
-        let conditional = just(TokenType::If)
-            .ignore_then(
+        let conditional = just_token(TokenType::If)
+            .then(
                 expression
                     .clone()
-                    .delimited_by(just(TokenType::OpenParen), just(TokenType::CloseScope)),
+                    .delimited_by(just_token(TokenType::OpenParen), just_token(TokenType::CloseScope)),
             )
             .then_ignore(maybe_statement_separator())
             .then(statement.clone())
             .then(
                 maybe_statement_separator()
-                    .then_ignore(just(TokenType::Else))
+                    .then_ignore(just_token(TokenType::Else))
                     .then_ignore(maybe_statement_separator())
                     .ignore_then(statement.clone())
                     .or_not(),
             )
-            .map(|((cond, then), else_statement)| Conditional::new(cond, then, else_statement));
+            .map(|(((if_keyword, cond), then), else_statement)|
+                {
+                    // new only returns None if start > end
+                    // If this is the case, then there is a bug
+                    // So the error is unrecoverable
+                    let pos = CodeArea::new(if_keyword.pos_info().start().clone(), else_statement.as_ref().map(|pos| pos.pos_info.end().clone()).unwrap_or(then.pos_info().end().clone()), if_keyword.pos_info().file().clone()).unwrap();
+                    PosInfoWrapper::new(Conditional::new(cond.inner, then.inner, else_statement.map(|to_map| to_map.inner)), pos)
+                });
 
         let loop_body = maybe_statement_separator().ignore_then(statement.clone());
-        let loop_statement = just(TokenType::Loop)
-            .ignore_then(just(TokenType::OpenParen))
-            .ignore_then(choice((
-                just(CloseParen)
+        let loop_statement = just_token(TokenType::Loop)
+            .then_ignore(just_token(TokenType::OpenParen))
+            .then(choice((
+                just_token(TokenType::CloseParen)
                     .ignore_then(loop_body.clone())
                     .map(|body| (body, LoopType::Infinite)),
                 expression
                     .clone()
-                    .then_ignore(just(CloseParen))
+                    .then_ignore(just_token(TokenType::CloseParen))
                     .then(loop_body.clone())
-                    .map(|(cond, body)| (body, LoopType::While(cond))),
+                    .map(|(cond, body)| (body, LoopType::While(cond.inner))),
                 statement
                     .clone()
-                    .then_ignore(just(TokenType::Semicolon))
-                    .then(expression.clone().then_ignore(just(TokenType::Semicolon)))
+                    .then_ignore(just_token(TokenType::Semicolon))
+                    .then(expression.clone().then_ignore(just_token(TokenType::Semicolon)))
                     .then(statement.clone())
-                    .then_ignore(just(CloseParen))
+                    .then_ignore(just_token(TokenType::CloseParen))
                     .then(loop_body.clone())
                     .map(|(((init, cond), after_each), body)| {
                         (
                             body,
                             LoopType::For {
-                                start: init,
-                                cond,
-                                after_each,
+                                start: init.inner,
+                                cond: cond.inner,
+                                after_each: after_each.inner,
                             },
                         )
                     }),
             )))
-            .map(|(body, loop_type)| Loop::new(body, loop_type));
+            .map(|(loop_keyword, (body, loop_type))|
+                {
+                    let pos = CodeArea::new(loop_keyword.pos_info().start().clone(), body.pos_info.end().clone(), loop_keyword.pos_info().file().clone()).unwrap();
 
-        let code_block = statement
+                    PosInfoWrapper::new(Loop::new(body.inner, loop_type), pos)
+                });
+
+        let code_block = just_token(TokenType::OpenScope).then(
+            statement
             .clone()
             .separated_by(statement_seperator())
             .allow_leading()
             .allow_trailing()
-            .collect::<Vec<Statement<UntypedAST>>>()
-            .delimited_by(just(TokenType::OpenScope), just(TokenType::CloseScope))
-            .map(CodeBlock::new);
+            .collect::<Vec<PosInfoWrapper<Statement<UntypedAST>>>>())
+            .then(just_token(TokenType::CloseScope))
+            //.delimited_by(just_token(TokenType::OpenScope), just_token(TokenType::CloseScope))
+            .map(|((open, block),close)|{
+                let pos = CodeArea::new(open.pos_info().start().clone(), close.pos_info.end().clone(), close.pos_info().file().clone()).unwrap();
+                PosInfoWrapper::new(CodeBlock::new(block.into_iter().map(|statement| statement.inner).collect()), pos)
+            });
 
         choice((
-            variable_assignment.map(Statement::VariableAssignment),
-            variable_declaration.map(Statement::VariableDeclaration),
+            variable_assignment.map(|var_assign| var_assign.map(Statement::VariableAssignment)),
+            variable_declaration.map(|var_decl| var_decl.map(Statement::VariableDeclaration)),
             conditional.map(|cond| {
-                Statement::ControlStructure(Box::new(ControlStructure::Conditional(cond)))
+                cond.map(|inner|
+                Statement::ControlStructure(Box::new(ControlStructure::Conditional(inner))))
             }),
             loop_statement
-                .map(|lst| Statement::ControlStructure(Box::new(ControlStructure::Loop(lst)))),
-            code_block.map(Statement::Codeblock),
-            return_statement.map(Statement::Return),
-            expression.map(Statement::Expression),
+                .map(|lst| lst.map(|inner| Statement::ControlStructure(Box::new(ControlStructure::Loop(inner))))),
+            code_block.map(|code_block| code_block.map(Statement::Codeblock)),
+            return_statement.map(|return_statement| return_statement.map(Statement::Return)),
+            expression.map(|expr| expr.map(Statement::Expression)),
         ))
     })
 }
 
 /** This parses a statement seperator or nothing
 */
-fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [TokenType], ()> + Clone {
-    just(TokenType::StatementSeparator).or_not().ignored()
+fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ()> + Clone {
+    just_token(TokenType::StatementSeparator).or_not().ignored()
 }
 #[cfg(test)]
 mod tests {
@@ -131,10 +176,11 @@ mod tests {
     use chumsky::Parser;
     use lexer::TokenType;
     use std::rc::Rc;
+    use crate::test_shared::prepare_token;
 
     #[test]
     fn parse() {
-        let to_parse = vec![
+        let to_parse = [
             TokenType::Bool,
             TokenType::Identifier("var".to_string()),
             TokenType::Assign,
@@ -150,7 +196,7 @@ mod tests {
             TokenType::Multiplication,
             TokenType::Decimal(10.0),
             TokenType::CloseParen,
-        ];
+        ].map(prepare_token);
 
         let parser = statement_parser();
 
@@ -176,6 +222,6 @@ mod tests {
                 ],
             )),
         ));
-        assert_eq!(parsed, expected);
+        assert_eq!(parsed.inner(), &expected);
     }
 }

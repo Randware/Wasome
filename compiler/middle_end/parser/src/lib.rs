@@ -1,9 +1,13 @@
+use std::fmt::Debug;
+use std::ops::Deref;
 use crate::misc::statement_seperator;
 use crate::top_level::top_level_parser;
 use ast::{AST, UntypedAST};
 use chumsky::IterParser;
 use chumsky::Parser;
-use lexer::TokenType;
+use lexer::{Token, TokenType};
+use shared::code_file::CodeFile;
+use shared::code_reference::CodeArea;
 
 mod expression;
 mod misc;
@@ -12,16 +16,59 @@ mod top_level;
 
 /** This parses a slice of tokens into an ast
 */
-pub fn parser<'src>() -> impl Parser<'src, &'src [TokenType], AST<UntypedAST>> {
+pub fn parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], AST<UntypedAST>> {
     let top_level = top_level_parser();
     top_level
         .separated_by(statement_seperator())
         .collect::<Vec<_>>()
-        .map(AST::new)
+        .map(|top_level_elements| AST::new(top_level_elements.into_iter().map(|top_level_elem| top_level_elem.inner).collect()))
 }
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
+}
+
+#[derive(PartialEq, Debug)]
+pub(crate) struct PosInfoWrapper<T: PartialEq+Debug, Pos: PartialEq+Debug=CodeArea>
+{
+    pub inner: T,
+    pub pos_info: Pos
+}
+
+impl<T: PartialEq+Debug, Pos: PartialEq+Debug> PosInfoWrapper<T, Pos>
+{
+    pub fn new(inner: T, pos_info: Pos) -> Self {
+        Self { inner, pos_info }
+    }
+
+    pub fn inner(&self) -> &T {
+        &self.inner
+    }
+
+    pub fn pos_info(&self) -> &Pos {
+        &self.pos_info
+    }
+
+    pub fn map<O: PartialEq+Debug>(self, mapper: impl FnOnce(T) -> O) -> PosInfoWrapper<O, Pos>
+    {
+        PosInfoWrapper::new(mapper(self.inner), self.pos_info)
+    }
+}
+
+impl<T: PartialEq+Debug, Pos: PartialEq+Debug> Deref for PosInfoWrapper<T, Pos>
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner()
+    }
+}
+
+impl<T: PartialEq+Debug+Clone, Pos: PartialEq+Debug+Clone> Clone for PosInfoWrapper<T, Pos>
+{
+    fn clone(&self) -> Self {
+        Self::new(self.inner.clone(), self.pos_info.clone())
+    }
 }
 
 #[cfg(test)]
@@ -36,10 +83,11 @@ mod tests {
     use ast::symbol::{FunctionSymbol, VariableSymbol};
     use ast::top_level::{Function, TopLevelElement};
     use std::rc::Rc;
+    use crate::test_shared::prepare_token;
 
     #[test]
     fn parse() {
-        let tokens = vec![
+        let tokens = [
             TokenType::Function,
             TokenType::Identifier("fibonacci".to_string()),
             TokenType::OpenParen,
@@ -95,7 +143,7 @@ mod tests {
             TokenType::Identifier("current".to_string()),
             TokenType::StatementSeparator,
             TokenType::CloseScope,
-        ];
+        ].map(prepare_token);
 
         // The how manyth fibonacci number we want
         let nth = Rc::new(VariableSymbol::<UntypedAST>::new(
@@ -173,5 +221,23 @@ mod tests {
         let parser = parser();
         let actual = parser.parse(&tokens).unwrap();
         assert_eq!(exprected, actual);
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod test_shared
+{
+    use std::path::PathBuf;
+    use lexer::{Token, TokenType};
+    use shared::code_file::CodeFile;
+    use crate::PosInfoWrapper;
+
+    pub(crate) fn prepare_token(to_convert: TokenType) -> PosInfoWrapper<Token, CodeFile>
+    {
+        PosInfoWrapper::new(Token {
+            kind: to_convert,
+            line: 0,
+            span: Default::default(),
+        }, CodeFile::new(PathBuf::from("test/test")))
     }
 }
