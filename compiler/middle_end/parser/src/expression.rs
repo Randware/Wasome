@@ -1,5 +1,5 @@
-use crate::PosInfoWrapper;
 use crate::misc::{datatype_parser, identifier_parser, just_token};
+use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::UntypedAST;
 use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
 use ast::symbol::FunctionCall;
@@ -70,20 +70,14 @@ pub(crate) fn expression_parser<'src>()
                         just_token(TokenType::OpenParen),
                         just_token(TokenType::CloseParen),
                     ),
-            ) //.then(just(TokenType::Return).ignore_then(ident).or_not())
+            )
             .map(|(name, args)| {
-                // new only returns None if start > end
-                // If this is the case, then there is a bug
-                // So the error is unrecoverable
-                let pos = CodeArea::new(
-                    name.pos_info.start().clone(),
+                let pos = combine_code_areas_succeeding(
+                    &name.pos_info,
                     args.last()
-                        .map(|arg| arg.pos_info.end())
-                        .unwrap_or(name.pos_info.end())
-                        .clone(),
-                    name.pos_info.file().clone(),
-                )
-                .unwrap();
+                        .map(|to_map| to_map.pos_info())
+                        .unwrap_or(name.pos_info()),
+                );
                 PosInfoWrapper::new(
                     Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
                         name.inner,
@@ -106,21 +100,12 @@ pub(crate) fn expression_parser<'src>()
             .then_ignore(just_token(TokenType::As))
             .then(datatype_parser())
             .map(|(expr, new_type)| {
-                // new only returns None if start > end
-                // If this is the case, then there is a bug
-                // So the error is unrecoverable
-                let pos = CodeArea::new(
-                    expr.pos_info.start().clone(),
-                    new_type.pos_info().end().clone(),
-                    expr.pos_info.file().clone(),
-                )
-                .unwrap();
                 PosInfoWrapper::new(
                     Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
                         UnaryOpType::Typecast(Typecast::new(new_type.inner)),
                         expr.inner,
                     ))),
-                    pos,
+                    combine_code_areas_succeeding(&expr.pos_info, &new_type.pos_info),
                 )
             });
 

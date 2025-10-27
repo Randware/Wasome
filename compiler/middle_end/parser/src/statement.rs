@@ -1,6 +1,6 @@
-use crate::PosInfoWrapper;
 use crate::expression::expression_parser;
 use crate::misc::{datatype_parser, identifier_parser, just_token, statement_seperator};
+use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::UntypedAST;
 use ast::block::CodeBlock;
 use ast::statement::{
@@ -41,18 +41,9 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(just_token(TokenType::Assign))
             .then(expression.clone())
             .map(|(name, val)| {
-                // new only returns None if start > end
-                // If this is the case, then there is a bug
-                // So the error is unrecoverable
-                let pos = CodeArea::new(
-                    name.pos_info().start().clone(),
-                    val.pos_info().end().clone(),
-                    name.pos_info().file().clone(),
-                )
-                .unwrap();
                 PosInfoWrapper::new(
                     VariableAssignment::<UntypedAST>::new(name.inner, val.inner),
-                    pos,
+                    combine_code_areas_succeeding(&name.pos_info, &val.pos_info),
                 )
             });
 
@@ -62,39 +53,26 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(just_token(TokenType::Assign))
             .then(expression.clone())
             .map(|((data_type, name), val)| {
-                // new only returns None if start > end
-                // If this is the case, then there is a bug
-                // So the error is unrecoverable
-                let pos = CodeArea::new(
-                    data_type.pos_info().start().clone(),
-                    val.pos_info().end().clone(),
-                    name.pos_info().file().clone(),
-                )
-                .unwrap();
                 PosInfoWrapper::new(
                     VariableDeclaration::<UntypedAST>::new(
                         Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
                         val.inner,
                     ),
-                    pos,
+                    combine_code_areas_succeeding(&name.pos_info, &data_type.pos_info),
                 )
             });
 
         let return_statement = just_token(TokenType::Return)
             .then(expression.clone().or_not())
             .map(|(return_keyword, to_return)| {
-                // new only returns None if start > end
-                // If this is the case, then there is a bug
-                // So the error is unrecoverable
-                let pos = CodeArea::new(
-                    return_keyword.pos_info().start().clone(),
+                let pos = combine_code_areas_succeeding(
+                    &return_keyword.pos_info,
                     to_return
                         .as_ref()
-                        .map(|pos| pos.pos_info.end().clone())
-                        .unwrap_or(return_keyword.pos_info().end().clone()),
-                    return_keyword.pos_info().file().clone(),
-                )
-                .unwrap();
+                        .map(|to_map| to_map.pos_info())
+                        .unwrap_or(return_keyword.pos_info()),
+                );
+
                 PosInfoWrapper::new(
                     Return::<UntypedAST>::new(to_return.map(|to_map| to_map.inner)),
                     pos,
@@ -116,18 +94,14 @@ pub(crate) fn statement_parser<'src>()
                     .or_not(),
             )
             .map(|(((if_keyword, cond), then), else_statement)| {
-                // new only returns None if start > end
-                // If this is the case, then there is a bug
-                // So the error is unrecoverable
-                let pos = CodeArea::new(
-                    if_keyword.pos_info().start().clone(),
+                let pos = combine_code_areas_succeeding(
+                    &if_keyword.pos_info,
                     else_statement
                         .as_ref()
-                        .map(|pos| pos.pos_info.end().clone())
-                        .unwrap_or(then.pos_info().end().clone()),
-                    if_keyword.pos_info().file().clone(),
-                )
-                .unwrap();
+                        .map(|to_map| to_map.pos_info())
+                        .unwrap_or(then.pos_info()),
+                );
+
                 PosInfoWrapper::new(
                     Conditional::new(
                         cond.inner,
@@ -173,14 +147,10 @@ pub(crate) fn statement_parser<'src>()
                     }),
             )))
             .map(|(loop_keyword, (body, loop_type))| {
-                let pos = CodeArea::new(
-                    loop_keyword.pos_info().start().clone(),
-                    body.pos_info.end().clone(),
-                    loop_keyword.pos_info().file().clone(),
+                PosInfoWrapper::new(
+                    Loop::new(body.inner, loop_type),
+                    combine_code_areas_succeeding(&loop_keyword.pos_info, &body.pos_info),
                 )
-                .unwrap();
-
-                PosInfoWrapper::new(Loop::new(body.inner, loop_type), pos)
             });
 
         let code_block = just_token(TokenType::OpenScope)
@@ -193,17 +163,10 @@ pub(crate) fn statement_parser<'src>()
                     .collect::<Vec<PosInfoWrapper<Statement<UntypedAST>>>>(),
             )
             .then(just_token(TokenType::CloseScope))
-            //.delimited_by(just_token(TokenType::OpenScope), just_token(TokenType::CloseScope))
             .map(|((open, block), close)| {
-                let pos = CodeArea::new(
-                    open.pos_info().start().clone(),
-                    close.pos_info.end().clone(),
-                    close.pos_info().file().clone(),
-                )
-                .unwrap();
                 PosInfoWrapper::new(
                     CodeBlock::new(block.into_iter().map(|statement| statement.inner).collect()),
-                    pos,
+                    combine_code_areas_succeeding(&open.pos_info, &close.pos_info),
                 )
             });
 
