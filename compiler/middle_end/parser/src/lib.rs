@@ -8,15 +8,29 @@ use shared::code_file::CodeFile;
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::ops::Deref;
+use std::path::PathBuf;
+use chumsky::combinator::To;
 
 mod expression;
 mod misc;
 mod statement;
 mod top_level;
 
+pub fn parse(to_parse: Vec<Token>, file: String) -> Option<AST<UntypedAST>>
+{
+    let to_parse_with_file_info = inject_file_information(to_parse, file);
+    let parser = parser();
+    parser.parse(&to_parse_with_file_info).into_output()
+}
+
+fn inject_file_information(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<Token, CodeFile>>
+{
+    let code_file = CodeFile::new(PathBuf::from(file));
+    raw_tokens.into_iter().map(|token| PosInfoWrapper::new(token, code_file.clone())).collect()
+}
 /** This parses a slice of tokens into an ast
 */
-pub fn parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], AST<UntypedAST>>
+fn parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], AST<UntypedAST>>
 {
     let top_level = top_level_parser();
     top_level
