@@ -1,10 +1,7 @@
+use crate::function_symbol_mapper::FunctionSymbolMapper;
 use crate::mics_sa::analyze_data_type;
-use ast::expression::{
-    BinaryOp, Expression, Literal, Typecast, UnaryOp, UnaryOpType,
-};
+use ast::expression::{BinaryOp, Expression, Literal, Typecast, UnaryOp, UnaryOpType};
 use ast::{TypedAST, UntypedAST};
-use crate::symbol_mapper::SymbolMapper;
-
 
 /** Analyzes an untyped expression and converts it into a typed `Expression`.
 @params
@@ -15,14 +12,19 @@ Some(`Expression<TypedAST>`) if the expression and all nested sub-expressions ca
 None if analysis or conversion fails for the expression or any of its sub-expressions.
 */
 pub(crate) fn analyze_expression(
-    to_analyze: &Expression<UntypedAST>, symbol_mapper: &mut SymbolMapper
+    to_analyze: &Expression<UntypedAST>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Expression<TypedAST>> {
     Some(match to_analyze {
         Expression::FunctionCall(_) => todo!(),
         Expression::Variable(_) => todo!(),
         Expression::Literal(inner) => Expression::Literal(analyze_literal(&inner)?),
-        Expression::UnaryOp(inner) => Expression::UnaryOp(analyze_unary_op(inner,symbol_mapper)?),
-        Expression::BinaryOp(inner) => Expression::BinaryOp(analyze_binary_op(inner,symbol_mapper)?),
+        Expression::UnaryOp(inner) => {
+            Expression::UnaryOp(analyze_unary_op(inner, function_symbol_mapper)?)
+        }
+        Expression::BinaryOp(inner) => {
+            Expression::BinaryOp(analyze_binary_op(inner, function_symbol_mapper)?)
+        }
     })
 }
 
@@ -68,9 +70,12 @@ fn analyze_literal(to_analyze: &str) -> Option<Literal> {
 Some(Box<UnaryOp<TypedAST>>) if the unary operation and its operand can be analyzed and converted to a typed form
 None if analysis or conversion fails
 */
-fn analyze_unary_op(to_analyze: &Box<UnaryOp<UntypedAST>>, symbol_mapper: &mut SymbolMapper) -> Option<Box<UnaryOp<TypedAST>>> {
+fn analyze_unary_op(
+    to_analyze: &Box<UnaryOp<UntypedAST>>,
+    symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<Box<UnaryOp<TypedAST>>> {
     let (op_type, expression) = to_analyze.destructure();
-    let converted_input = analyze_expression(&expression,symbol_mapper)?;
+    let converted_input = analyze_expression(&expression, symbol_mapper)?;
     let converted_unary_op_type = match op_type {
         UnaryOpType::Typecast(inner) => {
             let data_type = inner.target();
@@ -93,10 +98,13 @@ fn analyze_unary_op(to_analyze: &Box<UnaryOp<UntypedAST>>, symbol_mapper: &mut S
 Some(Box<BinaryOp<TypedAST>>) if the Binary operation and its operand can be analyzed and converted to a typed form
 None if analysis or conversion fails
 */
-fn analyze_binary_op(to_analyze: &Box<BinaryOp<UntypedAST>>, symbol_mapper: &mut SymbolMapper) -> Option<Box<BinaryOp<TypedAST>>> {
+fn analyze_binary_op(
+    to_analyze: &Box<BinaryOp<UntypedAST>>,
+    symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<Box<BinaryOp<TypedAST>>> {
     let (op_type, left_expr, right_expr) = to_analyze.destructure();
-    let converted_left = analyze_expression(&left_expr,symbol_mapper)?;
-    let converted_right = analyze_expression(&right_expr,symbol_mapper)?;
+    let converted_left = analyze_expression(&left_expr, symbol_mapper)?;
+    let converted_right = analyze_expression(&right_expr, symbol_mapper)?;
 
     let analyzed = BinaryOp::<TypedAST>::new(op_type, converted_left, converted_right)?;
 
@@ -106,9 +114,9 @@ fn analyze_binary_op(to_analyze: &Box<BinaryOp<UntypedAST>>, symbol_mapper: &mut
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ast::UntypedAST;
     use ast::expression::Expression;
     use ast::expression::Literal;
-    use ast::{UntypedAST};
 
     #[test]
     fn analyze_literal_recognizes_values() {
@@ -123,10 +131,12 @@ mod tests {
     #[test]
     fn analyze_expression_literal_converts_to_typed_literal() {
         let input: Expression<UntypedAST> = Expression::Literal(String::from("42"));
-        let output = analyze_expression(&input, &mut SymbolMapper::new()).expect("should convert literal");
+        let output = analyze_expression(&input, &mut FunctionSymbolMapper::new())
+            .expect("should convert literal");
 
         let input2: Expression<UntypedAST> = Expression::Literal(String::from("12.2"));
-        let output2 = analyze_expression(&input2,&mut SymbolMapper::new()).expect("should convert literal (2)");
+        let output2 = analyze_expression(&input2, &mut FunctionSymbolMapper::new())
+            .expect("should convert literal (2)");
 
         assert_eq!(Expression::Literal(Literal::S32(42)), output);
 
@@ -139,7 +149,8 @@ mod tests {
         let inner = Expression::Literal(String::from("42"));
         let untyped = UnaryOp::<UntypedAST>::new(UnaryOpType::Negative, inner);
 
-        let result = analyze_unary_op(&Box::new(untyped),&mut SymbolMapper::new()).expect("should analyze unary op");
+        let result = analyze_unary_op(&Box::new(untyped), &mut FunctionSymbolMapper::new())
+            .expect("should analyze unary op");
 
         let (op_type, expr) = result.destructure();
 
@@ -153,7 +164,8 @@ mod tests {
         let left = Expression::Literal(String::from("17"));
         let right = Expression::Literal(String::from("5"));
         let untyped = BinaryOp::<UntypedAST>::new(BinaryOpType::Addition, left, right);
-        let result = analyze_binary_op(&Box::new(untyped), &mut SymbolMapper::new()).expect("should analyze binary op");
+        let result = analyze_binary_op(&Box::new(untyped), &mut FunctionSymbolMapper::new())
+            .expect("should analyze binary op");
 
         let (op_type, l_expr, r_expr) = result.destructure();
         assert_eq!(BinaryOpType::Addition, op_type);
