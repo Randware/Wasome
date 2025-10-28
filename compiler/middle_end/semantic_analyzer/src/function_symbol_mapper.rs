@@ -59,59 +59,6 @@ impl Default for FunctionSymbolMapper {
 }
 
 impl FunctionSymbolMapper {
-    /** Looks up a variable symbol by name in the scope stack
-     *  @params  self: The SymbolMapper performing the lookup
-     *           name: &str - the identifier of the variable to search for
-     *  @return Some(Rc<VariableSymbol<TypedAST>>) if a variable with `name` is found in any scope; None otherwise
-     */
-    pub fn lookup_variable(&self, name: &str) -> Option<Rc<VariableSymbol<TypedAST>>> {
-        for scope in self.scope_stack.iter().rev() {
-            if let Some(symbol) = scope.variables.get(name) {
-                return Some(symbol.clone());
-            }
-        }
-        None
-    }
-
-    /** Adds a function symbol to the current scope
-     * @params  self: The SymbolMapper to modify
-     * symbol: Rc<FunctionSymbol<TypedAST>> - the function symbol to insert into the current scope
-     * @return Result<(), String> - returns Ok(()) on success or an error message if the name is already defined in the current scope
-     */
-    pub fn add_function(&mut self, symbol: Rc<FunctionSymbol<TypedAST>>) -> Result<(), String> {
-        if let Some(current_scope) = self.scope_stack.last_mut() {
-            let name = symbol.name().to_string();
-
-            if current_scope.functions.contains_key(&name) {
-                return Err(format!(
-                    "Error: Redefinition of function '{}' in current scope.",
-                    name
-                ));
-            }
-
-            current_scope.functions.insert(name, symbol);
-            Ok(())
-        } else {
-            Err("Cannot add function: No active scope.".to_string())
-        }
-    }
-
-    /** Looks up a function symbol by name in the scope stack
-     *  @params  self: The SymbolMapper performing the lookup
-     *           name: &str - the identifier of the function to search for
-     *  @return Some(Rc<FunctionSymbol<TypedAST>>) if a function with `name` is found in any scope; None otherwise
-     */
-    pub fn lookup_function(&self, name: &str) -> Option<Rc<FunctionSymbol<TypedAST>>> {
-        for scope in self.scope_stack.iter().rev() {
-            if let Some(symbol) = scope.functions.get(name) {
-                return Some(symbol.clone());
-            }
-        }
-        None
-    }
-}
-
-impl FunctionSymbolMapper {
     /** Adds a variable symbol to the current scope
      *  @params  self: The SymbolMapper to modify
      *           symbol: Rc<VariableSymbol<TypedAST>> - the variable symbol to insert into the current scope
@@ -135,6 +82,20 @@ impl FunctionSymbolMapper {
         }
     }
 
+    /** Looks up a variable symbol by name in the scope stack
+     *  @params  self: The SymbolMapper performing the lookup
+     *           name: &str - the identifier of the variable to search for
+     *  @return Some(Rc<VariableSymbol<TypedAST>>) if a variable with `name` is found in any scope; None otherwise
+     */
+    pub fn lookup_variable(&self, name: &str) -> Option<Rc<VariableSymbol<TypedAST>>> {
+        for scope in self.scope_stack.iter().rev() {
+            if let Some(symbol) = scope.variables.get(name) {
+                return Some(symbol.clone());
+            }
+        }
+        None
+    }
+
     /** Sets the current function return type for subsequent analysis
      *  @params  self: The SymbolMapper to modify
      *           return_type: Option<DataType> - the return type to record for the currently analyzed function (None if not applicable)
@@ -151,10 +112,7 @@ impl FunctionSymbolMapper {
     pub fn get_current_function_return_type(&self) -> Option<DataType> {
         self.current_function_return_type
     }
-
-
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -166,16 +124,14 @@ mod tests {
         let mapper = FunctionSymbolMapper::new();
         let default = FunctionSymbolMapper::default();
 
-        assert!(mapper.get_current_function_return_type().is_none(), "Expected no current return type for new mapper.");
-        assert!(default.get_current_function_return_type().is_none(), "Expected no current return type for default mapper.");
-    }
-
-    #[test]
-    fn lookup_empty_returns_none() {
-        let mapper = FunctionSymbolMapper::new();
-
-        assert!(mapper.lookup_variable("x").is_none(), "Expected lookup_variable to return None for unknown name.");
-        assert!(mapper.lookup_function("f").is_none(), "Expected lookup_function to return None for unknown name.");
+        assert!(
+            mapper.get_current_function_return_type().is_none(),
+            "Expected no current return type for new mapper."
+        );
+        assert!(
+            default.get_current_function_return_type().is_none(),
+            "Expected no current return type for default mapper."
+        );
     }
 
     #[test]
@@ -183,10 +139,17 @@ mod tests {
         let mut mapper = FunctionSymbolMapper::new();
 
         mapper.set_current_function_return_type(Some(DataType::S32));
-        assert_eq!(mapper.get_current_function_return_type(), Some(DataType::S32), "Should return the set return type.");
+        assert_eq!(
+            mapper.get_current_function_return_type(),
+            Some(DataType::S32),
+            "Should return the set return type."
+        );
 
         mapper.set_current_function_return_type(None);
-        assert!(mapper.get_current_function_return_type().is_none(), "Should be None after clearing the return type.");
+        assert!(
+            mapper.get_current_function_return_type().is_none(),
+            "Should be None after clearing the return type."
+        );
     }
 
     #[test]
@@ -194,25 +157,31 @@ mod tests {
         let mut mapper = FunctionSymbolMapper::new();
 
         mapper.enter_scope();
-        assert!(mapper.lookup_variable("nope").is_none(), "Lookup should still be None in new inner scope.");
+        assert!(
+            mapper.lookup_variable("nope").is_none(),
+            "Lookup should still be None in new inner scope."
+        );
         mapper.exit_scope();
-
-        mapper.exit_scope();
-        assert!(mapper.lookup_function("nope").is_none(), "Lookup should remain None after extra exit.");
     }
 
     #[test]
     fn add_multiple_variables_same_scope() {
-        use std::rc::Rc;
         use ast::symbol::VariableSymbol;
+        use std::rc::Rc;
 
         let mut mapper = FunctionSymbolMapper::new();
 
         let v1 = Rc::new(VariableSymbol::new(String::from("a"), DataType::S32));
         let v2 = Rc::new(VariableSymbol::new(String::from("b"), DataType::S64));
 
-        assert!(mapper.add_variable(v1.clone()).is_ok(), "Should add first variable");
-        assert!(mapper.add_variable(v2.clone()).is_ok(), "Should add second variable with different name");
+        assert!(
+            mapper.add_variable(v1.clone()).is_ok(),
+            "Should add first variable"
+        );
+        assert!(
+            mapper.add_variable(v2.clone()).is_ok(),
+            "Should add second variable with different name"
+        );
 
         let found_a = mapper.lookup_variable("a").expect("`a` should be found");
         assert_eq!(found_a.name(), "a", "Found variable should have name 'a'");
@@ -223,22 +192,28 @@ mod tests {
 
     #[test]
     fn add_duplicate_variable_errors() {
-        use std::rc::Rc;
         use ast::symbol::VariableSymbol;
+        use std::rc::Rc;
 
         let mut mapper = FunctionSymbolMapper::new();
 
         let v1 = Rc::new(VariableSymbol::new(String::from("x"), DataType::S32));
         let v2 = Rc::new(VariableSymbol::new(String::from("x"), DataType::S64));
 
-        assert!(mapper.add_variable(v1).is_ok(), "First definition should succeed");
-        assert!(mapper.add_variable(v2).is_err(), "Second definition with same name should error");
+        assert!(
+            mapper.add_variable(v1).is_ok(),
+            "First definition should succeed"
+        );
+        assert!(
+            mapper.add_variable(v2).is_err(),
+            "Second definition with same name should error"
+        );
     }
 
     #[test]
     fn shadow_variable_in_inner_scope() {
-        use std::rc::Rc;
         use ast::symbol::VariableSymbol;
+        use std::rc::Rc;
 
         let mut mapper = FunctionSymbolMapper::new();
 
@@ -248,10 +223,16 @@ mod tests {
         mapper.enter_scope();
 
         let inner = Rc::new(VariableSymbol::new(String::from("s"), DataType::S64));
-        assert!(mapper.add_variable(inner).is_ok(), "Inner scope should allow same name (shadowing)");
+        assert!(
+            mapper.add_variable(inner).is_ok(),
+            "Inner scope should allow same name (shadowing)"
+        );
 
         let found = mapper.lookup_variable("s").expect("`s` should be found");
-        assert_eq!(found.name(), "s", "Lookup should return the (inner) symbol named 's'");
+        assert_eq!(
+            found.name(),
+            "s",
+            "Lookup should return the (inner) symbol named 's'"
+        );
     }
-
 }

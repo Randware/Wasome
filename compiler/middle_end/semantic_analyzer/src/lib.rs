@@ -3,6 +3,7 @@ mod mics_sa;
 mod statement_sa;
 mod top_level_sa;
 mod function_symbol_mapper;
+mod file_symbol_mapper;
 
 use ast::{AST, TypedAST, UntypedAST};
 
