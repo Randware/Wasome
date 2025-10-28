@@ -288,7 +288,7 @@ pub enum LoopType<Type: ASTType> {
 impl<Type: ASTType> LoopType<Type> {
     /** Returns the number of child statements
      */
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         match self {
             LoopType::Infinite => 0,
             LoopType::While(_) => 0,

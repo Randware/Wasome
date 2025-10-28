@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 pub struct FileSymbolMapper {
     file_functions: HashMap<String, Rc<FunctionSymbol<TypedAST>>>,
-    pub local_mapper: FunctionSymbolMapper,
+    pub function_mapper: FunctionSymbolMapper,
 }
 
 impl FileSymbolMapper {
@@ -18,7 +18,7 @@ impl FileSymbolMapper {
     pub fn new() -> Self {
         Self {
             file_functions: HashMap::new(),
-            local_mapper: FunctionSymbolMapper::new(),
+            function_mapper: FunctionSymbolMapper::new(),
         }
     }
 
@@ -57,7 +57,7 @@ impl FileSymbolMapper {
       @return () - updates the internal local mapper
     */
     pub fn set_current_function_return_type(&mut self, return_type: Option<DataType>) {
-        self.local_mapper
+        self.function_mapper
             .set_current_function_return_type(return_type);
     }
 
@@ -67,7 +67,7 @@ impl FileSymbolMapper {
     */
 
     pub fn get_current_function_return_type(&self) -> Option<DataType> {
-        self.local_mapper.get_current_function_return_type()
+        self.function_mapper.get_current_function_return_type()
     }
 
     /** Enters a new local scope in the FunctionSymbolMapper
@@ -75,7 +75,7 @@ impl FileSymbolMapper {
       @return () - pushes a new scope onto the local scope stack
     */
     pub fn enter_scope(&mut self) {
-        self.local_mapper.enter_scope();
+        self.function_mapper.enter_scope();
     }
 
     /** Exits the current local scope in the FunctionSymbolMapper
@@ -83,7 +83,7 @@ impl FileSymbolMapper {
       @return () - pops the current scope from the local scope stack
     */
     pub fn exit_scope(&mut self) {
-        self.local_mapper.exit_scope();
+        self.function_mapper.exit_scope();
     }
 
     /** Looks up a variable symbol by name in the local scope stack
@@ -92,6 +92,6 @@ impl FileSymbolMapper {
       @return Some(Rc<VariableSymbol<TypedAST>>) if a variable with `name` is found in any scope; None otherwise
     */
     pub fn lookup_variable(&self, name: &str) -> Option<Rc<VariableSymbol<TypedAST>>> {
-        self.local_mapper.lookup_variable(name)
+        self.function_mapper.lookup_variable(name)
     }
 }
