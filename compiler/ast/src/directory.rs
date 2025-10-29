@@ -1,16 +1,18 @@
-use crate::ASTType;
+use std::path::PathBuf;
+use crate::{ASTNode, ASTType};
 use crate::file::File;
 
+#[derive(Debug, PartialEq)]
 pub struct Directory<Type: ASTType>
 {
     name: String,
-    subdirectories: Box<Vec<Directory<Type>>>,
-    files: Vec<File<Type>>
+    subdirectories: Box<Vec<ASTNode<Directory<Type>, PathBuf>>>,
+    files: Vec<ASTNode<File<Type>, PathBuf>>
 }
 
 impl<Type: ASTType> Directory<Type>
 {
-    pub fn new(name: String, subdirectories: Vec<Directory<Type>>, files: Vec<File<Type>>) -> Self {
+    pub fn new(name: String, subdirectories: Vec<ASTNode<Directory<Type>, PathBuf>>, files: Vec<ASTNode<File<Type>, PathBuf>>) -> Self {
         Self { name, subdirectories: Box::new(subdirectories), files }
     }
 
@@ -18,11 +20,11 @@ impl<Type: ASTType> Directory<Type>
         &self.name
     }
 
-    pub fn subdirectories(&self) -> &[Directory<Type>] {
+    pub fn subdirectories(&self) -> &[ASTNode<Directory<Type>, PathBuf>] {
         &self.subdirectories
     }
 
-    pub fn files(&self) -> &[File<Type>] {
+    pub fn files(&self) -> &[ASTNode<File<Type>, PathBuf>] {
         &self.files
     }
 }

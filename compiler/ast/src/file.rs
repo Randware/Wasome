@@ -1,6 +1,7 @@
 use crate::ASTType;
 use crate::block::FunctionBlock;
 
+#[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType>
 {
     name: String,
