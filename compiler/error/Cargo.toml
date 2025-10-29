@@ -1,0 +1,9 @@
+[package]
+name = "error"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shared = { path = "../shared" }
+bon = "3.8.1"
+ariadne = "0.5.1"
