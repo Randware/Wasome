@@ -5,13 +5,14 @@ use crate::block::FunctionBlock;
 pub struct File<Type: ASTType>
 {
     name: String,
+    imports: Vec<Type::ImportType>,
     functions: FunctionBlock<Type>
 }
 
 impl<Type: ASTType> File<Type>
 {
-    pub fn new(name: String, functions: FunctionBlock<Type>) -> Self {
-        Self { name, functions }
+    pub fn new(name: String, imports: Vec<Type::ImportType>, functions: FunctionBlock<Type>) -> Self {
+        Self { name, imports, functions }
     }
 
     pub fn name(&self) -> &str {

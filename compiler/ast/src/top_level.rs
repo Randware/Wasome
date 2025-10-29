@@ -42,3 +42,17 @@ impl<Type: ASTType> SemanticEquality for Function<Type> {
             && self.implementation.semantic_equals(&other.implementation)
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub struct Import {
+    root: ImportRoot,
+    path: Vec<String> // Maybe OSString TODO
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ImportRoot
+{
+    CurrentDirectory,
+    ProjectRoot,
+    StdLib
+}

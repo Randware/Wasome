@@ -18,7 +18,7 @@ use crate::data_type::DataType;
 use crate::expression::Literal;
 use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
-use crate::top_level::Function;
+use crate::top_level::{Function, Import};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
@@ -173,6 +173,7 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type GeneralDataType: Eq + PartialEq + Debug + Clone;
     type FunctionCallSymbol: Debug + PartialEq;
     type VariableUse: Debug + PartialEq;
+    type ImportType: Debug + PartialEq;
 }
 
 /** This is an ast type
@@ -186,6 +187,7 @@ impl ASTType for TypedAST {
     type GeneralDataType = DataType;
     type FunctionCallSymbol = Rc<FunctionSymbol<TypedAST>>;
     type VariableUse = Rc<VariableSymbol<TypedAST>>;
+    type ImportType = Import;
 }
 
 /** This is an ast type
@@ -199,6 +201,8 @@ impl ASTType for UntypedAST {
     type GeneralDataType = String;
     type FunctionCallSymbol = String;
     type VariableUse = String;
+    // The provided path in th import
+    type ImportType = String;
 }
 
 #[cfg(test)]
