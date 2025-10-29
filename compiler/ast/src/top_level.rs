@@ -43,6 +43,9 @@ impl<Type: ASTType> SemanticEquality for Function<Type> {
     }
 }
 
+/** An import in a typed ast
+This has no semantic meaning and is only there to not lose any information
+*/
 #[derive(Debug, PartialEq)]
 pub struct Import {
     root: ImportRoot,
