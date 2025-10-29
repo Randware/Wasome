@@ -1,30 +1,43 @@
+use std::fmt::Debug;
 use crate::statement::Statement;
 use crate::{ASTNode, ASTType, SemanticEquality};
 use std::ops::Deref;
+use crate::top_level::Function;
+
+#[derive(Debug, PartialEq)]
+pub struct SingleContentBlock<Content: Debug+PartialEq>
+{
+    contents: Vec<ASTNode<Content>>
+}
+
+impl<Content: Debug+PartialEq> SingleContentBlock<Content> {
+    pub fn new(contents: Vec<ASTNode<Content>>) -> Self {
+        Self { contents }
+    }
+}
+
+impl<Content: Debug+PartialEq> Deref for SingleContentBlock<Content> {
+    type Target = [ASTNode<Content>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.contents
+    }
+}
+
+impl<Content: Debug+PartialEq+SemanticEquality> SemanticEquality for SingleContentBlock<Content> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.contents.semantic_equals(&other.contents)
+    }
+}
 
 /** This represents a codeblock as per section 4 of the lang spec
 */
-#[derive(Debug, PartialEq)]
-pub struct CodeBlock<Type: ASTType> {
-    statements: Vec<ASTNode<Statement<Type>>>,
-}
+// Even if unenforced, the trait bound still serves documentation purposes.
+#[allow(type_alias_bounds)]
+pub type CodeBlock<Type: ASTType> = SingleContentBlock<Statement<Type>>;
 
-impl<Type: ASTType> CodeBlock<Type> {
-    pub fn new(statements: Vec<ASTNode<Statement<Type>>>) -> Self {
-        Self { statements }
-    }
-}
-
-impl<Type: ASTType> Deref for CodeBlock<Type> {
-    type Target = [ASTNode<Statement<Type>>];
-
-    fn deref(&self) -> &Self::Target {
-        &self.statements
-    }
-}
-
-impl<Type: ASTType> SemanticEquality for CodeBlock<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.statements.semantic_equals(&other.statements)
-    }
-}
+/** This contains functions. When inside a composite, they are methods.
+*/
+// Even if unenforced, the trait bound still serves documentation purposes.
+#[allow(type_alias_bounds)]
+pub type FunctionBlock<Type: ASTType> = SingleContentBlock<Function<Type>>;

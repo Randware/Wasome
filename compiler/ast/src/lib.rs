@@ -32,6 +32,8 @@ pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
+pub mod file;
+pub mod directory;
 
 /** Comparing semantics only.
 
