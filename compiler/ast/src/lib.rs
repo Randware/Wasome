@@ -21,6 +21,7 @@ use crate::symbol::{FunctionSymbol, VariableSymbol};
 use crate::top_level::{Function, Import};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
@@ -147,6 +148,13 @@ impl<T: Debug + PartialEq, Position> DerefMut for ASTNode<T, Position> {
 impl<T: SemanticEquality + Debug + PartialEq, Position> SemanticEquality for ASTNode<T, Position> {
     fn semantic_equals(&self, other: &Self) -> bool {
         self.inner.semantic_equals(&other.inner)
+    }
+}
+
+impl<T: Debug + PartialEq> Hash for ASTNode<T>
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
     }
 }
 
