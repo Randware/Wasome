@@ -18,7 +18,7 @@ use crate::data_type::DataType;
 use crate::expression::Literal;
 use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
-use crate::top_level::{Function, TopLevelElement};
+use crate::top_level::Function;
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::ops::{Deref, DerefMut};
@@ -75,29 +75,21 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
 
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
-    inner: Vec<ASTNode<TopLevelElement<Type>>>,
+    inner: Vec<ASTNode<Function<Type>>>,
 }
 
 impl<Type: ASTType> AST<Type> {
-    pub fn new(inner: Vec<ASTNode<TopLevelElement<Type>>>) -> Self {
+    pub fn new(inner: Vec<ASTNode<Function<Type>>>) -> Self {
         Self { inner }
     }
 
     pub fn functions(&self) -> impl Iterator<Item = &Function<Type>> {
-        #[allow(irrefutable_let_patterns)]
-        // This only temporarily matches for everything, more TopLevelElements to come
-        self.inner.iter().filter_map(|element| {
-            if let TopLevelElement::Function(func) = element.deref() {
-                Some(func)
-            } else {
-                None
-            }
-        })
+        self.inner.iter().map(|element| &element.inner)
     }
 }
 
 impl<Type: ASTType> Deref for AST<Type> {
-    type Target = [ASTNode<TopLevelElement<Type>>];
+    type Target = [ASTNode<Function<Type>>];
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -219,7 +211,7 @@ mod tests {
     };
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
     use crate::test_shared::{basic_test_variable, sample_codearea};
-    use crate::top_level::{Function, TopLevelElement};
+    use crate::top_level::Function;
     use crate::traversal::function_traversal::FunctionTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
@@ -247,7 +239,7 @@ mod tests {
         );
 
         let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(function),
+            function,
             sample_codearea(),
         )]);
 
@@ -313,7 +305,7 @@ mod tests {
         );
 
         let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(function),
+            function,
             sample_codearea(),
         )]);
 
@@ -422,7 +414,7 @@ mod tests {
         fibonacci: &Rc<FunctionSymbol<TypedAST>>,
     ) -> AST<TypedAST> {
         AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(Function::new(
+            Function::new(
                 fibonacci.clone(),
                 ASTNode::new(
                     Statement::Codeblock(CodeBlock::new(vec![
@@ -579,7 +571,7 @@ mod tests {
                     ])),
                     sample_codearea(),
                 ),
-            )),
+            ),
             sample_codearea(),
         )])
     }
@@ -607,7 +599,7 @@ mod tests {
             vec![nth.clone()],
         ));
         let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(Function::new(
+            Function::new(
                 fibonacci.clone(),
                 ASTNode::new(
                     Statement::Codeblock(CodeBlock::new(vec![
@@ -755,7 +747,7 @@ mod tests {
                     ])),
                     sample_codearea(),
                 ),
-            )),
+            ),
             sample_codearea(),
         )]);
 

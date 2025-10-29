@@ -4,22 +4,6 @@ use crate::{ASTNode, ASTType, SemanticEquality};
 use std::fmt::Debug;
 use std::rc::Rc;
 
-/** This is an arbitiary top-level construct
-For now, there are only functions
-*/
-#[derive(Debug, PartialEq)]
-pub enum TopLevelElement<Type: ASTType> {
-    Function(Function<Type>),
-}
-
-impl<Type: ASTType> SemanticEquality for TopLevelElement<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        let TopLevelElement::Function(self_function) = self;
-        let TopLevelElement::Function(other_function) = other;
-        self_function.semantic_equals(other_function)
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
