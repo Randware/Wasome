@@ -10,6 +10,11 @@ use std::rc::Rc;
 /** This struct helps with traversing the AST
 It keeps a reference to the ast and a function.
 This allows it to be used to keep track of all symbols available in a function
+
+| Lifetime     | Purpose      |
+| ------------- | ------------- |
+| 'a | How long the traversal helper may life |
+| 'b | How long the underlying data may life |
 */
 #[derive(Debug)]
 pub struct FunctionTraversalHelper<'a, 'b, Type: ASTType> {
