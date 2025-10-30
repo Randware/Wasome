@@ -32,7 +32,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
 
     pub fn specific_function(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
         self.function_iterator()
-            .filter(|function| function.declaration().name() == name)
+            .filter(|function| function.inner().declaration().name() == name)
             .next()
     }
 
@@ -48,13 +48,5 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     pub fn resolve_import(&self, to_resolve: &Import) -> Option<Symbol<'a, Type>>
     {
         self.parent.resolve_import(to_resolve)
-    }
-}
-
-impl<'a, 'b, Type: ASTType> Deref for FileTraversalHelper<'a, 'b, Type> {
-    type Target = File<Type>;
-
-    fn deref(&self) -> &'b Self::Target {
-        self.inner
     }
 }

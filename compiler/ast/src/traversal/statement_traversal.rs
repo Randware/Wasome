@@ -37,6 +37,10 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
             root,
         }
     }
+    
+    pub fn inner(&self) -> &'b ASTNode<Statement<Type>> {
+        self.inner
+    }
 
     /** Creates a new StatementRef that is the child of the specified statementRef at the specified index
      */
@@ -133,14 +137,6 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Deref for StatementTraversalHelper<'a, 'b, Type> {
-    type Target = Statement<Type>;
-
-    fn deref(&self) -> &'b Self::Target {
-        self.inner
-    }
-}
-
 // Helper struct for getting a symbols defined at a current location
 struct DefaultSymbolTable<'a, 'b, Type: ASTType> {
     source: &'a StatementTraversalHelper<'a, 'b, Type>,
@@ -155,7 +151,7 @@ impl<'a, 'b, Type: ASTType> DefaultSymbolTable<'a, 'b, Type> {
     pub(crate) fn new_available_to_statement(
         source: &'a StatementTraversalHelper<'a, 'b, Type>,
     ) -> Option<Self> {
-        if source.root.implementation() == source.inner {
+        if source.root.inner().implementation() == source.inner() {
             return None;
         }
         Some(Self {

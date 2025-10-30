@@ -72,14 +72,6 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Deref for FunctionTraversalHelper<'a, 'b, Type> {
-    type Target = Function<Type>;
-
-    fn deref(&'_ self) -> &'b Self::Target {
-        self.inner()
-    }
-}
-
 struct FunctionSymbolTable<'b, Type: ASTType> {
     parameters: &'b [Rc<VariableSymbol<Type>>],
     parameter_index: usize,

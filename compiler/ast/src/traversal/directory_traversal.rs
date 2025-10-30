@@ -48,7 +48,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
 
     pub fn specific_subdirectory(&self, name: &str) -> Option<DirectoryTraversalHelper<'_, 'b, Type>> {
         self.subdirectories_iterator()
-            .filter(|subdir| subdir.name() == name)
+            .filter(|subdir| subdir.inner.name() == name)
             .next()
     }
     pub fn subdirectories_iterator<'c>(
@@ -68,7 +68,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
 
     pub fn specific_file(&self, name: &str) -> Option<FileTraversalHelper<'_, 'b, Type>> {
         self.files_iterator()
-            .filter(|file| file.name() == name)
+            .filter(|file| file.inner().name() == name)
             .next()
     }
 
@@ -102,13 +102,5 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     fn get_root(&self) -> &DirectoryTraversalHelper<'a, 'b, Type>
     {
         self.parent.as_ref().map(|parent| parent.get_root()).unwrap_or(self)
-    }
-}
-
-impl<'b, Type: ASTType> Deref for DirectoryTraversalHelper<'_, 'b, Type> {
-    type Target = Directory<Type>;
-
-    fn deref(&self) -> &'b Self::Target {
-        self.inner
     }
 }

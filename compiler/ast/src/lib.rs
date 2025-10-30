@@ -254,7 +254,7 @@ mod tests {
         let root = StatementTraversalHelper::new_root(&function_ref);
         let statement_ref = root.index(0);
         assert_eq!(
-            vec![Symbol::Function(function_ref.declaration())],
+            vec![Symbol::Function(function_ref.inner().declaration())],
             statement_ref
                 .symbols_available_at()
                 .unwrap()
@@ -331,7 +331,7 @@ mod tests {
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&symbol),
-            Symbol::Function(function_ref.declaration()),
+            Symbol::Function(function_ref.inner().declaration()),
         ];
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
@@ -342,7 +342,7 @@ mod tests {
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&symbol),
-            Symbol::Function(function_ref.declaration()),
+            Symbol::Function(function_ref.inner().declaration()),
             Symbol::Variable(&symbol2),
         ];
         assert_eq!(actual.len(), expected.len());
