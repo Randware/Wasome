@@ -72,13 +72,14 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     }
 }
 
-struct FunctionSymbolTable<'b, Type: ASTType> {
+struct FunctionSymbolTable<'a, 'b, Type: ASTType> {
+    file_level_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
     parameters: &'b [Rc<VariableSymbol<Type>>],
     parameter_index: usize,
     functions_declarations: Box<dyn Iterator<Item = &'b FunctionSymbol<Type>> + 'b>,
 }
 
-impl<Type: ASTType> Debug for FunctionSymbolTable<'_, Type> {
+impl<Type: ASTType> Debug for FunctionSymbolTable<'_, '_, Type> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FunctionSymbolTable")
             .field("parameters", &self.parameters)
@@ -88,9 +89,10 @@ impl<Type: ASTType> Debug for FunctionSymbolTable<'_, Type> {
     }
 }
 
-impl<'b, Type: ASTType> FunctionSymbolTable<'b, Type> {
-    fn new(source: &FunctionTraversalHelper<'_, 'b, Type>) -> Self {
+impl<'a, 'b, Type: ASTType> FunctionSymbolTable<'a, 'b, Type> {
+    fn new(source: &FunctionTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
+            file_level_symbols: Box::new(source.root().symbols()),
             parameters: source.inner().declaration().params(),
             parameter_index: 0,
             functions_declarations: Box::new(
@@ -105,17 +107,18 @@ impl<'b, Type: ASTType> FunctionSymbolTable<'b, Type> {
     }
 }
 
-impl<'a, Type: ASTType> Iterator for FunctionSymbolTable<'a, Type> {
-    type Item = Symbol<'a, Type>;
+impl<'a, 'b, Type: ASTType> Iterator for FunctionSymbolTable<'a, 'b, Type> {
+    type Item = Symbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {
+
         next_item_from_slice(self.parameters, &mut self.parameter_index)
             .map(|val| Symbol::Variable(val))
             .or_else(|| {
                 self.functions_declarations
                     .next()
                     .map(|val| Symbol::Function(val))
-            })
+            }).or_else(|| self.file_level_symbols.next())
     }
 }
 
@@ -128,4 +131,4 @@ fn next_item_from_slice<'a, T>(slice: &'a [T], index: &mut usize) -> Option<&'a 
     item
 }
 
-impl<'a, Type: ASTType> SymbolTable<'a, Type> for FunctionSymbolTable<'a, Type> {}
+impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for FunctionSymbolTable<'a, 'b, Type> {}
