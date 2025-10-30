@@ -1,15 +1,17 @@
 //! This is the Abstract syntax tree, the interface between the parser and the codegen
-//! It consists of three "levels", from highest to lowest:
-//! 1. Functions
-//! 2. Statements
-//! 3. Expressions
+//! It consists of five "levels", from highest to lowest:
+//! 1. Directories
+//! 2. Files
+//! 3. Functions
+//! 4. Statements
+//! 5. Expressions
 //!
 //! Each level can contain instances of the level below it and its own level.
 //!
-//! In addition to these main types, there are also two traversial helpers:
-//! FunctionRef and StatementRef
-//! They both contain references to an instance of Function or Statement and allow to list all
-//! symbols available to a function/statement.
+//! In addition to these main types, there are also four traversial helpers:
+//! DirectoryTraversalHelper, FileTraversalHelper, FunctionTraversalHelper, StatementTraversalHelper
+//! They both contain references to an instance of Directory, File, Function or Statement and allow to list all
+//! symbols available to it.
 //!
 //! For more information on how to use this, refer to the tests in this file.
 //! Note that unlike in the tests, ASTs are not supposed to be hardcoded
