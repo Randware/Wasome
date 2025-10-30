@@ -208,19 +208,24 @@ impl ASTType for UntypedAST {
 
 #[cfg(test)]
 mod tests {
-    use crate::block::CodeBlock;
+    use crate::block::{CodeBlock, FunctionBlock};
     use crate::data_type::DataType;
+    use crate::directory::Directory;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
+    use crate::file::File;
     use crate::statement::{
         ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
     };
-    use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
+    use crate::symbol::{FunctionCall, FunctionSymbol, Symbol, VariableSymbol};
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
-    use crate::top_level::Function;
+    use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::function_traversal::FunctionTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
+    use shared::code_file::CodeFile;
+    use shared::code_reference::{CodeArea, CodeLocation};
+    use std::path::PathBuf;
     use std::rc::Rc;
 
     #[test]
@@ -780,6 +785,173 @@ mod tests {
         ];
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
+    }
+
+    #[test]
+    fn multifile_ast_imports_should_work() {
+        let main_fn_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            "main".to_string(),
+            None,
+            Vec::new(),
+        ));
+        let lhs_var = Rc::new(VariableSymbol::new("lhs".to_string(), DataType::S32));
+        let rhs_var = Rc::new(VariableSymbol::new("rhs".to_string(), DataType::S32));
+        let add_fn_symbol = Rc::new(FunctionSymbol::new(
+            "add".to_string(),
+            Some(DataType::S32),
+            vec![lhs_var.clone(), rhs_var.clone()],
+        ));
+        let add_function = ASTNode::new(
+            Function::new(
+                add_fn_symbol.clone(),
+                ASTNode::new(
+                    Statement::Return(Return::new(Some(ASTNode::new(
+                        Expression::BinaryOp(Box::new(
+                            BinaryOp::<TypedAST>::new(
+                                BinaryOpType::Addition,
+                                ASTNode::new(
+                                    Expression::Variable(lhs_var.clone()),
+                                    CodeArea::new(
+                                        CodeLocation::new(2, 1),
+                                        CodeLocation::new(2, 4),
+                                        CodeFile::new(PathBuf::from("add.waso")),
+                                    )
+                                    .unwrap(),
+                                ),
+                                ASTNode::new(
+                                    Expression::Variable(rhs_var.clone()),
+                                    CodeArea::new(
+                                        CodeLocation::new(2, 5),
+                                        CodeLocation::new(2, 8),
+                                        CodeFile::new(PathBuf::from("add.waso")),
+                                    )
+                                    .unwrap(),
+                                ),
+                            )
+                            .unwrap(),
+                        )),
+                        CodeArea::new(
+                            CodeLocation::new(2, 1),
+                            CodeLocation::new(2, 8),
+                            CodeFile::new(PathBuf::from("add.waso")),
+                        )
+                        .unwrap(),
+                    )))),
+                    CodeArea::new(
+                        CodeLocation::new(1, 0),
+                        CodeLocation::new(3, 1),
+                        CodeFile::new(PathBuf::from("add.waso")),
+                    )
+                    .unwrap(),
+                ),
+            ),
+            CodeArea::new(
+                CodeLocation::new(0, 0),
+                CodeLocation::new(3, 1),
+                CodeFile::new(PathBuf::from("add.waso")),
+            )
+            .unwrap(),
+        );
+        let add_file = File::new(
+            "add".to_string(),
+            Vec::new(),
+            FunctionBlock::new(vec![add_function]),
+        );
+
+        let main_function = ASTNode::new(
+            Function::new(
+                main_fn_symbol.clone(),
+                ASTNode::new(
+                    Statement::Expression(ASTNode::new(
+                        Expression::FunctionCall(
+                            FunctionCall::<TypedAST>::new(
+                                add_fn_symbol.clone(),
+                                vec![
+                                    ASTNode::new(
+                                        Expression::Literal(Literal::S32(1)),
+                                        CodeArea::new(
+                                            CodeLocation::new(3, 5),
+                                            CodeLocation::new(3, 6),
+                                            CodeFile::new(PathBuf::from("main.waso")),
+                                        )
+                                        .unwrap(),
+                                    ),
+                                    ASTNode::new(
+                                        Expression::Literal(Literal::S32(1)),
+                                        CodeArea::new(
+                                            CodeLocation::new(3, 8),
+                                            CodeLocation::new(3, 9),
+                                            CodeFile::new(PathBuf::from("main.waso")),
+                                        )
+                                        .unwrap(),
+                                    ),
+                                ],
+                            )
+                            .unwrap(),
+                        ),
+                        CodeArea::new(
+                            CodeLocation::new(3, 1),
+                            CodeLocation::new(3, 10),
+                            CodeFile::new(PathBuf::from("main.waso")),
+                        )
+                        .unwrap(),
+                    )),
+                    CodeArea::new(
+                        CodeLocation::new(2, 0),
+                        CodeLocation::new(4, 1),
+                        CodeFile::new(PathBuf::from("main.waso")),
+                    )
+                    .unwrap(),
+                ),
+            ),
+            CodeArea::new(
+                CodeLocation::new(1, 0),
+                CodeLocation::new(4, 1),
+                CodeFile::new(PathBuf::from("main.waso")),
+            )
+            .unwrap(),
+        );
+        let main_file = File::new(
+            "main".to_string(),
+            vec![ASTNode::new(
+                Import::new(
+                    ImportRoot::ProjectRoot,
+                    vec!["add".to_string(), "add".to_string()],
+                ),
+                CodeArea::new(
+                    CodeLocation::new(0, 0),
+                    CodeLocation::new(0, 15),
+                    CodeFile::new(PathBuf::from("main.waso")),
+                )
+                .unwrap(),
+            )],
+            FunctionBlock::new(vec![main_function]),
+        );
+
+        let ast = AST::new(ASTNode::new(
+            Directory::new(
+                "src".to_string(),
+                Vec::new(),
+                vec![
+                    ASTNode::new(main_file, PathBuf::from("main")),
+                    ASTNode::new(add_file, PathBuf::from("add")),
+                ],
+            ),
+            PathBuf::from("src"),
+        ));
+
+        let dth = DirectoryTraversalHelper::new_from_ast(&ast);
+        let fth = dth.specific_file("main").unwrap();
+        assert_eq!(
+            vec![Symbol::Function(&add_fn_symbol)],
+            fth.symbols().collect::<Vec<_>>()
+        );
+        assert_eq!(0, dth.len_subdirectories());
+        assert_eq!(2, dth.len_files());
+        assert_eq!(0, dth.subdirectories_iterator().count());
+        assert_eq!(2, dth.files_iterator().count());
+        assert_ne!(dth.index_file(0).inner(), dth.index_file(1).inner());
+        assert_eq!(2, dth.inner().files().len())
     }
 }
 

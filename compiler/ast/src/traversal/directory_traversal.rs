@@ -24,7 +24,7 @@ pub struct DirectoryTraversalHelper<'a, 'b, Type: ASTType> {
 
 impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     /** Creates a new DirectoryTraversalHelper that is the child of another
-    */
+     */
     fn new_child(
         inner: &'b ASTNode<Directory<Type>, PathBuf>,
         parent: &'a DirectoryTraversalHelper<'a, 'b, Type>,
@@ -36,7 +36,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     }
 
     /** Creates a new DirectoryTraversalHelper that is the root (has no parent)
-    */
+     */
     pub fn new_root(inner: &'b ASTNode<Directory<Type>, PathBuf>) -> Self {
         Self {
             inner,
@@ -52,7 +52,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     }
 
     /** Gets the inner directory
-    */
+     */
     pub fn inner(&self) -> &'b ASTNode<Directory<Type>, PathBuf> {
         self.inner
     }
@@ -79,7 +79,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .find(|subdir| subdir.inner.name() == name)
     }
     /** Gets an iterator over all subdirectories
-    */
+     */
     pub fn subdirectories_iterator<'c>(
         &'c self,
     ) -> impl Iterator<Item = DirectoryTraversalHelper<'c, 'b, Type>> + 'c {
@@ -89,13 +89,13 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .map(move |subdirectory| DirectoryTraversalHelper::new_child(subdirectory, self))
     }
     /** Gets the number of contained files
-    */
+     */
     pub fn len_files(&self) -> usize {
         self.inner.files().len()
     }
     /** Gets the file at a specific index
     ### Panics
-       Panics if ```index > self.len_files()```
+    Panics if `index > self.len_files()`
     */
     pub fn index_file(&self, index: usize) -> FileTraversalHelper<'_, 'b, Type> {
         FileTraversalHelper::new(&self.inner.files()[index], self)
@@ -108,7 +108,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .find(|file| file.inner().name() == name)
     }
     /** Gets an iterator over all files
-    */
+     */
     pub fn files_iterator<'c>(
         &'c self,
     ) -> impl Iterator<Item = FileTraversalHelper<'c, 'b, Type>> + 'c {

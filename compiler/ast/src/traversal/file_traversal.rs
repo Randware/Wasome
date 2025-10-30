@@ -24,7 +24,7 @@ pub struct FileTraversalHelper<'a, 'b, Type: ASTType> {
 
 impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /** Creates a new instance of self
-    */
+     */
     pub(crate) fn new(
         inner: &'b ASTNode<File<Type>, PathBuf>,
         parent: &'a DirectoryTraversalHelper<'a, 'b, Type>,
@@ -32,25 +32,25 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
         Self { inner, parent }
     }
     /** Gets the inner file
-    */
+     */
     pub fn inner(&self) -> &'b ASTNode<File<Type>, PathBuf> {
         self.inner
     }
     /** Gets the length of functions that self contains
-    */
+     */
     pub fn len_functions(&self) -> usize {
         self.inner.functions().len()
     }
     /** Gets the function at index
     ### Panics
-       Panics if ```index > self.len_functions()```
+    Panics if `index > self.len_functions()`
     */
     pub fn index_function(&self, index: usize) -> FunctionTraversalHelper<'_, 'b, Type> {
         FunctionTraversalHelper::new(&self.inner.functions()[index], self)
     }
     /** Gets the function with the specified name
-       Returns None if it doesn't exist
-     */
+      Returns None if it doesn't exist
+    */
     pub fn specific_function(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
         self.function_iterator()
             .find(|function| function.inner().declaration().name() == name)
@@ -66,13 +66,13 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
             .map(|function| FunctionTraversalHelper::new(function, self))
     }
     /** Gets the symbol imported by a specific import
-       Returns None if it doesn't exist
-     */
+      Returns None if it doesn't exist
+    */
     pub fn resolve_import(&self, to_resolve: &Import) -> Option<Symbol<'b, Type>> {
         self.parent.resolve_import(to_resolve)
     }
     /** Gets all symbols defined in self
-    */
+     */
     pub fn symbols(&self) -> impl SymbolTable<'b, Type> {
         FileSymbolTable::new_file_traversal_helper(self)
     }
