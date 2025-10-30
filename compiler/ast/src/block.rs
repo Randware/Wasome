@@ -1,22 +1,21 @@
-use std::fmt::Debug;
 use crate::statement::Statement;
-use crate::{ASTNode, ASTType, SemanticEquality};
-use std::ops::Deref;
 use crate::top_level::Function;
+use crate::{ASTNode, ASTType, SemanticEquality};
+use std::fmt::Debug;
+use std::ops::Deref;
 
 #[derive(Debug, PartialEq)]
-pub struct SingleContentBlock<Content: Debug+PartialEq>
-{
-    contents: Vec<ASTNode<Content>>
+pub struct SingleContentBlock<Content: Debug + PartialEq> {
+    contents: Vec<ASTNode<Content>>,
 }
 
-impl<Content: Debug+PartialEq> SingleContentBlock<Content> {
+impl<Content: Debug + PartialEq> SingleContentBlock<Content> {
     pub fn new(contents: Vec<ASTNode<Content>>) -> Self {
         Self { contents }
     }
 }
 
-impl<Content: Debug+PartialEq> Deref for SingleContentBlock<Content> {
+impl<Content: Debug + PartialEq> Deref for SingleContentBlock<Content> {
     type Target = [ASTNode<Content>];
 
     fn deref(&self) -> &Self::Target {
@@ -24,7 +23,9 @@ impl<Content: Debug+PartialEq> Deref for SingleContentBlock<Content> {
     }
 }
 
-impl<Content: Debug+PartialEq+SemanticEquality> SemanticEquality for SingleContentBlock<Content> {
+impl<Content: Debug + PartialEq + SemanticEquality> SemanticEquality
+    for SingleContentBlock<Content>
+{
     fn semantic_equals(&self, other: &Self) -> bool {
         self.contents.semantic_equals(&other.contents)
     }

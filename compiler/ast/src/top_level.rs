@@ -49,13 +49,19 @@ This has no semantic meaning and is only there to not lose any information
 #[derive(Debug, PartialEq)]
 pub struct Import {
     root: ImportRoot,
-    path: Vec<String> // Maybe OSString TODO
+    path: Vec<String>, // Maybe OSString TODO
+}
+
+impl SemanticEquality for Import {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        // Semantic equality is equal to regular equality
+        self == other
+    }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ImportRoot
-{
+pub enum ImportRoot {
     CurrentDirectory,
     ProjectRoot,
-    StdLib
+    StdLib,
 }

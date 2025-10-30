@@ -1,8 +1,9 @@
 use crate::statement::Statement;
-use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
+use crate::symbol::{FunctionSymbol, Symbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
+use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::statement_traversal::{StatementLocation, StatementTraversalHelper};
-use crate::{AST, ASTType};
+use crate::{AST, ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -14,21 +15,27 @@ This allows it to be used to keep track of all symbols available in a function
 #[derive(Debug)]
 pub struct FunctionTraversalHelper<'a, Type: ASTType> {
     // The referenced function
-    inner: &'a Function<Type>,
-    root: &'a AST<Type>,
+    inner: &'a ASTNode<Function<Type>>,
+    parent: &'a FileTraversalHelper<'a, Type>,
 }
 
 impl<'a, Type: ASTType> FunctionTraversalHelper<'a, Type> {
-    pub fn new(inner: &'a Function<Type>, root: &'a AST<Type>) -> Self {
-        Self { inner, root }
+    pub fn new(
+        inner: &'a ASTNode<Function<Type>>,
+        root: &'a FileTraversalHelper<'a, Type>,
+    ) -> Self {
+        Self {
+            inner,
+            parent: root,
+        }
     }
 
     pub fn inner(&self) -> &'a Function<Type> {
         self.inner
     }
 
-    pub fn root(&self) -> &'a AST<Type> {
-        self.root
+    pub fn root(&self) -> &'a FileTraversalHelper<'_, Type> {
+        self.parent
     }
 
     /** Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
@@ -75,7 +82,7 @@ impl<'a, Type: ASTType> Deref for FunctionTraversalHelper<'a, Type> {
 struct FunctionSymbolTable<'a, Type: ASTType> {
     parameters: &'a [Rc<VariableSymbol<Type>>],
     parameter_index: usize,
-    functions: Box<dyn Iterator<Item = &'a Function<Type>> + 'a>,
+    functions_declarations: Box<dyn Iterator<Item = &'a FunctionSymbol<Type>> + 'a>,
 }
 
 impl<Type: ASTType> Debug for FunctionSymbolTable<'_, Type> {
@@ -93,7 +100,14 @@ impl<'a, Type: ASTType> FunctionSymbolTable<'a, Type> {
         Self {
             parameters: source.inner().declaration().params(),
             parameter_index: 0,
-            functions: Box::new(source.root.functions()),
+            functions_declarations: Box::new(
+                source
+                    .parent
+                    .inner()
+                    .functions()
+                    .iter()
+                    .map(|function| function.declaration()),
+            ),
         }
     }
 }
@@ -105,9 +119,9 @@ impl<'a, Type: ASTType> Iterator for FunctionSymbolTable<'a, Type> {
         next_item_from_slice(self.parameters, &mut self.parameter_index)
             .map(|val| Symbol::Variable(val))
             .or_else(|| {
-                self.functions
+                self.functions_declarations
                     .next()
-                    .map(|val| Symbol::Function(val.declaration()))
+                    .map(|val| Symbol::Function(val))
             })
     }
 }

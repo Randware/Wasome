@@ -15,6 +15,7 @@
 //! Note that unlike in the tests, ASTs are not supposed to be hardcoded
 
 use crate::data_type::DataType;
+use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
@@ -23,18 +24,19 @@ use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 pub mod block;
 pub mod data_type;
+pub mod directory;
 pub mod expression;
+pub mod file;
 pub mod id;
 pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
-pub mod file;
-pub mod directory;
 
 /** Comparing semantics only.
 
@@ -74,23 +76,27 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
     }
 }
 
+impl SemanticEquality for String {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+// TODO
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
-    inner: Vec<ASTNode<Function<Type>>>,
+    // The root directory (e.g.: src)
+    inner: ASTNode<Directory<Type>, PathBuf>,
 }
 
 impl<Type: ASTType> AST<Type> {
-    pub fn new(inner: Vec<ASTNode<Function<Type>>>) -> Self {
+    pub fn new(inner: ASTNode<Directory<Type>, PathBuf>) -> Self {
         Self { inner }
-    }
-
-    pub fn functions(&self) -> impl Iterator<Item = &Function<Type>> {
-        self.inner.iter().map(|element| &element.inner)
     }
 }
 
 impl<Type: ASTType> Deref for AST<Type> {
-    type Target = [ASTNode<Function<Type>>];
+    type Target = ASTNode<Directory<Type>, PathBuf>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -106,7 +112,7 @@ impl<Type: ASTType> SemanticEquality for AST<Type> {
 /** This represents an AST Type and its location. Which type of AST node this is depends on its first
 generic. The second generic decides what is used to store positional information.
 # Equality
-Two different ExpressionNodes are never equal.
+Two different ASTNodes are never equal.
 Use semantic_equals from [`SemanticEquality`] to check semantics only
 */
 
@@ -151,8 +157,7 @@ impl<T: SemanticEquality + Debug + PartialEq, Position> SemanticEquality for AST
     }
 }
 
-impl<T: Debug + PartialEq> Hash for ASTNode<T>
-{
+impl<T: Debug + PartialEq> Hash for ASTNode<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
@@ -181,7 +186,7 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type GeneralDataType: Eq + PartialEq + Debug + Clone;
     type FunctionCallSymbol: Debug + PartialEq;
     type VariableUse: Debug + PartialEq;
-    type ImportType: Debug + PartialEq;
+    type ImportType: Debug + PartialEq + SemanticEquality;
 }
 
 /** This is an ast type
@@ -222,8 +227,9 @@ mod tests {
         ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
     };
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
-    use crate::test_shared::{basic_test_variable, sample_codearea};
+    use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::Function;
+    use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::function_traversal::FunctionTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
@@ -250,12 +256,11 @@ mod tests {
             ),
         );
 
-        let ast = AST::new(vec![ASTNode::new(
-            function,
-            sample_codearea(),
-        )]);
+        let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
 
-        let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+        let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_traversal_helper = root_traversal_helper.specific_file("main.waso").unwrap();
+        let function_ref = file_traversal_helper.specific_function("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let statement_ref = root.index(0);
@@ -316,12 +321,11 @@ mod tests {
             statement,
         );
 
-        let ast = AST::new(vec![ASTNode::new(
-            function,
-            sample_codearea(),
-        )]);
+        let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
 
-        let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+        let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_traversal_helper = root_traversal_helper.specific_file("main.waso").unwrap();
+        let function_ref = file_traversal_helper.specific_function("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let loop_statement = root.index(1);
@@ -363,7 +367,11 @@ mod tests {
         let (nth, current, previous, temp, fibonacci) = create_fibonacci_typed_symbols();
         let ast = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
 
-        let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+        let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_traversal_helper = root_traversal_helper.specific_file("main.waso").unwrap();
+        let function_ref = file_traversal_helper
+            .specific_function("fibonacci")
+            .unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.index(3);
@@ -413,7 +421,7 @@ mod tests {
         assert!(ast1.semantic_equals(&ast1));
         assert!(ast2.semantic_equals(&ast2));
 
-        let empty = AST::new(Vec::new());
+        let empty = functions_into_ast(Vec::new());
         assert!(!ast1.semantic_equals(&empty));
         assert!(!empty.semantic_equals(&ast1));
     }
@@ -425,7 +433,7 @@ mod tests {
         temp: &Rc<VariableSymbol<TypedAST>>,
         fibonacci: &Rc<FunctionSymbol<TypedAST>>,
     ) -> AST<TypedAST> {
-        AST::new(vec![ASTNode::new(
+        functions_into_ast(vec![ASTNode::new(
             Function::new(
                 fibonacci.clone(),
                 ASTNode::new(
@@ -610,7 +618,7 @@ mod tests {
             Some("s32".to_string()),
             vec![nth.clone()],
         ));
-        let ast = AST::new(vec![ASTNode::new(
+        let ast = functions_into_ast(vec![ASTNode::new(
             Function::new(
                 fibonacci.clone(),
                 ASTNode::new(
@@ -763,7 +771,11 @@ mod tests {
             sample_codearea(),
         )]);
 
-        let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+        let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_traversal_helper = root_traversal_helper.specific_file("main.waso").unwrap();
+        let function_ref = file_traversal_helper
+            .specific_function("fibonacci")
+            .unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.index(3);
@@ -786,10 +798,14 @@ mod tests {
 #[cfg(test)]
 // Stuff that is needed in tests in the entire crate
 pub(crate) mod test_shared {
+    use crate::block::FunctionBlock;
+    use crate::directory::Directory;
     use crate::expression::{Expression, Literal};
+    use crate::file::File;
     use crate::statement::VariableAssignment;
     use crate::symbol::VariableSymbol;
-    use crate::{ASTNode, TypedAST};
+    use crate::top_level::Function;
+    use crate::{AST, ASTNode, ASTType, TypedAST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
@@ -811,5 +827,29 @@ pub(crate) mod test_shared {
             symbol,
             ASTNode::new(Expression::Literal(Literal::F32(14.0)), sample_codearea()),
         )
+    }
+
+    pub(crate) fn functions_into_ast<Type: ASTType>(
+        functions: Vec<ASTNode<Function<Type>>>,
+    ) -> AST<Type> {
+        let mut src_path = PathBuf::new();
+        src_path.push("src");
+        let mut main_path = src_path.clone();
+        main_path.push("main.waso");
+        AST::new(ASTNode::new(
+            Directory::new(
+                "src".to_string(),
+                Vec::new(),
+                vec![ASTNode::new(
+                    File::new(
+                        "main.waso".to_string(),
+                        Vec::new(),
+                        FunctionBlock::new(functions),
+                    ),
+                    main_path,
+                )],
+            ),
+            src_path,
+        ))
     }
 }
