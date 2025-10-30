@@ -70,7 +70,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
        None if self is the root statement
     */
     pub fn symbols_available_at<'c>(&'c self) -> Option<impl SymbolTable<'b, Type> + 'c> {
-        DefaultSymbolTable::new_available_to_statement(self)
+        StatementSymbolTable::new_available_to_statement(self)
     }
 
     /** Creates a symbol table that iterates over all symbols available after the current statement
@@ -80,7 +80,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
        None if self is the root statement
     */
     pub fn symbols_available_after(&self) -> Option<impl SymbolTable<'b, Type>> {
-        DefaultSymbolTable::new_available_after_statement(self)
+        StatementSymbolTable::new_available_after_statement(self)
     }
 
     /** Gets a vec of all symbols declared in a direct child of self where the index
@@ -138,7 +138,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
 }
 
 // Helper struct for getting a symbols defined at a current location
-struct DefaultSymbolTable<'a, 'b, Type: ASTType> {
+struct StatementSymbolTable<'a, 'b, Type: ASTType> {
     source: &'a StatementTraversalHelper<'a, 'b, Type>,
     current: &'b Statement<Type>,
     current_location: Option<&'a StatementLocation<'a>>,
@@ -147,7 +147,7 @@ struct DefaultSymbolTable<'a, 'b, Type: ASTType> {
     root_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
 }
 
-impl<'a, 'b, Type: ASTType> DefaultSymbolTable<'a, 'b, Type> {
+impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     pub(crate) fn new_available_to_statement(
         source: &'a StatementTraversalHelper<'a, 'b, Type>,
     ) -> Option<Self> {
@@ -173,7 +173,7 @@ impl<'a, 'b, Type: ASTType> DefaultSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> DefaultSymbolTable<'a, 'b, Type> {
+impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     fn next_variable_symbol(&mut self) -> Option<Symbol<'b, Type>> {
         while self.prev_index > 0 {
             self.prev_index -= 1;
@@ -201,7 +201,7 @@ impl<'a, 'b, Type: ASTType> DefaultSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Iterator for DefaultSymbolTable<'a, 'b, Type> {
+impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
     type Item = Symbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -210,7 +210,7 @@ impl<'a, 'b, Type: ASTType> Iterator for DefaultSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for DefaultSymbolTable<'a, 'b, Type> {}
+impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for StatementSymbolTable<'a, 'b, Type> {}
 
 // Linked list representing the path from the root to the current statement
 // The first step is at the end of the list
