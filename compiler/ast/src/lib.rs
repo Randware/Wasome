@@ -76,6 +76,12 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
     }
 }
 
+/** An AST
+## Type
+The type decides if it will be untyped or typed
+## Root
+The root-level element is supposed to be the directory containing the source code (e.g.: src)
+*/
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
     // The root directory (e.g.: src)

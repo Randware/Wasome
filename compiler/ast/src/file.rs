@@ -36,20 +36,28 @@ impl<Type: ASTType> File<Type> {
         &self.functions
     }
 
+    /** Gets the symbol with the specified name
+    */
     pub fn symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
         self.symbol_specified_origin(name, false)
 
     }
 
-    pub fn symbol_visible_outside(&self, name: &str) -> Option<Symbol<'_, Type>> {
+    /** Gets the symbol with the specified name if it is public
+    */
+    pub fn symbol_public(&self, name: &str) -> Option<Symbol<'_, Type>> {
         self.symbol_specified_origin(name, true)
     }
 
+    /** Gets the symbol with the specified name if it is public or outside is false
+    */
     fn symbol_specified_origin(&self, name: &str, outside: bool) -> Option<Symbol<'_, Type>> {
-        self.function_symbol_outside(name, outside)
+        self.function_symbol(name, outside)
             .map(|function_symbol| Symbol::Function(function_symbol))
     }
-    
+
+    /** Gets the function with the specified name
+    */
     pub fn specific_function(&self, name: &str) -> Option<&ASTNode<Function<Type>>>
     {
         self.functions()
@@ -57,9 +65,11 @@ impl<Type: ASTType> File<Type> {
             .filter(|function| function.declaration().name() == name).next()
     }
 
-    fn function_symbol_outside(&self, name: &str, only_outside: bool) -> Option<&FunctionSymbol<Type>>
+    /** Gets the function with the specified name if it is public or only_public is false
+    */
+    fn function_symbol(&self, name: &str, only_public: bool) -> Option<&FunctionSymbol<Type>>
     {
-        self.specific_function(name).filter(|function| !only_outside || function.visibility() == Visibility::Public).map(|function| function.declaration())
+        self.specific_function(name).filter(|function| !only_public || function.visibility() == Visibility::Public).map(|function| function.declaration())
 
     }
 }

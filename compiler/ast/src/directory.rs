@@ -2,6 +2,8 @@ use crate::file::File;
 use crate::{ASTNode, ASTType, SemanticEquality};
 use std::path::PathBuf;
 
+/** A directory containing files and other directories
+*/
 #[derive(Debug, PartialEq)]
 pub struct Directory<Type: ASTType> {
     name: String,

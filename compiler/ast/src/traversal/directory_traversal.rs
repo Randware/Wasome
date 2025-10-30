@@ -134,7 +134,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             2 => self
                 .specific_file(&path[0])?
                 .inner()
-                .symbol_visible_outside(&path[1]),
+                .symbol_public(&path[1]),
             len => self
                 .specific_subdirectory(&path[0])?
                 .get_symbol_for_path(&path[1..len]),
