@@ -118,7 +118,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .map(|file| FileTraversalHelper::new(file, self))
     }
     /** Gets the symbol imported by a specific import
-    Returns None if it doesn't exist
+    Returns None if it doesn't exist or is not visible
     */
     pub(crate) fn resolve_import(&self, to_resolve: &Import) -> Option<Symbol<'b, Type>> {
         let root = match to_resolve.root() {
@@ -134,7 +134,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             2 => self
                 .specific_file(&path[0])?
                 .inner()
-                .get_top_level_symbol(&path[1]),
+                .symbol_visible_outside(&path[1]),
             len => self
                 .specific_subdirectory(&path[0])?
                 .get_symbol_for_path(&path[1..len]),

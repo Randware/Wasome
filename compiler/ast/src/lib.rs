@@ -36,6 +36,7 @@ pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
+mod visibility;
 
 /** Comparing semantics only.
 
@@ -226,6 +227,7 @@ mod tests {
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
     use std::rc::Rc;
+    use crate::visibility::Visibility;
 
     #[test]
     fn ast() {
@@ -246,6 +248,7 @@ mod tests {
                 Statement::Codeblock(CodeBlock::new(vec![statement])),
                 sample_codearea(),
             ),
+            Visibility::Public
         );
 
         let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
@@ -311,6 +314,7 @@ mod tests {
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
             statement,
+            Visibility::Public
         );
 
         let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
@@ -583,6 +587,7 @@ mod tests {
                     ])),
                     sample_codearea(),
                 ),
+                Visibility::Public
             ),
             sample_codearea(),
         )])
@@ -759,6 +764,7 @@ mod tests {
                     ])),
                     sample_codearea(),
                 ),
+                Visibility::Public
             ),
             sample_codearea(),
         )]);
@@ -843,6 +849,7 @@ mod tests {
                     )
                     .unwrap(),
                 ),
+                Visibility::Public
             ),
             CodeArea::new(
                 CodeLocation::new(0, 0),
@@ -902,6 +909,7 @@ mod tests {
                     )
                     .unwrap(),
                 ),
+                Visibility::Public
             ),
             CodeArea::new(
                 CodeLocation::new(1, 0),

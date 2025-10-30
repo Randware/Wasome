@@ -3,21 +3,27 @@ use crate::symbol::FunctionSymbol;
 use crate::{ASTNode, ASTType, SemanticEquality};
 use std::fmt::Debug;
 use std::rc::Rc;
+use crate::visibility::{Visibility, Visible};
 
 #[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
     implementation: ASTNode<Statement<Type>>,
+    // The visibility is irrelevant when calling
+    // Therefore, it doesn't belong into FunctionSymbol and should be here
+    visibility: Visibility
 }
 
 impl<Type: ASTType> Function<Type> {
     pub fn new(
         declaration: Rc<FunctionSymbol<Type>>,
         implementation: ASTNode<Statement<Type>>,
+        visibility: Visibility
     ) -> Self {
         Self {
             declaration,
             implementation,
+            visibility
         }
     }
 
@@ -40,6 +46,13 @@ impl<Type: ASTType> SemanticEquality for Function<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
         self.declaration == other.declaration
             && self.implementation.semantic_equals(&other.implementation)
+    }
+}
+
+impl<Type: ASTType> Visible for Function<Type>
+{
+    fn visibility(&self) -> Visibility {
+        self.visibility
     }
 }
 

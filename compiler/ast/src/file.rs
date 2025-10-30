@@ -1,7 +1,8 @@
 use crate::block::FunctionBlock;
 use crate::symbol::{FunctionSymbol, Symbol};
-use crate::top_level::Import;
+use crate::top_level::{Function, Import};
 use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::visibility::{Visibility, Visible};
 
 #[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType> {
@@ -35,17 +36,31 @@ impl<Type: ASTType> File<Type> {
         &self.functions
     }
 
-    pub fn get_top_level_symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.get_function_symbol(name)
-            .map(|function_symbol| Symbol::Function(function_symbol))
+    pub fn symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
+        self.symbol_specified_origin(name, false)
+
     }
 
-    fn get_function_symbol(&self, name: &str) -> Option<&FunctionSymbol<Type>> {
+    pub fn symbol_visible_outside(&self, name: &str) -> Option<Symbol<'_, Type>> {
+        self.symbol_specified_origin(name, true)
+    }
+
+    fn symbol_specified_origin(&self, name: &str, outside: bool) -> Option<Symbol<'_, Type>> {
+        self.function_symbol_outside(name, outside)
+            .map(|function_symbol| Symbol::Function(function_symbol))
+    }
+    
+    pub fn specific_function(&self, name: &str) -> Option<&ASTNode<Function<Type>>>
+    {
         self.functions()
             .iter()
-            .filter(|function| function.declaration().name() == name)
-            .map(|function| function.declaration())
-            .next()
+            .filter(|function| function.declaration().name() == name).next()
+    }
+
+    fn function_symbol_outside(&self, name: &str, only_outside: bool) -> Option<&FunctionSymbol<Type>>
+    {
+        self.specific_function(name).filter(|function| !only_outside || function.visibility() == Visibility::Public).map(|function| function.declaration())
+
     }
 }
 
