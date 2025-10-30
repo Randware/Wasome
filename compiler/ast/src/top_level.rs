@@ -43,13 +43,27 @@ impl<Type: ASTType> SemanticEquality for Function<Type> {
     }
 }
 
-/** An import in a typed ast
-This has no semantic meaning and is only there to not lose any information
+/** An import
+In the typed AST, this has no semantic meaning and is only there to not lose any information
 */
 #[derive(Debug, PartialEq)]
 pub struct Import {
     root: ImportRoot,
     path: Vec<String>, // Maybe OSString TODO
+}
+
+impl Import {
+    pub fn new(root: ImportRoot, path: Vec<String>) -> Self {
+        Self { root, path }
+    }
+
+    pub fn root(&self) -> &ImportRoot {
+        &self.root
+    }
+
+    pub fn path(&self) -> &Vec<String> {
+        &self.path
+    }
 }
 
 impl SemanticEquality for Import {
@@ -63,5 +77,4 @@ impl SemanticEquality for Import {
 pub enum ImportRoot {
     CurrentDirectory,
     ProjectRoot,
-    StdLib,
 }

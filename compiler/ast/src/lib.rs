@@ -76,13 +76,6 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
     }
 }
 
-impl SemanticEquality for String {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-
-// TODO
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
     // The root directory (e.g.: src)
@@ -186,7 +179,6 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type GeneralDataType: Eq + PartialEq + Debug + Clone;
     type FunctionCallSymbol: Debug + PartialEq;
     type VariableUse: Debug + PartialEq;
-    type ImportType: Debug + PartialEq + SemanticEquality;
 }
 
 /** This is an ast type
@@ -200,7 +192,6 @@ impl ASTType for TypedAST {
     type GeneralDataType = DataType;
     type FunctionCallSymbol = Rc<FunctionSymbol<TypedAST>>;
     type VariableUse = Rc<VariableSymbol<TypedAST>>;
-    type ImportType = Import;
 }
 
 /** This is an ast type
@@ -214,8 +205,6 @@ impl ASTType for UntypedAST {
     type GeneralDataType = String;
     type FunctionCallSymbol = String;
     type VariableUse = String;
-    // The provided path in th import
-    type ImportType = String;
 }
 
 #[cfg(test)]
