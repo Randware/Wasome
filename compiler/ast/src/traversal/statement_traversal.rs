@@ -2,7 +2,7 @@ use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
-use std::ops::{Deref, Index};
+use std::ops::Index;
 
 /** This struct helps with traversing statements
 It keeps a reference to the root (function) and a statement.
@@ -37,7 +37,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
             root,
         }
     }
-    
+
     pub fn inner(&self) -> &'b ASTNode<Statement<Type>> {
         self.inner
     }
@@ -58,7 +58,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
 
     /** Indexes this with index
      */
-    pub fn index(&'a self, index: usize) -> StatementTraversalHelper<'_, 'b, Type> {
+    pub fn index(&'a self, index: usize) -> StatementTraversalHelper<'a, 'b, Type> {
         let indexed_statement = self.inner.index(index);
         Self::new_child(indexed_statement, self, index)
     }

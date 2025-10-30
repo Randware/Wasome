@@ -3,9 +3,8 @@ use crate::symbol::{FunctionSymbol, Symbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::statement_traversal::{StatementLocation, StatementTraversalHelper};
-use crate::{AST, ASTNode, ASTType};
+use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
-use std::ops::Deref;
 use std::rc::Rc;
 
 /** This struct helps with traversing the AST
@@ -40,7 +39,7 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
 
     /** Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
      */
-    pub fn symbols(&self) -> impl SymbolTable<'b, Type> +'a {
+    pub fn symbols(&self) -> impl SymbolTable<'b, Type> + 'a {
         FunctionSymbolTable::new(self)
     }
 
@@ -111,14 +110,14 @@ impl<'a, 'b, Type: ASTType> Iterator for FunctionSymbolTable<'a, 'b, Type> {
     type Item = Symbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {
-
         next_item_from_slice(self.parameters, &mut self.parameter_index)
             .map(|val| Symbol::Variable(val))
             .or_else(|| {
                 self.functions_declarations
                     .next()
                     .map(|val| Symbol::Function(val))
-            }).or_else(|| self.file_level_symbols.next())
+            })
+            .or_else(|| self.file_level_symbols.next())
     }
 }
 

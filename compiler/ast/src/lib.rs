@@ -19,7 +19,6 @@ use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
-use crate::top_level::{Function, Import};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

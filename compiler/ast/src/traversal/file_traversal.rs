@@ -1,11 +1,10 @@
 use crate::file::File;
-use crate::top_level::{Function, Import};
+use crate::symbol::{Symbol, SymbolTable};
+use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
-use crate::{AST, ASTNode, ASTType};
-use std::ops::Deref;
+use crate::{ASTNode, ASTType};
 use std::path::PathBuf;
-use crate::symbol::{Symbol, SymbolTable};
 
 #[derive(Debug)]
 pub struct FileTraversalHelper<'a, 'b, Type: ASTType> {
@@ -32,8 +31,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
 
     pub fn specific_function(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
         self.function_iterator()
-            .filter(|function| function.inner().declaration().name() == name)
-            .next()
+            .find(|function| function.inner().declaration().name() == name)
     }
 
     pub fn function_iterator<'c>(
@@ -45,33 +43,36 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
             .map(|function| FunctionTraversalHelper::new(function, self))
     }
 
-    pub fn resolve_import(&self, to_resolve: &Import) -> Option<Symbol<'b, Type>>
-    {
+    pub fn resolve_import(&self, to_resolve: &Import) -> Option<Symbol<'b, Type>> {
         self.parent.resolve_import(to_resolve)
     }
 
-    pub fn symbols(&self) -> impl SymbolTable<'b, Type>
-    {
+    pub fn symbols(&self) -> impl SymbolTable<'b, Type> {
         FileSymbolTable::new_file_traversal_helper(self)
     }
 }
 
-struct FileSymbolTable<'a, 'b, Type: ASTType>
-{
-    symbols: Box<dyn Iterator<Item=Symbol<'b, Type>> + 'a>
+struct FileSymbolTable<'a, 'b, Type: ASTType> {
+    symbols: Box<dyn Iterator<Item = Symbol<'b, Type>> + 'a>,
 }
 
-impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type>
-{
-    pub(crate) fn new_file_traversal_helper(symbol_source: &'a FileTraversalHelper<'a, 'b, Type>) -> Self {
+impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
+    pub(crate) fn new_file_traversal_helper(
+        symbol_source: &'a FileTraversalHelper<'a, 'b, Type>,
+    ) -> Self {
         Self {
-            symbols: Box::new(symbol_source.inner.imports().iter().filter_map(|import| symbol_source.resolve_import(import)))
+            symbols: Box::new(
+                symbol_source
+                    .inner
+                    .imports()
+                    .iter()
+                    .filter_map(|import| symbol_source.resolve_import(import)),
+            ),
         }
     }
 }
 
-impl<'a, 'b, Type: ASTType> Iterator for FileSymbolTable<'a, 'b, Type>
-{
+impl<'a, 'b, Type: ASTType> Iterator for FileSymbolTable<'a, 'b, Type> {
     type Item = Symbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {

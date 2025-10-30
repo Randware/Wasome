@@ -1,7 +1,7 @@
 use crate::block::FunctionBlock;
-use crate::{ASTNode, ASTType, SemanticEquality};
 use crate::symbol::{FunctionSymbol, Symbol};
 use crate::top_level::Import;
+use crate::{ASTNode, ASTType, SemanticEquality};
 
 #[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType> {
@@ -34,16 +34,18 @@ impl<Type: ASTType> File<Type> {
     pub fn functions(&self) -> &FunctionBlock<Type> {
         &self.functions
     }
-    
-    pub fn get_top_level_symbol(&self, name: &str) -> Option<Symbol<'_, Type>>
-    {
-        self.get_function_symbol(name).map(|function_symbol| Symbol::Function(function_symbol))
+
+    pub fn get_top_level_symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
+        self.get_function_symbol(name)
+            .map(|function_symbol| Symbol::Function(function_symbol))
     }
-    
-    fn get_function_symbol(&self, name: &str) -> Option<&FunctionSymbol<Type>>
-    {
-        self.functions().iter().filter(|function| function.declaration().name() == name)
-            .map(|function| function.declaration()).next()
+
+    fn get_function_symbol(&self, name: &str) -> Option<&FunctionSymbol<Type>> {
+        self.functions()
+            .iter()
+            .filter(|function| function.declaration().name() == name)
+            .map(|function| function.declaration())
+            .next()
     }
 }
 
