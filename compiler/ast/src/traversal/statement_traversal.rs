@@ -31,7 +31,6 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
      */
     pub fn new_root(root: &'a FunctionTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
-            // TODO
             inner: root.inner().implementation(),
             location: None,
             root,

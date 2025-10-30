@@ -19,7 +19,7 @@ It keeps a reference to a file and its parent (directory).
 #[derive(Debug)]
 pub struct FileTraversalHelper<'a, 'b, Type: ASTType> {
     inner: &'b ASTNode<File<Type>, PathBuf>,
-    parent: &'a DirectoryTraversalHelper<'a, 'b, Type>, // TODO: Files can be standalone
+    parent: &'a DirectoryTraversalHelper<'a, 'b, Type>, 
 }
 
 impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {

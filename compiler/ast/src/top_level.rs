@@ -62,7 +62,7 @@ In the typed AST, this has no semantic meaning and is only there to not lose any
 #[derive(Debug, PartialEq)]
 pub struct Import {
     root: ImportRoot,
-    path: Vec<String>, // Maybe OSString TODO
+    path: Vec<String>,
 }
 
 impl Import {
