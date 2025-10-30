@@ -6,6 +6,7 @@ use crate::visibility::{Visibility, Visible};
 
 #[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType> {
+    /// Filename without the file extension
     name: String,
     imports: Vec<ASTNode<Import>>,
     functions: FunctionBlock<Type>,
