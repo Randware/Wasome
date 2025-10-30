@@ -220,7 +220,6 @@ mod tests {
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
-    use crate::traversal::function_traversal::FunctionTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
     use shared::code_file::CodeFile;
