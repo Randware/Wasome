@@ -4,17 +4,15 @@ This is used for both typed and untyped ASTs as we need to do importing on the u
 and using strings there would make that harder
 */
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
-pub enum Visibility
-{
+pub enum Visibility {
     /// Only visible inside the same file
     Private,
     /// Visible in the entire application
-    Public
+    Public,
 }
 
 /** Types that have a specific visibility
 */
-pub trait Visible
-{
+pub trait Visible {
     fn visibility(&self) -> Visibility;
 }

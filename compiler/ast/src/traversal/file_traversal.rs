@@ -19,7 +19,7 @@ It keeps a reference to a file and its parent (directory).
 #[derive(Debug)]
 pub struct FileTraversalHelper<'a, 'b, Type: ASTType> {
     inner: &'b ASTNode<File<Type>, PathBuf>,
-    parent: &'a DirectoryTraversalHelper<'a, 'b, Type>, 
+    parent: &'a DirectoryTraversalHelper<'a, 'b, Type>,
 }
 
 impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
@@ -51,7 +51,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /** Gets the function with the specified name
       Returns None if it doesn't exist
     */
-    pub fn specific_function(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
+    pub fn function_by_name(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
         self.function_iterator()
             .find(|function| function.inner().declaration().name() == name)
     }
@@ -92,7 +92,10 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                     .inner
                     .imports()
                     .iter()
-                    .filter_map(|import| symbol_source.resolve_import(import)),
+                    // All imports in an ast must be valid
+                    // A FileSymbolTable can not exist without an ast
+                    // Therefore, we can't have an unresolved import here and can safely unwrap
+                    .map(|import| symbol_source.resolve_import(import).unwrap()),
             ),
         }
     }

@@ -71,12 +71,13 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     /** Gets the subdirectory with the specified name.
     Returns None if it doesn't exist
      */
-    pub fn specific_subdirectory(
+    pub fn subdirectory_by_name(
         &self,
         name: &str,
     ) -> Option<DirectoryTraversalHelper<'_, 'b, Type>> {
-        self.subdirectories_iterator()
-            .find(|subdir| subdir.inner.name() == name)
+        self.inner()
+            .subdirectory_by_name(name)
+            .map(|file| DirectoryTraversalHelper::new_child(file, self))
     }
     /** Gets an iterator over all subdirectories
      */
@@ -84,8 +85,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
         &'c self,
     ) -> impl Iterator<Item = DirectoryTraversalHelper<'c, 'b, Type>> + 'c {
         self.inner
-            .subdirectories()
-            .iter()
+            .subdirectories_iterator()
             .map(move |subdirectory| DirectoryTraversalHelper::new_child(subdirectory, self))
     }
     /** Gets the number of contained files
@@ -103,9 +103,10 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     /** Gets the file with the specified name
     Returns None if it doesn't exist
     */
-    pub fn specific_file(&self, name: &str) -> Option<FileTraversalHelper<'_, 'b, Type>> {
-        self.files_iterator()
-            .find(|file| file.inner().name() == name)
+    pub fn file_by_name(&self, name: &str) -> Option<FileTraversalHelper<'_, 'b, Type>> {
+        self.inner
+            .file_by_name(name)
+            .map(|file| FileTraversalHelper::new(file, self))
     }
     /** Gets an iterator over all files
      */
@@ -113,8 +114,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
         &'c self,
     ) -> impl Iterator<Item = FileTraversalHelper<'c, 'b, Type>> + 'c {
         self.inner
-            .files()
-            .iter()
+            .files_iterator()
             .map(|file| FileTraversalHelper::new(file, self))
     }
     /** Gets the symbol imported by a specific import
@@ -129,16 +129,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     }
 
     fn get_symbol_for_path(&self, path: &[String]) -> Option<Symbol<'b, Type>> {
-        match path.len() {
-            len if len < 2 => None, //Empty or too short path
-            2 => self
-                .specific_file(&path[0])?
-                .inner()
-                .symbol_public(&path[1]),
-            len => self
-                .specific_subdirectory(&path[0])?
-                .get_symbol_for_path(&path[1..len]),
-        }
+        self.inner().get_symbol_for_path(path)
     }
 
     fn get_root(&self) -> &DirectoryTraversalHelper<'a, 'b, Type> {

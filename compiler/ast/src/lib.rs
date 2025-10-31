@@ -21,6 +21,7 @@ use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
+use crate::top_level::{Import, ImportRoot};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -83,6 +84,8 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
 The type decides if it will be untyped or typed
 ## Root
 The root-level element is supposed to be the directory containing the source code (e.g.: src)
+
+All imports in this must be valid
 */
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
@@ -90,9 +93,56 @@ pub struct AST<Type: ASTType> {
     inner: ASTNode<Directory<Type>, PathBuf>,
 }
 
+/// See [`AST::new`]
+#[derive(Debug)]
+pub struct UnresolvedImports<Type: ASTType> {
+    // This includes import errors
+    pub(crate) ast: AST<Type>,
+}
+
+impl<Type: ASTType> UnresolvedImports<Type> {
+    pub fn unresolved_imports(&self) -> Vec<&ASTNode<Import>> {
+        self.ast.unresolved_imports()
+    }
+}
+
 impl<Type: ASTType> AST<Type> {
-    pub fn new(inner: ASTNode<Directory<Type>, PathBuf>) -> Self {
-        Self { inner }
+    /** Creates a new instance of AST
+    
+    Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
+    */
+    // Lifetime issues prevent the imports from being returned directly
+    pub fn new(inner: ASTNode<Directory<Type>, PathBuf>) -> Result<Self, UnresolvedImports<Type>> {
+        let ast = Self { inner };
+        if ast.unresolved_imports().is_empty() {
+            return Ok(ast);
+        }
+        Err(UnresolvedImports { ast })
+    }
+
+    fn unresolved_imports(&self) -> Vec<&ASTNode<Import>> {
+        self.list_imports()
+            .iter()
+            .filter(|(import, path)| !self.check_import(import, path))
+            .map(|(import, _)| *import)
+            .collect()
+    }
+
+    fn list_imports(&self) -> Vec<(&ASTNode<Import>, &Directory<Type>)> {
+        let mut imports = Vec::new();
+        self.deref()
+            .traverse_imports(&mut |import, path| imports.push((import, path)));
+        imports
+    }
+
+    /** Checks a specifiec import for validity. source_dir is where the import is from
+     */
+    fn check_import(&self, to_check: &Import, source_dir: &Directory<Type>) -> bool {
+        let check_origin = match to_check.root() {
+            ImportRoot::CurrentDirectory => source_dir,
+            ImportRoot::ProjectRoot => &self.inner.inner,
+        };
+        check_origin.get_symbol_for_path(to_check.path()).is_some()
     }
 }
 
@@ -230,12 +280,12 @@ mod tests {
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
+    use crate::visibility::Visibility;
     use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
     use std::rc::Rc;
-    use crate::visibility::Visibility;
 
     #[test]
     fn ast() {
@@ -256,14 +306,14 @@ mod tests {
                 Statement::Codeblock(CodeBlock::new(vec![statement])),
                 sample_codearea(),
             ),
-            Visibility::Public
+            Visibility::Public,
         );
 
         let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
-        let file_traversal_helper = root_traversal_helper.specific_file("main.waso").unwrap();
-        let function_ref = file_traversal_helper.specific_function("test").unwrap();
+        let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
+        let function_ref = file_traversal_helper.function_by_name("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let statement_ref = root.index(0);
@@ -322,14 +372,14 @@ mod tests {
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
             statement,
-            Visibility::Public
+            Visibility::Public,
         );
 
         let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
-        let file_traversal_helper = root_traversal_helper.specific_file("main.waso").unwrap();
-        let function_ref = file_traversal_helper.specific_function("test").unwrap();
+        let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
+        let function_ref = file_traversal_helper.function_by_name("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let loop_statement = root.index(1);
@@ -372,10 +422,8 @@ mod tests {
         let ast = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
-        let file_traversal_helper = root_traversal_helper.specific_file("main.waso").unwrap();
-        let function_ref = file_traversal_helper
-            .specific_function("fibonacci")
-            .unwrap();
+        let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
+        let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.index(3);
@@ -595,7 +643,7 @@ mod tests {
                     ])),
                     sample_codearea(),
                 ),
-                Visibility::Public
+                Visibility::Public,
             ),
             sample_codearea(),
         )])
@@ -772,16 +820,14 @@ mod tests {
                     ])),
                     sample_codearea(),
                 ),
-                Visibility::Public
+                Visibility::Public,
             ),
             sample_codearea(),
         )]);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
-        let file_traversal_helper = root_traversal_helper.specific_file("main.waso").unwrap();
-        let function_ref = file_traversal_helper
-            .specific_function("fibonacci")
-            .unwrap();
+        let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
+        let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.index(3);
@@ -857,7 +903,7 @@ mod tests {
                     )
                     .unwrap(),
                 ),
-                Visibility::Public
+                Visibility::Public,
             ),
             CodeArea::new(
                 CodeLocation::new(0, 0),
@@ -917,7 +963,7 @@ mod tests {
                     )
                     .unwrap(),
                 ),
-                Visibility::Public
+                Visibility::Public,
             ),
             CodeArea::new(
                 CodeLocation::new(1, 0),
@@ -952,11 +998,12 @@ mod tests {
                     ASTNode::new(add_file, PathBuf::from("add")),
                 ],
             ),
-            PathBuf::from("src"),
-        ));
+            PathBuf::new(),
+        ))
+        .unwrap();
 
         let dth = DirectoryTraversalHelper::new_from_ast(&ast);
-        let fth = dth.specific_file("main").unwrap();
+        let fth = dth.file_by_name("main").unwrap();
         assert_eq!(
             vec![Symbol::Function(&add_fn_symbol)],
             fth.symbols().collect::<Vec<_>>()
@@ -967,6 +1014,34 @@ mod tests {
         assert_eq!(2, dth.files_iterator().count());
         assert_ne!(dth.index_file(0).inner(), dth.index_file(1).inner());
         assert_eq!(2, dth.inner().files().len())
+    }
+
+    #[test]
+    fn unresolved_import_should_fail() {
+        let file = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                vec![ASTNode::new(
+                    Import::new(ImportRoot::ProjectRoot, vec!["nonexistent".to_string()]),
+                    CodeArea::new(
+                        CodeLocation::new(0, 0),
+                        CodeLocation::new(0, 10),
+                        CodeFile::new(PathBuf::from("main.waso")),
+                    )
+                    .unwrap(),
+                )],
+                FunctionBlock::new(Vec::new()),
+            ),
+            PathBuf::from("main.waso"),
+        );
+        let directory = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::new(),
+        );
+        let ast = AST::new(directory);
+        let unresolved = ast.unwrap_err();
+        let imports = unresolved.unresolved_imports();
+        assert_eq!(1, imports.len())
     }
 }
 
@@ -1024,7 +1099,8 @@ pub(crate) mod test_shared {
                     main_path,
                 )],
             ),
-            src_path,
+            PathBuf::new(),
         ))
+        .unwrap()
     }
 }

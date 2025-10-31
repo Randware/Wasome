@@ -1,9 +1,9 @@
 use crate::statement::Statement;
 use crate::symbol::FunctionSymbol;
+use crate::visibility::{Visibility, Visible};
 use crate::{ASTNode, ASTType, SemanticEquality};
 use std::fmt::Debug;
 use std::rc::Rc;
-use crate::visibility::{Visibility, Visible};
 
 #[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
@@ -11,19 +11,19 @@ pub struct Function<Type: ASTType> {
     implementation: ASTNode<Statement<Type>>,
     // The visibility is irrelevant when calling
     // Therefore, it doesn't belong into FunctionSymbol and should be here
-    visibility: Visibility
+    visibility: Visibility,
 }
 
 impl<Type: ASTType> Function<Type> {
     pub fn new(
         declaration: Rc<FunctionSymbol<Type>>,
         implementation: ASTNode<Statement<Type>>,
-        visibility: Visibility
+        visibility: Visibility,
     ) -> Self {
         Self {
             declaration,
             implementation,
-            visibility
+            visibility,
         }
     }
 
@@ -49,8 +49,7 @@ impl<Type: ASTType> SemanticEquality for Function<Type> {
     }
 }
 
-impl<Type: ASTType> Visible for Function<Type>
-{
+impl<Type: ASTType> Visible for Function<Type> {
     fn visibility(&self) -> Visibility {
         self.visibility
     }
