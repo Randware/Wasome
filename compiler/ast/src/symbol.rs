@@ -3,6 +3,8 @@ use crate::expression::Expression;
 use crate::id::Id;
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
 use std::rc::Rc;
+use crate::composite::{EnumVariant, StructField};
+use crate::visibility::Visibility;
 
 /**  Any type that has symbols available for use
 */
@@ -80,6 +82,64 @@ impl<Type: ASTType> FunctionSymbol<Type> {
 
     pub fn return_type(&self) -> Option<&Type::GeneralDataType> {
         self.return_type.as_ref()
+    }
+}
+
+/** The symbol of an enum
+*/
+#[derive(Debug, PartialEq)]
+pub struct EnumSymbol<Type: ASTType>
+{
+    id: Id,
+    visibility: Visibility,
+    variants: Vec<ASTNode<EnumVariant<Type>>>
+}
+
+impl<Type: ASTType> EnumSymbol<Type>
+{
+    pub fn new(id: Id, visibility: Visibility, variants: Vec<ASTNode<EnumVariant<Type>>>) -> Self {
+        Self { id, visibility, variants }
+    }
+
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    pub fn visibility(&self) -> Visibility {
+        self.visibility
+    }
+
+    pub fn variants(&self) -> &Vec<ASTNode<EnumVariant<Type>>> {
+        &self.variants
+    }
+}
+
+/** A symbol for a struct
+*/
+#[derive(Debug, PartialEq)]
+pub struct StructSymbol<Type: ASTType>
+{
+    id: Id,
+    visibility: Visibility,
+    fields: Vec<ASTNode<StructField<Type>>>,
+}
+
+impl<Type: ASTType> StructSymbol<Type>
+{
+    pub fn new(id: Id, visibility: Visibility, fields: Vec<ASTNode<StructField<Type>>>) -> Self {
+        Self { id, visibility, fields }
+    }
+
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    pub fn visibility(&self) -> Visibility {
+        self.visibility
+    }
+
+    pub fn fields(&self) -> &Vec<ASTNode<StructField<Type>>> {
+        &self.fields
     }
 }
 

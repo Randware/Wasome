@@ -1,22 +1,22 @@
-use crate::block::FunctionBlock;
 use crate::symbol::{FunctionSymbol, Symbol};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
 use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::composite::{Enum, Struct};
 
 #[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType> {
     /// Filename without the file extension
     name: String,
     imports: Vec<ASTNode<Import>>,
-    functions: FunctionBlock<Type>,
+    functions: Vec<ASTNode<Function<Type>>>,
 }
 
 impl<Type: ASTType> File<Type> {
     pub fn new(
         name: String,
         imports: Vec<ASTNode<Import>>,
-        functions: FunctionBlock<Type>,
+        functions: Vec<ASTNode<Function<Type>>>,
     ) -> Self {
         Self {
             name,
@@ -33,7 +33,7 @@ impl<Type: ASTType> File<Type> {
         &self.imports
     }
 
-    pub fn functions(&self) -> &FunctionBlock<Type> {
+    pub fn functions(&self) -> &[ASTNode<Function<Type>>] {
         &self.functions
     }
 
@@ -78,5 +78,29 @@ impl<Type: ASTType> SemanticEquality for File<Type> {
         self.name() == other.name()
             && self.imports().semantic_equals(other.imports())
             && self.functions().semantic_equals(other.functions())
+    }
+}
+
+/** This represents all composites <br>
+inside a [File]
+*/
+pub struct Composites<Type: ASTType>
+{
+    enums: Vec<ASTNode<Enum<Type>>>,
+    structs: Vec<ASTNode<Struct<Type>>>
+}
+
+impl<Type: ASTType> Composites<Type>
+{
+    pub fn new(enums: Vec<ASTNode<Enum<Type>>>, structs: Vec<ASTNode<Struct<Type>>>) -> Self {
+        Self { enums, structs }
+    }
+
+    pub fn enums(&self) -> &Vec<ASTNode<Enum<Type>>> {
+        &self.enums
+    }
+
+    pub fn structs(&self) -> &Vec<ASTNode<Struct<Type>>> {
+        &self.structs
     }
 }

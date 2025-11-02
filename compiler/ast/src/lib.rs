@@ -39,7 +39,8 @@ pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
-mod visibility;
+pub mod visibility;
+pub mod composite;
 
 /** Comparing semantics only.
 
@@ -267,7 +268,7 @@ impl ASTType for UntypedAST {
 
 #[cfg(test)]
 mod tests {
-    use crate::block::{CodeBlock, FunctionBlock};
+    use crate::block::CodeBlock;
     use crate::data_type::DataType;
     use crate::directory::Directory;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
@@ -915,7 +916,7 @@ mod tests {
         let add_file = File::new(
             "add".to_string(),
             Vec::new(),
-            FunctionBlock::new(vec![add_function]),
+            vec![add_function],
         );
 
         let main_function = ASTNode::new(
@@ -986,7 +987,7 @@ mod tests {
                 )
                 .unwrap(),
             )],
-            FunctionBlock::new(vec![main_function]),
+            vec![main_function],
         );
 
         let ast = AST::new(ASTNode::new(
@@ -1030,7 +1031,7 @@ mod tests {
                     )
                     .unwrap(),
                 )],
-                FunctionBlock::new(Vec::new()),
+                Vec::new(),
             ),
             PathBuf::from("main.waso"),
         );
@@ -1048,7 +1049,6 @@ mod tests {
 #[cfg(test)]
 // Stuff that is needed in tests in the entire crate
 pub(crate) mod test_shared {
-    use crate::block::FunctionBlock;
     use crate::directory::Directory;
     use crate::expression::{Expression, Literal};
     use crate::file::File;
@@ -1094,7 +1094,7 @@ pub(crate) mod test_shared {
                     File::new(
                         "main.waso".to_string(),
                         Vec::new(),
-                        FunctionBlock::new(functions),
+                        functions,
                     ),
                     main_path,
                 )],
