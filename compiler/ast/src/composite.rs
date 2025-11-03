@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::{ASTNode, ASTType};
+use crate::{ASTNode, ASTType, SemanticEquality};
 use crate::symbol::{EnumSymbol, StructSymbol};
 use crate::top_level::Function;
 
@@ -26,6 +26,14 @@ impl<Type: ASTType> Enum<Type>
     }
 }
 
+impl<Type: ASTType> SemanticEquality for Enum<Type>
+{
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.symbol() == other.symbol()
+    }
+}
+
+
 /** A variant of an enum
 */
 #[derive(Debug, PartialEq)]
@@ -47,6 +55,20 @@ impl<Type: ASTType> EnumVariant<Type>
 
     pub fn fields(&self) -> &Vec<ASTNode<Type::GeneralDataType>> {
         &self.fields
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for EnumVariant<Type>
+{
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.name == other.name &&
+            self.fields().len() == other.fields().len()
+            && self.fields()
+            .iter()
+            .zip(other.fields().iter())
+            .all(|(self_fields, other_fields)| {
+                self_fields == other_fields
+            })
     }
 }
 
@@ -78,6 +100,15 @@ impl<Type: ASTType> Struct<Type>
     }
 }
 
+impl<Type: ASTType> SemanticEquality for Struct<Type>
+{
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.symbol == other.symbol &&
+            self.symbol == other.symbol &&
+            self.functions.semantic_equals(other.functions())
+    }
+}
+
 /** A field of a struct
 */
 #[derive(Debug, PartialEq)]
@@ -99,5 +130,13 @@ impl<Type: ASTType> StructField<Type>
 
     pub fn data_type(&self) -> &Type::GeneralDataType {
         &self.data_type
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for StructField<Type>
+{
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.name() == other.name() &&
+            self.data_type() == other.data_type()
     }
 }

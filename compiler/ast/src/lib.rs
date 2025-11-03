@@ -28,6 +28,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
+use crate::statement::Statement;
 
 pub mod block;
 pub mod data_type;
@@ -66,6 +67,18 @@ impl<T: SemanticEquality> SemanticEquality for [T] {
                 .all(|(self_statement, other_statement)| {
                     self_statement.semantic_equals(other_statement)
                 })
+    }
+}
+
+impl<T: SemanticEquality> SemanticEquality for Rc<T> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.deref().semantic_equals(other.deref())
+    }
+}
+
+impl SemanticEquality for String {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self == other
     }
 }
 
