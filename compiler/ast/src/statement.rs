@@ -121,7 +121,7 @@ impl VariableAssignment<TypedAST> {
         variable: Rc<VariableSymbol<TypedAST>>,
         value: ASTNode<Expression<TypedAST>>,
     ) -> Option<Self> {
-        eq_return_option(*variable.data_type(), value.data_type())?;
+        eq_return_option(variable.data_type(), &value.data_type())?;
         Some(Self { variable, value })
     }
 }

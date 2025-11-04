@@ -10,7 +10,7 @@ use crate::visibility::Visibility;
 */
 pub trait SymbolTable<'a, Type: ASTType>: Iterator<Item = Symbol<'a, Type>> {}
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Symbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),

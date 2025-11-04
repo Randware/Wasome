@@ -1,6 +1,10 @@
+use std::rc::Rc;
+use crate::{ASTType, TypedAST};
+use crate::symbol::{EnumSymbol, StructSymbol};
+
 /** This represents the data types specified in section one of the lang spec
 */
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
     Char,
     U8,
@@ -14,6 +18,9 @@ pub enum DataType {
     Bool,
     F32,
     F64,
+    Struct(Rc<StructSymbol<TypedAST>>),
+    Enum(Rc<EnumSymbol<TypedAST>>),
+
 }
 
 /** This represents some wasome concept with a data type

@@ -248,7 +248,7 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
 pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type LiteralType: PartialEq + Debug;
 
-    type GeneralDataType: Eq + PartialEq + Debug + Clone;
+    type GeneralDataType: PartialEq + Debug + Clone;
     type FunctionCallSymbol: Debug + PartialEq;
     type VariableUse: Debug + PartialEq;
 }

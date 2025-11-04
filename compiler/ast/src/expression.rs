@@ -23,11 +23,11 @@ impl Typed for Expression<TypedAST> {
         match self {
             // Unwrap safety:
             // It may only exist if the return type is not void
-            Ex::FunctionCall(inner) => *inner.function().return_type().unwrap(),
+            Ex::FunctionCall(inner) => inner.function().return_type().unwrap().clone(),
             Ex::Literal(inner) => inner.data_type(),
             Ex::UnaryOp(inner) => inner.data_type(),
             Ex::BinaryOp(inner) => inner.data_type(),
-            Ex::Variable(inner) => *inner.data_type(),
+            Ex::Variable(inner) => inner.data_type().clone(),
         }
     }
 }
@@ -137,7 +137,7 @@ impl Typed for UnaryOp<TypedAST> {
 
 /** This is the type of an unary operator
 */
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOpType<Type: ASTType> {
     /// Section 3 lang spec, subtract operator with only one operand
     Negative,
@@ -213,7 +213,7 @@ impl Typecast<TypedAST> {
        None if there is no cast available
     */
     pub fn result_type(&self, to_process: DataType) -> Option<DataType> {
-        match (to_process, self.target) {
+        match (to_process, &self.target) {
             (DataType::S8 | DataType::U16, DataType::U8)
             | (DataType::U8 | DataType::S16, DataType::S8)
             | (DataType::S16 | DataType::U32 | DataType::U8, DataType::U16)
@@ -223,7 +223,7 @@ impl Typecast<TypedAST> {
             | (DataType::S64 | DataType::U32, DataType::U64)
             | (DataType::U64 | DataType::S32 | DataType::F64, DataType::S64)
             | (DataType::S32 | DataType::F64, DataType::F32)
-            | (DataType::S64 | DataType::F32, DataType::F64) => Some(self.target),
+            | (DataType::S64 | DataType::F32, DataType::F64) => Some(self.target.clone()),
             _ => None,
         }
     }
@@ -384,7 +384,7 @@ impl BinaryOpType {
     (lang spec, section 3)
     */
     fn arithmetic_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(left, right)?;
+        eq_return_option(&left, &right)?;
         match left {
             DataType::U8
             | DataType::S8
@@ -404,7 +404,7 @@ impl BinaryOpType {
     (lang spec, section 3)
     */
     fn int_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(left, right)?;
+        eq_return_option(&left, &right)?;
         match left {
             DataType::U8
             | DataType::S8
@@ -422,7 +422,7 @@ impl BinaryOpType {
        (lang spec, section 3)
     */
     fn bool_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(left, right)?;
+        eq_return_option(&left, &right)?;
         match left {
             DataType::Bool => Some(left),
             _ => None,
@@ -433,7 +433,7 @@ impl BinaryOpType {
        (lang spec, section 3)
     */
     fn comparison_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(left, right)?;
+        eq_return_option(&left, &right)?;
         if left == DataType::Bool || left == DataType::Char {
             return None;
         }
