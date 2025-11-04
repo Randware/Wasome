@@ -300,6 +300,7 @@ mod tests {
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
     use std::rc::Rc;
+    use crate::traversal::{FunctionContainer, HasSymbols};
 
     #[test]
     fn ast() {
@@ -334,8 +335,7 @@ mod tests {
         assert_eq!(
             vec![Symbol::Function(function_ref.inner().declaration())],
             statement_ref
-                .symbols_available_at()
-                .unwrap()
+                .symbols()
                 .collect::<Vec<_>>()
         );
     }
@@ -405,8 +405,7 @@ mod tests {
         let statement_ref = loop_statement.index(0);
 
         let actual = statement_ref
-            .symbols_available_at()
-            .unwrap()
+            .symbols()
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&symbol),
@@ -443,8 +442,7 @@ mod tests {
         let return_statement = root.index(3);
 
         let actual = return_statement
-            .symbols_available_at()
-            .unwrap()
+            .symbols()
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&nth),
@@ -847,8 +845,7 @@ mod tests {
         let return_statement = root.index(3);
 
         let actual = return_statement
-            .symbols_available_at()
-            .unwrap()
+            .symbols()
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&nth),
@@ -1019,7 +1016,7 @@ mod tests {
         let dth = DirectoryTraversalHelper::new_from_ast(&ast);
         let fth = dth.file_by_name("main").unwrap();
         assert_eq!(
-            vec![Symbol::Function(&add_fn_symbol)],
+            vec![Symbol::Function(&add_fn_symbol), Symbol::Function(&main_fn_symbol)],
             fth.symbols().collect::<Vec<_>>()
         );
         assert_eq!(0, dth.len_subdirectories());

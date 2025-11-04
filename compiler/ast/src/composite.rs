@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::{ASTNode, ASTType, SemanticEquality, AST};
 use crate::symbol::{EnumSymbol, StructSymbol};
 use crate::top_level::Function;
 
@@ -78,12 +78,12 @@ impl<Type: ASTType> SemanticEquality for EnumVariant<Type>
 pub struct Struct<Type: ASTType>
 {
     symbol: Rc<StructSymbol<Type>>,
-    functions: Vec<Function<Type>>,
+    functions: Vec<ASTNode<Function<Type>>>,
 }
 
 impl<Type: ASTType> Struct<Type>
 {
-    pub fn new(symbol: Rc<StructSymbol<Type>>, functions: Vec<Function<Type>>) -> Self {
+    pub fn new(symbol: Rc<StructSymbol<Type>>, functions: Vec<ASTNode<Function<Type>>>) -> Self {
         Self { symbol, functions }
     }
 
@@ -95,7 +95,7 @@ impl<Type: ASTType> Struct<Type>
         self.symbol.clone()
     }
 
-    pub fn functions(&self) -> &Vec<Function<Type>> {
+    pub fn functions(&self) -> &Vec<ASTNode<Function<Type>>> {
         &self.functions
     }
 }
@@ -111,7 +111,7 @@ impl<Type: ASTType> SemanticEquality for Struct<Type>
 
 /** A field of a struct
 */
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct StructField<Type: ASTType>
 {
     name: String,

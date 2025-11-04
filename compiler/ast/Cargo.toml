@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 shared = { path = "../shared"}
+itertools = "0.14.0"

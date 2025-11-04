@@ -3,6 +3,7 @@ use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::ops::Index;
+use crate::traversal::HasSymbols;
 
 /** This struct helps with traversing statements
 It keeps a reference to the root (function) and a statement.
@@ -60,16 +61,6 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     pub fn index(&'a self, index: usize) -> StatementTraversalHelper<'a, 'b, Type> {
         let indexed_statement = self.inner.index(index);
         Self::new_child(indexed_statement, self, index)
-    }
-
-    /** Creates a symbol table that iterates over all symbols available to the current statement
-       self may not be the root statement in its function
-       @return:
-       Some(table) The requested table
-       None if self is the root statement
-    */
-    pub fn symbols_available_at<'c>(&'c self) -> Option<impl SymbolTable<'b, Type> + 'c> {
-        StatementSymbolTable::new_available_to_statement(self)
     }
 
     /** Creates a symbol table that iterates over all symbols available after the current statement
@@ -136,6 +127,17 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     }
 }
 
+impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StatementTraversalHelper<'a, 'b, Type>
+{
+    fn symbols<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
+        StatementSymbolTable::new_available_to_statement(self)
+    }
+
+    fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_> {
+        Box::new(self.symbols())
+    }
+}
+
 // Helper struct for getting a symbols defined at a current location
 struct StatementSymbolTable<'a, 'b, Type: ASTType> {
     source: &'a StatementTraversalHelper<'a, 'b, Type>,
@@ -149,23 +151,20 @@ struct StatementSymbolTable<'a, 'b, Type: ASTType> {
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     pub(crate) fn new_available_to_statement(
         source: &'a StatementTraversalHelper<'a, 'b, Type>,
-    ) -> Option<Self> {
-        if source.root.inner().implementation() == source.inner() {
-            return None;
-        }
-        Some(Self {
+    ) -> Self {
+        Self {
             source,
             current: source.inner,
             current_location: source.location.as_ref(),
             prev_index: 0,
             root_symbols: Box::new(source.root.symbols()),
-        })
+        }
     }
 
     pub(crate) fn new_available_after_statement(
         source: &'a StatementTraversalHelper<'a, 'b, Type>,
     ) -> Option<Self> {
-        let mut to_ret = Self::new_available_to_statement(source)?;
+        let mut to_ret = Self::new_available_to_statement(source);
         to_ret.go_up_statement_tree()?;
         to_ret.prev_index += 1;
         Some(to_ret)

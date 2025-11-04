@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use crate::data_type::Typed;
 use crate::expression::Expression;
 use crate::id::Id;
@@ -16,11 +17,39 @@ pub enum Symbol<'a, Type: ASTType> {
     Variable(&'a VariableSymbol<Type>),
 }
 
+// We want to implement traits without all parts implementing them as well.
+// Deriving isn't possible in this case
+impl<Type: ASTType> Clone for Symbol<'_, Type>
+{
+    fn clone(&self) -> Self {
+        match self
+        {
+            Symbol::Function(func) => Symbol::Function(func),
+            Symbol::Variable(var) => Symbol::Variable(var)
+        }
+    }
+}
+
+impl<Type: ASTType> Hash for Symbol<'_, Type>
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self
+        {
+            Symbol::Function(func) => func.hash(state),
+            Symbol::Variable(var) => var.hash(state)
+        }
+    }
+}
+
+impl<Type: ASTType> Eq for Symbol<'_, Type>
+{
+}
+
 /** A function symbol
 # Equality
 Two different FunctionSymbols are never equal
 */
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct FunctionSymbol<Type: ASTType> {
     id: Id,
     name: String,
@@ -29,16 +58,53 @@ pub struct FunctionSymbol<Type: ASTType> {
     params: Vec<Rc<VariableSymbol<Type>>>,
 }
 
+impl<Type: ASTType> Hash for FunctionSymbol<Type>
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl<Type: ASTType> PartialEq<Self> for FunctionSymbol<Type>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<Type: ASTType> Eq for FunctionSymbol<Type>
+{
+}
+
 /** A variable symbol
 # Equality
 Two different VariableSymbols are never equal
 */
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub struct VariableSymbol<Type: ASTType> {
     id: Id,
     name: String,
     data_type: Type::GeneralDataType,
 }
+
+impl<Type: ASTType> Hash for VariableSymbol<Type>
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl<Type: ASTType> PartialEq<Self> for VariableSymbol<Type>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<Type: ASTType> Eq for VariableSymbol<Type>
+{
+}
+
 
 impl<Type: ASTType> VariableSymbol<Type> {
     pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
