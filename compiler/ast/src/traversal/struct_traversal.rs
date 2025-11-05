@@ -23,6 +23,10 @@ impl<'a, 'b, Type: ASTType> StructTraversalHelper<'a, 'b, Type>
     pub fn inner(&self) -> &'b ASTNode<Struct<Type>> {
         self.inner
     }
+
+    pub fn parent(&self) -> &'a FileTraversalHelper<'a, 'b, Type> {
+        self.parent
+    }
 }
 
 impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelper<'a, 'b, Type>
@@ -58,10 +62,7 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'a, '
 }
 
 struct StructSymbolTable<'a, 'b, Type: ASTType> {
-    parent_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
-    self_function_symbols: Box<dyn Iterator<Item=&'b FunctionSymbol<Type>> + 'a>,
-    self_symbol: &'b StructSymbol<Type>,
-    self_symbol_returned: bool
+    symbols: Box<dyn Iterator<Item=Symbol<'b, Type>> + 'a>,
 }
 
 impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
@@ -69,10 +70,9 @@ impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
         symbol_source: &'a StructTraversalHelper<'a, 'b, Type>,
     ) -> Self {
         Self {
-            parent_symbols: symbol_source.symbols_trait_object(),
-            self_function_symbols: Box::new(symbol_source.function_iterator().map(|func| func.inner().declaration())),
-            self_symbol: symbol_source.inner().symbol(),
-            self_symbol_returned: false,
+            symbols: Box::new(symbol_source.parent().symbols_trait_object().chain(
+                // A symbol might be both imported and directly available
+            symbol_source.function_iterator().map(|func| Symbol::Function(func.inner().declaration()))).unique()),
         }
     }
 }
@@ -81,13 +81,7 @@ impl<'a, 'b, Type: ASTType> Iterator for StructSymbolTable<'a, 'b, Type> {
     type Item = Symbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if !self.self_symbol_returned
-        {
-            self.self_symbol_returned = true;
-            return Some(Symbol::Struct(self.self_symbol));
-        }
-        self.parent_symbols.next()
-            .or_else(|| self.self_function_symbols.next().map(|func| Symbol::Function(func)))
+        self.symbols.next()
     }
 }
 

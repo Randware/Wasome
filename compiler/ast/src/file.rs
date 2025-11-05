@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::symbol::{FunctionSymbol, Symbol};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
@@ -10,6 +11,8 @@ pub struct File<Type: ASTType> {
     name: String,
     imports: Vec<ASTNode<Import>>,
     functions: Vec<ASTNode<Function<Type>>>,
+    enums: Vec<ASTNode<Enum<Type>>>,
+    structs: Vec<ASTNode<Struct<Type>>>
 }
 
 impl<Type: ASTType> File<Type> {
@@ -17,11 +20,15 @@ impl<Type: ASTType> File<Type> {
         name: String,
         imports: Vec<ASTNode<Import>>,
         functions: Vec<ASTNode<Function<Type>>>,
+        enums: Vec<ASTNode<Enum<Type>>>,
+        structs: Vec<ASTNode<Struct<Type>>>
     ) -> Self {
         Self {
             name,
             imports,
             functions,
+            enums,
+            structs
         }
     }
 
@@ -35,6 +42,14 @@ impl<Type: ASTType> File<Type> {
 
     pub fn functions(&self) -> &[ASTNode<Function<Type>>] {
         &self.functions
+    }
+
+    pub fn enums(&self) -> &Vec<ASTNode<Enum<Type>>> {
+        &self.enums
+    }
+
+    pub fn structs(&self) -> &Vec<ASTNode<Struct<Type>>> {
+        &self.structs
     }
 
     /** Gets the symbol with the specified name
@@ -58,7 +73,7 @@ impl<Type: ASTType> File<Type> {
 
     /** Gets the function with the specified name
      */
-    pub fn specific_function(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
+    pub fn function_by_name(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
         self.functions()
             .iter()
             .find(|function| function.declaration().name() == name)
@@ -67,9 +82,37 @@ impl<Type: ASTType> File<Type> {
     /** Gets the function with the specified name if it is public or only_public is false
      */
     fn function_symbol(&self, name: &str, only_public: bool) -> Option<&FunctionSymbol<Type>> {
-        self.specific_function(name)
+        self.function_by_name(name)
             .filter(|function| !only_public || function.visibility() == Visibility::Public)
             .map(|function| function.declaration())
+    }
+
+    /** Gets the struct with the specified name
+    */
+    pub fn struct_by_name(&self, name: &str) -> Option<&ASTNode<Struct<Type>>> {
+        self.structs()
+            .iter()
+            .find(|st| st.symbol().name() == name)
+    }
+
+    /** Gets the struct with the specified name
+    */
+    pub fn enum_by_name(&self, name: &str) -> Option<&ASTNode<Enum<Type>>> {
+        self.enums()
+            .iter()
+            .find(|st| st.symbol().name() == name)
+    }
+
+    /** Gets an iterator over all enums
+    */
+    pub fn enums_iterator(&self) -> impl Iterator<Item = &ASTNode<Enum<Type>>> {
+        self.enums().iter()
+    }
+
+    /** Gets an iterator over all enums
+    */
+    pub fn structs_iterator(&self) -> impl Iterator<Item = &ASTNode<Struct<Type>>> {
+        self.structs().iter()
     }
 }
 

@@ -70,7 +70,7 @@ impl<Type: ASTType> Directory<Type> {
     /** Looks the symbol specified by path up
      */
     pub(crate) fn get_symbol_for_path(&self, path: &[String]) -> Option<Symbol<'_, Type>> {
-        match path.len() {
+        match path.len() { // TODO
             len if len < 2 => None, //Empty or too short path
             2 => self.file_by_name(&path[0])?.symbol_public(&path[1]),
             len => self

@@ -927,6 +927,8 @@ mod tests {
             "add".to_string(),
             Vec::new(),
             vec![add_function],
+            Vec::new(),
+            Vec::new()
         );
 
         let main_function = ASTNode::new(
@@ -998,6 +1000,8 @@ mod tests {
                 .unwrap(),
             )],
             vec![main_function],
+            Vec::new(),
+            Vec::new()
         );
 
         let ast = AST::new(ASTNode::new(
@@ -1042,6 +1046,8 @@ mod tests {
                     .unwrap(),
                 )],
                 Vec::new(),
+                Vec::new(),
+                Vec::new()
             ),
             PathBuf::from("main.waso"),
         );
@@ -1105,6 +1111,8 @@ pub(crate) mod test_shared {
                         "main.waso".to_string(),
                         Vec::new(),
                         functions,
+                        Vec::new(),
+                        Vec::new()
                     ),
                     main_path,
                 )],

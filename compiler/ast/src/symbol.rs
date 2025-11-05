@@ -163,14 +163,19 @@ impl<Type: ASTType> FunctionSymbol<Type> {
 pub struct EnumSymbol<Type: ASTType>
 {
     id: Id,
+    name: String,
     visibility: Visibility,
     variants: Vec<ASTNode<EnumVariant<Type>>>
 }
 
 impl<Type: ASTType> EnumSymbol<Type>
 {
-    pub fn new(id: Id, visibility: Visibility, variants: Vec<ASTNode<EnumVariant<Type>>>) -> Self {
-        Self { id, visibility, variants }
+    pub fn new(id: Id, name: String, visibility: Visibility, variants: Vec<ASTNode<EnumVariant<Type>>>) -> Self {
+        Self { id, name, visibility, variants }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     pub fn id(&self) -> &Id {
@@ -210,16 +215,21 @@ impl<Type: ASTType> Eq for EnumSymbol<Type>
 pub struct StructSymbol<Type: ASTType>
 {
     id: Id,
+    name: String,
     visibility: Visibility,
     fields: Vec<ASTNode<StructField<Type>>>,
 }
 
 impl<Type: ASTType> StructSymbol<Type>
 {
-    pub fn new(id: Id, visibility: Visibility, fields: Vec<ASTNode<StructField<Type>>>) -> Self {
-        Self { id, visibility, fields }
+    pub fn new(id: Id, name: String, visibility: Visibility, fields: Vec<ASTNode<StructField<Type>>>) -> Self {
+        Self { id, name, visibility, fields }
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    
     pub fn id(&self) -> &Id {
         &self.id
     }
