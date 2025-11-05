@@ -1,10 +1,12 @@
 use crate::directory::Directory;
-use crate::symbol::Symbol;
+use crate::symbol::{Symbol, SymbolTable};
 use crate::top_level::{Import, ImportRoot};
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::{AST, ASTNode, ASTType};
 use std::ops::Deref;
 use std::path::PathBuf;
+use crate::traversal::function_traversal::FunctionTraversalHelper;
+use crate::traversal::HasSymbols;
 
 /** This struct helps with traversing directories
 It keeps a reference to a directory and its root (also a directory).

@@ -15,6 +15,8 @@ pub trait SymbolTable<'a, Type: ASTType>: Iterator<Item = Symbol<'a, Type>> {}
 pub enum Symbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
+    Enum(&'a EnumSymbol<Type>),
+    Struct(&'a StructSymbol<Type>)
 }
 
 // We want to implement traits without all parts implementing them as well.
@@ -25,7 +27,9 @@ impl<Type: ASTType> Clone for Symbol<'_, Type>
         match self
         {
             Symbol::Function(func) => Symbol::Function(func),
-            Symbol::Variable(var) => Symbol::Variable(var)
+            Symbol::Variable(var) => Symbol::Variable(var),
+            Symbol::Enum(en) => Symbol::Enum(en),
+            Symbol::Struct(st) => Symbol::Struct(st)
         }
     }
 }
@@ -36,7 +40,9 @@ impl<Type: ASTType> Hash for Symbol<'_, Type>
         match self
         {
             Symbol::Function(func) => func.hash(state),
-            Symbol::Variable(var) => var.hash(state)
+            Symbol::Variable(var) => var.hash(state),
+            Symbol::Enum(en) => en.hash(state),
+            Symbol::Struct(st) => st.hash(state)
         }
     }
 }
@@ -153,7 +159,7 @@ impl<Type: ASTType> FunctionSymbol<Type> {
 
 /** The symbol of an enum
 */
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct EnumSymbol<Type: ASTType>
 {
     id: Id,
@@ -180,9 +186,27 @@ impl<Type: ASTType> EnumSymbol<Type>
     }
 }
 
+impl<Type: ASTType> Hash for EnumSymbol<Type>
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl<Type: ASTType> PartialEq<Self> for EnumSymbol<Type>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<Type: ASTType> Eq for EnumSymbol<Type>
+{
+}
+
 /** A symbol for a struct
 */
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct StructSymbol<Type: ASTType>
 {
     id: Id,
@@ -207,6 +231,25 @@ impl<Type: ASTType> StructSymbol<Type>
     pub fn fields(&self) -> &Vec<ASTNode<StructField<Type>>> {
         &self.fields
     }
+}
+
+
+impl<Type: ASTType> Hash for StructSymbol<Type>
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl<Type: ASTType> PartialEq<Self> for StructSymbol<Type>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<Type: ASTType> Eq for StructSymbol<Type>
+{
 }
 
 /** A function call with params

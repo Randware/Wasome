@@ -7,6 +7,7 @@ use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use crate::traversal::HasSymbols;
+use crate::traversal::struct_traversal::StructTraversalHelper;
 
 /** This struct helps with traversing the AST
 It keeps a reference to the ast and a function.
@@ -27,7 +28,7 @@ pub struct FunctionTraversalHelper<'a, 'b, Type: ASTType> {
 impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     pub fn new(
         inner: &'b ASTNode<Function<Type>>,
-        root: &'a FileTraversalHelper<'a, 'b, Type>,
+        root: &'a dyn HasSymbols<'b, Type>,
     ) -> Self {
         Self {
             inner,
@@ -42,13 +43,7 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     pub fn root(&self) -> &'a dyn HasSymbols<'b, Type> {
         self.parent
     }
-
-    /** Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
-     */
-    pub fn symbols(&self) -> impl SymbolTable<'b, Type> + 'a {
-        FunctionSymbolTable::new(self)
-    }
-
+    
     /** Indexes the implementation with index
      */
     pub(crate) fn index_implementation<'c>(
@@ -77,8 +72,19 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     }
 }
 
+impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FunctionTraversalHelper<'a, 'b, Type>
+{
+    fn symbols(&self) -> impl SymbolTable<'b, Type> {
+        FunctionSymbolTable::new(self)
+    }
+
+    fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_> {
+        Box::new(self.symbols())
+    }
+}
+
 struct FunctionSymbolTable<'a, 'b, Type: ASTType> {
-    parent_level_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
+    parent_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
     parameters: &'b [Rc<VariableSymbol<Type>>],
     parameter_index: usize
 }
@@ -96,9 +102,9 @@ impl<Type: ASTType> Debug for FunctionSymbolTable<'_, '_, Type> {
 impl<'a, 'b, Type: ASTType> FunctionSymbolTable<'a, 'b, Type> {
     fn new(source: &FunctionTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
-            parent_level_symbols: source.root().symbols_trait_object(),
+            parent_symbols: source.root().symbols_trait_object(),
             parameters: source.inner().declaration().params(),
-            parameter_index: 0,
+            parameter_index: 0
         }
     }
 }
@@ -109,7 +115,7 @@ impl<'a, 'b, Type: ASTType> Iterator for FunctionSymbolTable<'a, 'b, Type> {
     fn next(&mut self) -> Option<Self::Item> {
         next_item_from_slice(self.parameters, &mut self.parameter_index)
             .map(|val| Symbol::Variable(val))
-            .or_else(|| self.parent_level_symbols.next())
+            .or_else(|| self.parent_symbols.next())
     }
 }
 
