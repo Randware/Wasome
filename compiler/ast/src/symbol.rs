@@ -15,8 +15,9 @@ pub trait SymbolTable<'a, Type: ASTType>: Iterator<Item = Symbol<'a, Type>> {}
 pub enum Symbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
-    Enum(&'a EnumSymbol<Type>),
-    Struct(&'a StructSymbol<Type>)
+    Enum(&'a EnumSymbol),
+    Struct(&'a StructSymbol),
+    EnumVariant(&'a EnumVariantSymbol<Type>)
 }
 
 // We want to implement traits without all parts implementing them as well.
@@ -29,7 +30,8 @@ impl<Type: ASTType> Clone for Symbol<'_, Type>
             Symbol::Function(func) => Symbol::Function(func),
             Symbol::Variable(var) => Symbol::Variable(var),
             Symbol::Enum(en) => Symbol::Enum(en),
-            Symbol::Struct(st) => Symbol::Struct(st)
+            Symbol::Struct(st) => Symbol::Struct(st),
+            Symbol::EnumVariant(ev) => Symbol::EnumVariant(ev)
         }
     }
 }
@@ -42,7 +44,8 @@ impl<Type: ASTType> Hash for Symbol<'_, Type>
             Symbol::Function(func) => func.hash(state),
             Symbol::Variable(var) => var.hash(state),
             Symbol::Enum(en) => en.hash(state),
-            Symbol::Struct(st) => st.hash(state)
+            Symbol::Struct(st) => st.hash(state),
+            Symbol::EnumVariant(ev) => ev.hash(state)
         }
     }
 }
@@ -160,18 +163,17 @@ impl<Type: ASTType> FunctionSymbol<Type> {
 /** The symbol of an enum
 */
 #[derive(Debug)]
-pub struct EnumSymbol<Type: ASTType>
+pub struct EnumSymbol//<Type: ASTType>
 {
     id: Id,
     name: String,
     visibility: Visibility,
-    variants: Vec<ASTNode<EnumVariant<Type>>>
 }
 
-impl<Type: ASTType> EnumSymbol<Type>
+impl EnumSymbol
 {
-    pub fn new(id: Id, name: String, visibility: Visibility, variants: Vec<ASTNode<EnumVariant<Type>>>) -> Self {
-        Self { id, name, visibility, variants }
+    pub fn new(name: String, visibility: Visibility) -> Self {
+        Self { id: Id::new(), name, visibility }
     }
 
     pub fn name(&self) -> &str {
@@ -186,44 +188,40 @@ impl<Type: ASTType> EnumSymbol<Type>
         self.visibility
     }
 
-    pub fn variants(&self) -> &Vec<ASTNode<EnumVariant<Type>>> {
-        &self.variants
-    }
 }
 
-impl<Type: ASTType> Hash for EnumSymbol<Type>
+impl Hash for EnumSymbol
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
 }
 
-impl<Type: ASTType> PartialEq<Self> for EnumSymbol<Type>
+impl PartialEq<Self> for EnumSymbol
 {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<Type: ASTType> Eq for EnumSymbol<Type>
+impl Eq for EnumSymbol
 {
 }
 
 /** A symbol for a struct
 */
 #[derive(Debug)]
-pub struct StructSymbol<Type: ASTType>
+pub struct StructSymbol
 {
     id: Id,
     name: String,
     visibility: Visibility,
-    fields: Vec<ASTNode<StructField<Type>>>,
 }
 
-impl<Type: ASTType> StructSymbol<Type>
+impl StructSymbol
 {
-    pub fn new(id: Id, name: String, visibility: Visibility, fields: Vec<ASTNode<StructField<Type>>>) -> Self {
-        Self { id, name, visibility, fields }
+    pub fn new(name: String, visibility: Visibility) -> Self {
+        Self { id: Id::new(), name, visibility }
     }
 
     pub fn name(&self) -> &str {
@@ -237,28 +235,71 @@ impl<Type: ASTType> StructSymbol<Type>
     pub fn visibility(&self) -> Visibility {
         self.visibility
     }
-
-    pub fn fields(&self) -> &Vec<ASTNode<StructField<Type>>> {
-        &self.fields
-    }
 }
 
 
-impl<Type: ASTType> Hash for StructSymbol<Type>
+impl Hash for StructSymbol
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
 }
 
-impl<Type: ASTType> PartialEq<Self> for StructSymbol<Type>
+impl PartialEq<Self> for StructSymbol
 {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl<Type: ASTType> Eq for StructSymbol<Type>
+impl Eq for StructSymbol
+{
+}
+
+/** The symbol of an enum
+*/
+#[derive(Debug)]
+pub struct EnumVariantSymbol<Type: ASTType>
+{
+    id: Id,
+    name: String,
+    fields: Vec<ASTNode<Type::GeneralDataType>>
+}
+
+impl<Type: ASTType> EnumVariantSymbol<Type>
+{
+    pub fn new(name: String, fields: Vec<ASTNode<Type::GeneralDataType>>) -> Self {
+        Self { id: Id::new(), name, fields }
+    }
+
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn fields(&self) -> &[ASTNode<Type::GeneralDataType>] {
+        &self.fields
+    }
+}
+
+impl<Type: ASTType> Hash for EnumVariantSymbol<Type>
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl<Type: ASTType> PartialEq<Self> for EnumVariantSymbol<Type>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<Type: ASTType> Eq for EnumVariantSymbol<Type>
 {
 }
 

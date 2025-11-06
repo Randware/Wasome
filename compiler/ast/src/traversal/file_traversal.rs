@@ -151,8 +151,8 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'a, 'b,
 
 struct FileSymbolTable<'a, 'b, Type: ASTType> {
     function_symbols: Box<dyn Iterator<Item = Symbol<'b, Type>> + 'a>,
-    enum_symbols: Box<dyn Iterator<Item = &'b EnumSymbol<Type>> + 'a>,
-    struct_symbols: Box<dyn Iterator<Item = &'b StructSymbol<Type>> + 'a>
+    enum_symbols: Box<dyn Iterator<Item = &'b EnumSymbol> + 'a>,
+    struct_symbols: Box<dyn Iterator<Item = &'b StructSymbol> + 'a>
 }
 
 impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {

@@ -70,13 +70,18 @@ impl<Type: ASTType> Directory<Type> {
     /** Looks the symbol specified by path up
      */
     pub(crate) fn get_symbol_for_path(&self, path: &[String]) -> Option<Symbol<'_, Type>> {
-        match path.len() { // TODO
-            len if len < 2 => None, //Empty or too short path
-            2 => self.file_by_name(&path[0])?.symbol_public(&path[1]),
-            len => self
-                .subdirectory_by_name(&path[0])?
-                .get_symbol_for_path(&path[1..len]),
+        match path.len() {
+            len if len < 2 => return None, //Empty or too short path
+            // Symbols can either come directly from files or from structs
+            2|3 => if let Some(symbol) =  self.file_by_name(&path[0])?.symbol_public(&path[1..])
+            {
+                return Some(symbol);
+            }
+            _ => ()
         }
+        self
+            .subdirectory_by_name(&path[0])?
+            .get_symbol_for_path(&path[1..path.len()])
     }
 
     // Rustrover is wrong, eliding the lifetimes causes errors

@@ -20,7 +20,7 @@ use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
-use crate::symbol::{FunctionSymbol, VariableSymbol};
+use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol, VariableSymbol};
 use crate::top_level::{Import, ImportRoot};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
@@ -247,10 +247,12 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
 */
 pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type LiteralType: PartialEq + Debug;
-
     type GeneralDataType: PartialEq + Debug + Clone;
     type FunctionCallSymbol: Debug + PartialEq;
     type VariableUse: Debug + PartialEq;
+    type StructUse: Debug + PartialEq;
+    type EnumUse: Debug + PartialEq;
+    type EnumVariantUse: Debug + PartialEq;
 }
 
 /** This is an ast type
@@ -264,6 +266,9 @@ impl ASTType for TypedAST {
     type GeneralDataType = DataType;
     type FunctionCallSymbol = Rc<FunctionSymbol<TypedAST>>;
     type VariableUse = Rc<VariableSymbol<TypedAST>>;
+    type StructUse = Rc<StructSymbol>;
+    type EnumUse = Rc<EnumSymbol>;
+    type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
 }
 
 /** This is an ast type
@@ -277,6 +282,9 @@ impl ASTType for UntypedAST {
     type GeneralDataType = String;
     type FunctionCallSymbol = String;
     type VariableUse = String;
+    type StructUse = String;
+    type EnumUse = String;
+    type EnumVariantUse = String;
 }
 
 #[cfg(test)]

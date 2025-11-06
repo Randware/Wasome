@@ -18,8 +18,8 @@ pub enum DataType {
     Bool,
     F32,
     F64,
-    Struct(Rc<StructSymbol<TypedAST>>),
-    Enum(Rc<EnumSymbol<TypedAST>>),
+    Struct(Rc<StructSymbol>),
+    Enum(Rc<EnumSymbol>),
 
 }
 

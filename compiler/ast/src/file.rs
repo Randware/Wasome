@@ -54,21 +54,30 @@ impl<Type: ASTType> File<Type> {
 
     /** Gets the symbol with the specified name
      */
-    pub fn symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.symbol_specified_origin(name, false)
+    pub fn symbol(&self, origin: &[String]) -> Option<Symbol<'_, Type>> {
+        self.symbol_specified_origin(origin, false)
     }
 
     /** Gets the symbol with the specified name if it is public
      */
-    pub fn symbol_public(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.symbol_specified_origin(name, true)
+    pub fn symbol_public(&self, origin: &[String]) -> Option<Symbol<'_, Type>> {
+        self.symbol_specified_origin(origin, true)
     }
 
-    /** Gets the symbol with the specified name if it is public or outside is false
+    /** Gets the symbol with the specified origin if it is public or outside is false
      */
-    fn symbol_specified_origin(&self, name: &str, outside: bool) -> Option<Symbol<'_, Type>> {
-        self.function_symbol(name, outside)
+    fn symbol_specified_origin(&self, origin: &[String], outside: bool) -> Option<Symbol<'_, Type>> {
+        // Symbols can be a direct function...
+        self.function_symbol(origin.get(0)?, outside)
             .map(|function_symbol| Symbol::Function(function_symbol))
+            // ... or a function in a struct ...
+            .or_else(|| Some(Symbol::Function(self.struct_by_name(&origin[0])?.function_symbol(origin.get(1)?, outside)?)))
+            // ... or a struct
+            .or_else(|| Some(Symbol::Struct(self.struct_by_name(&origin[0])?.symbol())))
+            // ... or a variant of an enum ...
+            .or_else(|| Some(Symbol::EnumVariant(self.enum_by_name(&origin[0])?.variant_by_name(&origin.get(1)?)?.inner())))
+            // ... or a struct
+            .or_else(|| Some(Symbol::Enum(self.enum_by_name(&origin[0])?.symbol())))
     }
 
     /** Gets the function with the specified name
@@ -95,12 +104,12 @@ impl<Type: ASTType> File<Type> {
             .find(|st| st.symbol().name() == name)
     }
 
-    /** Gets the struct with the specified name
+    /** Gets the enum with the specified name
     */
     pub fn enum_by_name(&self, name: &str) -> Option<&ASTNode<Enum<Type>>> {
         self.enums()
             .iter()
-            .find(|st| st.symbol().name() == name)
+            .find(|en| en.symbol().name() == name)
     }
 
     /** Gets an iterator over all enums
@@ -109,7 +118,7 @@ impl<Type: ASTType> File<Type> {
         self.enums().iter()
     }
 
-    /** Gets an iterator over all enums
+    /** Gets an iterator over all structs
     */
     pub fn structs_iterator(&self) -> impl Iterator<Item = &ASTNode<Struct<Type>>> {
         self.structs().iter()

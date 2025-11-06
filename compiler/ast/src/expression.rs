@@ -1,5 +1,7 @@
+use std::ops::Deref;
+use std::rc::Rc;
 use crate::data_type::{DataType, Typed};
-use crate::symbol::FunctionCall;
+use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionCall};
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 
 /** This represents an expression as per section 2 of the lang spec
@@ -15,6 +17,8 @@ pub enum Expression<Type: ASTType> {
     Literal(Type::LiteralType),
     UnaryOp(Box<UnaryOp<Type>>), // The boxes prevent this from becoming an infinitely sized type
     BinaryOp(Box<BinaryOp<Type>>),
+    NewStruct(Box<NewStruct<Type>>),
+    NewEnum(Box<NewEnum<Type>>)
 }
 
 impl Typed for Expression<TypedAST> {
@@ -28,6 +32,8 @@ impl Typed for Expression<TypedAST> {
             Ex::UnaryOp(inner) => inner.data_type(),
             Ex::BinaryOp(inner) => inner.data_type(),
             Ex::Variable(inner) => inner.data_type().clone(),
+            Expression::NewStruct(inner) => inner.data_type(),
+            Expression::NewEnum(inner) => inner.data_type()
         }
     }
 }
@@ -440,6 +446,106 @@ impl BinaryOpType {
         Some(DataType::Bool)
     }
 }
+
+/** The creation of a new struct
+
+e.g.: new Struct(10, a, 'b')
+## Type safety
+Checks of the amount and type of the parameters are neither done in the typed nor the untyped variants
+
+In the typed AST, it is considered an error to have new struct expressions with invalid types, so the checking
+needs to happen externally
+*/
+#[derive(Debug, PartialEq)]
+pub struct NewStruct<Type: ASTType>
+{
+    symbol: Type::StructUse,
+    parameters: Vec<Expression<Type>>
+}
+
+impl<Type: ASTType> NewStruct<Type>
+{
+    pub fn new(symbol: Type::StructUse, parameters: Vec<Expression<Type>>) -> Self {
+        Self { symbol, parameters }
+    }
+
+    pub fn symbol(&self) -> &Type::StructUse {
+        &self.symbol
+    }
+
+    pub fn parameters(&self) -> &[Expression<Type>] {
+        &self.parameters
+    }
+}
+
+impl Typed for NewStruct<TypedAST>
+{
+    fn data_type(&self) -> DataType {
+        DataType::Struct(self.symbol().clone())
+    }
+}
+
+/** The creation of a new enum
+
+e.g.: Enum::Variant(1, true)
+## Variant checking
+It is not checked that the variant belongs to the symbol.
+A mismatch is an error in the typed ast and thus needs to be checked externally
+*/
+#[derive(Debug, PartialEq)]
+pub struct NewEnum<Type: ASTType>
+{
+    symbol: Type::EnumUse,
+    variant: Type::EnumVariantUse,
+    parameters: Vec<Expression<Type>>
+}
+
+impl<Type: ASTType> NewEnum<Type>
+{
+
+    pub fn symbol(&self) -> &Type::EnumUse {
+        &self.symbol
+    }
+
+    pub fn variant(&self) -> &Type::EnumVariantUse {
+        &self.variant
+    }
+
+    pub fn parameters(&self) -> &[Expression<Type>] {
+        &self.parameters
+    }
+}
+
+impl NewEnum<UntypedAST>
+{
+    pub fn new(symbol: String, variant: String, parameters: Vec<Expression<UntypedAST>>) -> Self {
+        Self { symbol, variant, parameters }
+    }
+}
+
+impl NewEnum<TypedAST>
+{
+    /** Creates a new NewEnum
+    Returns none if the types of the parameters and of the variant don't match
+    */
+    pub fn new(symbol: Rc<EnumSymbol>, variant: Rc<EnumVariantSymbol<TypedAST>>, parameters: Vec<Expression<TypedAST>>) -> Option<Self> {
+        if variant.fields().len() != parameters.iter().len() ||
+            variant.fields().iter().map(|field| field.deref()).zip(parameters.iter().map(|param| param.data_type())).all(|(a,b)| a == &b)
+        {
+            // Type mismatch
+            return None;
+        }
+        Some(Self { symbol, variant, parameters })
+    }
+}
+
+impl Typed for NewEnum<TypedAST>
+{
+    fn data_type(&self) -> DataType {
+        DataType::Enum(self.symbol().clone())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
