@@ -20,6 +20,7 @@ use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
+use crate::statement::Statement;
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol, VariableSymbol};
 use crate::top_level::{Import, ImportRoot};
 use shared::code_reference::CodeArea;
@@ -28,9 +29,9 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
-use crate::statement::Statement;
 
 pub mod block;
+pub mod composite;
 pub mod data_type;
 pub mod directory;
 pub mod expression;
@@ -41,7 +42,6 @@ pub mod symbol;
 pub mod top_level;
 pub mod traversal;
 pub mod visibility;
-pub mod composite;
 
 /** Comparing semantics only.
 
@@ -122,7 +122,7 @@ impl<Type: ASTType> UnresolvedImports<Type> {
 
 impl<Type: ASTType> AST<Type> {
     /** Creates a new instance of AST
-    
+
     Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
     */
     // Lifetime issues prevent the imports from being returned directly
@@ -302,13 +302,13 @@ mod tests {
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
+    use crate::traversal::{FunctionContainer, HasSymbols};
     use crate::visibility::Visibility;
     use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
     use std::rc::Rc;
-    use crate::traversal::{FunctionContainer, HasSymbols};
 
     #[test]
     fn ast() {
@@ -342,9 +342,7 @@ mod tests {
         let statement_ref = root.index(0);
         assert_eq!(
             vec![Symbol::Function(function_ref.inner().declaration())],
-            statement_ref
-                .symbols()
-                .collect::<Vec<_>>()
+            statement_ref.symbols().collect::<Vec<_>>()
         );
     }
 
@@ -412,9 +410,7 @@ mod tests {
         );
         let statement_ref = loop_statement.index(0);
 
-        let actual = statement_ref
-            .symbols()
-            .collect::<Vec<_>>();
+        let actual = statement_ref.symbols().collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&symbol),
             Symbol::Function(function_ref.inner().declaration()),
@@ -449,9 +445,7 @@ mod tests {
         let root = function_ref.ref_to_implementation();
         let return_statement = root.index(3);
 
-        let actual = return_statement
-            .symbols()
-            .collect::<Vec<_>>();
+        let actual = return_statement.symbols().collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&nth),
             Symbol::Variable(&current),
@@ -852,9 +846,7 @@ mod tests {
         let root = function_ref.ref_to_implementation();
         let return_statement = root.index(3);
 
-        let actual = return_statement
-            .symbols()
-            .collect::<Vec<_>>();
+        let actual = return_statement.symbols().collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&nth),
             Symbol::Variable(&current),
@@ -936,7 +928,7 @@ mod tests {
             Vec::new(),
             vec![add_function],
             Vec::new(),
-            Vec::new()
+            Vec::new(),
         );
 
         let main_function = ASTNode::new(
@@ -1009,7 +1001,7 @@ mod tests {
             )],
             vec![main_function],
             Vec::new(),
-            Vec::new()
+            Vec::new(),
         );
 
         let ast = AST::new(ASTNode::new(
@@ -1028,7 +1020,10 @@ mod tests {
         let dth = DirectoryTraversalHelper::new_from_ast(&ast);
         let fth = dth.file_by_name("main").unwrap();
         assert_eq!(
-            vec![Symbol::Function(&add_fn_symbol), Symbol::Function(&main_fn_symbol)],
+            vec![
+                Symbol::Function(&add_fn_symbol),
+                Symbol::Function(&main_fn_symbol)
+            ],
             fth.symbols().collect::<Vec<_>>()
         );
         assert_eq!(0, dth.len_subdirectories());
@@ -1055,7 +1050,7 @@ mod tests {
                 )],
                 Vec::new(),
                 Vec::new(),
-                Vec::new()
+                Vec::new(),
             ),
             PathBuf::from("main.waso"),
         );
@@ -1120,7 +1115,7 @@ pub(crate) mod test_shared {
                         Vec::new(),
                         functions,
                         Vec::new(),
-                        Vec::new()
+                        Vec::new(),
                     ),
                     main_path,
                 )],

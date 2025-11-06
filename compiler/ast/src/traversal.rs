@@ -1,8 +1,8 @@
-use std::fmt::Debug;
-use std::ops::Deref;
 use crate::ASTType;
 use crate::symbol::SymbolTable;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
+use std::fmt::Debug;
+use std::ops::Deref;
 
 pub mod directory_traversal;
 pub mod file_traversal;
@@ -14,27 +14,26 @@ pub mod struct_traversal;
 
 This trait is dyn compatible
 */
-pub trait HasSymbols<'b, Type: ASTType>: Debug
-{
+pub trait HasSymbols<'b, Type: ASTType>: Debug {
     /** Gets a symbol table containing all symbols available to self.
 
     The where condition ensures that this function can't be used in a dyn setting and therefore
     retains dyn compatibility
     */
-    fn symbols(&self) -> impl SymbolTable<'b, Type>+'_
-    where Self: Sized;
+    fn symbols(&self) -> impl SymbolTable<'b, Type> + '_
+    where
+        Self: Sized;
 
     /** Like symbols, but uses a trait object. This retains dyn compatibility.
-    */
+     */
     // Providing a default implementation is not possible due to trait bounds
     // Removing Self: Sized from symbols() is not possible either as it would remove dyn compatibility
-    fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type>+'_>;
+    fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_>;
 }
 
-pub trait FunctionContainer<'b, Type: ASTType>
-{
+pub trait FunctionContainer<'b, Type: ASTType> {
     /** Gets the length of functions that self contains
-    */
+     */
     fn len_functions(&self) -> usize;
 
     /** Gets the function at index
@@ -55,5 +54,6 @@ pub trait FunctionContainer<'b, Type: ASTType>
     fn function_iterator<'c>(
         &'c self,
     ) -> impl DoubleEndedIterator<Item = FunctionTraversalHelper<'c, 'b, Type>> + 'c
-    where 'b: 'c;
+    where
+        'b: 'c;
 }

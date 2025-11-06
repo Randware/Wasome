@@ -1,13 +1,13 @@
 use crate::statement::Statement;
 use crate::symbol::{FunctionSymbol, Symbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
+use crate::traversal::HasSymbols;
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::statement_traversal::{StatementLocation, StatementTraversalHelper};
+use crate::traversal::struct_traversal::StructTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use crate::traversal::HasSymbols;
-use crate::traversal::struct_traversal::StructTraversalHelper;
 
 /** This struct helps with traversing the AST
 It keeps a reference to the ast and a function.
@@ -26,10 +26,7 @@ pub struct FunctionTraversalHelper<'a, 'b, Type: ASTType> {
 }
 
 impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
-    pub fn new(
-        inner: &'b ASTNode<Function<Type>>,
-        root: &'a dyn HasSymbols<'b, Type>,
-    ) -> Self {
+    pub fn new(inner: &'b ASTNode<Function<Type>>, root: &'a dyn HasSymbols<'b, Type>) -> Self {
         Self {
             inner,
             parent: root,
@@ -43,7 +40,7 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     pub fn root(&self) -> &'a dyn HasSymbols<'b, Type> {
         self.parent
     }
-    
+
     /** Indexes the implementation with index
      */
     pub(crate) fn index_implementation<'c>(
@@ -72,8 +69,7 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FunctionTraversalHelper<'a, 'b, Type>
-{
+impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FunctionTraversalHelper<'a, 'b, Type> {
     fn symbols(&self) -> impl SymbolTable<'b, Type> {
         FunctionSymbolTable::new(self)
     }
@@ -86,7 +82,7 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FunctionTraversalHelper<'a,
 struct FunctionSymbolTable<'a, 'b, Type: ASTType> {
     parent_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
     parameters: &'b [Rc<VariableSymbol<Type>>],
-    parameter_index: usize
+    parameter_index: usize,
 }
 
 impl<Type: ASTType> Debug for FunctionSymbolTable<'_, '_, Type> {
@@ -104,7 +100,7 @@ impl<'a, 'b, Type: ASTType> FunctionSymbolTable<'a, 'b, Type> {
         Self {
             parent_symbols: source.root().symbols_trait_object(),
             parameters: source.inner().declaration().params(),
-            parameter_index: 0
+            parameter_index: 0,
         }
     }
 }

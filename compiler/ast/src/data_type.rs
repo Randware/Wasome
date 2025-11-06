@@ -1,6 +1,6 @@
-use std::rc::Rc;
-use crate::{ASTType, TypedAST};
 use crate::symbol::{EnumSymbol, StructSymbol};
+use crate::{ASTType, TypedAST};
+use std::rc::Rc;
 
 /** This represents the data types specified in section one of the lang spec
 */
@@ -20,7 +20,6 @@ pub enum DataType {
     F64,
     Struct(Rc<StructSymbol>),
     Enum(Rc<EnumSymbol>),
-
 }
 
 /** This represents some wasome concept with a data type

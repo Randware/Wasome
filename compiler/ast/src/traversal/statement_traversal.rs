@@ -1,9 +1,9 @@
 use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable};
+use crate::traversal::HasSymbols;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::ops::Index;
-use crate::traversal::HasSymbols;
 
 /** This struct helps with traversing statements
 It keeps a reference to the root (function) and a statement.
@@ -127,8 +127,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StatementTraversalHelper<'a, 'b, Type>
-{
+impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StatementTraversalHelper<'a, 'b, Type> {
     fn symbols<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
         StatementSymbolTable::new_available_to_statement(self)
     }

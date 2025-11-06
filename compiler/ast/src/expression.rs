@@ -1,8 +1,8 @@
-use std::ops::Deref;
-use std::rc::Rc;
 use crate::data_type::{DataType, Typed};
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionCall};
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
+use std::ops::Deref;
+use std::rc::Rc;
 
 /** This represents an expression as per section 2 of the lang spec
 # Equality
@@ -18,7 +18,7 @@ pub enum Expression<Type: ASTType> {
     UnaryOp(Box<UnaryOp<Type>>), // The boxes prevent this from becoming an infinitely sized type
     BinaryOp(Box<BinaryOp<Type>>),
     NewStruct(Box<NewStruct<Type>>),
-    NewEnum(Box<NewEnum<Type>>)
+    NewEnum(Box<NewEnum<Type>>),
 }
 
 impl Typed for Expression<TypedAST> {
@@ -33,7 +33,7 @@ impl Typed for Expression<TypedAST> {
             Ex::BinaryOp(inner) => inner.data_type(),
             Ex::Variable(inner) => inner.data_type().clone(),
             Expression::NewStruct(inner) => inner.data_type(),
-            Expression::NewEnum(inner) => inner.data_type()
+            Expression::NewEnum(inner) => inner.data_type(),
         }
     }
 }
@@ -457,14 +457,12 @@ In the typed AST, it is considered an error to have new struct expressions with 
 needs to happen externally
 */
 #[derive(Debug, PartialEq)]
-pub struct NewStruct<Type: ASTType>
-{
+pub struct NewStruct<Type: ASTType> {
     symbol: Type::StructUse,
-    parameters: Vec<Expression<Type>>
+    parameters: Vec<Expression<Type>>,
 }
 
-impl<Type: ASTType> NewStruct<Type>
-{
+impl<Type: ASTType> NewStruct<Type> {
     pub fn new(symbol: Type::StructUse, parameters: Vec<Expression<Type>>) -> Self {
         Self { symbol, parameters }
     }
@@ -478,8 +476,7 @@ impl<Type: ASTType> NewStruct<Type>
     }
 }
 
-impl Typed for NewStruct<TypedAST>
-{
+impl Typed for NewStruct<TypedAST> {
     fn data_type(&self) -> DataType {
         DataType::Struct(self.symbol().clone())
     }
@@ -493,16 +490,13 @@ It is not checked that the variant belongs to the symbol.
 A mismatch is an error in the typed ast and thus needs to be checked externally
 */
 #[derive(Debug, PartialEq)]
-pub struct NewEnum<Type: ASTType>
-{
+pub struct NewEnum<Type: ASTType> {
     symbol: Type::EnumUse,
     variant: Type::EnumVariantUse,
-    parameters: Vec<Expression<Type>>
+    parameters: Vec<Expression<Type>>,
 }
 
-impl<Type: ASTType> NewEnum<Type>
-{
-
+impl<Type: ASTType> NewEnum<Type> {
     pub fn symbol(&self) -> &Type::EnumUse {
         &self.symbol
     }
@@ -516,36 +510,49 @@ impl<Type: ASTType> NewEnum<Type>
     }
 }
 
-impl NewEnum<UntypedAST>
-{
+impl NewEnum<UntypedAST> {
     pub fn new(symbol: String, variant: String, parameters: Vec<Expression<UntypedAST>>) -> Self {
-        Self { symbol, variant, parameters }
+        Self {
+            symbol,
+            variant,
+            parameters,
+        }
     }
 }
 
-impl NewEnum<TypedAST>
-{
+impl NewEnum<TypedAST> {
     /** Creates a new NewEnum
     Returns none if the types of the parameters and of the variant don't match
     */
-    pub fn new(symbol: Rc<EnumSymbol>, variant: Rc<EnumVariantSymbol<TypedAST>>, parameters: Vec<Expression<TypedAST>>) -> Option<Self> {
-        if variant.fields().len() != parameters.iter().len() ||
-            variant.fields().iter().map(|field| field.deref()).zip(parameters.iter().map(|param| param.data_type())).all(|(a,b)| a == &b)
+    pub fn new(
+        symbol: Rc<EnumSymbol>,
+        variant: Rc<EnumVariantSymbol<TypedAST>>,
+        parameters: Vec<Expression<TypedAST>>,
+    ) -> Option<Self> {
+        if variant.fields().len() != parameters.iter().len()
+            || variant
+                .fields()
+                .iter()
+                .map(|field| field.deref())
+                .zip(parameters.iter().map(|param| param.data_type()))
+                .all(|(a, b)| a == &b)
         {
             // Type mismatch
             return None;
         }
-        Some(Self { symbol, variant, parameters })
+        Some(Self {
+            symbol,
+            variant,
+            parameters,
+        })
     }
 }
 
-impl Typed for NewEnum<TypedAST>
-{
+impl Typed for NewEnum<TypedAST> {
     fn data_type(&self) -> DataType {
         DataType::Enum(self.symbol().clone())
     }
 }
-
 
 #[cfg(test)]
 mod tests {

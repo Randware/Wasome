@@ -73,14 +73,14 @@ impl<Type: ASTType> Directory<Type> {
         match path.len() {
             len if len < 2 => return None, //Empty or too short path
             // Symbols can either come directly from files or from structs
-            2|3 => if let Some(symbol) =  self.file_by_name(&path[0])?.symbol_public(&path[1..])
-            {
-                return Some(symbol);
+            2 | 3 => {
+                if let Some(symbol) = self.file_by_name(&path[0])?.symbol_public(&path[1..]) {
+                    return Some(symbol);
+                }
             }
-            _ => ()
+            _ => (),
         }
-        self
-            .subdirectory_by_name(&path[0])?
+        self.subdirectory_by_name(&path[0])?
             .get_symbol_for_path(&path[1..path.len()])
     }
 

@@ -1,22 +1,23 @@
-use itertools::Itertools;
-use crate::{ASTNode, ASTType};
 use crate::composite::Struct;
 use crate::symbol::{FunctionSymbol, StructSymbol, Symbol, SymbolTable};
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
-use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::traversal::statement_traversal::StatementTraversalHelper;
+use crate::traversal::{FunctionContainer, HasSymbols};
+use crate::{ASTNode, ASTType};
+use itertools::Itertools;
 
 #[derive(Debug)]
-pub struct StructTraversalHelper<'a, 'b, Type: ASTType>
-{
+pub struct StructTraversalHelper<'a, 'b, Type: ASTType> {
     inner: &'b ASTNode<Struct<Type>>,
-    parent: &'a FileTraversalHelper<'a, 'b, Type>
+    parent: &'a FileTraversalHelper<'a, 'b, Type>,
 }
 
-impl<'a, 'b, Type: ASTType> StructTraversalHelper<'a, 'b, Type>
-{
-    pub fn new(inner: &'b ASTNode<Struct<Type>>, parent: &'a FileTraversalHelper<'a, 'b, Type>) -> Self {
+impl<'a, 'b, Type: ASTType> StructTraversalHelper<'a, 'b, Type> {
+    pub fn new(
+        inner: &'b ASTNode<Struct<Type>>,
+        parent: &'a FileTraversalHelper<'a, 'b, Type>,
+    ) -> Self {
         Self { inner, parent }
     }
 
@@ -29,8 +30,7 @@ impl<'a, 'b, Type: ASTType> StructTraversalHelper<'a, 'b, Type>
     }
 }
 
-impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelper<'a, 'b, Type>
-{
+impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelper<'a, 'b, Type> {
     fn len_functions(&self) -> usize {
         self.inner.functions().len()
     }
@@ -39,9 +39,11 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelpe
         FunctionTraversalHelper::new(&self.inner.functions()[index], self)
     }
 
-    fn function_iterator<'c>(&'c self) -> impl DoubleEndedIterator<Item=FunctionTraversalHelper<'c, 'b, Type>> + 'c
+    fn function_iterator<'c>(
+        &'c self,
+    ) -> impl DoubleEndedIterator<Item = FunctionTraversalHelper<'c, 'b, Type>> + 'c
     where
-        'b: 'c
+        'b: 'c,
     {
         self.inner
             .functions()
@@ -50,8 +52,7 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelpe
     }
 }
 
-impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'a, 'b, Type>
-{
+impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'a, 'b, Type> {
     fn symbols<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
         StructSymbolTable::new(self)
     }
@@ -62,17 +63,24 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'a, '
 }
 
 struct StructSymbolTable<'a, 'b, Type: ASTType> {
-    symbols: Box<dyn Iterator<Item=Symbol<'b, Type>> + 'a>,
+    symbols: Box<dyn Iterator<Item = Symbol<'b, Type>> + 'a>,
 }
 
 impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
-    pub(crate) fn new(
-        symbol_source: &'a StructTraversalHelper<'a, 'b, Type>,
-    ) -> Self {
+    pub(crate) fn new(symbol_source: &'a StructTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
-            symbols: Box::new(symbol_source.parent().symbols_trait_object().chain(
-                // A symbol might be both imported and directly available
-            symbol_source.function_iterator().map(|func| Symbol::Function(func.inner().declaration()))).unique()),
+            symbols: Box::new(
+                symbol_source
+                    .parent()
+                    .symbols_trait_object()
+                    .chain(
+                        // A symbol might be both imported and directly available
+                        symbol_source
+                            .function_iterator()
+                            .map(|func| Symbol::Function(func.inner().declaration())),
+                    )
+                    .unique(),
+            ),
         }
     }
 }
