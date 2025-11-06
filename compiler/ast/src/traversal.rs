@@ -2,7 +2,6 @@ use crate::ASTType;
 use crate::symbol::SymbolTable;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use std::fmt::Debug;
-use std::ops::Deref;
 
 pub mod directory_traversal;
 pub mod file_traversal;

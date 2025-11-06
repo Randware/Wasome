@@ -20,7 +20,6 @@ use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
-use crate::statement::Statement;
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol, VariableSymbol};
 use crate::top_level::{Import, ImportRoot};
 use shared::code_reference::CodeArea;

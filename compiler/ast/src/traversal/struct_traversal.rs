@@ -1,8 +1,7 @@
 use crate::composite::Struct;
-use crate::symbol::{FunctionSymbol, StructSymbol, Symbol, SymbolTable};
+use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
-use crate::traversal::statement_traversal::StatementTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
 use itertools::Itertools;

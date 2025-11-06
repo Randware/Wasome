@@ -1,5 +1,4 @@
 use crate::symbol::{EnumSymbol, StructSymbol};
-use crate::{ASTType, TypedAST};
 use std::rc::Rc;
 
 /** This represents the data types specified in section one of the lang spec

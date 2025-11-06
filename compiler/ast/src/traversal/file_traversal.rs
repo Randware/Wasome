@@ -4,7 +4,6 @@ use crate::symbol::{EnumSymbol, StructSymbol, Symbol, SymbolTable};
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
-use crate::traversal::statement_traversal::StatementTraversalHelper;
 use crate::traversal::struct_traversal::StructTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};

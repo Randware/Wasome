@@ -1,6 +1,5 @@
 use crate::statement::Statement;
-use crate::top_level::Function;
-use crate::{ASTNode, ASTType, SemanticEquality, TypedAST};
+use crate::{ASTNode, ASTType, SemanticEquality};
 use std::fmt::Debug;
 use std::ops::Deref;
 

@@ -1,9 +1,7 @@
 use crate::directory::Directory;
-use crate::symbol::{Symbol, SymbolTable};
+use crate::symbol::Symbol;
 use crate::top_level::{Import, ImportRoot};
-use crate::traversal::HasSymbols;
 use crate::traversal::file_traversal::FileTraversalHelper;
-use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{AST, ASTNode, ASTType};
 use std::ops::Deref;
 use std::path::PathBuf;

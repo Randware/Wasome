@@ -1,10 +1,8 @@
 use crate::statement::Statement;
-use crate::symbol::{FunctionSymbol, Symbol, SymbolTable, VariableSymbol};
+use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
 use crate::traversal::HasSymbols;
-use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::statement_traversal::{StatementLocation, StatementTraversalHelper};
-use crate::traversal::struct_traversal::StructTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;

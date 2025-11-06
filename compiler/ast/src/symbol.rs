@@ -1,4 +1,3 @@
-use crate::composite::{EnumVariant, StructField};
 use crate::data_type::Typed;
 use crate::expression::Expression;
 use crate::id::Id;

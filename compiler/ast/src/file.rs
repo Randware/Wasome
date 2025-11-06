@@ -3,7 +3,6 @@ use crate::symbol::{FunctionSymbol, Symbol};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
 use crate::{ASTNode, ASTType, SemanticEquality};
-use std::path::PathBuf;
 
 #[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType> {
@@ -72,7 +71,7 @@ impl<Type: ASTType> File<Type> {
         outside: bool,
     ) -> Option<Symbol<'_, Type>> {
         // Symbols can be a direct function...
-        self.function_symbol(origin.get(0)?, outside)
+        self.function_symbol(origin.first()?, outside)
             .map(|function_symbol| Symbol::Function(function_symbol))
             // ... or a function in a struct ...
             .or_else(|| {
@@ -87,7 +86,7 @@ impl<Type: ASTType> File<Type> {
             .or_else(|| {
                 Some(Symbol::EnumVariant(
                     self.enum_by_name(&origin[0])?
-                        .variant_by_name(&origin.get(1)?)?
+                        .variant_by_name(origin.get(1)?)?
                         .inner(),
                 ))
             })

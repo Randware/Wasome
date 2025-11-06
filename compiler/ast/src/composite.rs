@@ -1,7 +1,7 @@
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol};
 use crate::top_level::Function;
 use crate::visibility::{Visibility, Visible};
-use crate::{AST, ASTNode, ASTType, SemanticEquality};
+use crate::{ASTNode, ASTType, SemanticEquality};
 use std::rc::Rc;
 
 /** An enum
@@ -145,7 +145,7 @@ impl<Type: ASTType> Struct<Type> {
 impl<Type: ASTType> SemanticEquality for Struct<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
         self.symbol == other.symbol
-            && self.symbol == other.symbol
+            && self.functions().semantic_equals(other.functions())
             && self.functions.semantic_equals(other.functions())
     }
 }
