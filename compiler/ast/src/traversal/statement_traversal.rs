@@ -80,7 +80,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     */
     pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Vec<Symbol<'b, Type>> {
         let statement_to_symbol = Statement::get_direct_symbol;
-        match &**self.inner {
+        let mut symbols = match &**self.inner {
             Statement::ControlStructure(control) => Self::indexable_into_vec(
                 |index| control.child_statement_at(index),
                 index,
@@ -90,7 +90,9 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
                 Self::indexable_into_vec(|index| &codeblock[index], index, statement_to_symbol)
             }
             _ => Vec::new(),
-        }
+        };
+        symbols.append(&mut self.inner().get_direct_child_only_symbols());
+        symbols
     }
     /** Gets a vec of all symbols declared in a direct child of self
     Symbols declared by self directly are not included
@@ -145,6 +147,7 @@ struct StatementSymbolTable<'a, 'b, Type: ASTType> {
     prev_index: usize,
     // The symbols from the root, for example functions
     root_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
+    symbols_current_statement_child_only: Vec<Symbol<'b, Type>>,
 }
 
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
@@ -157,6 +160,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
             current_location: source.location.as_ref(),
             prev_index: 0,
             root_symbols: Box::new(source.root.symbols()),
+            symbols_current_statement_child_only: Vec::new(),
         }
     }
 
@@ -172,6 +176,11 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
 
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     fn next_variable_symbol(&mut self) -> Option<Symbol<'b, Type>> {
+        // The current statement still has at least one child only symbol left, return that
+        if !self.symbols_current_statement_child_only.is_empty() {
+            return self.symbols_current_statement_child_only.pop();
+        }
+        // Search for a new statement with symbols
         while self.prev_index > 0 {
             self.prev_index -= 1;
             if let Some(symbol) = self.current.index(self.prev_index).get_direct_symbol() {
@@ -194,6 +203,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
         } else {
             self.current = self.source.root.inner().implementation();
         }
+        self.symbols_current_statement_child_only = self.current.get_direct_child_only_symbols();
         Some(())
     }
 }

@@ -1,10 +1,10 @@
 use crate::block::CodeBlock;
 use crate::data_type::{DataType, Typed};
 use crate::expression::Expression;
-use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
+use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionCall, Symbol, VariableSymbol};
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
-use std::ops::Index;
+use std::ops::{Deref, Index};
 use std::rc::Rc;
 
 /** This represents a Statement as per section 4 of the lang spec
@@ -56,8 +56,8 @@ impl<Type: ASTType> SemanticEquality for Statement<Type> {
 }
 
 impl<Type: ASTType> Statement<Type> {
-    /** Gets the symbol defined in this expression
-    Only this is considered, while subexpressions are ignored
+    /** Gets the symbol defined in this statement
+    Only this is considered, while substatementd are ignored
     @return
     Some(symbol) if symbol is defined here
     None if no symbols are defined here
@@ -66,6 +66,20 @@ impl<Type: ASTType> Statement<Type> {
         match self {
             Statement::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
             _ => None,
+        }
+    }
+
+    pub fn get_direct_child_only_symbols(&self) -> Vec<Symbol<'_, Type>> {
+        match self {
+            Statement::ControlStructure(inner) => match inner.deref() {
+                ControlStructure::Match(mat) => mat
+                    .variables
+                    .iter()
+                    .map(|var| Symbol::Variable(var))
+                    .collect(),
+                _ => Vec::new(),
+            },
+            _ => Vec::new(),
         }
     }
 
@@ -161,6 +175,7 @@ Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
+    Match(Match<Type>),
     Loop(Loop<Type>),
 }
 
@@ -184,6 +199,7 @@ impl<Type: ASTType> ControlStructure<Type> {
     pub fn child_len(&self) -> usize {
         match self {
             ControlStructure::Conditional(inner) => inner.len(),
+            ControlStructure::Match(inner) => inner.child_len(),
             ControlStructure::Loop(inner) => inner.len(),
         }
     }
@@ -193,6 +209,11 @@ impl<Type: ASTType> ControlStructure<Type> {
     pub(crate) fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match self {
             ControlStructure::Conditional(cond) => cond.child_statement_at(index),
+            ControlStructure::Match(mat) => {
+                assert_eq!(index, 0);
+                // A match has only one child statement
+                &mat.then_statement
+            }
             ControlStructure::Loop(inner) => inner.child_statement_at(index),
         }
     }
@@ -263,6 +284,95 @@ impl<Type: ASTType> SemanticEquality for Conditional<Type> {
             && self.else_statement.as_ref().zip(other.else_statement.as_ref())
             .map(|(a,b)| a.semantic_equals(b))
             .unwrap_or(self.else_statement.is_none() && other.else_statement.is_none())
+    }
+}
+
+/** This represents a match
+# Equality
+Two different Matches are never equal.
+Use semantic_equals from [`SemanticEquality`] to check semantics only
+*/
+#[derive(Debug, PartialEq)]
+pub struct Match<Type: ASTType> {
+    condition_enum: EnumSymbol,
+    condition_enum_variant: EnumVariantSymbol<Type>,
+    variables: Vec<Rc<VariableSymbol<Type>>>,
+    then_statement: ASTNode<Statement<Type>>,
+}
+
+/** Attempts to create a new Match
+
+Returns None if the amount of variables doesn't match the amount of data types on the enum variant
+*/
+impl Match<UntypedAST> {
+    pub fn new(
+        condition_enum: EnumSymbol,
+        condition_enum_variant: EnumVariantSymbol<UntypedAST>,
+        variables: Vec<Rc<VariableSymbol<UntypedAST>>>,
+        then_statement: ASTNode<Statement<UntypedAST>>,
+    ) -> Option<Self> {
+        if condition_enum_variant.fields().len() != variables.len() {
+            return None;
+        }
+        Some(Self {
+            condition_enum,
+            condition_enum_variant,
+            variables,
+            then_statement,
+        })
+    }
+}
+
+/** Attempts to create a new Match
+
+Returns None if the amount or data types of variables doesn't match the data types on the enum variant
+*/
+impl Match<TypedAST> {
+    pub fn new(
+        condition_enum: EnumSymbol,
+        condition_enum_variant: EnumVariantSymbol<TypedAST>,
+        variables: Vec<Rc<VariableSymbol<TypedAST>>>,
+        then_statement: ASTNode<Statement<TypedAST>>,
+    ) -> Option<Self> {
+        if condition_enum_variant.fields().len() != variables.len()
+            || condition_enum_variant
+                .fields()
+                .iter()
+                .map(|enum_variant| enum_variant.deref())
+                .zip(variables.iter().map(|var| var.data_type()))
+                .any(|(enum_data_type, variable_data_type)| enum_data_type != variable_data_type)
+        {
+            return None;
+        }
+        Some(Self {
+            condition_enum,
+            condition_enum_variant,
+            variables,
+            then_statement,
+        })
+    }
+}
+impl<Type: ASTType> Match<Type> {
+    pub fn condition_enum(&self) -> &EnumSymbol {
+        &self.condition_enum
+    }
+
+    pub fn condition_enum_variant(&self) -> &EnumVariantSymbol<Type> {
+        &self.condition_enum_variant
+    }
+
+    pub fn variables(&self) -> &[Rc<VariableSymbol<Type>>] {
+        &self.variables
+    }
+
+    pub fn then_statement(&self) -> &ASTNode<Statement<Type>> {
+        &self.then_statement
+    }
+
+    pub fn child_len(&self) -> usize {
+        // A match has one child statement
+        // The then statement
+        1
     }
 }
 
