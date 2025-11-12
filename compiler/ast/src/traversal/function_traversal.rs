@@ -1,5 +1,5 @@
 use crate::statement::Statement;
-use crate::symbol::{Symbol, SymbolTable, VariableSymbol};
+use crate::symbol::{DirectlyAvailableSymbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
 use crate::traversal::HasSymbols;
 use crate::traversal::statement_traversal::{StatementLocation, StatementTraversalHelper};
@@ -104,11 +104,11 @@ impl<'a, 'b, Type: ASTType> FunctionSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for FunctionSymbolTable<'a, 'b, Type> {
-    type Item = Symbol<'b, Type>;
+    type Item = DirectlyAvailableSymbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {
         next_item_from_slice(self.parameters, &mut self.parameter_index)
-            .map(|val| Symbol::Variable(val))
+            .map(|val| DirectlyAvailableSymbol::Variable(val))
             .or_else(|| self.parent_symbols.next())
     }
 }

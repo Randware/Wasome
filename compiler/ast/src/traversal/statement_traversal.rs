@@ -1,5 +1,5 @@
 use crate::statement::Statement;
-use crate::symbol::{Symbol, SymbolTable};
+use crate::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use crate::traversal::HasSymbols;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
@@ -78,7 +78,10 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     Symbols declared by self directly are not included. <br>
     Panics if `index > self.len_children()`
     */
-    pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Vec<Symbol<'b, Type>> {
+    pub fn symbols_defined_directly_in_before_index(
+        &self,
+        index: usize,
+    ) -> Vec<DirectlyAvailableSymbol<'b, Type>> {
         let statement_to_symbol = Statement::get_direct_symbol;
         let mut symbols = match &**self.inner {
             Statement::ControlStructure(control) => Self::indexable_into_vec(
@@ -97,7 +100,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     /** Gets a vec of all symbols declared in a direct child of self
     Symbols declared by self directly are not included
     */
-    pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'b, Type>> // Returning an iterator would require a trait object
+    pub fn symbols_defined_directly_in(&self) -> Vec<DirectlyAvailableSymbol<'b, Type>> // Returning an iterator would require a trait object
     {
         self.symbols_defined_directly_in_before_index(self.len_children())
     }
@@ -147,7 +150,7 @@ struct StatementSymbolTable<'a, 'b, Type: ASTType> {
     prev_index: usize,
     // The symbols from the root, for example functions
     root_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
-    symbols_current_statement_child_only: Vec<Symbol<'b, Type>>,
+    symbols_current_statement_child_only: Vec<DirectlyAvailableSymbol<'b, Type>>,
 }
 
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
@@ -175,7 +178,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
-    fn next_variable_symbol(&mut self) -> Option<Symbol<'b, Type>> {
+    fn next_variable_symbol(&mut self) -> Option<DirectlyAvailableSymbol<'b, Type>> {
         // The current statement still has at least one child only symbol left, return that
         if !self.symbols_current_statement_child_only.is_empty() {
             return self.symbols_current_statement_child_only.pop();
@@ -209,7 +212,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
-    type Item = Symbol<'b, Type>;
+    type Item = DirectlyAvailableSymbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_variable_symbol()

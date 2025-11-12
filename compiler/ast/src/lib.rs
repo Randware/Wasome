@@ -289,14 +289,20 @@ impl ASTType for UntypedAST {
 #[cfg(test)]
 mod tests {
     use crate::block::CodeBlock;
+    use crate::composite::{Enum, EnumVariant, Struct, StructField};
     use crate::data_type::DataType;
     use crate::directory::Directory;
-    use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
+    use crate::expression::{
+        BinaryOp, BinaryOpType, Expression, Literal, NewEnum, NewStruct, StructFieldAccess,
+    };
     use crate::file::File;
     use crate::statement::{
-        ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
+        ControlStructure, Loop, LoopType, Match, Return, Statement, VariableAssignment,
     };
-    use crate::symbol::{FunctionCall, FunctionSymbol, Symbol, VariableSymbol};
+    use crate::symbol::{
+        DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionCall, FunctionSymbol,
+        StructFieldSymbol, StructSymbol, VariableSymbol,
+    };
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
@@ -318,7 +324,7 @@ mod tests {
         );
 
         assert_eq!(
-            Some(Symbol::Variable(&symbol)),
+            Some(DirectlyAvailableSymbol::Variable(&symbol)),
             statement.get_direct_symbol()
         );
 
@@ -340,7 +346,9 @@ mod tests {
         let root = StatementTraversalHelper::new_root(&function_ref);
         let statement_ref = root.index(0);
         assert_eq!(
-            vec![Symbol::Function(function_ref.inner().declaration())],
+            vec![DirectlyAvailableSymbol::Function(
+                function_ref.inner().declaration()
+            )],
             statement_ref.symbols().collect::<Vec<_>>()
         );
     }
@@ -404,15 +412,15 @@ mod tests {
         let loop_statement = root.index(1);
 
         assert_eq!(
-            vec![Symbol::Variable(&symbol2)],
+            vec![DirectlyAvailableSymbol::Variable(&symbol2)],
             loop_statement.symbols_defined_directly_in()
         );
         let statement_ref = loop_statement.index(0);
 
         let actual = statement_ref.symbols().collect::<Vec<_>>();
         let expected = vec![
-            Symbol::Variable(&symbol),
-            Symbol::Function(function_ref.inner().declaration()),
+            DirectlyAvailableSymbol::Variable(&symbol),
+            DirectlyAvailableSymbol::Function(function_ref.inner().declaration()),
         ];
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
@@ -422,9 +430,9 @@ mod tests {
             .unwrap()
             .collect::<Vec<_>>();
         let expected = vec![
-            Symbol::Variable(&symbol),
-            Symbol::Function(function_ref.inner().declaration()),
-            Symbol::Variable(&symbol2),
+            DirectlyAvailableSymbol::Variable(&symbol),
+            DirectlyAvailableSymbol::Function(function_ref.inner().declaration()),
+            DirectlyAvailableSymbol::Variable(&symbol2),
         ];
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
@@ -446,10 +454,10 @@ mod tests {
 
         let actual = return_statement.symbols().collect::<Vec<_>>();
         let expected = vec![
-            Symbol::Variable(&nth),
-            Symbol::Variable(&current),
-            Symbol::Variable(&previous),
-            Symbol::Function(&fibonacci),
+            DirectlyAvailableSymbol::Variable(&nth),
+            DirectlyAvailableSymbol::Variable(&current),
+            DirectlyAvailableSymbol::Variable(&previous),
+            DirectlyAvailableSymbol::Function(&fibonacci),
         ];
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
@@ -847,10 +855,10 @@ mod tests {
 
         let actual = return_statement.symbols().collect::<Vec<_>>();
         let expected = vec![
-            Symbol::Variable(&nth),
-            Symbol::Variable(&current),
-            Symbol::Variable(&previous),
-            Symbol::Function(&fibonacci),
+            DirectlyAvailableSymbol::Variable(&nth),
+            DirectlyAvailableSymbol::Variable(&current),
+            DirectlyAvailableSymbol::Variable(&previous),
+            DirectlyAvailableSymbol::Function(&fibonacci),
         ];
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
@@ -1020,8 +1028,8 @@ mod tests {
         let fth = dth.file_by_name("main").unwrap();
         assert_eq!(
             vec![
-                Symbol::Function(&add_fn_symbol),
-                Symbol::Function(&main_fn_symbol)
+                DirectlyAvailableSymbol::Function(&add_fn_symbol),
+                DirectlyAvailableSymbol::Function(&main_fn_symbol)
             ],
             fth.symbols().collect::<Vec<_>>()
         );
@@ -1061,6 +1069,501 @@ mod tests {
         let unresolved = ast.unwrap_err();
         let imports = unresolved.unresolved_imports();
         assert_eq!(1, imports.len())
+    }
+
+    #[test]
+    pub fn composite_multifile() {
+        let warning_msg_inner_symbol =
+            Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
+        let warning_msg_symbol =
+            Rc::new(StructSymbol::new("Warning".to_string(), Visibility::Public));
+
+        let warning_msg_new_inner_param =
+            Rc::new(VariableSymbol::new("inner".to_string(), DataType::Char));
+        let warning_msg_new_symbol = Rc::new(FunctionSymbol::new(
+            "new".to_string(),
+            Some(DataType::Struct(warning_msg_symbol.clone())),
+            vec![warning_msg_new_inner_param.clone()],
+        ));
+
+        let warning_msg_get_inner_self_param = Rc::new(VariableSymbol::new(
+            "self".to_string(),
+            DataType::Struct(warning_msg_symbol.clone()),
+        ));
+        let warning_msg_get_inner_symbol = Rc::new(FunctionSymbol::new(
+            "get_inner".to_string(),
+            Some(DataType::Char),
+            vec![warning_msg_get_inner_self_param.clone()],
+        ));
+
+        let error_msg_inner_symbol =
+            Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
+        let error_msg_symbol = Rc::new(StructSymbol::new(
+            "error_msg".to_string(),
+            Visibility::Private,
+        ));
+
+        let error_msg_new_inner_param =
+            Rc::new(VariableSymbol::new("inner".to_string(), DataType::Char));
+        let error_msg_new_symbol = Rc::new(FunctionSymbol::new(
+            "new".to_string(),
+            Some(DataType::Struct(error_msg_symbol.clone())),
+            vec![error_msg_new_inner_param.clone()],
+        ));
+
+        let error_msg_get_inner_self_param = Rc::new(VariableSymbol::new(
+            "self".to_string(),
+            DataType::Struct(error_msg_symbol.clone()),
+        ));
+        let error_msg_get_inner_symbol = Rc::new(FunctionSymbol::new(
+            "get_inner".to_string(),
+            Some(DataType::Char),
+            vec![error_msg_get_inner_self_param.clone()],
+        ));
+
+        let msg_warning_msg_symbol = Rc::new(EnumVariantSymbol::new(
+            "Warning".to_string(),
+            vec![DataType::Struct(warning_msg_symbol.clone())],
+        ));
+        let msg_error_msg_symbol = Rc::new(EnumVariantSymbol::new(
+            "Error".to_string(),
+            vec![DataType::Struct(error_msg_symbol.clone())],
+        ));
+        let msg_symbol = Rc::new(EnumSymbol::new("Message".to_string(), Visibility::Public));
+
+        let main_fn_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
+        let main_fn_warning_symbol = Rc::new(VariableSymbol::new(
+            "warn".to_string(),
+            DataType::Struct(warning_msg_symbol.clone()),
+        ));
+
+        let ast = AST::new(
+            ASTNode::new(
+                Directory::<TypedAST>::new(
+                    "src".to_string(),
+                    vec![
+                        ASTNode::new(
+                            Directory::new(
+                                "message".to_string(),
+                                vec![],
+                                vec![
+                                    ASTNode::new(
+                                        File::new(
+                                            "message".to_string(),
+                                            vec![ASTNode::new(
+                                                Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()]),
+                                                CodeArea::new(
+                                                    CodeLocation::new(40, 0),
+                                                    CodeLocation::new(50, 0),
+                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                ).unwrap()
+                                            )],
+                                            vec![],
+                                            vec![
+                                                ASTNode::new(
+                                                    Enum::new(
+                                                        msg_symbol.clone(),
+                                                        vec![
+                                                            ASTNode::new(
+                                                                EnumVariant::new(
+                                                                    msg_error_msg_symbol.clone()
+                                                                ),
+                                                                CodeArea::new(
+                                                                    CodeLocation::new(50, 0),
+                                                                    CodeLocation::new(75, 0),
+                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                ).unwrap()
+                                                            ),
+                                                            ASTNode::new(
+                                                                EnumVariant::new(
+                                                                    msg_warning_msg_symbol.clone()
+                                                                ),
+                                                                CodeArea::new(
+                                                                    CodeLocation::new(75, 0),
+                                                                    CodeLocation::new(100, 0),
+                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                ).unwrap()
+                                                            )
+                                                        ]
+                                                    ),
+                                                    CodeArea::new(
+                                                        CodeLocation::new(50, 0),
+                                                        CodeLocation::new(100, 0),
+                                                        CodeFile::new(PathBuf::from("message/message"))
+                                                    ).unwrap()
+                                                )
+                                            ],
+                                            vec![
+                                                ASTNode::new(
+                                                    Struct::new(
+                                                        error_msg_symbol.clone(),
+                                                        vec![
+                                                            ASTNode::new(
+                                                                Function::new(
+                                                                    error_msg_new_symbol.clone(),
+                                                                    ASTNode::new(
+                                                                        Statement::Return(Return::new(
+                                                                            Some(ASTNode::new(
+                                                                                Expression::NewStruct(
+                                                                                    Box::new(NewStruct::new(
+                                                                                        error_msg_symbol.clone(),
+                                                                                        vec![
+                                                                                            ASTNode::new(
+                                                                                                Expression::Variable(
+                                                                                                    error_msg_new_inner_param.clone()
+                                                                                                ),
+                                                                                                CodeArea::new(
+                                                                                                    CodeLocation::new(152, 10),
+                                                                                                    CodeLocation::new(152, 20),
+                                                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                                                ).unwrap())
+                                                                                        ],
+                                                                                    ))
+                                                                                ),
+                                                                                CodeArea::new(
+                                                                                    CodeLocation::new(151, 0),
+                                                                                    CodeLocation::new(169, 0),
+                                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                                ).unwrap()
+                                                                            ))
+                                                                        )),
+                                                                        CodeArea::new(
+                                                                            CodeLocation::new(151, 0),
+                                                                            CodeLocation::new(169, 0),
+                                                                            CodeFile::new(PathBuf::from("message/message"))
+                                                                        ).unwrap()
+                                                                    ),
+                                                                    Visibility::Public
+                                                                ),
+                                                                CodeArea::new(
+                                                                    CodeLocation::new(150, 0),
+                                                                    CodeLocation::new(170, 0),
+                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                ).unwrap()
+                                                            ),
+                                                            ASTNode::new(
+                                                                Function::new(
+                                                                    error_msg_get_inner_symbol.clone(),
+                                                                    ASTNode::new(
+                                                                        Statement::Return(Return::new(
+                                                                            Some(ASTNode::new(
+                                                                                Expression::StructFieldAccess(
+                                                                                    Box::new(StructFieldAccess::<TypedAST>::new(
+                                                                                        ASTNode::new(
+                                                                                            Expression::Variable(error_msg_get_inner_self_param.clone()),
+                                                                                            CodeArea::new(
+                                                                                                CodeLocation::new(171, 10),
+                                                                                                CodeLocation::new(171, 20),
+                                                                                                CodeFile::new(PathBuf::from("message/message"))
+                                                                                            ).unwrap()
+                                                                                        ),
+                                                                                        error_msg_inner_symbol.clone()
+                                                                                    ).unwrap())
+                                                                                ),
+                                                                                CodeArea::new(
+                                                                                    CodeLocation::new(171, 0),
+                                                                                    CodeLocation::new(189, 0),
+                                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                                ).unwrap()
+                                                                            ))
+                                                                        )),
+                                                                        CodeArea::new(
+                                                                            CodeLocation::new(171, 0),
+                                                                            CodeLocation::new(189, 0),
+                                                                            CodeFile::new(PathBuf::from("message/message"))
+                                                                        ).unwrap()
+                                                                    ),
+                                                                    Visibility::Public
+                                                                ),
+                                                                CodeArea::new(
+                                                                    CodeLocation::new(170, 0),
+                                                                    CodeLocation::new(190, 0),
+                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                ).unwrap()
+                                                            )
+                                                        ],
+                                                            vec![
+                                                                ASTNode::new(
+                                                                    StructField::new(
+                                                                        error_msg_inner_symbol.clone()
+                                                                    ),
+                                                                    CodeArea::new(
+                                                                        CodeLocation::new(110, 0),
+                                                                        CodeLocation::new(111, 0),
+                                                                        CodeFile::new(PathBuf::from("message/message"))
+                                                                    ).unwrap()
+                                                                )
+                                                            ]
+                                                    ),
+                                                    CodeArea::new(
+                                                        CodeLocation::new(100, 0),
+                                                        CodeLocation::new(200, 1),
+                                                        CodeFile::new(PathBuf::from("message/message"))
+                                                    ).unwrap()
+                                                )
+                                            ]
+                                        ),
+                                        PathBuf::from("message/message")
+                                    )
+                                ],
+                            ),
+                            PathBuf::from("message")
+                        ),
+                        ASTNode::new(
+                            Directory::new(
+                                "warning".to_string(),
+                                vec![],
+                                vec![
+                                    ASTNode::new(
+                                        File::new(
+                                            "warning".to_string(),
+                                            vec![],
+                                            vec![],
+                                            vec![],
+                                            vec![
+                                                ASTNode::new(
+                                                    Struct::new(
+                                                        warning_msg_symbol.clone(),
+                                                        vec![
+                                                            ASTNode::new(
+                                                                Function::new(
+                                                                    warning_msg_new_symbol.clone(),
+                                                                    ASTNode::new(
+                                                                        Statement::Return(Return::new(
+                                                                            Some(ASTNode::new(
+                                                                                Expression::NewStruct(
+                                                                                    Box::new(NewStruct::new(
+                                                                                        warning_msg_symbol.clone(),
+                                                                                        vec![
+                                                                                            ASTNode::new(
+                                                                                                Expression::Variable(
+                                                                                                    warning_msg_new_inner_param.clone()
+                                                                                                ),
+                                                                                                CodeArea::new(
+                                                                                                    CodeLocation::new(152, 10),
+                                                                                                    CodeLocation::new(152, 20),
+                                                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                                                ).unwrap())
+                                                                                        ],
+                                                                                    ))
+                                                                                ),
+                                                                                CodeArea::new(
+                                                                                    CodeLocation::new(151, 0),
+                                                                                    CodeLocation::new(169, 0),
+                                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                                ).unwrap()
+                                                                            ))
+                                                                        )),
+                                                                        CodeArea::new(
+                                                                            CodeLocation::new(151, 0),
+                                                                            CodeLocation::new(169, 0),
+                                                                            CodeFile::new(PathBuf::from("warning/warning"))
+                                                                        ).unwrap()
+                                                                    ),
+                                                                    Visibility::Public
+                                                                ),
+                                                                CodeArea::new(
+                                                                    CodeLocation::new(150, 0),
+                                                                    CodeLocation::new(170, 0),
+                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                ).unwrap()
+                                                            ),
+                                                            ASTNode::new(
+                                                                Function::new(
+                                                                    warning_msg_get_inner_symbol.clone(),
+                                                                    ASTNode::new(
+                                                                        Statement::Return(Return::new(
+                                                                            Some(ASTNode::new(
+                                                                                Expression::StructFieldAccess(
+                                                                                    Box::new(StructFieldAccess::<TypedAST>::new(
+                                                                                        ASTNode::new(
+                                                                                            Expression::Variable(warning_msg_get_inner_self_param.clone()),
+                                                                                            CodeArea::new(
+                                                                                                CodeLocation::new(171, 10),
+                                                                                                CodeLocation::new(171, 20),
+                                                                                                CodeFile::new(PathBuf::from("warning/warning"))
+                                                                                            ).unwrap()
+                                                                                        ),
+                                                                                        warning_msg_inner_symbol.clone()
+                                                                                    ).unwrap())
+                                                                                ),
+                                                                                CodeArea::new(
+                                                                                    CodeLocation::new(171, 0),
+                                                                                    CodeLocation::new(189, 0),
+                                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                                ).unwrap()
+                                                                            ))
+                                                                        )),
+                                                                        CodeArea::new(
+                                                                            CodeLocation::new(171, 0),
+                                                                            CodeLocation::new(189, 0),
+                                                                            CodeFile::new(PathBuf::from("warning/warning"))
+                                                                        ).unwrap()
+                                                                    ),
+                                                                    Visibility::Public
+                                                                ),
+                                                                CodeArea::new(
+                                                                    CodeLocation::new(170, 0),
+                                                                    CodeLocation::new(190, 0),
+                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                ).unwrap()
+                                                            )
+                                                        ],
+                                                        vec![
+                                                            ASTNode::new(
+                                                                StructField::new(
+                                                                    warning_msg_inner_symbol.clone()
+                                                                ),
+                                                                CodeArea::new(
+                                                                    CodeLocation::new(110, 0),
+                                                                    CodeLocation::new(111, 0),
+                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                ).unwrap()
+                                                            )
+                                                        ]
+                                                    ),
+                                                    CodeArea::new(
+                                                        CodeLocation::new(100, 0),
+                                                        CodeLocation::new(200, 1),
+                                                        CodeFile::new(PathBuf::from("warning/warning"))
+                                                    ).unwrap()
+                                                )
+                                            ]
+                                        ),
+                                        PathBuf::from("warning/warning")
+                                    )
+                                ],
+                            ),
+                            PathBuf::from("warning")
+                        )
+                    ],
+                    vec![
+                        ASTNode::new(File::new(
+                            "main".to_string(),
+                            vec![
+                                ASTNode::new(
+                                    Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()]),
+                                    CodeArea::new(
+                                        CodeLocation::new(30, 0),
+                                        CodeLocation::new(40, 0),
+                                    CodeFile::new(PathBuf::new())
+                                    ).unwrap()),
+                                    ASTNode::new(
+                                        Import::new(ImportRoot::ProjectRoot, vec!["message".to_string(), "message".to_string(), "Message".to_string()]),
+                                        CodeArea::new(
+                                            CodeLocation::new(40, 0),
+                                            CodeLocation::new(50, 0),
+                                            CodeFile::new(PathBuf::new())
+                                        ).unwrap())
+                            ],
+                            vec![ASTNode::new(
+                                Function::new(
+                                    main_fn_symbol.clone(),
+                                    ASTNode::new(
+                                        Statement::Codeblock(
+                                            CodeBlock::new(
+                                                vec![
+                                                       ASTNode::new(
+                                                           Statement::ControlStructure(Box::new(
+                                                           ControlStructure::Match(
+                                                               Match::<TypedAST>::new(
+                                                                   msg_symbol.clone(),
+                                                                   msg_warning_msg_symbol.clone(),
+                                                                   ASTNode::new(
+                                                                       Expression::NewEnum(
+                                                                           Box::new(NewEnum::<TypedAST>::new(
+                                                                               msg_symbol.clone(),
+                                                                               msg_warning_msg_symbol.clone(),
+                                                                               vec![
+                                                                                   ASTNode::new(
+                                                                                       Expression::FunctionCall(
+                                                                                           FunctionCall::<TypedAST>::new(
+                                                                                               warning_msg_new_symbol,
+                                                                                               vec![
+                                                                                                   ASTNode::new(
+                                                                                                       Expression::Literal(
+                                                                                                           Literal::Char('e' as u32)
+                                                                                                       ),
+                                                                                                       CodeArea::new(
+                                                                                                           CodeLocation::new(110,20),
+                                                                                                           CodeLocation::new(110, 25),
+                                                                                                           CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                                   )
+                                                                                               ]
+                                                                                           ).unwrap()
+                                                                                       ),
+                                                                                       CodeArea::new(
+                                                                                           CodeLocation::new(110,15),
+                                                                                           CodeLocation::new(110, 25),
+                                                                                           CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                   )
+                                                                               ]
+                                                                           ).unwrap())
+                                                                       ),
+                                                                       CodeArea::new(
+                                                                           CodeLocation::new(110,10),
+                                                                           CodeLocation::new(110, 30),
+                                                                           CodeFile::new(PathBuf::from("main.waso"))).unwrap()),
+                                                                   vec![
+                                                                       main_fn_warning_symbol.clone()
+                                                                   ],
+                                                                   ASTNode::new(
+                                                                       Statement::Expression(
+                                                                           ASTNode::new(
+                                                                               Expression::FunctionCall(
+                                                                                   FunctionCall::<TypedAST>::new(
+                                                                                       warning_msg_get_inner_symbol.clone(),
+                                                                                       vec![
+                                                                                           ASTNode::new(
+                                                                                               Expression::Variable(main_fn_warning_symbol.clone()),
+                                                                                               CodeArea::new(
+                                                                                                   CodeLocation::new(111,10),
+                                                                                                   CodeLocation::new(111, 20),
+                                                                                                   CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                           )
+                                                                                       ]
+                                                                                   ).unwrap()
+                                                                               ),
+                                                                               CodeArea::new(
+                                                                                   CodeLocation::new(111,0),
+                                                                                   CodeLocation::new(119, 1),
+                                                                                   CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                           )
+                                                                       ),
+                                                                       CodeArea::new(
+                                                                           CodeLocation::new(111,0),
+                                                                           CodeLocation::new(119, 1),
+                                                                           CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                   ),
+                                                               ).unwrap()
+                                                           )
+                                                           )),
+                                                           CodeArea::new(
+                                                               CodeLocation::new(110,0),
+                                                               CodeLocation::new(120, 1),
+                                                               CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                   )
+                                                ]
+                                            )
+                                        ),
+                                        CodeArea::new(
+                                            CodeLocation::new(110,0),
+                                            CodeLocation::new(190, 1),
+                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                    ),
+                                    Visibility::Public
+                                ),
+                                CodeArea::new(
+                                    CodeLocation::new(100,0),
+                                    CodeLocation::new(200, 1),
+                                    CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                            )],
+                            vec![],
+                            vec![]),
+                        PathBuf::from("main.waso"))]),
+                PathBuf::new()
+            )
+        ).unwrap();
     }
 }
 

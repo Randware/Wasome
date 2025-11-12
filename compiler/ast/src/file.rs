@@ -1,5 +1,5 @@
 use crate::composite::{Enum, Struct};
-use crate::symbol::{FunctionSymbol, Symbol};
+use crate::symbol::{DirectlyAvailableSymbol, FunctionSymbol};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
 use crate::{ASTNode, ASTType, SemanticEquality};
@@ -53,13 +53,13 @@ impl<Type: ASTType> File<Type> {
 
     /** Gets the symbol with the specified name
      */
-    pub fn symbol(&self, origin: &[String]) -> Option<Symbol<'_, Type>> {
+    pub fn symbol(&self, origin: &[String]) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         self.symbol_specified_origin(origin, false)
     }
 
     /** Gets the symbol with the specified name if it is public
      */
-    pub fn symbol_public(&self, origin: &[String]) -> Option<Symbol<'_, Type>> {
+    pub fn symbol_public(&self, origin: &[String]) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         self.symbol_specified_origin(origin, true)
     }
 
@@ -69,29 +69,29 @@ impl<Type: ASTType> File<Type> {
         &self,
         origin: &[String],
         outside: bool,
-    ) -> Option<Symbol<'_, Type>> {
+    ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         // Symbols can be a direct function...
         self.function_symbol(origin.first()?, outside)
-            .map(|function_symbol| Symbol::Function(function_symbol))
+            .map(|function_symbol| DirectlyAvailableSymbol::Function(function_symbol))
             // ... or a function in a struct ...
             .or_else(|| {
-                Some(Symbol::Function(
+                Some(DirectlyAvailableSymbol::Function(
                     self.struct_by_name(&origin[0])?
                         .function_symbol(origin.get(1)?, outside)?,
                 ))
             })
             // ... or a struct
-            .or_else(|| Some(Symbol::Struct(self.struct_by_name(&origin[0])?.symbol())))
-            // ... or a variant of an enum ...
             .or_else(|| {
-                Some(Symbol::EnumVariant(
-                    self.enum_by_name(&origin[0])?
-                        .variant_by_name(origin.get(1)?)?
-                        .inner(),
+                Some(DirectlyAvailableSymbol::Struct(
+                    self.struct_by_name(&origin[0])?.symbol(),
                 ))
             })
             // ... or a struct
-            .or_else(|| Some(Symbol::Enum(self.enum_by_name(&origin[0])?.symbol())))
+            .or_else(|| {
+                Some(DirectlyAvailableSymbol::Enum(
+                    self.enum_by_name(&origin[0])?.symbol(),
+                ))
+            })
     }
 
     /** Gets the function with the specified name

@@ -8,44 +8,48 @@ use std::rc::Rc;
 
 /**  Any type that has symbols available for use
 */
-pub trait SymbolTable<'a, Type: ASTType>: Iterator<Item = Symbol<'a, Type>> {}
+pub trait SymbolTable<'a, Type: ASTType>:
+    Iterator<Item = DirectlyAvailableSymbol<'a, Type>>
+{
+}
 
+/** This groups symbols that are directly available (= without having to access another symbol first) together
+
+Examples of non-DirectlyAvailableSymbols include EnumVariantSymbolss and StructFieldSymbols
+*/
 #[derive(Debug, PartialEq)]
-pub enum Symbol<'a, Type: ASTType> {
+pub enum DirectlyAvailableSymbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
     Enum(&'a EnumSymbol),
     Struct(&'a StructSymbol),
-    EnumVariant(&'a EnumVariantSymbol<Type>),
 }
 
 // We want to implement traits without all parts implementing them as well.
 // Deriving isn't possible in this case
-impl<Type: ASTType> Clone for Symbol<'_, Type> {
+impl<Type: ASTType> Clone for DirectlyAvailableSymbol<'_, Type> {
     fn clone(&self) -> Self {
         match self {
-            Symbol::Function(func) => Symbol::Function(func),
-            Symbol::Variable(var) => Symbol::Variable(var),
-            Symbol::Enum(en) => Symbol::Enum(en),
-            Symbol::Struct(st) => Symbol::Struct(st),
-            Symbol::EnumVariant(ev) => Symbol::EnumVariant(ev),
+            DirectlyAvailableSymbol::Function(func) => DirectlyAvailableSymbol::Function(func),
+            DirectlyAvailableSymbol::Variable(var) => DirectlyAvailableSymbol::Variable(var),
+            DirectlyAvailableSymbol::Enum(en) => DirectlyAvailableSymbol::Enum(en),
+            DirectlyAvailableSymbol::Struct(st) => DirectlyAvailableSymbol::Struct(st),
         }
     }
 }
 
-impl<Type: ASTType> Hash for Symbol<'_, Type> {
+impl<Type: ASTType> Hash for DirectlyAvailableSymbol<'_, Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
-            Symbol::Function(func) => func.hash(state),
-            Symbol::Variable(var) => var.hash(state),
-            Symbol::Enum(en) => en.hash(state),
-            Symbol::Struct(st) => st.hash(state),
-            Symbol::EnumVariant(ev) => ev.hash(state),
+            DirectlyAvailableSymbol::Function(func) => func.hash(state),
+            DirectlyAvailableSymbol::Variable(var) => var.hash(state),
+            DirectlyAvailableSymbol::Enum(en) => en.hash(state),
+            DirectlyAvailableSymbol::Struct(st) => st.hash(state),
         }
     }
 }
 
-impl<Type: ASTType> Eq for Symbol<'_, Type> {}
+impl<Type: ASTType> Eq for DirectlyAvailableSymbol<'_, Type> {}
 
 /** A function symbol
 # Equality
@@ -242,11 +246,11 @@ impl Eq for StructSymbol {}
 pub struct EnumVariantSymbol<Type: ASTType> {
     id: Id,
     name: String,
-    fields: Vec<ASTNode<Type::GeneralDataType>>,
+    fields: Vec<Type::GeneralDataType>,
 }
 
 impl<Type: ASTType> EnumVariantSymbol<Type> {
-    pub fn new(name: String, fields: Vec<ASTNode<Type::GeneralDataType>>) -> Self {
+    pub fn new(name: String, fields: Vec<Type::GeneralDataType>) -> Self {
         Self {
             id: Id::new(),
             name,
@@ -262,7 +266,7 @@ impl<Type: ASTType> EnumVariantSymbol<Type> {
         &self.name
     }
 
-    pub fn fields(&self) -> &[ASTNode<Type::GeneralDataType>] {
+    pub fn fields(&self) -> &[Type::GeneralDataType] {
         &self.fields
     }
 }
@@ -280,6 +284,51 @@ impl<Type: ASTType> PartialEq<Self> for EnumVariantSymbol<Type> {
 }
 
 impl<Type: ASTType> Eq for EnumVariantSymbol<Type> {}
+
+/** The symbol of an enum
+*/
+#[derive(Debug)]
+pub struct StructFieldSymbol<Type: ASTType> {
+    id: Id,
+    name: String,
+    data_type: Type::GeneralDataType,
+}
+
+impl<Type: ASTType> StructFieldSymbol<Type> {
+    pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
+        Self {
+            id: Id::new(),
+            name,
+            data_type,
+        }
+    }
+
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn data_type(&self) -> &Type::GeneralDataType {
+        &self.data_type
+    }
+}
+
+impl<Type: ASTType> Hash for StructFieldSymbol<Type> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl<Type: ASTType> PartialEq<Self> for StructFieldSymbol<Type> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<Type: ASTType> Eq for StructFieldSymbol<Type> {}
 
 /** A function call with params
 */

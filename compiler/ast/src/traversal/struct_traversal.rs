@@ -1,5 +1,5 @@
 use crate::composite::Struct;
-use crate::symbol::{Symbol, SymbolTable};
+use crate::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
@@ -62,7 +62,7 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'a, '
 }
 
 struct StructSymbolTable<'a, 'b, Type: ASTType> {
-    symbols: Box<dyn Iterator<Item = Symbol<'b, Type>> + 'a>,
+    symbols: Box<dyn Iterator<Item = DirectlyAvailableSymbol<'b, Type>> + 'a>,
 }
 
 impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
@@ -74,9 +74,9 @@ impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
                     .symbols_trait_object()
                     .chain(
                         // A symbol might be both imported and directly available
-                        symbol_source
-                            .function_iterator()
-                            .map(|func| Symbol::Function(func.inner().declaration())),
+                        symbol_source.function_iterator().map(|func| {
+                            DirectlyAvailableSymbol::Function(func.inner().declaration())
+                        }),
                     )
                     .unique(),
             ),
@@ -85,7 +85,7 @@ impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for StructSymbolTable<'a, 'b, Type> {
-    type Item = Symbol<'b, Type>;
+    type Item = DirectlyAvailableSymbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.symbols.next()

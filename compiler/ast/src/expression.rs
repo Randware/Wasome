@@ -1,7 +1,6 @@
 use crate::data_type::{DataType, Typed};
-use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionCall};
+use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionCall, StructFieldSymbol};
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
-use std::ops::Deref;
 use std::rc::Rc;
 
 /** This represents an expression as per section 2 of the lang spec
@@ -19,6 +18,7 @@ pub enum Expression<Type: ASTType> {
     BinaryOp(Box<BinaryOp<Type>>),
     NewStruct(Box<NewStruct<Type>>),
     NewEnum(Box<NewEnum<Type>>),
+    StructFieldAccess(Box<StructFieldAccess<Type>>),
 }
 
 impl Typed for Expression<TypedAST> {
@@ -34,6 +34,7 @@ impl Typed for Expression<TypedAST> {
             Ex::Variable(inner) => inner.data_type().clone(),
             Expression::NewStruct(inner) => inner.data_type(),
             Expression::NewEnum(inner) => inner.data_type(),
+            Expression::StructFieldAccess(inner) => inner.data_type(),
         }
     }
 }
@@ -459,11 +460,11 @@ needs to happen externally
 #[derive(Debug, PartialEq)]
 pub struct NewStruct<Type: ASTType> {
     symbol: Type::StructUse,
-    parameters: Vec<Expression<Type>>,
+    parameters: Vec<ASTNode<Expression<Type>>>,
 }
 
 impl<Type: ASTType> NewStruct<Type> {
-    pub fn new(symbol: Type::StructUse, parameters: Vec<Expression<Type>>) -> Self {
+    pub fn new(symbol: Type::StructUse, parameters: Vec<ASTNode<Expression<Type>>>) -> Self {
         Self { symbol, parameters }
     }
 
@@ -471,7 +472,7 @@ impl<Type: ASTType> NewStruct<Type> {
         &self.symbol
     }
 
-    pub fn parameters(&self) -> &[Expression<Type>] {
+    pub fn parameters(&self) -> &[ASTNode<Expression<Type>>] {
         &self.parameters
     }
 }
@@ -493,7 +494,7 @@ A mismatch is an error in the typed ast and thus needs to be checked externally
 pub struct NewEnum<Type: ASTType> {
     symbol: Type::EnumUse,
     variant: Type::EnumVariantUse,
-    parameters: Vec<Expression<Type>>,
+    parameters: Vec<ASTNode<Expression<Type>>>,
 }
 
 impl<Type: ASTType> NewEnum<Type> {
@@ -505,13 +506,17 @@ impl<Type: ASTType> NewEnum<Type> {
         &self.variant
     }
 
-    pub fn parameters(&self) -> &[Expression<Type>] {
+    pub fn parameters(&self) -> &[ASTNode<Expression<Type>>] {
         &self.parameters
     }
 }
 
 impl NewEnum<UntypedAST> {
-    pub fn new(symbol: String, variant: String, parameters: Vec<Expression<UntypedAST>>) -> Self {
+    pub fn new(
+        symbol: String,
+        variant: String,
+        parameters: Vec<ASTNode<Expression<UntypedAST>>>,
+    ) -> Self {
         Self {
             symbol,
             variant,
@@ -527,15 +532,14 @@ impl NewEnum<TypedAST> {
     pub fn new(
         symbol: Rc<EnumSymbol>,
         variant: Rc<EnumVariantSymbol<TypedAST>>,
-        parameters: Vec<Expression<TypedAST>>,
+        parameters: Vec<ASTNode<Expression<TypedAST>>>,
     ) -> Option<Self> {
         if variant.fields().len() != parameters.iter().len()
             || variant
                 .fields()
                 .iter()
-                .map(|field| field.deref())
                 .zip(parameters.iter().map(|param| param.data_type()))
-                .all(|(a, b)| a == &b)
+                .any(|(a, b)| a != &b)
         {
             // Type mismatch
             return None;
@@ -551,6 +555,57 @@ impl NewEnum<TypedAST> {
 impl Typed for NewEnum<TypedAST> {
     fn data_type(&self) -> DataType {
         DataType::Enum(self.symbol().clone())
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct StructFieldAccess<Type: ASTType> {
+    of: ASTNode<Expression<Type>>,
+    field: Rc<StructFieldSymbol<Type>>,
+}
+
+impl StructFieldAccess<UntypedAST> {
+    pub fn new(
+        of: ASTNode<Expression<UntypedAST>>,
+        field: Rc<StructFieldSymbol<UntypedAST>>,
+    ) -> Self {
+        Self { of, field }
+    }
+}
+
+impl StructFieldAccess<TypedAST> {
+    /** Tries to create a new StructFieldAccess
+    Returns None if the return type of of is not a struct
+    */
+    pub fn new(
+        of: ASTNode<Expression<TypedAST>>,
+        field: Rc<StructFieldSymbol<TypedAST>>,
+    ) -> Option<Self> {
+        if let DataType::Struct(_) = of.data_type() {
+            Some(Self { of, field })
+        } else {
+            None
+        }
+    }
+}
+
+impl<Type: ASTType> StructFieldAccess<Type> {
+    pub fn of(&self) -> &Expression<Type> {
+        &self.of
+    }
+
+    pub fn field(&self) -> &StructFieldSymbol<Type> {
+        &self.field
+    }
+
+    pub fn field_owned(&self) -> Rc<StructFieldSymbol<Type>> {
+        self.field.clone()
+    }
+}
+
+impl Typed for StructFieldAccess<TypedAST> {
+    fn data_type(&self) -> DataType {
+        self.field().data_type().clone()
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::file::File;
-use crate::symbol::Symbol;
+use crate::symbol::DirectlyAvailableSymbol;
 use crate::top_level::Import;
 use crate::{ASTNode, ASTType, SemanticEquality};
 use std::ops::Deref;
@@ -69,12 +69,18 @@ impl<Type: ASTType> Directory<Type> {
 
     /** Looks the symbol specified by path up
      */
-    pub(crate) fn get_symbol_for_path(&self, path: &[String]) -> Option<Symbol<'_, Type>> {
+    pub(crate) fn get_symbol_for_path(
+        &self,
+        path: &[String],
+    ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         match path.len() {
             len if len < 2 => return None, //Empty or too short path
             // Symbols can either come directly from files or from structs
             2 | 3 => {
-                if let Some(symbol) = self.file_by_name(&path[0])?.symbol_public(&path[1..]) {
+                if let Some(symbol) = self
+                    .file_by_name(&path[0])
+                    .and_then(|file| file.symbol_public(&path[1..]))
+                {
                     return Some(symbol);
                 }
             }

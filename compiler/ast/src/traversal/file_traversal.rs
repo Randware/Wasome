@@ -1,6 +1,6 @@
 use crate::composite::Enum;
 use crate::file::File;
-use crate::symbol::{EnumSymbol, StructSymbol, Symbol, SymbolTable};
+use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, StructSymbol, SymbolTable};
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
@@ -44,7 +44,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /** Gets the symbol imported by a specific import
       Returns None if it doesn't exist
     */
-    pub fn resolve_import(&self, to_resolve: &Import) -> Option<Symbol<'b, Type>> {
+    pub fn resolve_import(&self, to_resolve: &Import) -> Option<DirectlyAvailableSymbol<'b, Type>> {
         self.parent.resolve_import(to_resolve)
     }
 
@@ -137,7 +137,7 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'a, 'b,
 }
 
 struct FileSymbolTable<'a, 'b, Type: ASTType> {
-    function_symbols: Box<dyn Iterator<Item = Symbol<'b, Type>> + 'a>,
+    function_symbols: Box<dyn Iterator<Item = DirectlyAvailableSymbol<'b, Type>> + 'a>,
     enum_symbols: Box<dyn Iterator<Item = &'b EnumSymbol> + 'a>,
     struct_symbols: Box<dyn Iterator<Item = &'b StructSymbol> + 'a>,
 }
@@ -156,11 +156,9 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                     // A FileSymbolTable can not exist without an ast
                     // Therefore, we can't have an unresolved import here and can safely unwrap
                     .map(|import| symbol_source.resolve_import(import).unwrap())
-                    .chain(
-                        symbol_source
-                            .function_iterator()
-                            .map(|function| Symbol::Function(function.inner().declaration())),
-                    )
+                    .chain(symbol_source.function_iterator().map(|function| {
+                        DirectlyAvailableSymbol::Function(function.inner().declaration())
+                    }))
                     .unique(),
             ),
             enum_symbols: Box::new(symbol_source.enums_iterator().map(|en| en.symbol())),
@@ -174,13 +172,21 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for FileSymbolTable<'a, 'b, Type> {
-    type Item = Symbol<'b, Type>;
+    type Item = DirectlyAvailableSymbol<'b, Type>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.function_symbols
             .next()
-            .or_else(|| self.enum_symbols.next().map(|en| Symbol::Enum(en)))
-            .or_else(|| self.struct_symbols.next().map(|st| Symbol::Struct(st)))
+            .or_else(|| {
+                self.enum_symbols
+                    .next()
+                    .map(|en| DirectlyAvailableSymbol::Enum(en))
+            })
+            .or_else(|| {
+                self.struct_symbols
+                    .next()
+                    .map(|st| DirectlyAvailableSymbol::Struct(st))
+            })
     }
 }
 

@@ -1,4 +1,6 @@
-use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol};
+use crate::symbol::{
+    EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
+};
 use crate::top_level::Function;
 use crate::visibility::{Visibility, Visible};
 use crate::{ASTNode, ASTType, SemanticEquality};
@@ -154,26 +156,26 @@ impl<Type: ASTType> SemanticEquality for Struct<Type> {
 */
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct StructField<Type: ASTType> {
-    name: String,
-    data_type: Type::GeneralDataType,
+    inner: Rc<StructFieldSymbol<Type>>,
 }
 
 impl<Type: ASTType> StructField<Type> {
-    pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
-        Self { name, data_type }
+    pub fn new(inner: Rc<StructFieldSymbol<Type>>) -> Self {
+        Self { inner }
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn inner(&self) -> &StructFieldSymbol<Type> {
+        &self.inner
     }
 
-    pub fn data_type(&self) -> &Type::GeneralDataType {
-        &self.data_type
+    pub fn inner_owned(&self) -> Rc<StructFieldSymbol<Type>> {
+        self.inner.clone()
     }
 }
 
 impl<Type: ASTType> SemanticEquality for StructField<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.name() == other.name() && self.data_type() == other.data_type()
+        self.inner.name() == other.inner.name()
+            && self.inner().data_type() == other.inner().data_type()
     }
 }
