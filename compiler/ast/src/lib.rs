@@ -1564,6 +1564,8 @@ mod tests {
                 PathBuf::new()
             )
         ).unwrap();
+
+        assert!(ast.semantic_equals(&ast));
     }
 }
 

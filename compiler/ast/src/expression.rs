@@ -55,6 +55,15 @@ impl<Type: ASTType> SemanticEquality for Expression<Type> {
             (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => {
                 inner.semantic_equals(other_inner)
             }
+            (Exp::NewStruct(inner), Exp::NewStruct(other_inner)) => {
+                inner.semantic_equals(other_inner)
+            }
+            (Exp::NewEnum(inner), Exp::NewEnum(other_inner)) => {
+                inner.semantic_equals(other_inner)
+            }
+            (Exp::StructFieldAccess(inner), Exp::StructFieldAccess(other_inner)) => {
+                inner.semantic_equals(other_inner)
+            }
             _ => false,
         }
     }
@@ -483,6 +492,14 @@ impl Typed for NewStruct<TypedAST> {
     }
 }
 
+impl<Type: ASTType> SemanticEquality for NewStruct<Type>
+{
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.parameters().semantic_equals(other.parameters()) &&
+            self.symbol() == other.symbol()
+    }
+}
+
 /** The creation of a new enum
 
 e.g.: Enum::Variant(1, true)
@@ -558,6 +575,15 @@ impl Typed for NewEnum<TypedAST> {
     }
 }
 
+impl<Type: ASTType> SemanticEquality for NewEnum<Type>
+{
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.parameters().semantic_equals(other.parameters()) &&
+            self.variant() == other.variant() &&
+            self.symbol() == other.symbol()
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct StructFieldAccess<Type: ASTType> {
     of: ASTNode<Expression<Type>>,
@@ -606,6 +632,14 @@ impl<Type: ASTType> StructFieldAccess<Type> {
 impl Typed for StructFieldAccess<TypedAST> {
     fn data_type(&self) -> DataType {
         self.field().data_type().clone()
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for StructFieldAccess<Type>
+{
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.of().semantic_equals(other.of()) &&
+            self.field() == other.field()
     }
 }
 
