@@ -35,7 +35,7 @@ pub(crate) fn analyze_statement(
             Some(Statement::ControlStructure(typed_cs))
         }
         Statement::Codeblock(_) => {
-            let analyzed_cb = analyze_codeblock(to_analyze,function_symbol_mapper)?;
+            let analyzed_cb = analyze_codeblock(to_analyze, function_symbol_mapper)?;
             Some(Statement::Codeblock(analyzed_cb))
         }
         Statement::VoidFunctionCall(_) => todo!(),
@@ -94,7 +94,7 @@ fn analyze_return(
 }
 
 /** Analyzes a control-structure statement referenced by a traversal helper and returns a typed control structure
-@params  to_analyze: StatementTraversalHelper<UntypedAST> - traversal helper pointing to the control-structure statement
+@params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper pointing to the control-structure statement
          function_symbol_mapper: &mut FunctionSymbolMapper - provides scope context and supports nested statement analysis
 @return Some(ControlStructure<TypedAST>) if the contained control structure (conditional or loop) was successfully analyzed
         None if the helper does not point to a control structure or if nested analysis fails
@@ -122,7 +122,7 @@ fn analyze_control_structure(
 /** Analyzes a Conditional control structure (if/then/else) and converts it into a typed Conditional node
   @params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the Conditional statement
         function_symbol_mapper: &mut FunctionSymbolMapper - used to validate the condition type and manage scopes for then/else branches
-@return Some(Conditional<TypedAST>) if the condition and both branches (when present) are semantically valid and typed
+  @return Some(Conditional<TypedAST>) if the condition and both branches (when present) are semantically valid and typed
         None if the helper is not a Conditional, the condition is not boolean, or nested branch analysis fails
 */
 fn analyze_conditional(
@@ -168,7 +168,7 @@ fn analyze_conditional(
 
 /** Analyzes a Loop control structure and converts it into a typed Loop node
   @params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the Loop statement
-           mapper: &mut FunctionSymbolMapper - used to validate loop components and manage a new scope for loop body and headers
+           function_symbol_mapper: &mut FunctionSymbolMapper - used to validate loop components and manage a new scope for loop body and headers
   @return Some(Loop<TypedAST>) if the loop header (while/for) and body are semantically valid and typed
 *          None if the helper is not a Loop, a condition is not boolean, or nested analysis fails
  */
@@ -182,7 +182,7 @@ fn analyze_loop(
     };
     let untyped_loop_ref: &Loop<UntypedAST> = match **inner_box_ref {
         ControlStructure::Loop(ref l) => l,
-        _ => return None, // "Error: analyze_loop expects Loop, but found Conditional."
+        _ => return None, //"Error: analyze_loop expects Loop, but found Conditional."
     };
 
     function_symbol_mapper.enter_scope();
@@ -264,11 +264,15 @@ fn analyze_codeblock(
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
     use super::*;
-    use ast::UntypedAST;
+    use ast::{UntypedAST, AST};
     use ast::data_type::DataType;
     use ast::expression::Expression;
     use ast::statement::Return;
+    use ast::symbol::FunctionSymbol;
+    use ast::top_level::{Function, TopLevelElement};
+    use ast::traversal::function_traversal::FunctionTraversalHelper;
 
     #[test]
     fn analyze_return_ok_matching_void() {
@@ -285,6 +289,7 @@ mod tests {
             "Expected returned Return to contain no expression"
         );
     }
+
 
     #[test]
     fn analyze_return_ok_matching_types() {
@@ -314,5 +319,110 @@ mod tests {
             matches!(typed_return.to_return().unwrap(), Expression::Literal(_)),
             "The returned expression should be a typed S32 literal."
         );
+    }
+
+    #[test]
+    fn analyze_control_structure_conditional_ok() {
+        let mut mapper = FunctionSymbolMapper::new();
+
+        let stmt_to_test = {
+            let condition = Expression::Literal(String::from("true"));
+            let then_block = Statement::Codeblock(CodeBlock::new(Vec::new()));
+            let conditional = Conditional::new(condition, then_block, None);
+            Statement::ControlStructure(Box::new(ControlStructure::Conditional(conditional)))
+        };
+
+        let func_symbol = Rc::new(FunctionSymbol::new(
+            "test_conditional".to_string(),
+            None,
+            Vec::new()
+        ));
+        let func = Function::new(func_symbol, stmt_to_test);
+        let ast = AST::new(vec![TopLevelElement::Function(func)]);
+
+        let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+        let helper = func_ref.ref_to_implementation();
+
+        let analyzed = analyze_control_structure(helper, &mut mapper);
+        assert!(analyzed.is_some(), "Expected conditional to analyze successfully");
+
+        if let Some(ControlStructure::Conditional(c)) = analyzed {
+            assert_eq!(c.condition().data_type(), DataType::Bool);
+        } else {
+            panic!("Expected Conditional variant");
+        }
+    }
+
+    #[test]
+    fn analyze_control_structure_loop_ok() {
+        let mut mapper = FunctionSymbolMapper::new();
+
+        let stmt_to_test = {
+            let condition = Expression::Literal(String::from("true"));
+            let loop_node = Loop::new(
+                Statement::Codeblock(CodeBlock::new(Vec::new())),
+                LoopType::While(condition),
+            );
+            Statement::ControlStructure(Box::new(ControlStructure::Loop(loop_node)))
+        };
+
+        let func_symbol = Rc::new(FunctionSymbol::new(
+            "test_loop".to_string(),
+            None,
+            Vec::new()
+        ));
+        let func = Function::new(func_symbol, stmt_to_test);
+        let ast = AST::new(vec![TopLevelElement::Function(func)]);
+
+        let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+        let helper = func_ref.ref_to_implementation();
+
+        // 3. Test
+        let analyzed = analyze_control_structure(helper, &mut mapper);
+        assert!(analyzed.is_some(), "Expected loop to analyze successfully");
+
+        if let Some(ControlStructure::Loop(l)) = analyzed {
+            match l.loop_type() {
+                LoopType::While(cond) => {
+                    assert_eq!(cond.data_type(), DataType::Bool);
+                }
+                _ => panic!("Expected While loop type"),
+            }
+        } else {
+            panic!("Expected Loop variant");
+        }
+    }
+
+    #[test]
+    fn analyze_codeblock_ok() {
+        let mut mapper = FunctionSymbolMapper::new();
+
+        mapper.set_current_function_return_type(None);
+
+        let stmt_to_test = {
+            let ret_stmt: Statement<UntypedAST> = Statement::Return(Return::new(None));
+            let codeblock = CodeBlock::new(vec![ret_stmt]);
+            Statement::Codeblock(codeblock)
+        };
+
+        let func_symbol = Rc::new(FunctionSymbol::new(
+            "test_codeblock".to_string(),
+            None,
+            Vec::new()
+        ));
+        let func = Function::new(func_symbol, stmt_to_test);
+        let ast = AST::new(vec![TopLevelElement::Function(func)]);
+
+        let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+        let helper = func_ref.ref_to_implementation();
+
+        let analyzed = analyze_codeblock(helper, &mut mapper);
+        assert!(analyzed.is_some(), "Expected codeblock to analyze successfully");
+
+        let cb = analyzed.unwrap();
+
+
+        assert_eq!(cb.len(), 1, "Expected one statement in typed codeblock");
+        assert!(matches!(cb[0], Statement::Return(_)));
     }
 }
