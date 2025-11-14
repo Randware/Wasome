@@ -2,7 +2,7 @@
 //! It consists of five "levels", from highest to lowest:
 //! 1. Directories
 //! 2. Files
-//! 3. Functions
+//! 3. Functions TODO
 //! 4. Statements
 //! 5. Expressions
 //!
@@ -1155,7 +1155,7 @@ mod tests {
                                                 CodeArea::new(
                                                     CodeLocation::new(40, 0),
                                                     CodeLocation::new(50, 0),
-                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                    CodeFile::new(PathBuf::from("message/message.waso"))
                                                 ).unwrap()
                                             )],
                                             vec![],
@@ -1171,7 +1171,7 @@ mod tests {
                                                                 CodeArea::new(
                                                                     CodeLocation::new(50, 0),
                                                                     CodeLocation::new(75, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
                                                                 ).unwrap()
                                                             ),
                                                             ASTNode::new(
@@ -1181,7 +1181,7 @@ mod tests {
                                                                 CodeArea::new(
                                                                     CodeLocation::new(75, 0),
                                                                     CodeLocation::new(100, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
                                                                 ).unwrap()
                                                             )
                                                         ]
@@ -1189,7 +1189,7 @@ mod tests {
                                                     CodeArea::new(
                                                         CodeLocation::new(50, 0),
                                                         CodeLocation::new(100, 0),
-                                                        CodeFile::new(PathBuf::from("message/message"))
+                                                        CodeFile::new(PathBuf::from("message/message.waso"))
                                                     ).unwrap()
                                                 )
                                             ],
@@ -1215,7 +1215,7 @@ mod tests {
                                                                                                 CodeArea::new(
                                                                                                     CodeLocation::new(152, 10),
                                                                                                     CodeLocation::new(152, 20),
-                                                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
                                                                                                 ).unwrap())
                                                                                         ],
                                                                                     ))
@@ -1223,14 +1223,14 @@ mod tests {
                                                                                 CodeArea::new(
                                                                                     CodeLocation::new(151, 0),
                                                                                     CodeLocation::new(169, 0),
-                                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
                                                                                 ).unwrap()
                                                                             ))
                                                                         )),
                                                                         CodeArea::new(
                                                                             CodeLocation::new(151, 0),
                                                                             CodeLocation::new(169, 0),
-                                                                            CodeFile::new(PathBuf::from("message/message"))
+                                                                            CodeFile::new(PathBuf::from("message/message.waso"))
                                                                         ).unwrap()
                                                                     ),
                                                                     Visibility::Public
@@ -1238,7 +1238,7 @@ mod tests {
                                                                 CodeArea::new(
                                                                     CodeLocation::new(150, 0),
                                                                     CodeLocation::new(170, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
                                                                 ).unwrap()
                                                             ),
                                                             ASTNode::new(
@@ -1254,7 +1254,7 @@ mod tests {
                                                                                             CodeArea::new(
                                                                                                 CodeLocation::new(171, 10),
                                                                                                 CodeLocation::new(171, 20),
-                                                                                                CodeFile::new(PathBuf::from("message/message"))
+                                                                                                CodeFile::new(PathBuf::from("message/message.waso"))
                                                                                             ).unwrap()
                                                                                         ),
                                                                                         error_msg_inner_symbol.clone()
@@ -1263,14 +1263,14 @@ mod tests {
                                                                                 CodeArea::new(
                                                                                     CodeLocation::new(171, 0),
                                                                                     CodeLocation::new(189, 0),
-                                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
                                                                                 ).unwrap()
                                                                             ))
                                                                         )),
                                                                         CodeArea::new(
                                                                             CodeLocation::new(171, 0),
                                                                             CodeLocation::new(189, 0),
-                                                                            CodeFile::new(PathBuf::from("message/message"))
+                                                                            CodeFile::new(PathBuf::from("message/message.waso"))
                                                                         ).unwrap()
                                                                     ),
                                                                     Visibility::Public
@@ -1278,7 +1278,7 @@ mod tests {
                                                                 CodeArea::new(
                                                                     CodeLocation::new(170, 0),
                                                                     CodeLocation::new(190, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message"))
+                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
                                                                 ).unwrap()
                                                             )
                                                         ],
@@ -1290,7 +1290,7 @@ mod tests {
                                                                     CodeArea::new(
                                                                         CodeLocation::new(110, 0),
                                                                         CodeLocation::new(111, 0),
-                                                                        CodeFile::new(PathBuf::from("message/message"))
+                                                                        CodeFile::new(PathBuf::from("message/message.waso"))
                                                                     ).unwrap()
                                                                 )
                                                             ]
@@ -1298,12 +1298,12 @@ mod tests {
                                                     CodeArea::new(
                                                         CodeLocation::new(100, 0),
                                                         CodeLocation::new(200, 1),
-                                                        CodeFile::new(PathBuf::from("message/message"))
+                                                        CodeFile::new(PathBuf::from("message/message.waso"))
                                                     ).unwrap()
                                                 )
                                             ]
                                         ),
-                                        PathBuf::from("message/message")
+                                        PathBuf::from("message/message.waso")
                                     )
                                 ],
                             ),
@@ -1342,7 +1342,7 @@ mod tests {
                                                                                                 CodeArea::new(
                                                                                                     CodeLocation::new(152, 10),
                                                                                                     CodeLocation::new(152, 20),
-                                                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                                                 ).unwrap())
                                                                                         ],
                                                                                     ))
@@ -1350,14 +1350,14 @@ mod tests {
                                                                                 CodeArea::new(
                                                                                     CodeLocation::new(151, 0),
                                                                                     CodeLocation::new(169, 0),
-                                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                                 ).unwrap()
                                                                             ))
                                                                         )),
                                                                         CodeArea::new(
                                                                             CodeLocation::new(151, 0),
                                                                             CodeLocation::new(169, 0),
-                                                                            CodeFile::new(PathBuf::from("warning/warning"))
+                                                                            CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                         ).unwrap()
                                                                     ),
                                                                     Visibility::Public
@@ -1365,7 +1365,7 @@ mod tests {
                                                                 CodeArea::new(
                                                                     CodeLocation::new(150, 0),
                                                                     CodeLocation::new(170, 0),
-                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                 ).unwrap()
                                                             ),
                                                             ASTNode::new(
@@ -1381,7 +1381,7 @@ mod tests {
                                                                                             CodeArea::new(
                                                                                                 CodeLocation::new(171, 10),
                                                                                                 CodeLocation::new(171, 20),
-                                                                                                CodeFile::new(PathBuf::from("warning/warning"))
+                                                                                                CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                                             ).unwrap()
                                                                                         ),
                                                                                         warning_msg_inner_symbol.clone()
@@ -1390,14 +1390,14 @@ mod tests {
                                                                                 CodeArea::new(
                                                                                     CodeLocation::new(171, 0),
                                                                                     CodeLocation::new(189, 0),
-                                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                                 ).unwrap()
                                                                             ))
                                                                         )),
                                                                         CodeArea::new(
                                                                             CodeLocation::new(171, 0),
                                                                             CodeLocation::new(189, 0),
-                                                                            CodeFile::new(PathBuf::from("warning/warning"))
+                                                                            CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                         ).unwrap()
                                                                     ),
                                                                     Visibility::Public
@@ -1405,7 +1405,7 @@ mod tests {
                                                                 CodeArea::new(
                                                                     CodeLocation::new(170, 0),
                                                                     CodeLocation::new(190, 0),
-                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                 ).unwrap()
                                                             )
                                                         ],
@@ -1417,7 +1417,7 @@ mod tests {
                                                                 CodeArea::new(
                                                                     CodeLocation::new(110, 0),
                                                                     CodeLocation::new(111, 0),
-                                                                    CodeFile::new(PathBuf::from("warning/warning"))
+                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                 ).unwrap()
                                                             )
                                                         ]
@@ -1425,12 +1425,12 @@ mod tests {
                                                     CodeArea::new(
                                                         CodeLocation::new(100, 0),
                                                         CodeLocation::new(200, 1),
-                                                        CodeFile::new(PathBuf::from("warning/warning"))
+                                                        CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                     ).unwrap()
                                                 )
                                             ]
                                         ),
-                                        PathBuf::from("warning/warning")
+                                        PathBuf::from("warning/warning.waso")
                                     )
                                 ],
                             ),
@@ -1446,28 +1446,28 @@ mod tests {
                                         CodeArea::new(
                                             CodeLocation::new(10, 0),
                                             CodeLocation::new(20, 0),
-                                            CodeFile::new(PathBuf::new())
+                                            CodeFile::new(PathBuf::from("main.waso".to_string()))
                                         ).unwrap()),
                                 ASTNode::new(
                                     Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "get_inner".to_string()]),
                                     CodeArea::new(
                                         CodeLocation::new(20, 0),
                                         CodeLocation::new(30, 0),
-                                        CodeFile::new(PathBuf::new())
+                                        CodeFile::new(PathBuf::from("main.waso".to_string()))
                                     ).unwrap()),
                                 ASTNode::new(
                                     Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()]),
                                     CodeArea::new(
                                         CodeLocation::new(30, 0),
                                         CodeLocation::new(40, 0),
-                                    CodeFile::new(PathBuf::new())
+                                    CodeFile::new(PathBuf::from("main.waso".to_string()))
                                     ).unwrap()),
                                     ASTNode::new(
                                         Import::new(ImportRoot::ProjectRoot, vec!["message".to_string(), "message".to_string(), "Message".to_string()]),
                                         CodeArea::new(
                                             CodeLocation::new(40, 0),
                                             CodeLocation::new(50, 0),
-                                            CodeFile::new(PathBuf::new())
+                                            CodeFile::new(PathBuf::from("main.waso".to_string()))
                                         ).unwrap())
                             ],
                             vec![ASTNode::new(
