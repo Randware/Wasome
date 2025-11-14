@@ -395,14 +395,17 @@ impl<Type: ASTType> Match<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Match<Type>
-{
+impl<Type: ASTType> SemanticEquality for Match<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.condition_enum() == other.condition_enum() &&
-            self.condition_enum_variant() == other.condition_enum_variant() &&
-            self.assignement_expression().semantic_equals(other.assignement_expression()) &&
-            self.variables() == other.variables() &&
-            self.then_statement().semantic_equals(other.then_statement())
+        self.condition_enum() == other.condition_enum()
+            && self.condition_enum_variant() == other.condition_enum_variant()
+            && self
+                .assignement_expression()
+                .semantic_equals(other.assignement_expression())
+            && self.variables() == other.variables()
+            && self
+                .then_statement()
+                .semantic_equals(other.then_statement())
     }
 }
 

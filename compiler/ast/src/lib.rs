@@ -1099,7 +1099,7 @@ mod tests {
         let error_msg_inner_symbol =
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
         let error_msg_symbol = Rc::new(StructSymbol::new(
-            "error_msg".to_string(),
+            "Error".to_string(),
             Visibility::Private,
         ));
 
@@ -1566,6 +1566,35 @@ mod tests {
         ).unwrap();
 
         assert!(ast.semantic_equals(&ast));
+
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let main = root.file_by_name("main").unwrap();
+        let main_func = main.function_by_name("main").unwrap();
+        let root_statement = main_func.ref_to_implementation();
+        let match_statement = root_statement.index(0);
+        let inner_function_call = match_statement.index(0);
+
+        let symbols = inner_function_call.symbols().collect::<Vec<_>>();
+        assert_eq!(symbols.len(), 4);
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&main_fn_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&main_fn_warning_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Enum(&msg_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));
+
+        let msg_dir = root.subdirectory_by_name("message").unwrap();
+        let msg_file = msg_dir.file_by_name("message").unwrap();
+        let error_msg_struct = msg_file.struct_by_name("Error").unwrap();
+        let new_error_function = error_msg_struct.function_by_name("new").unwrap();
+        let root_statement = new_error_function.ref_to_implementation();
+        let symbols = root_statement.symbols().collect::<Vec<_>>();
+
+        assert_eq!(symbols.len(), 6);
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&error_msg_new_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&error_msg_get_inner_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&error_msg_new_inner_param)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&error_msg_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Enum(&msg_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));
     }
 }
 

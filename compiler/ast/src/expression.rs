@@ -58,9 +58,7 @@ impl<Type: ASTType> SemanticEquality for Expression<Type> {
             (Exp::NewStruct(inner), Exp::NewStruct(other_inner)) => {
                 inner.semantic_equals(other_inner)
             }
-            (Exp::NewEnum(inner), Exp::NewEnum(other_inner)) => {
-                inner.semantic_equals(other_inner)
-            }
+            (Exp::NewEnum(inner), Exp::NewEnum(other_inner)) => inner.semantic_equals(other_inner),
             (Exp::StructFieldAccess(inner), Exp::StructFieldAccess(other_inner)) => {
                 inner.semantic_equals(other_inner)
             }
@@ -492,11 +490,9 @@ impl Typed for NewStruct<TypedAST> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for NewStruct<Type>
-{
+impl<Type: ASTType> SemanticEquality for NewStruct<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.parameters().semantic_equals(other.parameters()) &&
-            self.symbol() == other.symbol()
+        self.parameters().semantic_equals(other.parameters()) && self.symbol() == other.symbol()
     }
 }
 
@@ -575,12 +571,11 @@ impl Typed for NewEnum<TypedAST> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for NewEnum<Type>
-{
+impl<Type: ASTType> SemanticEquality for NewEnum<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.parameters().semantic_equals(other.parameters()) &&
-            self.variant() == other.variant() &&
-            self.symbol() == other.symbol()
+        self.parameters().semantic_equals(other.parameters())
+            && self.variant() == other.variant()
+            && self.symbol() == other.symbol()
     }
 }
 
@@ -635,11 +630,9 @@ impl Typed for StructFieldAccess<TypedAST> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for StructFieldAccess<Type>
-{
+impl<Type: ASTType> SemanticEquality for StructFieldAccess<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.of().semantic_equals(other.of()) &&
-            self.field() == other.field()
+        self.of().semantic_equals(other.of()) && self.field() == other.field()
     }
 }
 
