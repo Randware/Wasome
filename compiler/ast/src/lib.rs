@@ -2,15 +2,16 @@
 //! It consists of five "levels", from highest to lowest:
 //! 1. Directories
 //! 2. Files
-//! 3. Functions TODO
-//! 4. Statements
-//! 5. Expressions
+//! 3. Composites (Optional)
+//! 4. Functions
+//! 5. Statements
+//! 6. Expressions
 //!
 //! Each level can contain instances of the level below it and its own level.
 //!
-//! In addition to these main types, there are also four traversial helpers:
-//! DirectoryTraversalHelper, FileTraversalHelper, FunctionTraversalHelper, StatementTraversalHelper
-//! They both contain references to an instance of Directory, File, Function or Statement and allow to list all
+//! In addition to these main types, there are also five traversial helpers:
+//! DirectoryTraversalHelper, FileTraversalHelper, FunctionTraversalHelper, StatementTraversalHelper and StructTraversalHelper
+//! They all contain references to an instance of Directory, File, Function, Statement or Struct and allow to list all
 //! symbols available to it.
 //!
 //! For more information on how to use this, refer to the tests in this file.
