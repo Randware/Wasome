@@ -1442,6 +1442,20 @@ mod tests {
                             "main".to_string(),
                             vec![
                                 ASTNode::new(
+                                        Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "new".to_string()]),
+                                        CodeArea::new(
+                                            CodeLocation::new(10, 0),
+                                            CodeLocation::new(20, 0),
+                                            CodeFile::new(PathBuf::new())
+                                        ).unwrap()),
+                                ASTNode::new(
+                                    Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "get_inner".to_string()]),
+                                    CodeArea::new(
+                                        CodeLocation::new(20, 0),
+                                        CodeLocation::new(30, 0),
+                                        CodeFile::new(PathBuf::new())
+                                    ).unwrap()),
+                                ASTNode::new(
                                     Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()]),
                                     CodeArea::new(
                                         CodeLocation::new(30, 0),
@@ -1478,7 +1492,7 @@ mod tests {
                                                                                    ASTNode::new(
                                                                                        Expression::FunctionCall(
                                                                                            FunctionCall::<TypedAST>::new(
-                                                                                               warning_msg_new_symbol,
+                                                                                               warning_msg_new_symbol.clone(),
                                                                                                vec![
                                                                                                    ASTNode::new(
                                                                                                        Expression::Literal(
@@ -1575,9 +1589,11 @@ mod tests {
         let inner_function_call = match_statement.index(0);
 
         let symbols = inner_function_call.symbols().collect::<Vec<_>>();
-        assert_eq!(symbols.len(), 4);
+        assert_eq!(symbols.len(), 6);
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&main_fn_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&main_fn_warning_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&warning_msg_new_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&warning_msg_get_inner_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Enum(&msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));
 

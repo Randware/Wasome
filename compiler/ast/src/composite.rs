@@ -48,7 +48,8 @@ impl<Type: ASTType> Enum<Type> {
 
 impl<Type: ASTType> SemanticEquality for Enum<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.symbol() == other.symbol()
+        self.symbol() == other.symbol() &&
+            self.variants().semantic_equals(other.variants())
     }
 }
 
@@ -123,6 +124,10 @@ impl<Type: ASTType> Struct<Type> {
         &self.functions
     }
 
+    pub fn fields(&self) -> &[ASTNode<StructField<Type>>] {
+        &self.fields
+    }
+
     /** Gets the function with the specified name
      */
     pub fn function_by_name(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
@@ -149,6 +154,7 @@ impl<Type: ASTType> SemanticEquality for Struct<Type> {
         self.symbol == other.symbol
             && self.functions().semantic_equals(other.functions())
             && self.functions.semantic_equals(other.functions())
+            && self.fields().semantic_equals(other.fields())
     }
 }
 

@@ -140,6 +140,8 @@ impl<Type: ASTType> SemanticEquality for File<Type> {
         self.name() == other.name()
             && self.imports().semantic_equals(other.imports())
             && self.functions().semantic_equals(other.functions())
+            && self.enums().semantic_equals(other.enums())
+            && self.structs().semantic_equals(other.structs())
     }
 }
 
