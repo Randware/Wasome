@@ -3,7 +3,7 @@ use std::{
     ops::Range,
 };
 
-use ariadne::{Color, Label, Report, ReportKind, Source, Span};
+use ariadne::{Color, Label, Report, ReportKind, Source};
 use bon::Builder;
 
 use crate::snippet::Snippet;
@@ -14,7 +14,8 @@ pub struct Error {
     snippets: Vec<Snippet>,
 
     kind: ErrorKind,
-    message: &'static str,
+    #[builder(into)]
+    message: String,
 }
 
 impl<S: error_builder::State> ErrorBuilder<S> {
@@ -38,7 +39,7 @@ impl Error {
             ReportKind::Custom(self.kind.heading(), self.kind.styling().kind_heading),
             ("", 0..0),
         )
-        .with_message(self.message)
+        .with_message(&self.message)
         .with_labels(self.snippets.iter().map(|snippet| {
             Label::new((
                 snippet.source.file().filepath().to_str().unwrap(),
@@ -50,7 +51,7 @@ impl Error {
     }
 }
 
-pub struct ErrorStyling {
+pub(crate) struct ErrorStyling {
     kind_heading: Color,
     message: Color,
     code_snippet: Color,

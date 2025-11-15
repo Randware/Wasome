@@ -1,25 +1,37 @@
 use bon::Builder;
 use shared::code_reference::{CodeArea, CodeLocation};
 
+pub(crate) struct Annotation {
+    locations: Box<dyn Iterator<Item = (CodeLocation, CodeLocation)>>,
+    message: String,
+}
+
 #[derive(Builder)]
 pub struct Snippet {
     #[builder(field)]
-    pub annotations: Vec<(
-        Box<dyn Iterator<Item = (CodeLocation, CodeLocation)>>,
-        &'static str,
-    )>,
+    pub(crate) annotations: Vec<Annotation>,
 
-    pub source: CodeArea,
+    pub(crate) source: CodeArea,
 }
 
 impl<S: snippet_builder::State> SnippetBuilder<S> {
-    pub fn annotate(
+    pub fn annotate_many(
         mut self,
         locations: impl IntoIterator<Item = (CodeLocation, CodeLocation)> + 'static,
-        message: &'static str,
+        message: &str,
     ) -> Self {
-        self.annotations
-            .push((Box::new(locations.into_iter()), message));
+        self.annotations.push(Annotation {
+            locations: Box::new(locations.into_iter()),
+            message: message.to_string(),
+        });
+        self
+    }
+
+    pub fn annotate(mut self, location: (CodeLocation, CodeLocation), message: &str) -> Self {
+        self.annotations.push(Annotation {
+            locations: Box::new(std::iter::once(location)),
+            message: message.to_string(),
+        });
         self
     }
 }

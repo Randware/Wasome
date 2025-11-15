@@ -3,7 +3,7 @@ mod snippet;
 
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, process::Command};
+    use std::{fs, path::PathBuf};
 
     use shared::{
         code_file::CodeFile,
@@ -17,6 +17,10 @@ mod tests {
 
     #[test]
     fn test_print() {
+        let file = fs::read_to_string("./test.waso").unwrap();
+
+        println!("{}", file);
+
         let err = Error::builder()
             .kind(ErrorKind::Error)
             .message("This is an error")
@@ -30,7 +34,7 @@ mod tests {
                         )
                         .unwrap(),
                     )
-                    .annotate(
+                    .annotate_many(
                         [
                             (CodeLocation::new(1, 2), CodeLocation::new(1, 10)),
                             (CodeLocation::new(3, 5), CodeLocation::new(3, 15)),
@@ -50,10 +54,7 @@ mod tests {
                         .unwrap(),
                     )
                     .annotate(
-                        [
-                            (CodeLocation::new(1, 2), CodeLocation::new(1, 10)),
-                            (CodeLocation::new(3, 5), CodeLocation::new(3, 15)),
-                        ],
+                        (CodeLocation::new(1, 2), CodeLocation::new(1, 10)),
                         "You cannot do this",
                     )
                     .build(),
