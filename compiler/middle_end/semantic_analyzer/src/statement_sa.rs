@@ -2,9 +2,13 @@ use crate::expression_sa::analyze_expression;
 use crate::function_symbol_mapper::FunctionSymbolMapper;
 use ast::block::CodeBlock;
 use ast::data_type::{DataType, Typed};
-use ast::statement::{Conditional, ControlStructure, Loop, LoopType, Return, Statement};
+use ast::statement::{
+    Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableDeclaration,
+};
+use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{TypedAST, UntypedAST};
+use std::rc::Rc;
 
 /** Analyzes a statement referenced by a traversal helper and converts it into a typed statement node
 @params  to_analyze: StatementTraversalHelper<UntypedAST> - traversal helper pointing to the statement to analyze
@@ -18,7 +22,10 @@ pub(crate) fn analyze_statement(
 ) -> Option<Statement<TypedAST>> {
     match to_analyze.get_inner() {
         Statement::VariableAssignment(_) => todo!(),
-        Statement::VariableDeclaration(_) => todo!(),
+        Statement::VariableDeclaration(inner) => {
+            let declared_variable = analyze_variable_declaration(inner, function_symbol_mapper)?;
+            Some(Statement::VariableDeclaration(declared_variable))
+        }
         Statement::Expression(inner) => {
             let typed_expr = analyze_expression(inner, function_symbol_mapper)?;
             Some(Statement::Expression(typed_expr))
@@ -39,6 +46,65 @@ pub(crate) fn analyze_statement(
             Some(Statement::Codeblock(analyzed_cb))
         }
         Statement::VoidFunctionCall(_) => todo!(),
+    }
+}
+
+/** Analyzes a VariableDeclaration and converts it into a typed statement node.
+* @params to_analyze: The untyped VariableDeclaration statement.
+* @params function_symbol_mapper: The mapper for scope and type registration.
+* @return Some(Statement<TypedAST>) on success, None on semantic error.
+ */
+fn analyze_variable_declaration<'a>(
+    to_analyze: &VariableDeclaration<UntypedAST>,
+    function_symbol_mapper: &mut FunctionSymbolMapper<'a>,
+) -> Option<VariableDeclaration<TypedAST>> {
+    let untyped_initializer = to_analyze.value();
+    let typed_initializer = analyze_expression(untyped_initializer, function_symbol_mapper)?;
+
+    let declared_type_name = to_analyze.variable().data_type();
+    let resolved_declared_type = match resolve_type_name(declared_type_name) {
+        Some(dt) => dt,
+        None => {
+            //  eprintln!("Error: Unknown or unsupported type name '{}' in variable declaration.", declared_type_name);
+            return None;
+        }
+    };
+
+    let var_name = to_analyze.variable().name().to_string();
+    let typed_variable_symbol = Rc::new(VariableSymbol::new(
+        var_name.clone(),
+        resolved_declared_type.clone(),
+    ));
+
+    if let Err(e) = function_symbol_mapper.add_variable(typed_variable_symbol.clone()) {
+        // eprintln!("Semantic Error: {}", e);
+        return None;
+    }
+
+    let typed_declaration =
+        VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_initializer)?;
+
+    Some(typed_declaration)
+}
+
+/**
+    A helperfunction that resolves the type names into to the right types
+*/
+fn resolve_type_name(type_name: &str) -> Option<DataType> {
+    match type_name {
+        "char" => Some(DataType::Char),
+        "u8" => Some(DataType::U8),
+        "s8" => Some(DataType::S8),
+        "u16" => Some(DataType::U16),
+        "s16" => Some(DataType::S16),
+        "u32" => Some(DataType::U32),
+        "s32" => Some(DataType::S32),
+        "u64" => Some(DataType::U64),
+        "s64" => Some(DataType::S64),
+        "bool" => Some(DataType::Bool),
+        "f32" => Some(DataType::F32),
+        "f64" => Some(DataType::F64),
+        _ => None,
     }
 }
 
@@ -267,7 +333,7 @@ mod tests {
     use super::*;
     use crate::file_symbol_mapper::FileSymbolMapper;
     use ast::data_type::DataType;
-    use ast::expression::Expression;
+    use ast::expression::{Expression, Literal};
     use ast::statement::Return;
     use ast::symbol::FunctionSymbol;
     use ast::top_level::{Function, TopLevelElement};
@@ -436,5 +502,36 @@ mod tests {
 
         assert_eq!(cb.len(), 1, "Expected one statement in typed codeblock");
         assert!(matches!(cb[0], Statement::Return(_)));
+    }
+
+    #[test]
+    fn analyze_variable_declaration_basic_ok() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+
+        let untyped_var_decl = VariableDeclaration::<UntypedAST>::new(
+            Rc::new(VariableSymbol::new("x".to_string(), "s32".to_string())),
+            Expression::Literal("5".to_string()),
+        );
+
+        let stmt_to_analyze = Statement::VariableDeclaration(untyped_var_decl);
+
+        let func_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, Vec::new()));
+        let implementation_block = Statement::Codeblock(CodeBlock::new(vec![stmt_to_analyze]));
+        let func = Function::new(func_symbol, implementation_block);
+        let ast = AST::new(vec![TopLevelElement::Function(func)]);
+
+        let func_ref = ast.functions().next().unwrap();
+        let root_helper = FunctionTraversalHelper::new(func_ref, &ast);
+        let helper = root_helper.ref_to_implementation();
+
+        let decl_helper = helper.index(0);
+
+        let analyzed_stmt = analyze_statement(decl_helper, &mut mapper);
+
+        assert!(
+            analyzed_stmt.is_some(),
+            "Expected variable declaration analysis to succeed, but it failed (returned None)."
+        );
     }
 }
