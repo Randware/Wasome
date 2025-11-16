@@ -114,6 +114,7 @@ fn analyze_binary_op(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::file_symbol_mapper::FileSymbolMapper;
     use ast::UntypedAST;
     use ast::expression::Expression;
     use ast::expression::Literal;
@@ -131,12 +132,14 @@ mod tests {
     #[test]
     fn analyze_expression_literal_converts_to_typed_literal() {
         let input: Expression<UntypedAST> = Expression::Literal(String::from("42"));
-        let output = analyze_expression(&input, &mut FunctionSymbolMapper::new())
-            .expect("should convert literal");
+
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+
+        let output = analyze_expression(&input, &mut mapper).expect("should convert literal");
 
         let input2: Expression<UntypedAST> = Expression::Literal(String::from("12.2"));
-        let output2 = analyze_expression(&input2, &mut FunctionSymbolMapper::new())
-            .expect("should convert literal (2)");
+        let output2 = analyze_expression(&input2, &mut mapper).expect("should convert literal (2)");
 
         assert_eq!(Expression::Literal(Literal::S32(42)), output);
 
@@ -148,9 +151,11 @@ mod tests {
         use ast::expression::{Expression, Literal, UnaryOp, UnaryOpType};
         let inner = Expression::Literal(String::from("42"));
         let untyped = UnaryOp::<UntypedAST>::new(UnaryOpType::Negative, inner);
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
-        let result = analyze_unary_op(&Box::new(untyped), &mut FunctionSymbolMapper::new())
-            .expect("should analyze unary op");
+        let result =
+            analyze_unary_op(&Box::new(untyped), &mut mapper).expect("should analyze unary op");
 
         let (op_type, expr) = result.destructure();
 
@@ -164,8 +169,11 @@ mod tests {
         let left = Expression::Literal(String::from("17"));
         let right = Expression::Literal(String::from("5"));
         let untyped = BinaryOp::<UntypedAST>::new(BinaryOpType::Addition, left, right);
-        let result = analyze_binary_op(&Box::new(untyped), &mut FunctionSymbolMapper::new())
-            .expect("should analyze binary op");
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+
+        let result =
+            analyze_binary_op(&Box::new(untyped), &mut mapper).expect("should analyze binary op");
 
         let (op_type, l_expr, r_expr) = result.destructure();
         assert_eq!(BinaryOpType::Addition, op_type);

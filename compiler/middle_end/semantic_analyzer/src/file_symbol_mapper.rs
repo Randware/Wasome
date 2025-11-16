@@ -1,31 +1,26 @@
-use crate::function_symbol_mapper::FunctionSymbolMapper;
 use ast::TypedAST;
-use ast::data_type::DataType;
-use ast::symbol::{FunctionSymbol, VariableSymbol};
+use ast::symbol::FunctionSymbol;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct FileSymbolMapper {
     file_functions: HashMap<String, Rc<FunctionSymbol<TypedAST>>>,
-    pub function_mapper: FunctionSymbolMapper,
 }
 
 impl FileSymbolMapper {
-    /** Creates a new FileSymbolMapper instance
-      @params  self: (constructor) - no instance yet, creates a new mapper with empty file function table and a fresh FunctionSymbolMapper
-      @return A new FileSymbolMapper with initialized fields
+    /** Creates a new FileSymbolMapper instance.
+         @return A new FileSymbolMapper with an empty function table.
     */
     pub fn new() -> Self {
         Self {
             file_functions: HashMap::new(),
-            function_mapper: FunctionSymbolMapper::new(),
         }
     }
 
-    /** Adds a function symbol to the file-level symbol table
-      @params  self: &mut FileSymbolMapper - the mapper to modify
-               symbol: Rc<FunctionSymbol<TypedAST>> - the function symbol to add
-      @return Ok(()) if the function was inserted; Err(String) if a function with the same name already exists
+    /** Adds a function symbol to the file-level symbol table.
+         @param self: &mut FileSymbolMapper - The mapper to modify.
+         @param symbol: Rc<FunctionSymbol<TypedAST>> - The function symbol to add.
+         @return Ok(()) if the function was inserted; Err(String) if a function with the same name already exists.
     */
     pub fn add_function_to_file(
         &mut self,
@@ -42,56 +37,95 @@ impl FileSymbolMapper {
         Ok(())
     }
 
-    /** Looks up a function symbol by name in the file-level table
-      @params  self: &FileSymbolMapper - the mapper performing the lookup
-               name: &str - the identifier of the function to search for
-      @return Some(Rc<FunctionSymbol<TypedAST>>) if a function with `name` is found; None otherwise
+    /** Looks up a function symbol by name in the file-level table.
+         This method is used by the FunctionSymbolMapper to resolve global function calls.
+         @param self: &FileSymbolMapper - The mapper performing the lookup.
+         @param name: &str - The identifier of the function to search for.
+         @return Some(Rc<FunctionSymbol<TypedAST>>) if a function with `name` is found; None otherwise.
     */
     pub fn lookup_function(&self, name: &str) -> Option<Rc<FunctionSymbol<TypedAST>>> {
         self.file_functions.get(name).cloned()
     }
+}
 
-    /** Sets the current function return type in the local FunctionSymbolMapper
-      @params  self: &mut FileSymbolMapper - the mapper to modify
-               return_type: Option<DataType> - the return type to set (or None to clear)
-      @return () - updates the internal local mapper
-    */
-    pub fn set_current_function_return_type(&mut self, return_type: Option<DataType>) {
-        self.function_mapper
-            .set_current_function_return_type(return_type);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ast::data_type::DataType;
+    use ast::symbol::{FunctionSymbol, VariableSymbol};
+    use std::rc::Rc;
+
+    fn create_test_function_symbol(name: &str, return_type: Option<DataType>) -> Rc<FunctionSymbol<TypedAST>> {
+        Rc::new(FunctionSymbol::new(
+            name.to_string(),
+            return_type,
+            vec![
+                Rc::new(VariableSymbol::new("p1".to_string(), DataType::S32))
+            ]
+        ))
     }
 
-    /** Gets the current function return type from the local FunctionSymbolMapper
-      @params  self: &FileSymbolMapper - the mapper providing the information
-      @return Option<DataType> representing the current function return type, or None if not set
-    */
-
-    pub fn get_current_function_return_type(&self) -> Option<DataType> {
-        self.function_mapper.get_current_function_return_type()
+    #[test]
+    fn new_mapper_is_empty() {
+        let mapper = FileSymbolMapper::new();
+        assert!(
+            mapper.lookup_function("any_func").is_none(),
+            "Newly created mapper should contain no functions."
+        );
     }
 
-    /** Enters a new local scope in the FunctionSymbolMapper
-     @params  self: &mut FileSymbolMapper - the mapper to modify
-      @return () - pushes a new scope onto the local scope stack
-    */
-    pub fn enter_scope(&mut self) {
-        self.function_mapper.enter_scope();
+    #[test]
+    fn add_and_lookup_function_ok() {
+        let mut mapper = FileSymbolMapper::new();
+        let func_name = "test_func_s32";
+
+        let symbol = create_test_function_symbol(func_name, Some(DataType::S32));
+
+        let result = mapper.add_function_to_file(symbol.clone());
+        assert!(result.is_ok(), "Adding the function should succeed.");
+
+        let found_symbol = mapper.lookup_function(func_name);
+        assert!(found_symbol.is_some(), "Lookup should find the added function.");
+
+        let found_symbol = found_symbol.unwrap();
+        assert_eq!(found_symbol.name(), func_name, "Found function name must match.");
+        assert_eq!(found_symbol.return_type(), Some(&DataType::S32), "Found function type must match.");
     }
 
-    /** Exits the current local scope in the FunctionSymbolMapper
-      @params  self: &mut FileSymbolMapper - the mapper to modify
-      @return () - pops the current scope from the local scope stack
-    */
-    pub fn exit_scope(&mut self) {
-        self.function_mapper.exit_scope();
+    #[test]
+    fn add_duplicate_function_errors() {
+        let mut mapper = FileSymbolMapper::new();
+        let func_name = "duplicate_func";
+
+        let symbol1 = create_test_function_symbol(func_name, Some(DataType::S32));
+        let symbol2 = create_test_function_symbol(func_name, Some(DataType::F64)); // Gleicher Name, anderer Typ
+
+        assert!(
+            mapper.add_function_to_file(symbol1).is_ok(),
+            "First function definition should succeed."
+        );
+
+        let result = mapper.add_function_to_file(symbol2);
+        assert!(
+            result.is_err(),
+            "Adding a function with the same name must return an error."
+        );
+
+        let error_msg = result.err().unwrap();
+        assert!(
+            error_msg.contains("already defined"),
+            "Error message should indicate a duplicate definition."
+        );
     }
 
-    /** Looks up a variable symbol by name in the local scope stack
-     @params  self: &FileSymbolMapper - the SymbolMapper performing the lookup
-              name: &str - the identifier of the variable to search for
-      @return Some(Rc<VariableSymbol<TypedAST>>) if a variable with `name` is found in any scope; None otherwise
-    */
-    pub fn lookup_variable(&self, name: &str) -> Option<Rc<VariableSymbol<TypedAST>>> {
-        self.function_mapper.lookup_variable(name)
+    #[test]
+    fn lookup_non_existent_function_returns_none() {
+        let mapper = FileSymbolMapper::new();
+
+        assert!(
+            mapper.lookup_function("non_existent").is_none(),
+            "Lookup for non-existent function must return None."
+        );
     }
 }
+

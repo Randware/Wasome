@@ -264,19 +264,22 @@ fn analyze_codeblock(
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
     use super::*;
-    use ast::{UntypedAST, AST};
+    use crate::file_symbol_mapper::FileSymbolMapper;
     use ast::data_type::DataType;
     use ast::expression::Expression;
     use ast::statement::Return;
     use ast::symbol::FunctionSymbol;
     use ast::top_level::{Function, TopLevelElement};
     use ast::traversal::function_traversal::FunctionTraversalHelper;
+    use ast::{AST, UntypedAST};
+    use std::rc::Rc;
 
     #[test]
     fn analyze_return_ok_matching_void() {
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+
         let ret: Return<UntypedAST> = Return::new(None);
         let analyzed = analyze_return(&ret, &mut mapper);
         assert!(
@@ -290,11 +293,12 @@ mod tests {
         );
     }
 
-
     #[test]
     fn analyze_return_ok_matching_types() {
         let expected_type = DataType::S32;
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+
         mapper.set_current_function_return_type(Some(expected_type));
 
         let untyped_literal = Expression::Literal(String::from("42"));
@@ -323,7 +327,8 @@ mod tests {
 
     #[test]
     fn analyze_control_structure_conditional_ok() {
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let stmt_to_test = {
             let condition = Expression::Literal(String::from("true"));
@@ -335,7 +340,7 @@ mod tests {
         let func_symbol = Rc::new(FunctionSymbol::new(
             "test_conditional".to_string(),
             None,
-            Vec::new()
+            Vec::new(),
         ));
         let func = Function::new(func_symbol, stmt_to_test);
         let ast = AST::new(vec![TopLevelElement::Function(func)]);
@@ -344,7 +349,10 @@ mod tests {
         let helper = func_ref.ref_to_implementation();
 
         let analyzed = analyze_control_structure(helper, &mut mapper);
-        assert!(analyzed.is_some(), "Expected conditional to analyze successfully");
+        assert!(
+            analyzed.is_some(),
+            "Expected conditional to analyze successfully"
+        );
 
         if let Some(ControlStructure::Conditional(c)) = analyzed {
             assert_eq!(c.condition().data_type(), DataType::Bool);
@@ -355,7 +363,8 @@ mod tests {
 
     #[test]
     fn analyze_control_structure_loop_ok() {
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let stmt_to_test = {
             let condition = Expression::Literal(String::from("true"));
@@ -369,7 +378,7 @@ mod tests {
         let func_symbol = Rc::new(FunctionSymbol::new(
             "test_loop".to_string(),
             None,
-            Vec::new()
+            Vec::new(),
         ));
         let func = Function::new(func_symbol, stmt_to_test);
         let ast = AST::new(vec![TopLevelElement::Function(func)]);
@@ -395,7 +404,8 @@ mod tests {
 
     #[test]
     fn analyze_codeblock_ok() {
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         mapper.set_current_function_return_type(None);
 
@@ -408,7 +418,7 @@ mod tests {
         let func_symbol = Rc::new(FunctionSymbol::new(
             "test_codeblock".to_string(),
             None,
-            Vec::new()
+            Vec::new(),
         ));
         let func = Function::new(func_symbol, stmt_to_test);
         let ast = AST::new(vec![TopLevelElement::Function(func)]);
@@ -417,10 +427,12 @@ mod tests {
         let helper = func_ref.ref_to_implementation();
 
         let analyzed = analyze_codeblock(helper, &mut mapper);
-        assert!(analyzed.is_some(), "Expected codeblock to analyze successfully");
+        assert!(
+            analyzed.is_some(),
+            "Expected codeblock to analyze successfully"
+        );
 
         let cb = analyzed.unwrap();
-
 
         assert_eq!(cb.len(), 1, "Expected one statement in typed codeblock");
         assert!(matches!(cb[0], Statement::Return(_)));

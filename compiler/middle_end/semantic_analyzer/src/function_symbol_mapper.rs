@@ -1,3 +1,4 @@
+use crate::file_symbol_mapper::FileSymbolMapper;
 use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
@@ -6,63 +7,61 @@ use std::rc::Rc;
 
 pub struct Scope {
     variables: HashMap<String, Rc<VariableSymbol<TypedAST>>>,
-    functions: HashMap<String, Rc<FunctionSymbol<TypedAST>>>,
 }
 
-pub struct FunctionSymbolMapper {
+pub struct FunctionSymbolMapper<'a> {
     scope_stack: Vec<Scope>,
     current_function_return_type: Option<DataType>,
+    file_mapper: &'a mut FileSymbolMapper,
 }
 
-impl FunctionSymbolMapper {
-    /** Creates a new instance of SymbolMapper
-     *  @params  None
-     *  @return A new SymbolMapper initialized with a base scope and no current function return type
+impl<'a> FunctionSymbolMapper<'a> {
+    /** Creates a new instance of FunctionSymbolMapper.
+     * Initializes with a reference to the global file scope and establishes the base scope.
+     * @param file_mapper: &'a mut FileSymbolMapper - The global symbol table for the file.
+     * @return A new FunctionSymbolMapper with initialized fields and an active base scope.
      */
-    pub fn new() -> Self {
+    pub fn new(file_mapper: &'a mut FileSymbolMapper) -> Self {
         let mut mapper = Self {
             scope_stack: Vec::new(),
             current_function_return_type: None,
+            file_mapper,
         };
         mapper.enter_scope();
         mapper
     }
 
-    /** Enters a new scope on the scope stack
-     *  @params  self: The SymbolMapper whose scope stack will receive a new, empty scope
-     *  @return () - pushes a new Scope onto the internal scope_stack
+    /** Enters a new scope on the scope stack.
+     * @param self: The mapper whose scope stack will receive a new, empty scope.
+     * @return () - Pushes a new Scope (with no variables) onto the internal scope_stack.
      */
     pub fn enter_scope(&mut self) {
         self.scope_stack.push(Scope {
             variables: HashMap::new(),
-            functions: HashMap::new(),
         });
     }
 
-    /** Exits the current scope on the scope stack
-     *  @params  self: The SymbolMapper whose current scope will be removed
-     *  @return () - pops the last Scope from the internal scope_stack (if any)
+    /** Exits the current scope on the scope stack.
+     * @param self: The mapper whose current scope will be removed.
+     * @return () - Pops the last Scope from the internal scope_stack (if any).
      */
     pub fn exit_scope(&mut self) {
         self.scope_stack.pop();
     }
-}
 
-/** Creates a default SymbolMapper
- *  @params  None
- *  @return Self - same as SymbolMapper::new(), used for Default trait implementation
- */
-impl Default for FunctionSymbolMapper {
-    fn default() -> Self {
-        Self::new()
+    /** Looks up a function symbol by name.
+     * Delegates the lookup to the associated FileSymbolMapper (global scope).
+     * @param name: &str - The identifier of the function to search for.
+     * @return Some(Rc<FunctionSymbol<TypedAST>>) if found; None otherwise.
+     */
+    pub fn lookup_function(&self, name: &str) -> Option<Rc<FunctionSymbol<TypedAST>>> {
+        self.file_mapper.lookup_function(name)
     }
-}
 
-impl FunctionSymbolMapper {
-    /** Adds a variable symbol to the current scope
-     *  @params  self: The SymbolMapper to modify
-     *           symbol: Rc<VariableSymbol<TypedAST>> - the variable symbol to insert into the current scope
-     *  @return () - inserts the symbol into the variables map of the last scope if present
+    /** Adds a variable symbol to the current scope.
+     * @param self: The SymbolMapper to modify.
+     * @param symbol: Rc<VariableSymbol<TypedAST>> - The variable symbol to insert.
+     * @return Ok(()) if inserted; Err(String) if a variable with the same name already exists in the current scope.
      */
     pub fn add_variable(&mut self, symbol: Rc<VariableSymbol<TypedAST>>) -> Result<(), String> {
         if let Some(current_scope) = self.scope_stack.last_mut() {
@@ -82,10 +81,11 @@ impl FunctionSymbolMapper {
         }
     }
 
-    /** Looks up a variable symbol by name in the scope stack
-     *  @params  self: The SymbolMapper performing the lookup
-     *           name: &str - the identifier of the variable to search for
-     *  @return Some(Rc<VariableSymbol<TypedAST>>) if a variable with `name` is found in any scope; None otherwise
+    /** Looks up a variable symbol by name in the scope stack.
+     * Searches from the innermost scope outwards.
+     * @param self: The SymbolMapper performing the lookup.
+     * @param name: &str - The identifier of the variable to search for.
+     * @return Some(Rc<VariableSymbol<TypedAST>>) if a variable with `name` is found; None otherwise.
      */
     pub fn lookup_variable(&self, name: &str) -> Option<Rc<VariableSymbol<TypedAST>>> {
         for scope in self.scope_stack.iter().rev() {
@@ -96,18 +96,18 @@ impl FunctionSymbolMapper {
         None
     }
 
-    /** Sets the current function return type for subsequent analysis
-     *  @params  self: The SymbolMapper to modify
-     *           return_type: Option<DataType> - the return type to record for the currently analyzed function (None if not applicable)
-     *  @return () - updates the internal current_function_return_type
+    /** Sets the current function return type for subsequent analysis.
+     * @param self: The SymbolMapper to modify.
+     * @param return_type: Option<DataType> - The return type to record for the currently analyzed function (None for void).
+     * @return () - Updates the internal current_function_return_type.
      */
     pub fn set_current_function_return_type(&mut self, return_type: Option<DataType>) {
         self.current_function_return_type = return_type;
     }
 
-    /** Gets the currently recorded function return type
-     *  @params  self: The SymbolMapper used to query the return type
-     *  @return Option<DataType> - the recorded return type for the current function, or None if none is set
+    /** Gets the currently recorded function return type.
+     * @param self: The SymbolMapper used to query the return type.
+     * @return Option<DataType> - The recorded return type for the current function, or None if not set.
      */
     pub fn get_current_function_return_type(&self) -> Option<DataType> {
         self.current_function_return_type
@@ -117,26 +117,24 @@ impl FunctionSymbolMapper {
 #[cfg(test)]
 mod tests {
     use super::FunctionSymbolMapper;
+    use crate::file_symbol_mapper::FileSymbolMapper;
     use ast::data_type::DataType;
 
     #[test]
-    fn new_and_default_have_no_return_type() {
-        let mapper = FunctionSymbolMapper::new();
-        let default = FunctionSymbolMapper::default();
+    fn new_has_no_return_type() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         assert!(
             mapper.get_current_function_return_type().is_none(),
             "Expected no current return type for new mapper."
         );
-        assert!(
-            default.get_current_function_return_type().is_none(),
-            "Expected no current return type for default mapper."
-        );
     }
 
     #[test]
     fn set_and_get_current_function_return_type() {
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         mapper.set_current_function_return_type(Some(DataType::S32));
         assert_eq!(
@@ -154,7 +152,8 @@ mod tests {
 
     #[test]
     fn enter_and_exit_scope_do_not_panic_and_keep_lookups_none() {
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         mapper.enter_scope();
         assert!(
@@ -169,7 +168,8 @@ mod tests {
         use ast::symbol::VariableSymbol;
         use std::rc::Rc;
 
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let v1 = Rc::new(VariableSymbol::new(String::from("a"), DataType::S32));
         let v2 = Rc::new(VariableSymbol::new(String::from("b"), DataType::S64));
@@ -195,7 +195,8 @@ mod tests {
         use ast::symbol::VariableSymbol;
         use std::rc::Rc;
 
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let v1 = Rc::new(VariableSymbol::new(String::from("x"), DataType::S32));
         let v2 = Rc::new(VariableSymbol::new(String::from("x"), DataType::S64));
@@ -215,7 +216,8 @@ mod tests {
         use ast::symbol::VariableSymbol;
         use std::rc::Rc;
 
-        let mut mapper = FunctionSymbolMapper::new();
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let outer = Rc::new(VariableSymbol::new(String::from("s"), DataType::S32));
         mapper.add_variable(outer).expect("Add outer variable");
@@ -230,9 +232,9 @@ mod tests {
 
         let found = mapper.lookup_variable("s").expect("`s` should be found");
         assert_eq!(
-            found.name(),
-            "s",
-            "Lookup should return the (inner) symbol named 's'"
+            found.data_type(),
+            &DataType::S64,
+            "Lookup should return the inner (shadowing) variable's type (S64)"
         );
     }
 }
