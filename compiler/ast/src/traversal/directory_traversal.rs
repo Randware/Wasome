@@ -2,7 +2,8 @@ use crate::directory::Directory;
 use crate::symbol::DirectlyAvailableSymbol;
 use crate::top_level::{Import, ImportRoot};
 use crate::traversal::file_traversal::FileTraversalHelper;
-use crate::{AST, ASTNode, ASTType};
+use crate::type_parameter::TypedTypeParameter;
+use crate::{AST, ASTNode, ASTType, TypedAST, UntypedAST};
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -117,13 +118,23 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .files_iterator()
             .map(|file| FileTraversalHelper::new(file, self))
     }
+
+    fn get_root(&self) -> &DirectoryTraversalHelper<'a, 'b, Type> {
+        self.parent
+            .as_ref()
+            .map(|parent| parent.get_root())
+            .unwrap_or(self)
+    }
+}
+
+impl<'a, 'b> DirectoryTraversalHelper<'a, 'b, UntypedAST> {
     /** Gets the symbol imported by a specific import
-    Returns None if it doesn't exist or is not visible
+       Returns None if it doesn't exist or is not visible
     */
     pub(crate) fn resolve_import(
         &self,
-        to_resolve: &Import,
-    ) -> Option<DirectlyAvailableSymbol<'b, Type>> {
+        to_resolve: &Import<UntypedAST>,
+    ) -> Option<DirectlyAvailableSymbol<'b, UntypedAST>> {
         let root = match to_resolve.root() {
             ImportRoot::CurrentDirectory => self,
             ImportRoot::ProjectRoot => self.get_root(),
@@ -131,14 +142,34 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
         root.get_symbol_for_path(to_resolve.path())
     }
 
-    fn get_symbol_for_path(&self, path: &[String]) -> Option<DirectlyAvailableSymbol<'b, Type>> {
+    fn get_symbol_for_path(
+        &self,
+        path: &[String],
+    ) -> Option<DirectlyAvailableSymbol<'b, UntypedAST>> {
         self.inner().get_symbol_for_path(path)
     }
+}
 
-    fn get_root(&self) -> &DirectoryTraversalHelper<'a, 'b, Type> {
-        self.parent
-            .as_ref()
-            .map(|parent| parent.get_root())
-            .unwrap_or(self)
+impl<'a, 'b> DirectoryTraversalHelper<'a, 'b, TypedAST> {
+    /** Gets the symbol imported by a specific import
+          Returns None if it doesn't exist or is not visible
+    */
+    pub(crate) fn resolve_import(
+        &self,
+        to_resolve: &Import<TypedAST>,
+    ) -> Option<DirectlyAvailableSymbol<'b, TypedAST>> {
+        let root = match to_resolve.root() {
+            ImportRoot::CurrentDirectory => self,
+            ImportRoot::ProjectRoot => self.get_root(),
+        };
+        root.get_symbol_for_path(to_resolve.path(), to_resolve.type_parameters())
+    }
+
+    fn get_symbol_for_path(
+        &self,
+        path: &[String],
+        type_parameters: &[TypedTypeParameter],
+    ) -> Option<DirectlyAvailableSymbol<'b, TypedAST>> {
+        self.inner().get_symbol_for_path(path, type_parameters)
     }
 }

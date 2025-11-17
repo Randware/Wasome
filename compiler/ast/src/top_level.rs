@@ -1,7 +1,8 @@
 use crate::statement::Statement;
 use crate::symbol::FunctionSymbol;
+use crate::type_parameter::TypedTypeParameter;
 use crate::visibility::{Visibility, Visible};
-use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -59,16 +60,42 @@ impl<Type: ASTType> Visible for Function<Type> {
 In the typed AST, this has no semantic meaning and is only there to not lose any information
 */
 #[derive(Debug, PartialEq)]
-pub struct Import {
+pub struct Import<Type: ASTType> {
     root: ImportRoot,
     path: Vec<String>,
+    type_parameters: Vec<Type::TypeParameterResolved>,
 }
 
-impl Import {
+impl Import<UntypedAST> {
     pub fn new(root: ImportRoot, path: Vec<String>) -> Self {
-        Self { root, path }
+        // The type parameters don't have any information
+        Self {
+            root,
+            path,
+            type_parameters: Vec::new(),
+        }
+    }
+}
+
+impl Import<TypedAST> {
+    pub fn new(
+        root: ImportRoot,
+        path: Vec<String>,
+        type_parameters: Vec<TypedTypeParameter>,
+    ) -> Self {
+        Self {
+            root,
+            path,
+            type_parameters,
+        }
     }
 
+    pub fn type_parameters(&self) -> &[TypedTypeParameter] {
+        &self.type_parameters
+    }
+}
+
+impl<Type: ASTType> Import<Type> {
     pub fn root(&self) -> &ImportRoot {
         &self.root
     }
@@ -78,7 +105,7 @@ impl Import {
     }
 }
 
-impl SemanticEquality for Import {
+impl<Type: ASTType> SemanticEquality for Import<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
         // Semantic equality is equal to regular equality
         self == other

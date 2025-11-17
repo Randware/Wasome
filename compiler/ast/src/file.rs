@@ -1,14 +1,15 @@
 use crate::composite::{Enum, Struct};
 use crate::symbol::{DirectlyAvailableSymbol, FunctionSymbol};
 use crate::top_level::{Function, Import};
+use crate::type_parameter::TypedTypeParameter;
 use crate::visibility::{Visibility, Visible};
-use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
 
 #[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType> {
     /// Filename without the file extension
     name: String,
-    imports: Vec<ASTNode<Import>>,
+    imports: Vec<ASTNode<Import<Type>>>,
     functions: Vec<ASTNode<Function<Type>>>,
     enums: Vec<ASTNode<Enum<Type>>>,
     structs: Vec<ASTNode<Struct<Type>>>,
@@ -17,7 +18,7 @@ pub struct File<Type: ASTType> {
 impl<Type: ASTType> File<Type> {
     pub fn new(
         name: String,
-        imports: Vec<ASTNode<Import>>,
+        imports: Vec<ASTNode<Import<Type>>>,
         functions: Vec<ASTNode<Function<Type>>>,
         enums: Vec<ASTNode<Enum<Type>>>,
         structs: Vec<ASTNode<Struct<Type>>>,
@@ -35,7 +36,7 @@ impl<Type: ASTType> File<Type> {
         &self.name
     }
 
-    pub fn imports(&self) -> &[ASTNode<Import>] {
+    pub fn imports(&self) -> &[ASTNode<Import<Type>>] {
         &self.imports
     }
 
@@ -49,49 +50,6 @@ impl<Type: ASTType> File<Type> {
 
     pub fn structs(&self) -> &Vec<ASTNode<Struct<Type>>> {
         &self.structs
-    }
-
-    /** Gets the symbol with the specified name
-     */
-    pub fn symbol(&self, origin: &[String]) -> Option<DirectlyAvailableSymbol<'_, Type>> {
-        self.symbol_specified_origin(origin, false)
-    }
-
-    /** Gets the symbol with the specified name if it is public
-     */
-    pub fn symbol_public(&self, origin: &[String]) -> Option<DirectlyAvailableSymbol<'_, Type>> {
-        self.symbol_specified_origin(origin, true)
-    }
-
-    /** Gets the symbol with the specified origin if it is public or outside is false
-     */
-    fn symbol_specified_origin(
-        &self,
-        origin: &[String],
-        outside: bool,
-    ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
-        // Symbols can be a direct function...
-        self.function_symbol(origin.first()?, outside)
-            .map(|function_symbol| DirectlyAvailableSymbol::Function(function_symbol))
-            // ... or a function in a struct ...
-            .or_else(|| {
-                Some(DirectlyAvailableSymbol::Function(
-                    self.struct_by_name(&origin[0])?
-                        .function_symbol(origin.get(1)?, outside)?,
-                ))
-            })
-            // ... or a struct
-            .or_else(|| {
-                Some(DirectlyAvailableSymbol::Struct(
-                    self.struct_by_name(&origin[0])?.symbol(),
-                ))
-            })
-            // ... or a struct
-            .or_else(|| {
-                Some(DirectlyAvailableSymbol::Enum(
-                    self.enum_by_name(&origin[0])?.symbol(),
-                ))
-            })
     }
 
     /** Gets the function with the specified name
@@ -112,8 +70,13 @@ impl<Type: ASTType> File<Type> {
 
     /** Gets the struct with the specified name
      */
-    pub fn struct_by_name(&self, name: &str) -> Option<&ASTNode<Struct<Type>>> {
-        self.structs().iter().find(|st| st.symbol().name() == name)
+    pub fn struct_by_identifier(
+        &self,
+        identifier: Type::StructIdentifier<'_>,
+    ) -> Option<&ASTNode<Struct<Type>>> {
+        self.structs()
+            .iter()
+            .find(|st| Type::struct_matches_identifier(identifier, st.symbol()))
     }
 
     /** Gets the enum with the specified name
@@ -132,6 +95,109 @@ impl<Type: ASTType> File<Type> {
      */
     pub fn structs_iterator(&self) -> impl Iterator<Item = &ASTNode<Struct<Type>>> {
         self.structs().iter()
+    }
+}
+
+impl File<UntypedAST> {
+    /** Gets the symbol with the specified origin if it is public or outside is false
+     */
+    fn symbol_specified_origin(
+        &self,
+        origin: &[String],
+        outside: bool,
+    ) -> Option<DirectlyAvailableSymbol<'_, UntypedAST>> {
+        // Symbols can be a direct function...
+        self.function_symbol(origin.first()?, outside)
+            .map(DirectlyAvailableSymbol::Function)
+            // ... or a function in a struct ...
+            .or_else(|| {
+                Some(DirectlyAvailableSymbol::Function(
+                    self.struct_by_identifier(&origin[0])?
+                        .function_symbol(origin.get(1)?, outside)?,
+                ))
+            })
+            // ... or a struct
+            .or_else(|| {
+                Some(DirectlyAvailableSymbol::Struct(
+                    self.struct_by_identifier(&origin[0])?.symbol(),
+                ))
+            })
+            // ... or a struct
+            .or_else(|| {
+                Some(DirectlyAvailableSymbol::Enum(
+                    self.enum_by_name(&origin[0])?.symbol(),
+                ))
+            })
+    }
+
+    /** Gets the symbol with the specified name
+     */
+    pub fn symbol(&self, origin: &[String]) -> Option<DirectlyAvailableSymbol<'_, UntypedAST>> {
+        self.symbol_specified_origin(origin, false)
+    }
+
+    /** Gets the symbol with the specified name if it is public
+     */
+    pub fn symbol_public(
+        &self,
+        origin: &[String],
+    ) -> Option<DirectlyAvailableSymbol<'_, UntypedAST>> {
+        self.symbol_specified_origin(origin, true)
+    }
+}
+
+impl File<TypedAST> {
+    /** Gets the symbol with the specified origin if it is public or outside is false
+     */
+    fn symbol_specified_origin(
+        &self,
+        origin: &[String],
+        type_parameters: &[TypedTypeParameter],
+        outside: bool,
+    ) -> Option<DirectlyAvailableSymbol<'_, TypedAST>> {
+        // Symbols can be a direct function...
+        self.function_symbol(origin.first()?, outside)
+            .map(DirectlyAvailableSymbol::Function)
+            // ... or a function in a struct ...
+            .or_else(|| {
+                Some(DirectlyAvailableSymbol::Function(
+                    self.struct_by_identifier((&origin[0], type_parameters))?
+                        .function_symbol(origin.get(1)?, outside)?,
+                ))
+            })
+            // ... or a struct
+            .or_else(|| {
+                Some(DirectlyAvailableSymbol::Struct(
+                    self.struct_by_identifier((&origin[0], type_parameters))?
+                        .symbol(),
+                ))
+            })
+            // ... or a struct
+            .or_else(|| {
+                Some(DirectlyAvailableSymbol::Enum(
+                    self.enum_by_name(&origin[0])?.symbol(),
+                ))
+            })
+    }
+
+    /** Gets the symbol with the specified name
+     */
+    pub fn symbol(
+        &self,
+        origin: &[String],
+        type_parameters: &[TypedTypeParameter],
+    ) -> Option<DirectlyAvailableSymbol<'_, TypedAST>> {
+        self.symbol_specified_origin(origin, type_parameters, false)
+    }
+
+    /** Gets the symbol with the specified name if it is public
+     */
+    pub fn symbol_public(
+        &self,
+        origin: &[String],
+        type_parameters: &[TypedTypeParameter],
+    ) -> Option<DirectlyAvailableSymbol<'_, TypedAST>> {
+        self.symbol_specified_origin(origin, type_parameters, true)
     }
 }
 

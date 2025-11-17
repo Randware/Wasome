@@ -48,8 +48,7 @@ impl<Type: ASTType> Enum<Type> {
 
 impl<Type: ASTType> SemanticEquality for Enum<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.symbol() == other.symbol() &&
-            self.variants().semantic_equals(other.variants())
+        self.symbol() == other.symbol() && self.variants().semantic_equals(other.variants())
     }
 }
 
@@ -94,14 +93,14 @@ impl<Type: ASTType> SemanticEquality for EnumVariant<Type> {
 */
 #[derive(Debug, PartialEq)]
 pub struct Struct<Type: ASTType> {
-    symbol: Rc<StructSymbol>,
+    symbol: Rc<StructSymbol<Type>>,
     functions: Vec<ASTNode<Function<Type>>>,
     fields: Vec<ASTNode<StructField<Type>>>,
 }
 
 impl<Type: ASTType> Struct<Type> {
     pub fn new(
-        symbol: Rc<StructSymbol>,
+        symbol: Rc<StructSymbol<Type>>,
         functions: Vec<ASTNode<Function<Type>>>,
         fields: Vec<ASTNode<StructField<Type>>>,
     ) -> Self {
@@ -112,11 +111,11 @@ impl<Type: ASTType> Struct<Type> {
         }
     }
 
-    pub fn symbol(&self) -> &StructSymbol {
+    pub fn symbol(&self) -> &StructSymbol<Type> {
         &self.symbol
     }
 
-    pub fn symbol_owned(&self) -> Rc<StructSymbol> {
+    pub fn symbol_owned(&self) -> Rc<StructSymbol<Type>> {
         self.symbol.clone()
     }
 

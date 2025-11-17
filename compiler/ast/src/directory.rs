@@ -1,7 +1,8 @@
 use crate::file::File;
 use crate::symbol::DirectlyAvailableSymbol;
 use crate::top_level::Import;
-use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::type_parameter::TypedTypeParameter;
+use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
 use std::ops::Deref;
 use std::path::PathBuf;
 
@@ -67,12 +68,30 @@ impl<Type: ASTType> Directory<Type> {
         self.subdirectories().iter()
     }
 
+    // Rustrover is wrong, eliding the lifetimes causes errors
+    /** Recursively finds all imports and calls callback for them. The second parameter for the callback is the direct parent directory of the import
+     */
+    pub(crate) fn traverse_imports<'a>(
+        &'a self,
+        callback: &mut impl FnMut(&'a ASTNode<Import<Type>>, &'a Directory<Type>),
+    ) {
+        self.files_iterator().for_each(|file| {
+            file.imports()
+                .iter()
+                .for_each(|import| callback(import, self))
+        });
+        self.subdirectories_iterator()
+            .for_each(|subdir| subdir.deref().traverse_imports(callback));
+    }
+}
+
+impl Directory<UntypedAST> {
     /** Looks the symbol specified by path up
      */
     pub(crate) fn get_symbol_for_path(
         &self,
         path: &[String],
-    ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+    ) -> Option<DirectlyAvailableSymbol<'_, UntypedAST>> {
         match path.len() {
             len if len < 2 => return None, //Empty or too short path
             // Symbols can either come directly from files or from structs
@@ -89,21 +108,31 @@ impl<Type: ASTType> Directory<Type> {
         self.subdirectory_by_name(&path[0])?
             .get_symbol_for_path(&path[1..path.len()])
     }
+}
 
-    // Rustrover is wrong, eliding the lifetimes causes errors
-    /** Recursively finds all imports and calls callback for them. The second parameter for the callback is the direct parent directory of the import
+impl Directory<TypedAST> {
+    /** Looks the symbol specified by path up
      */
-    pub(crate) fn traverse_imports<'a>(
-        &'a self,
-        callback: &mut impl FnMut(&'a ASTNode<Import>, &'a Directory<Type>),
-    ) {
-        self.files_iterator().for_each(|file| {
-            file.imports()
-                .iter()
-                .for_each(|import| callback(import, self))
-        });
-        self.subdirectories_iterator()
-            .for_each(|subdir| subdir.deref().traverse_imports(callback));
+    pub(crate) fn get_symbol_for_path(
+        &self,
+        path: &[String],
+        type_parameters: &[TypedTypeParameter],
+    ) -> Option<DirectlyAvailableSymbol<'_, TypedAST>> {
+        match path.len() {
+            len if len < 2 => return None, //Empty or too short path
+            // Symbols can either come directly from files or from structs
+            2 | 3 => {
+                if let Some(symbol) = self
+                    .file_by_name(&path[0])
+                    .and_then(|file| file.symbol_public(&path[1..], type_parameters))
+                {
+                    return Some(symbol);
+                }
+            }
+            _ => (),
+        }
+        self.subdirectory_by_name(&path[0])?
+            .get_symbol_for_path(&path[1..path.len()], type_parameters)
     }
 }
 

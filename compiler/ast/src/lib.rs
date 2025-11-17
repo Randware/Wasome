@@ -21,8 +21,13 @@ use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
-use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol, VariableSymbol};
+use crate::symbol::{
+    EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol, UntypedTypeParameterSymbol,
+    VariableSymbol,
+};
 use crate::top_level::{Import, ImportRoot};
+use crate::traversal::file_traversal::{FileSymbolTable, FileTraversalHelper};
+use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -41,6 +46,7 @@ pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
+mod type_parameter;
 pub mod visibility;
 
 /** Comparing semantics only.
@@ -109,24 +115,24 @@ pub struct AST<Type: ASTType> {
 
 /// See [`AST::new`]
 #[derive(Debug)]
-pub struct UnresolvedImports<Type: ASTType> {
+pub struct UnresolvedImports {
     // This includes import errors
-    pub(crate) ast: AST<Type>,
+    pub(crate) ast: AST<TypedAST>,
 }
 
-impl<Type: ASTType> UnresolvedImports<Type> {
-    pub fn unresolved_imports(&self) -> Vec<&ASTNode<Import>> {
+impl UnresolvedImports {
+    pub fn unresolved_imports(&self) -> Vec<&ASTNode<Import<TypedAST>>> {
         self.ast.unresolved_imports()
     }
 }
 
-impl<Type: ASTType> AST<Type> {
+impl AST<TypedAST> {
     /** Creates a new instance of AST
 
     Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
     */
     // Lifetime issues prevent the imports from being returned directly
-    pub fn new(inner: ASTNode<Directory<Type>, PathBuf>) -> Result<Self, UnresolvedImports<Type>> {
+    pub fn new(inner: ASTNode<Directory<TypedAST>, PathBuf>) -> Result<Self, UnresolvedImports> {
         let ast = Self { inner };
         if ast.unresolved_imports().is_empty() {
             return Ok(ast);
@@ -134,7 +140,7 @@ impl<Type: ASTType> AST<Type> {
         Err(UnresolvedImports { ast })
     }
 
-    fn unresolved_imports(&self) -> Vec<&ASTNode<Import>> {
+    fn unresolved_imports(&self) -> Vec<&ASTNode<Import<TypedAST>>> {
         self.list_imports()
             .iter()
             .filter(|(import, path)| !self.check_import(import, path))
@@ -142,7 +148,7 @@ impl<Type: ASTType> AST<Type> {
             .collect()
     }
 
-    fn list_imports(&self) -> Vec<(&ASTNode<Import>, &Directory<Type>)> {
+    fn list_imports(&self) -> Vec<(&ASTNode<Import<TypedAST>>, &Directory<TypedAST>)> {
         let mut imports = Vec::new();
         self.deref()
             .traverse_imports(&mut |import, path| imports.push((import, path)));
@@ -151,15 +157,22 @@ impl<Type: ASTType> AST<Type> {
 
     /** Checks a specifiec import for validity. source_dir is where the import is from
      */
-    fn check_import(&self, to_check: &Import, source_dir: &Directory<Type>) -> bool {
+    fn check_import(&self, to_check: &Import<TypedAST>, source_dir: &Directory<TypedAST>) -> bool {
         let check_origin = match to_check.root() {
             ImportRoot::CurrentDirectory => source_dir,
             ImportRoot::ProjectRoot => &self.inner.inner,
         };
-        check_origin.get_symbol_for_path(to_check.path()).is_some()
+        check_origin
+            .get_symbol_for_path(to_check.path(), to_check.type_parameters())
+            .is_some()
     }
 }
 
+impl AST<UntypedAST> {
+    pub fn new(inner: ASTNode<Directory<UntypedAST>, PathBuf>) -> Self {
+        Self { inner }
+    }
+}
 impl<Type: ASTType> Deref for AST<Type> {
     type Target = ASTNode<Directory<Type>, PathBuf>;
 
@@ -253,6 +266,33 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type StructUse: Debug + PartialEq;
     type EnumUse: Debug + PartialEq;
     type EnumVariantUse: Debug + PartialEq;
+    type TypeParameter: Debug + PartialEq;
+    type TypeParameterResolved: Debug + PartialEq;
+    type StructIdentifier<'a>: Debug + PartialEq + Copy;
+
+    /** Gets all type parameter symbols of the provided struct
+    In practice, this means that for untyped structs all paramaters will be returned and for typed
+    an empty iterator.
+    */
+    fn type_parameter_symbols_of_struct(
+        of: &StructSymbol<Self>,
+    ) -> impl Iterator<Item = &UntypedTypeParameterSymbol>;
+
+    /** Checks wherever a given struct matches a given identifier
+     */
+    fn struct_matches_identifier(
+        identifier: Self::StructIdentifier<'_>,
+        to_check: &StructSymbol<Self>,
+    ) -> bool;
+
+    // This function is only intended to be called inside this crate and can't be made crate pub due to
+    // trait visibility rules
+    #[allow(private_interfaces)]
+    /** This is not intended to be called outside the ast crate
+     */
+    fn new_file_symbol_table<'a, 'b>(
+        symbol_source: &'a FileTraversalHelper<'a, 'b, Self>,
+    ) -> FileSymbolTable<'a, 'b, Self>;
 }
 
 /** This is an ast type
@@ -266,9 +306,32 @@ impl ASTType for TypedAST {
     type GeneralDataType = DataType;
     type FunctionCallSymbol = Rc<FunctionSymbol<TypedAST>>;
     type VariableUse = Rc<VariableSymbol<TypedAST>>;
-    type StructUse = Rc<StructSymbol>;
+    type StructUse = Rc<StructSymbol<TypedAST>>;
     type EnumUse = Rc<EnumSymbol>;
     type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
+    type TypeParameter = TypedTypeParameter;
+    type TypeParameterResolved = TypedTypeParameter;
+    type StructIdentifier<'a> = (&'a str, &'a [TypedTypeParameter]);
+    fn type_parameter_symbols_of_struct(
+        _of: &StructSymbol<Self>,
+    ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
+        // A typed struct has no type parameter symbols
+        [].iter()
+    }
+
+    fn struct_matches_identifier(
+        identifier: Self::StructIdentifier<'_>,
+        to_check: &StructSymbol<Self>,
+    ) -> bool {
+        to_check.type_parameters() == identifier.1 && to_check.name() == identifier.0
+    }
+
+    #[allow(private_interfaces)]
+    fn new_file_symbol_table<'a, 'b>(
+        symbol_source: &'a FileTraversalHelper<'a, 'b, Self>,
+    ) -> FileSymbolTable<'a, 'b, Self> {
+        FileSymbolTable::<TypedAST>::new_file_traversal_helper(symbol_source)
+    }
 }
 
 /** This is an ast type
@@ -285,6 +348,31 @@ impl ASTType for UntypedAST {
     type StructUse = String;
     type EnumUse = String;
     type EnumVariantUse = String;
+    type TypeParameter = UntypedTypeParameter;
+    // There are no resolved type parameters in the untyped AST
+    type TypeParameterResolved = ();
+    type StructIdentifier<'a> = &'a str;
+    fn type_parameter_symbols_of_struct(
+        of: &StructSymbol<Self>,
+    ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
+        of.type_parameters()
+            .iter()
+            .map(|type_param| type_param.inner())
+    }
+
+    fn struct_matches_identifier(
+        identifier: Self::StructIdentifier<'_>,
+        to_check: &StructSymbol<Self>,
+    ) -> bool {
+        to_check.name() == identifier
+    }
+
+    #[allow(private_interfaces)]
+    fn new_file_symbol_table<'a, 'b>(
+        symbol_source: &'a FileTraversalHelper<'a, 'b, Self>,
+    ) -> FileSymbolTable<'a, 'b, Self> {
+        FileSymbolTable::<UntypedAST>::new_file_traversal_helper(symbol_source)
+    }
 }
 
 #[cfg(test)]
@@ -304,7 +392,9 @@ mod tests {
         DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionCall, FunctionSymbol,
         StructFieldSymbol, StructSymbol, VariableSymbol,
     };
-    use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
+    use crate::test_shared::{
+        basic_test_variable, functions_into_ast_typed, functions_into_ast_untyped, sample_codearea,
+    };
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
@@ -338,7 +428,7 @@ mod tests {
             Visibility::Public,
         );
 
-        let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
+        let ast = functions_into_ast_typed(vec![ASTNode::new(function, sample_codearea())]);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
@@ -403,7 +493,7 @@ mod tests {
             Visibility::Public,
         );
 
-        let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
+        let ast = functions_into_ast_typed(vec![ASTNode::new(function, sample_codearea())]);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
@@ -495,7 +585,7 @@ mod tests {
         assert!(ast1.semantic_equals(&ast1));
         assert!(ast2.semantic_equals(&ast2));
 
-        let empty = functions_into_ast(Vec::new());
+        let empty = functions_into_ast_typed(Vec::new());
         assert!(!ast1.semantic_equals(&empty));
         assert!(!empty.semantic_equals(&ast1));
     }
@@ -507,7 +597,7 @@ mod tests {
         temp: &Rc<VariableSymbol<TypedAST>>,
         fibonacci: &Rc<FunctionSymbol<TypedAST>>,
     ) -> AST<TypedAST> {
-        functions_into_ast(vec![ASTNode::new(
+        functions_into_ast_typed(vec![ASTNode::new(
             Function::new(
                 fibonacci.clone(),
                 ASTNode::new(
@@ -693,7 +783,7 @@ mod tests {
             Some("s32".to_string()),
             vec![nth.clone()],
         ));
-        let ast = functions_into_ast(vec![ASTNode::new(
+        let ast = functions_into_ast_untyped(vec![ASTNode::new(
             Function::new(
                 fibonacci.clone(),
                 ASTNode::new(
@@ -996,9 +1086,10 @@ mod tests {
         let main_file = File::new(
             "main".to_string(),
             vec![ASTNode::new(
-                Import::new(
+                Import::<TypedAST>::new(
                     ImportRoot::ProjectRoot,
                     vec!["add".to_string(), "add".to_string()],
+                    Vec::new(),
                 ),
                 CodeArea::new(
                     CodeLocation::new(0, 0),
@@ -1012,7 +1103,7 @@ mod tests {
             Vec::new(),
         );
 
-        let ast = AST::new(ASTNode::new(
+        let ast = AST::<TypedAST>::new(ASTNode::new(
             Directory::new(
                 "src".to_string(),
                 Vec::new(),
@@ -1048,7 +1139,11 @@ mod tests {
             File::<TypedAST>::new(
                 "main".to_string(),
                 vec![ASTNode::new(
-                    Import::new(ImportRoot::ProjectRoot, vec!["nonexistent".to_string()]),
+                    Import::<TypedAST>::new(
+                        ImportRoot::ProjectRoot,
+                        vec!["nonexistent".to_string()],
+                        Vec::new(),
+                    ),
                     CodeArea::new(
                         CodeLocation::new(0, 0),
                         CodeLocation::new(0, 10),
@@ -1066,7 +1161,7 @@ mod tests {
             Directory::new("src".to_string(), Vec::new(), vec![file]),
             PathBuf::new(),
         );
-        let ast = AST::new(directory);
+        let ast = AST::<TypedAST>::new(directory);
         let unresolved = ast.unwrap_err();
         let imports = unresolved.unresolved_imports();
         assert_eq!(1, imports.len())
@@ -1076,8 +1171,11 @@ mod tests {
     pub fn composite_multifile() {
         let warning_msg_inner_symbol =
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
-        let warning_msg_symbol =
-            Rc::new(StructSymbol::new("Warning".to_string(), Visibility::Public));
+        let warning_msg_symbol = Rc::new(StructSymbol::new(
+            "Warning".to_string(),
+            Vec::new(),
+            Visibility::Public,
+        ));
 
         let warning_msg_new_inner_param =
             Rc::new(VariableSymbol::new("inner".to_string(), DataType::Char));
@@ -1101,6 +1199,7 @@ mod tests {
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
         let error_msg_symbol = Rc::new(StructSymbol::new(
             "Error".to_string(),
+            Vec::new(),
             Visibility::Private,
         ));
 
@@ -1138,7 +1237,7 @@ mod tests {
             DataType::Struct(warning_msg_symbol.clone()),
         ));
 
-        let ast = AST::new(
+        let ast = AST::<TypedAST>::new(
             ASTNode::new(
                 Directory::<TypedAST>::new(
                     "src".to_string(),
@@ -1152,7 +1251,7 @@ mod tests {
                                         File::new(
                                             "message".to_string(),
                                             vec![ASTNode::new(
-                                                Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()]),
+                                                Import::<TypedAST>::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()], Vec::new()),
                                                 CodeArea::new(
                                                     CodeLocation::new(40, 0),
                                                     CodeLocation::new(50, 0),
@@ -1443,28 +1542,28 @@ mod tests {
                             "main".to_string(),
                             vec![
                                 ASTNode::new(
-                                        Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "new".to_string()]),
+                                        Import::<TypedAST>::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "new".to_string()], Vec::new()),
                                         CodeArea::new(
                                             CodeLocation::new(10, 0),
                                             CodeLocation::new(20, 0),
                                             CodeFile::new(PathBuf::from("main.waso".to_string()))
                                         ).unwrap()),
                                 ASTNode::new(
-                                    Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "get_inner".to_string()]),
+                                    Import::<TypedAST>::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "get_inner".to_string()], Vec::new()),
                                     CodeArea::new(
                                         CodeLocation::new(20, 0),
                                         CodeLocation::new(30, 0),
                                         CodeFile::new(PathBuf::from("main.waso".to_string()))
                                     ).unwrap()),
                                 ASTNode::new(
-                                    Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()]),
+                                    Import::<TypedAST>::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()], Vec::new()),
                                     CodeArea::new(
                                         CodeLocation::new(30, 0),
                                         CodeLocation::new(40, 0),
                                     CodeFile::new(PathBuf::from("main.waso".to_string()))
                                     ).unwrap()),
                                     ASTNode::new(
-                                        Import::new(ImportRoot::ProjectRoot, vec!["message".to_string(), "message".to_string(), "Message".to_string()]),
+                                        Import::<TypedAST>::new(ImportRoot::ProjectRoot, vec!["message".to_string(), "message".to_string(), "Message".to_string()], Vec::new()),
                                         CodeArea::new(
                                             CodeLocation::new(40, 0),
                                             CodeLocation::new(50, 0),
@@ -1594,21 +1693,27 @@ mod tests {
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&main_fn_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&main_fn_warning_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&warning_msg_new_symbol)));
-        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&warning_msg_get_inner_symbol)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(
+            &warning_msg_get_inner_symbol
+        )));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Enum(&msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));
 
         let msg_dir = root.subdirectory_by_name("message").unwrap();
         let msg_file = msg_dir.file_by_name("message").unwrap();
-        let error_msg_struct = msg_file.struct_by_name("Error").unwrap();
+        let error_msg_struct = msg_file.struct_by_identifier(("Error", &[])).unwrap();
         let new_error_function = error_msg_struct.function_by_name("new").unwrap();
         let root_statement = new_error_function.ref_to_implementation();
         let symbols = root_statement.symbols().collect::<Vec<_>>();
 
         assert_eq!(symbols.len(), 6);
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&error_msg_new_symbol)));
-        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&error_msg_get_inner_symbol)));
-        assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&error_msg_new_inner_param)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(
+            &error_msg_get_inner_symbol
+        )));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(
+            &error_msg_new_inner_param
+        )));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&error_msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Enum(&msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));
@@ -1624,7 +1729,7 @@ pub(crate) mod test_shared {
     use crate::statement::VariableAssignment;
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
-    use crate::{AST, ASTNode, ASTType, TypedAST};
+    use crate::{AST, ASTNode, TypedAST, UntypedAST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
@@ -1648,14 +1753,14 @@ pub(crate) mod test_shared {
         )
     }
 
-    pub(crate) fn functions_into_ast<Type: ASTType>(
-        functions: Vec<ASTNode<Function<Type>>>,
-    ) -> AST<Type> {
+    pub(crate) fn functions_into_ast_typed(
+        functions: Vec<ASTNode<Function<TypedAST>>>,
+    ) -> AST<TypedAST> {
         let mut src_path = PathBuf::new();
         src_path.push("src");
         let mut main_path = src_path.clone();
         main_path.push("main.waso");
-        AST::new(ASTNode::new(
+        AST::<TypedAST>::new(ASTNode::new(
             Directory::new(
                 "src".to_string(),
                 Vec::new(),
@@ -1673,5 +1778,31 @@ pub(crate) mod test_shared {
             PathBuf::new(),
         ))
         .unwrap()
+    }
+
+    pub(crate) fn functions_into_ast_untyped(
+        functions: Vec<ASTNode<Function<UntypedAST>>>,
+    ) -> AST<UntypedAST> {
+        let mut src_path = PathBuf::new();
+        src_path.push("src");
+        let mut main_path = src_path.clone();
+        main_path.push("main.waso");
+        AST::<UntypedAST>::new(ASTNode::new(
+            Directory::new(
+                "src".to_string(),
+                Vec::new(),
+                vec![ASTNode::new(
+                    File::new(
+                        "main.waso".to_string(),
+                        Vec::new(),
+                        functions,
+                        Vec::new(),
+                        Vec::new(),
+                    ),
+                    main_path,
+                )],
+            ),
+            PathBuf::new(),
+        ))
     }
 }

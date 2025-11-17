@@ -5,6 +5,7 @@ use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
 use itertools::Itertools;
+use std::ops::Deref;
 
 #[derive(Debug)]
 pub struct StructTraversalHelper<'a, 'b, Type: ASTType> {
@@ -78,7 +79,13 @@ impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
                             DirectlyAvailableSymbol::Function(func.inner().declaration())
                         }),
                     )
-                    .unique(),
+                    .unique()
+                    .chain(
+                        Type::type_parameter_symbols_of_struct(
+                            symbol_source.inner().deref().symbol(),
+                        )
+                        .map(|symbol| DirectlyAvailableSymbol::UntypedTypeParameter(symbol)),
+                    ),
             ),
         }
     }

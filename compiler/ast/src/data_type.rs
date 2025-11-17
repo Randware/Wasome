@@ -1,3 +1,4 @@
+use crate::TypedAST;
 use crate::symbol::{EnumSymbol, StructSymbol};
 use std::rc::Rc;
 
@@ -17,7 +18,7 @@ pub enum DataType {
     Bool,
     F32,
     F64,
-    Struct(Rc<StructSymbol>),
+    Struct(Rc<StructSymbol<TypedAST>>),
     Enum(Rc<EnumSymbol>),
 }
 

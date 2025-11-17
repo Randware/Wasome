@@ -6,7 +6,7 @@ use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::struct_traversal::StructTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
-use crate::{ASTNode, ASTType};
+use crate::{ASTNode, ASTType, TypedAST, UntypedAST};
 use itertools::Itertools;
 use std::path::PathBuf;
 
@@ -39,13 +39,6 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
      */
     pub fn inner(&self) -> &'b ASTNode<File<Type>, PathBuf> {
         self.inner
-    }
-
-    /** Gets the symbol imported by a specific import
-      Returns None if it doesn't exist
-    */
-    pub fn resolve_import(&self, to_resolve: &Import) -> Option<DirectlyAvailableSymbol<'b, Type>> {
-        self.parent.resolve_import(to_resolve)
     }
 
     /** Gets the length of the enums
@@ -88,9 +81,12 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /** Gets the subdirectory with the specified name.
          Returns None if it doesn't exist
     */
-    pub fn struct_by_name(&self, name: &str) -> Option<StructTraversalHelper<'_, 'b, Type>> {
+    pub fn struct_by_identifier(
+        &self,
+        identifier: Type::StructIdentifier<'_>,
+    ) -> Option<StructTraversalHelper<'_, 'b, Type>> {
         self.inner()
-            .struct_by_name(name)
+            .struct_by_identifier(identifier)
             .map(|st| StructTraversalHelper::new(st, self))
     }
     /** Gets an iterator over all enums
@@ -101,6 +97,30 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
         self.inner
             .structs_iterator()
             .map(|st| StructTraversalHelper::new(st, self))
+    }
+}
+
+impl<'a, 'b> FileTraversalHelper<'a, 'b, UntypedAST> {
+    /** Gets the symbol imported by a specific import
+            Returns None if it doesn't exist
+    */
+    pub fn resolve_import(
+        &self,
+        to_resolve: &Import<UntypedAST>,
+    ) -> Option<DirectlyAvailableSymbol<'b, UntypedAST>> {
+        self.parent.resolve_import(to_resolve)
+    }
+}
+
+impl<'a, 'b> FileTraversalHelper<'a, 'b, TypedAST> {
+    /** Gets the symbol imported by a specific import
+               Returns None if it doesn't exist
+    */
+    pub fn resolve_import(
+        &self,
+        to_resolve: &Import<TypedAST>,
+    ) -> Option<DirectlyAvailableSymbol<'b, TypedAST>> {
+        self.parent.resolve_import(to_resolve)
     }
 }
 
@@ -128,7 +148,7 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for FileTraversalHelper<
 
 impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'a, 'b, Type> {
     fn symbols<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
-        FileSymbolTable::new_file_traversal_helper(self)
+        Type::new_file_symbol_table(self)
     }
 
     fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_> {
@@ -136,15 +156,20 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'a, 'b,
     }
 }
 
-struct FileSymbolTable<'a, 'b, Type: ASTType> {
+pub(crate) struct FileSymbolTable<'a, 'b, Type: ASTType> {
     function_symbols: Box<dyn Iterator<Item = DirectlyAvailableSymbol<'b, Type>> + 'a>,
     enum_symbols: Box<dyn Iterator<Item = &'b EnumSymbol> + 'a>,
-    struct_symbols: Box<dyn Iterator<Item = &'b StructSymbol> + 'a>,
+    struct_symbols: Box<dyn Iterator<Item = &'b StructSymbol<Type>> + 'a>,
 }
 
 impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
-    pub(crate) fn new_file_traversal_helper(
+    fn new_file_traversal_helper_specific_import_resolver(
         symbol_source: &'a FileTraversalHelper<'a, 'b, Type>,
+        mut import_resolver: impl FnMut(
+            &FileTraversalHelper<'a, 'b, Type>,
+            &Import<Type>,
+        ) -> Option<DirectlyAvailableSymbol<'b, Type>>
+        + 'static,
     ) -> Self {
         Self {
             function_symbols: Box::new(
@@ -155,7 +180,7 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                     // All imports in an ast must be valid
                     // A FileSymbolTable can not exist without an ast
                     // Therefore, we can't have an unresolved import here and can safely unwrap
-                    .map(|import| symbol_source.resolve_import(import).unwrap())
+                    .map(move |import| import_resolver(symbol_source, import).unwrap())
                     .chain(symbol_source.function_iterator().map(|function| {
                         DirectlyAvailableSymbol::Function(function.inner().declaration())
                     }))
@@ -168,6 +193,28 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                     .map(|st| st.inner().symbol()),
             ),
         }
+    }
+}
+
+impl<'a, 'b> FileSymbolTable<'a, 'b, UntypedAST> {
+    pub(crate) fn new_file_traversal_helper(
+        symbol_source: &'a FileTraversalHelper<'a, 'b, UntypedAST>,
+    ) -> Self {
+        Self::new_file_traversal_helper_specific_import_resolver(
+            symbol_source,
+            FileTraversalHelper::<UntypedAST>::resolve_import,
+        )
+    }
+}
+
+impl<'a, 'b> FileSymbolTable<'a, 'b, TypedAST> {
+    pub(crate) fn new_file_traversal_helper(
+        symbol_source: &'a FileTraversalHelper<'a, 'b, TypedAST>,
+    ) -> Self {
+        Self::new_file_traversal_helper_specific_import_resolver(
+            symbol_source,
+            FileTraversalHelper::<TypedAST>::resolve_import,
+        )
     }
 }
 

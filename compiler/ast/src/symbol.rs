@@ -22,7 +22,9 @@ pub enum DirectlyAvailableSymbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
     Enum(&'a EnumSymbol),
-    Struct(&'a StructSymbol),
+    Struct(&'a StructSymbol<Type>),
+    // Only valid in the untyped AST
+    UntypedTypeParameter(&'a UntypedTypeParameterSymbol),
 }
 
 // We want to implement traits without all parts implementing them as well.
@@ -34,6 +36,9 @@ impl<Type: ASTType> Clone for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Variable(var) => DirectlyAvailableSymbol::Variable(var),
             DirectlyAvailableSymbol::Enum(en) => DirectlyAvailableSymbol::Enum(en),
             DirectlyAvailableSymbol::Struct(st) => DirectlyAvailableSymbol::Struct(st),
+            DirectlyAvailableSymbol::UntypedTypeParameter(utp) => {
+                DirectlyAvailableSymbol::UntypedTypeParameter(utp)
+            }
         }
     }
 }
@@ -45,6 +50,7 @@ impl<Type: ASTType> Hash for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Variable(var) => var.hash(state),
             DirectlyAvailableSymbol::Enum(en) => en.hash(state),
             DirectlyAvailableSymbol::Struct(st) => st.hash(state),
+            DirectlyAvailableSymbol::UntypedTypeParameter(utp) => utp.hash(state),
         }
     }
 }
@@ -198,17 +204,23 @@ impl Eq for EnumSymbol {}
 /** A symbol for a struct
 */
 #[derive(Debug)]
-pub struct StructSymbol {
+pub struct StructSymbol<Type: ASTType> {
     id: Id,
     name: String,
+    type_parameters: Vec<Type::TypeParameter>,
     visibility: Visibility,
 }
 
-impl StructSymbol {
-    pub fn new(name: String, visibility: Visibility) -> Self {
+impl<Type: ASTType> StructSymbol<Type> {
+    pub fn new(
+        name: String,
+        type_parameters: Vec<Type::TypeParameter>,
+        visibility: Visibility,
+    ) -> Self {
         Self {
             id: Id::new(),
             name,
+            type_parameters,
             visibility,
         }
     }
@@ -221,24 +233,28 @@ impl StructSymbol {
         &self.id
     }
 
+    pub fn type_parameters(&self) -> &[Type::TypeParameter] {
+        &self.type_parameters
+    }
+
     pub fn visibility(&self) -> Visibility {
         self.visibility
     }
 }
 
-impl Hash for StructSymbol {
+impl<Type: ASTType> Hash for StructSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
 }
 
-impl PartialEq<Self> for StructSymbol {
+impl<Type: ASTType> PartialEq<Self> for StructSymbol<Type> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Eq for StructSymbol {}
+impl<Type: ASTType> Eq for StructSymbol<Type> {}
 
 /** The symbol of an enum
 */
@@ -285,7 +301,7 @@ impl<Type: ASTType> PartialEq<Self> for EnumVariantSymbol<Type> {
 
 impl<Type: ASTType> Eq for EnumVariantSymbol<Type> {}
 
-/** The symbol of an enum
+/** The symbol of a struct field
 */
 #[derive(Debug)]
 pub struct StructFieldSymbol<Type: ASTType> {
@@ -329,6 +345,31 @@ impl<Type: ASTType> PartialEq<Self> for StructFieldSymbol<Type> {
 }
 
 impl<Type: ASTType> Eq for StructFieldSymbol<Type> {}
+
+/** The symbol of an untyped type parameter
+*/
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct UntypedTypeParameterSymbol {
+    id: Id,
+    name: String,
+}
+
+impl UntypedTypeParameterSymbol {
+    pub fn new(name: String) -> Self {
+        Self {
+            id: Id::new(),
+            name,
+        }
+    }
+
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
 
 /** A function call with params
 */
