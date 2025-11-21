@@ -16,27 +16,68 @@
 
 use crate::data_type::DataType;
 use crate::expression::Literal;
+use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
 use crate::top_level::{Function, TopLevelElement};
+use shared::code_reference::CodeArea;
 use std::fmt::Debug;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 pub mod block;
 pub mod data_type;
 pub mod expression;
+pub mod id;
 pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
 
+/** Comparing semantics only.
+
+More precisely, this checks if two language constructs have the same meaning
+while disregarding identifiers such as ids and positional information.
+The only exception are symbols, where it is required that the same are used.
+*/
+// Its primary intended use case it for tests, but it may find application elsewhere
+pub trait SemanticEquality {
+    /** The equality method. <br>
+    For more information, refer to the trait documentation
+    */
+    fn semantic_equals(&self, other: &Self) -> bool;
+}
+
+// SemanticEquality for common containers of types implementing SemanticEquality
+impl<T: SemanticEquality> SemanticEquality for [T] {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.len() == other.len()
+            && self
+                .iter()
+                .zip(other.iter())
+                .all(|(self_statement, other_statement)| {
+                    self_statement.semantic_equals(other_statement)
+                })
+    }
+}
+
+impl<T: SemanticEquality> SemanticEquality for Option<T> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        // Check if both are some and compare then
+        // Or both are none
+        self.as_ref()
+            .zip(other.as_ref())
+            .map(|(a, b)| a.semantic_equals(b))
+            .unwrap_or(self.is_none() && other.is_none())
+    }
+}
+
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
-    inner: Vec<TopLevelElement<Type>>,
+    inner: Vec<ASTNode<TopLevelElement<Type>>>,
 }
 
 impl<Type: ASTType> AST<Type> {
-    pub fn new(inner: Vec<TopLevelElement<Type>>) -> Self {
+    pub fn new(inner: Vec<ASTNode<TopLevelElement<Type>>>) -> Self {
         Self { inner }
     }
 
@@ -44,7 +85,7 @@ impl<Type: ASTType> AST<Type> {
         #[allow(irrefutable_let_patterns)]
         // This only temporarily matches for everything, more TopLevelElements to come
         self.inner.iter().filter_map(|element| {
-            if let TopLevelElement::Function(func) = element {
+            if let TopLevelElement::Function(func) = element.deref() {
                 Some(func)
             } else {
                 None
@@ -54,10 +95,64 @@ impl<Type: ASTType> AST<Type> {
 }
 
 impl<Type: ASTType> Deref for AST<Type> {
-    type Target = [TopLevelElement<Type>];
+    type Target = [ASTNode<TopLevelElement<Type>>];
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for AST<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.inner.semantic_equals(&other.inner)
+    }
+}
+
+/** This represents an AST Type and its location. Which type of AST node this is depends on its first
+generic. The second generic decides what is used to store positional information.
+# Equality
+Two different ExpressionNodes are never equal.
+Use semantic_equals from [`SemanticEquality`] to check semantics only
+*/
+
+#[derive(Debug, PartialEq)]
+pub struct ASTNode<T: Debug + PartialEq, Position = CodeArea> {
+    id: Id,
+    inner: T,
+    position: Position,
+}
+
+impl<T: Debug + PartialEq, Position> ASTNode<T, Position> {
+    pub fn new(inner: T, position: Position) -> Self {
+        Self {
+            inner,
+            id: Id::new(),
+            position,
+        }
+    }
+
+    pub fn position(&self) -> &Position {
+        &self.position
+    }
+}
+
+impl<T: Debug + PartialEq, Position> Deref for ASTNode<T, Position> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<T: Debug + PartialEq, Position> DerefMut for ASTNode<T, Position> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+impl<T: SemanticEquality + Debug + PartialEq, Position> SemanticEquality for ASTNode<T, Position> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.inner.semantic_equals(&other.inner)
     }
 }
 
@@ -121,17 +216,20 @@ mod tests {
         ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
     };
     use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
+    use crate::test_shared::{basic_test_variable, sample_codearea};
     use crate::top_level::{Function, TopLevelElement};
     use crate::traversal::function_traversal::FunctionTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
-    use crate::{AST, TypedAST, UntypedAST};
+    use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
     use std::rc::Rc;
 
     #[test]
     fn ast() {
         let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
-        let statement =
-            Statement::VariableDeclaration(basic_test_variable(symbol.clone()).unwrap());
+        let statement = ASTNode::new(
+            Statement::VariableDeclaration(basic_test_variable(symbol.clone()).unwrap()),
+            sample_codearea(),
+        );
 
         assert_eq!(
             Some(Symbol::Variable(&symbol)),
@@ -140,10 +238,16 @@ mod tests {
 
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
-            Statement::Codeblock(CodeBlock::new(vec![statement])),
+            ASTNode::new(
+                Statement::Codeblock(CodeBlock::new(vec![statement])),
+                sample_codearea(),
+            ),
         );
 
-        let ast = AST::new(vec![TopLevelElement::Function(function)]);
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(function),
+            sample_codearea(),
+        )]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -163,32 +267,53 @@ mod tests {
         let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
 
         let symbol2 = Rc::new(VariableSymbol::new("test2".to_string(), DataType::Bool));
-        let statement = Statement::Codeblock(CodeBlock::new(vec![
-            Statement::VariableDeclaration(
-                VariableAssignment::<TypedAST>::new(
-                    symbol.clone(),
-                    Expression::Literal(Literal::F32(10.0)),
-                )
-                .unwrap(),
-            ),
-            Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
-                Statement::VariableDeclaration(
-                    VariableAssignment::<TypedAST>::new(
-                        symbol2.clone(),
-                        Expression::Literal(Literal::Bool(true)),
-                    )
-                    .unwrap(),
+        let statement = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![
+                ASTNode::new(
+                    Statement::VariableDeclaration(
+                        VariableAssignment::<TypedAST>::new(
+                            symbol.clone(),
+                            ASTNode::new(
+                                Expression::Literal(Literal::F32(10.0)),
+                                sample_codearea(),
+                            ),
+                        )
+                        .unwrap(),
+                    ),
+                    sample_codearea(),
                 ),
-                LoopType::Infinite,
-            )))),
-        ]));
+                ASTNode::new(
+                    Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
+                        ASTNode::new(
+                            Statement::VariableDeclaration(
+                                VariableAssignment::<TypedAST>::new(
+                                    symbol2.clone(),
+                                    ASTNode::new(
+                                        Expression::Literal(Literal::Bool(true)),
+                                        sample_codearea(),
+                                    ),
+                                )
+                                .unwrap(),
+                            ),
+                            sample_codearea(),
+                        ),
+                        LoopType::Infinite,
+                    )))),
+                    sample_codearea(),
+                ),
+            ])),
+            sample_codearea(),
+        );
 
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
             statement,
         );
 
-        let ast = AST::new(vec![TopLevelElement::Function(function)]);
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(function),
+            sample_codearea(),
+        )]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -228,92 +353,9 @@ mod tests {
     #[test]
     fn fibonacci_typed() {
         // The how manyth fibonacci number we want
-        let nth = Rc::new(VariableSymbol::new("nth".to_string(), DataType::S32));
-        let current = Rc::new(VariableSymbol::new("current".to_string(), DataType::S32));
-        let previous = Rc::new(VariableSymbol::new("previous".to_string(), DataType::S32));
-        let temp = Rc::new(VariableSymbol::new("temp".to_string(), DataType::S32));
 
-        let fibonacci = Rc::new(FunctionSymbol::new(
-            "fibonacci".to_string(),
-            Some(DataType::S32),
-            vec![nth.clone()],
-        ));
-        let ast = AST::new(vec![TopLevelElement::Function(Function::new(
-            fibonacci.clone(),
-            Statement::Codeblock(CodeBlock::new(vec![
-                Statement::VariableDeclaration(
-                    VariableAssignment::<TypedAST>::new(
-                        current.clone(),
-                        Expression::Literal(Literal::S32(1)),
-                    )
-                    .unwrap(),
-                ),
-                Statement::VariableDeclaration(
-                    VariableAssignment::<TypedAST>::new(
-                        previous.clone(),
-                        Expression::Literal(Literal::S32(0)),
-                    )
-                    .unwrap(),
-                ),
-                Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
-                    Statement::Codeblock(CodeBlock::new(vec![
-                        Statement::VariableDeclaration(
-                            VariableAssignment::<TypedAST>::new(
-                                temp.clone(),
-                                Expression::Variable(current.clone()),
-                            )
-                            .unwrap(),
-                        ),
-                        Statement::VariableAssignment(
-                            VariableAssignment::<TypedAST>::new(
-                                current.clone(),
-                                Expression::BinaryOp(Box::new(
-                                    BinaryOp::<TypedAST>::new(
-                                        BinaryOpType::Addition,
-                                        Expression::Variable(current.clone()),
-                                        Expression::Variable(previous.clone()),
-                                    )
-                                    .unwrap(),
-                                )),
-                            )
-                            .unwrap(),
-                        ),
-                        Statement::VariableAssignment(
-                            VariableAssignment::<TypedAST>::new(
-                                previous.clone(),
-                                Expression::Variable(temp.clone()),
-                            )
-                            .unwrap(),
-                        ),
-                        Statement::VariableAssignment(
-                            VariableAssignment::<TypedAST>::new(
-                                nth.clone(),
-                                Expression::BinaryOp(Box::new(
-                                    BinaryOp::<TypedAST>::new(
-                                        BinaryOpType::Subtraction,
-                                        Expression::Variable(nth.clone()),
-                                        Expression::Literal(Literal::S32(1)),
-                                    )
-                                    .unwrap(),
-                                )),
-                            )
-                            .unwrap(),
-                        ),
-                    ])),
-                    LoopType::While(Expression::BinaryOp(Box::new(
-                        BinaryOp::<TypedAST>::new(
-                            BinaryOpType::Greater,
-                            Expression::Variable(nth.clone()),
-                            Expression::Literal(Literal::S32(
-                                1, //The fibonacci number of 1 is 1
-                            )),
-                        )
-                        .unwrap(),
-                    ))),
-                )))),
-                Statement::Return(Return::new(Some(Expression::Variable(current.clone())))),
-            ])),
-        ))]);
+        let (nth, current, previous, temp, fibonacci) = create_fibonacci_typed_symbols();
+        let ast = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -332,6 +374,212 @@ mod tests {
         ];
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
+    }
+
+    fn create_fibonacci_typed_symbols() -> (
+        Rc<VariableSymbol<TypedAST>>,
+        Rc<VariableSymbol<TypedAST>>,
+        Rc<VariableSymbol<TypedAST>>,
+        Rc<VariableSymbol<TypedAST>>,
+        Rc<FunctionSymbol<TypedAST>>,
+    ) {
+        let nth = Rc::new(VariableSymbol::new("nth".to_string(), DataType::S32));
+        let current = Rc::new(VariableSymbol::new("current".to_string(), DataType::S32));
+        let previous = Rc::new(VariableSymbol::new("previous".to_string(), DataType::S32));
+        let temp = Rc::new(VariableSymbol::new("temp".to_string(), DataType::S32));
+
+        let fibonacci = Rc::new(FunctionSymbol::new(
+            "fibonacci".to_string(),
+            Some(DataType::S32),
+            vec![nth.clone()],
+        ));
+        (nth, current, previous, temp, fibonacci)
+    }
+
+    #[test]
+    fn fibonacci_typed_semantic_equals() {
+        let (nth, current, previous, temp, fibonacci) = create_fibonacci_typed_symbols();
+        let ast1 = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
+        let ast2 = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
+        assert!(ast1.semantic_equals(&ast2));
+        assert!(ast2.semantic_equals(&ast1));
+        // Sanity check: An AST should be semantically equal to itself
+        assert!(ast1.semantic_equals(&ast1));
+        assert!(ast2.semantic_equals(&ast2));
+
+        let empty = AST::new(Vec::new());
+        assert!(!ast1.semantic_equals(&empty));
+        assert!(!empty.semantic_equals(&ast1));
+    }
+
+    fn create_fibonacci_typed(
+        nth: &Rc<VariableSymbol<TypedAST>>,
+        current: &Rc<VariableSymbol<TypedAST>>,
+        previous: &Rc<VariableSymbol<TypedAST>>,
+        temp: &Rc<VariableSymbol<TypedAST>>,
+        fibonacci: &Rc<FunctionSymbol<TypedAST>>,
+    ) -> AST<TypedAST> {
+        AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(Function::new(
+                fibonacci.clone(),
+                ASTNode::new(
+                    Statement::Codeblock(CodeBlock::new(vec![
+                        ASTNode::new(
+                            Statement::VariableDeclaration(
+                                VariableAssignment::<TypedAST>::new(
+                                    current.clone(),
+                                    ASTNode::new(
+                                        Expression::Literal(Literal::S32(1)),
+                                        sample_codearea(),
+                                    ),
+                                )
+                                .unwrap(),
+                            ),
+                            sample_codearea(),
+                        ),
+                        ASTNode::new(
+                            Statement::VariableDeclaration(
+                                VariableAssignment::<TypedAST>::new(
+                                    previous.clone(),
+                                    ASTNode::new(
+                                        Expression::Literal(Literal::S32(0)),
+                                        sample_codearea(),
+                                    ),
+                                )
+                                .unwrap(),
+                            ),
+                            sample_codearea(),
+                        ),
+                        ASTNode::new(
+                            Statement::ControlStructure(Box::new(ControlStructure::Loop(
+                                Loop::new(
+                                    ASTNode::new(
+                                        Statement::Codeblock(CodeBlock::new(vec![
+                                            ASTNode::new(
+                                                Statement::VariableDeclaration(
+                                                    VariableAssignment::<TypedAST>::new(
+                                                        temp.clone(),
+                                                        ASTNode::new(
+                                                            Expression::Variable(current.clone()),
+                                                            sample_codearea(),
+                                                        ),
+                                                    )
+                                                    .unwrap(),
+                                                ),
+                                                sample_codearea(),
+                                            ),
+                                            ASTNode::new(
+                                                Statement::VariableAssignment(
+                                                    VariableAssignment::<TypedAST>::new(
+                                                        current.clone(),
+                                                        ASTNode::new(
+                                                            Expression::BinaryOp(Box::new(
+                                                                BinaryOp::<TypedAST>::new(
+                                                                    BinaryOpType::Addition,
+                                                                    ASTNode::new(
+                                                                        Expression::Variable(
+                                                                            current.clone(),
+                                                                        ),
+                                                                        sample_codearea(),
+                                                                    ),
+                                                                    ASTNode::new(
+                                                                        Expression::Variable(
+                                                                            previous.clone(),
+                                                                        ),
+                                                                        sample_codearea(),
+                                                                    ),
+                                                                )
+                                                                .unwrap(),
+                                                            )),
+                                                            sample_codearea(),
+                                                        ),
+                                                    )
+                                                    .unwrap(),
+                                                ),
+                                                sample_codearea(),
+                                            ),
+                                            ASTNode::new(
+                                                Statement::VariableAssignment(
+                                                    VariableAssignment::<TypedAST>::new(
+                                                        previous.clone(),
+                                                        ASTNode::new(
+                                                            Expression::Variable(temp.clone()),
+                                                            sample_codearea(),
+                                                        ),
+                                                    )
+                                                    .unwrap(),
+                                                ),
+                                                sample_codearea(),
+                                            ),
+                                            ASTNode::new(
+                                                Statement::VariableAssignment(
+                                                    VariableAssignment::<TypedAST>::new(
+                                                        nth.clone(),
+                                                        ASTNode::new(
+                                                            Expression::BinaryOp(Box::new(
+                                                                BinaryOp::<TypedAST>::new(
+                                                                    BinaryOpType::Subtraction,
+                                                                    ASTNode::new(
+                                                                        Expression::Variable(
+                                                                            nth.clone(),
+                                                                        ),
+                                                                        sample_codearea(),
+                                                                    ),
+                                                                    ASTNode::new(
+                                                                        Expression::Literal(
+                                                                            Literal::S32(1),
+                                                                        ),
+                                                                        sample_codearea(),
+                                                                    ),
+                                                                )
+                                                                .unwrap(),
+                                                            )),
+                                                            sample_codearea(),
+                                                        ),
+                                                    )
+                                                    .unwrap(),
+                                                ),
+                                                sample_codearea(),
+                                            ),
+                                        ])),
+                                        sample_codearea(),
+                                    ),
+                                    LoopType::While(ASTNode::new(
+                                        Expression::BinaryOp(Box::new(
+                                            BinaryOp::<TypedAST>::new(
+                                                BinaryOpType::Greater,
+                                                ASTNode::new(
+                                                    Expression::Variable(nth.clone()),
+                                                    sample_codearea(),
+                                                ),
+                                                ASTNode::new(
+                                                    Expression::Literal(Literal::S32(
+                                                        1, //The fibonacci number of 1 is 1
+                                                    )),
+                                                    sample_codearea(),
+                                                ),
+                                            )
+                                            .unwrap(),
+                                        )),
+                                        sample_codearea(),
+                                    )),
+                                ),
+                            ))),
+                            sample_codearea(),
+                        ),
+                        ASTNode::new(
+                            Statement::Return(Return::new(Some(ASTNode::new(
+                                Expression::Variable(current.clone()),
+                                sample_codearea(),
+                            )))),
+                            sample_codearea(),
+                        ),
+                    ])),
+                    sample_codearea(),
+                ),
+            )),
+            sample_codearea(),
+        )])
     }
 
     #[test]
@@ -356,57 +604,158 @@ mod tests {
             Some("s32".to_string()),
             vec![nth.clone()],
         ));
-        let ast = AST::new(vec![TopLevelElement::Function(Function::new(
-            fibonacci.clone(),
-            Statement::Codeblock(CodeBlock::new(vec![
-                Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
-                    current.clone(),
-                    Expression::Literal("1".to_string()),
-                )),
-                Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
-                    previous.clone(),
-                    Expression::Literal("0".to_string()),
-                )),
-                Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(Function::new(
+                fibonacci.clone(),
+                ASTNode::new(
                     Statement::Codeblock(CodeBlock::new(vec![
-                        Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
-                            temp.clone(),
-                            Expression::Variable("current".to_string()),
-                        )),
-                        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            current.clone(),
-                            Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                                BinaryOpType::Addition,
-                                Expression::Variable("current".to_string()),
-                                Expression::Variable("previous".to_string()),
-                            ))),
-                        )),
-                        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            previous.clone(),
-                            Expression::Variable("temp".to_string()),
-                        )),
-                        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            nth.clone(),
-                            Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                                BinaryOpType::Subtraction,
-                                Expression::Variable("nth".to_string()),
-                                Expression::Literal("1".to_string()),
-                            ))),
-                        )),
-                    ])),
-                    LoopType::While(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                        BinaryOpType::Greater,
-                        Expression::Variable("nth".to_string()),
-                        Expression::Literal(
-                            "1".to_string(), //The fibonacci number of 1 is 1
+                        ASTNode::new(
+                            Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
+                                current.clone(),
+                                ASTNode::new(
+                                    Expression::Literal("1".to_string()),
+                                    sample_codearea(),
+                                ),
+                            )),
+                            sample_codearea(),
                         ),
-                    )))),
-                )))),
-                Statement::Return(Return::new(Some(Expression::Variable(
-                    "current".to_string(),
-                )))),
-            ])),
-        ))]);
+                        ASTNode::new(
+                            Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
+                                previous.clone(),
+                                ASTNode::new(
+                                    Expression::Literal("0".to_string()),
+                                    sample_codearea(),
+                                ),
+                            )),
+                            sample_codearea(),
+                        ),
+                        ASTNode::new(
+                            Statement::ControlStructure(Box::new(ControlStructure::Loop(
+                                Loop::new(
+                                    ASTNode::new(
+                                        Statement::Codeblock(CodeBlock::new(vec![
+                                            ASTNode::new(
+                                                Statement::VariableDeclaration(
+                                                    VariableAssignment::<UntypedAST>::new(
+                                                        temp.clone(),
+                                                        ASTNode::new(
+                                                            Expression::Variable(
+                                                                "current".to_string(),
+                                                            ),
+                                                            sample_codearea(),
+                                                        ),
+                                                    ),
+                                                ),
+                                                sample_codearea(),
+                                            ),
+                                            ASTNode::new(
+                                                Statement::VariableAssignment(
+                                                    VariableAssignment::<UntypedAST>::new(
+                                                        current.clone(),
+                                                        ASTNode::new(
+                                                            Expression::BinaryOp(Box::new(
+                                                                BinaryOp::<UntypedAST>::new(
+                                                                    BinaryOpType::Addition,
+                                                                    ASTNode::new(
+                                                                        Expression::Variable(
+                                                                            "current".to_string(),
+                                                                        ),
+                                                                        sample_codearea(),
+                                                                    ),
+                                                                    ASTNode::new(
+                                                                        Expression::Variable(
+                                                                            "previous".to_string(),
+                                                                        ),
+                                                                        sample_codearea(),
+                                                                    ),
+                                                                ),
+                                                            )),
+                                                            sample_codearea(),
+                                                        ),
+                                                    ),
+                                                ),
+                                                sample_codearea(),
+                                            ),
+                                            ASTNode::new(
+                                                Statement::VariableAssignment(
+                                                    VariableAssignment::<UntypedAST>::new(
+                                                        previous.clone(),
+                                                        ASTNode::new(
+                                                            Expression::Variable(
+                                                                "temp".to_string(),
+                                                            ),
+                                                            sample_codearea(),
+                                                        ),
+                                                    ),
+                                                ),
+                                                sample_codearea(),
+                                            ),
+                                            ASTNode::new(
+                                                Statement::VariableAssignment(
+                                                    VariableAssignment::<UntypedAST>::new(
+                                                        nth.clone(),
+                                                        ASTNode::new(
+                                                            Expression::BinaryOp(Box::new(
+                                                                BinaryOp::<UntypedAST>::new(
+                                                                    BinaryOpType::Subtraction,
+                                                                    ASTNode::new(
+                                                                        Expression::Variable(
+                                                                            "nth".to_string(),
+                                                                        ),
+                                                                        sample_codearea(),
+                                                                    ),
+                                                                    ASTNode::new(
+                                                                        Expression::Literal(
+                                                                            "1".to_string(),
+                                                                        ),
+                                                                        sample_codearea(),
+                                                                    ),
+                                                                ),
+                                                            )),
+                                                            sample_codearea(),
+                                                        ),
+                                                    ),
+                                                ),
+                                                sample_codearea(),
+                                            ),
+                                        ])),
+                                        sample_codearea(),
+                                    ),
+                                    LoopType::While(ASTNode::new(
+                                        Expression::BinaryOp(Box::new(
+                                            BinaryOp::<UntypedAST>::new(
+                                                BinaryOpType::Greater,
+                                                ASTNode::new(
+                                                    Expression::Variable("nth".to_string()),
+                                                    sample_codearea(),
+                                                ),
+                                                ASTNode::new(
+                                                    Expression::Literal(
+                                                        "1".to_string(), //The fibonacci number of 1 is 1
+                                                    ),
+                                                    sample_codearea(),
+                                                ),
+                                            ),
+                                        )),
+                                        sample_codearea(),
+                                    )),
+                                ),
+                            ))),
+                            sample_codearea(),
+                        ),
+                        ASTNode::new(
+                            Statement::Return(Return::new(Some(ASTNode::new(
+                                Expression::Variable("current".to_string()),
+                                sample_codearea(),
+                            )))),
+                            sample_codearea(),
+                        ),
+                    ])),
+                    sample_codearea(),
+                ),
+            )),
+            sample_codearea(),
+        )]);
 
         let function_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
 
@@ -426,10 +775,35 @@ mod tests {
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
     }
+}
 
-    fn basic_test_variable(
+#[cfg(test)]
+// Stuff that is needed in tests in the entire crate
+pub(crate) mod test_shared {
+    use crate::expression::{Expression, Literal};
+    use crate::statement::VariableAssignment;
+    use crate::symbol::VariableSymbol;
+    use crate::{ASTNode, TypedAST};
+    use shared::code_file::CodeFile;
+    use shared::code_reference::{CodeArea, CodeLocation};
+    use std::path::PathBuf;
+    use std::rc::Rc;
+
+    pub(crate) fn sample_codearea() -> CodeArea {
+        CodeArea::new(
+            CodeLocation::new(0, 0),
+            CodeLocation::new(0, 10),
+            CodeFile::new(PathBuf::from("test/test")),
+        )
+        .unwrap()
+    }
+
+    pub(crate) fn basic_test_variable(
         symbol: Rc<VariableSymbol<TypedAST>>,
     ) -> Option<VariableAssignment<TypedAST>> {
-        VariableAssignment::<TypedAST>::new(symbol, Expression::Literal(Literal::F32(14.0)))
+        VariableAssignment::<TypedAST>::new(
+            symbol,
+            ASTNode::new(Expression::Literal(Literal::F32(14.0)), sample_codearea()),
+        )
     }
 }
