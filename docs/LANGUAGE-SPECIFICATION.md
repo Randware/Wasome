@@ -4,7 +4,7 @@
 
 ### Datatypes
 
-Wasome has a standard set of primitive datatypes.
+Wasome has a standard set of primitive data types.
 Their internal representation and further implementation details are based on the [canonical ABI](https://component-model.bytecodealliance.org/advanced/canonical-abi.html).
 
 The following are supported:
@@ -22,8 +22,6 @@ The following are supported:
 - `bool` - Either `true` or `false`.
 - `char` - A single Unicode code point (source representation encoded in UTF-8).
 
-> **Note:** integer literals default to type `s32`. Floating-point literals default to type `f64`.
-
 ---
 
 ### Expressions
@@ -33,7 +31,7 @@ Some basic expressions are:
 
 #### Directly specified values
 
-These values are written directly in source and evaluate to themselves. The following are supported:
+These values are written directly in the source and evaluate to themselves. The following are supported:
 
 1. **Integer literals** - formatted as a whole number and evaluate to type `s32`.
 2. **Floating-point literals** - formatted as a decimal number and evaluate to type `f64`.
@@ -63,8 +61,8 @@ Operators combine expressions into a single expression. Operands must be of appr
 
 #### Other operator rules
 
-- `!` negates a boolean. For integer operands (where applicable) it performs bitwise inversion.
-- `==` and `!=` work across value types when meaningful (see type system rules for specifics).
+- `!` negates a boolean. For integer operands (where applicable), it performs bitwise inversion.
+- `==` and `!=` work across value types when meaningful (see type system rules for specifics, still TODO).
 
 #### Operator precedence (high → low)
 
@@ -81,7 +79,7 @@ Operators combine expressions into a single expression. Operands must be of appr
 
 ### Statements
 
-A program is a sequence of statements. Many expressions can also be used as statements (an expression statement).
+A program is a sequence of statements. Expressions can also be used as statements.
 
 ---
 
@@ -122,6 +120,7 @@ Returns:
 - Use `-> <expression>` inside a function body to return a value.
 - If a function declares a return type, every possible control path must produce a returned value.
 - Functions without a declared return type may use `->` to perform an early return (no value is returned).
+- Return instructions are statements.
 
 ---
 
@@ -145,7 +144,7 @@ Assignment syntax (after declaration):
 
 - Variables declared in a code block are scoped to that block and any nested blocks.
 - Reading a variable is done by writing its name as an expression.
-- Variables are mutable by default (because assignment after declaration is allowed).
+- Variables are mutable (assignment after declaration is allowed).
 
 ---
 
@@ -180,7 +179,9 @@ Field declaration form:
 <field-type> <field-name>
 ```
 
-Methods are regular functions declared inside the struct block. Methods may receive a special `self` parameter that references the struct instance.
+Methods are regular functions declared inside the struct block. Methods may receive a special `self` parameter that references the struct instance. They are otherwise exactly the same as regular functions.
+
+Methods and fields can be accessed using the `.` syntax on an instance of a struct.
 
 Instantiation syntax:
 
@@ -216,6 +217,8 @@ Variant syntax:
 
 - `<VariantName>` - identifier (use `PascalCase`).
 - `<type-list>` - comma-separated types (zero or more).
+
+The `<type-list>`, along with the brackets, can be omitted in case a variant does not have any types associated with it.
 
 Enums implement tagged-union semantics.
 
@@ -273,6 +276,8 @@ Type parameters become part of the instantiated struct's type.
 
 Loops execute code repeatedly. Wasome uses the `loop` keyword and supports three forms.
 
+The `break` keyword can be used in any type of loop to exit the innermost loop at any time.
+
 #### Infinite loop
 
 Syntax:
@@ -282,7 +287,7 @@ loop <code block>
 ```
 
 - The `<code block>` executes repeatedly without an intrinsic termination condition.
-- Use `break` to exit the loop. `break` exits only the innermost loop when nested.
+- Using `break` is required to exit the loop.
 
 #### While loop
 
@@ -294,7 +299,6 @@ loop (<expression>) <code block>
 
 - `<expression>` must evaluate to `bool`.
 - The `<code block>` executes while `<expression>` is `true`.
-- `break` may be used to exit early.
 
 #### For-style loop
 
@@ -307,7 +311,6 @@ loop (<init-statement>; <expression>; <post-statement>) <code block>
 - `<init-statement>` runs once before the first iteration.
 - `<expression>` is evaluated before each iteration and must yield `bool`. The loop runs while it is `true`.
 - `<post-statement>` runs after each iteration.
-- `break` exits the innermost loop.
 
 ---
 
