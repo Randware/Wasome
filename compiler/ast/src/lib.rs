@@ -845,7 +845,6 @@ mod tests {
         assert_eq!(actual.len(), expected.len());
         assert!(expected.iter().all(|val| actual.contains(val)));
     }
-}
 
     #[test]
     fn multifile_ast_imports_should_work() {
