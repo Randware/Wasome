@@ -12,7 +12,6 @@ use crate::snippet::Snippet;
 pub struct Error {
     #[builder(field)]
     snippets: Vec<Snippet>,
-
     kind: ErrorKind,
     #[builder(into)]
     message: String,

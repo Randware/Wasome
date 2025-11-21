@@ -10,7 +10,6 @@ pub(crate) struct Annotation {
 pub struct Snippet {
     #[builder(field)]
     pub(crate) annotations: Vec<Annotation>,
-
     pub(crate) source: CodeArea,
 }
 
@@ -27,11 +26,7 @@ impl<S: snippet_builder::State> SnippetBuilder<S> {
         self
     }
 
-    pub fn annotate(mut self, location: (CodeLocation, CodeLocation), message: &str) -> Self {
-        self.annotations.push(Annotation {
-            locations: Box::new(std::iter::once(location)),
-            message: message.to_string(),
-        });
-        self
+    pub fn annotate(self, location: (CodeLocation, CodeLocation), message: &str) -> Self {
+        self.annotate_many(std::iter::once(location), message)
     }
 }
