@@ -1,0 +1,258 @@
+use std::{
+    collections::HashMap,
+    fs::{self, canonicalize},
+    io::Error,
+    marker::PhantomData,
+    path::{Path, PathBuf},
+};
+
+/// The byte offset of the file's content
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BytePos(pub u32);
+
+/// A handle to a [`SourceFile`]
+///
+/// # Warning
+///
+/// The [`FileID`] is dependent on the [`SourceMap`] and *not universally usable*
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FileID(pub u32);
+
+/// A handle to a file which is incredibly cheap to copy, store and pass around
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Span {
+    file_id: FileID,
+    start: BytePos,
+    end: BytePos,
+}
+
+/// Meta data about a [`MultiByteChar`]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MultiByteChar {
+    /// The byte offset from the start of the line
+    pub pos_on_line: u32,
+
+    /// The number of bytes this char occupies (2, 3, or 4)
+    pub byte_len: u8,
+}
+
+/// A struct representing a file
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceFile {
+    /// The [path](PathBuf) to the file in question
+    path: PathBuf,
+    /// An unified representation of the file's content
+    /// All line breake are `\n`
+    content: String,
+    /// Used for faster indexing
+    lines: Vec<LineInfo>,
+}
+
+impl SourceFile {
+    /// Takes a relative path to a file, adds it to the [cache](SourceMap::file_cache),
+    /// loads that content of the file into a [`SourceFile`] and adds the [file](SourceFile) to the [SourceMap](SourceMap::files)
+    ///
+    /// # Panics
+    ///
+    /// If the content string is larger than [`u32::MAX`] the function panics, because byte index are stored as [`u32`].
+    /// This means any *single* source file is limited to 4_294_967_295 bytes.
+    pub fn new(path: PathBuf, mut content: String) -> Self {
+        assert!(
+            content.len() <= (u32::MAX as usize),
+            "Source file '{}' is larger than 4GB which is not supported!",
+            path.display()
+        );
+
+        // unifies line breaks
+        if content.contains("\r\n") {
+            content = content.replace("\r\n", "\n");
+        }
+
+        // Initialize temporary variables for later use
+        let mut lines = Vec::new();
+        let mut multi_byte_chars = Vec::new();
+        let mut current_line_start = BytePos(0);
+
+        for (byte_pos, ch) in content.char_indices() {
+            let ch_len = ch.len_utf8() as u8;
+            let byte_pos = byte_pos as u32;
+
+            // If the char is a multi byte char, cache it
+            if ch_len > 1 {
+                multi_byte_chars.push(MultiByteChar {
+                    pos_on_line: byte_pos - current_line_start.0,
+                    byte_len: ch_len,
+                });
+            }
+
+            // If the char indicates a line break, cache it
+            if ch == '\n' {
+                lines.push(LineInfo {
+                    line_start: current_line_start,
+                    multi_byte_chars,
+                });
+
+                current_line_start = BytePos(byte_pos + 1);
+                multi_byte_chars = Vec::new();
+            }
+        }
+
+        // push the last line at the end of the file that does not get
+        // pushed to `lines` because it does not end with `\n`
+        lines.push(LineInfo {
+            line_start: current_line_start,
+            multi_byte_chars,
+        });
+
+        Self {
+            path,
+            content,
+            lines,
+        }
+    }
+
+    fn lookup_line_col(&self, file: &SourceFile, pos: BytePos) -> (u32, u32) {
+        let line_index = match file
+            .lines
+            .binary_search_by_key(&pos, |info| info.line_start)
+        {
+            Ok(idx) => idx,
+            Err(idx) => idx - 1,
+        };
+
+        let line_info = &file.lines[line_index];
+
+        let byte_col = pos.0 - line_info.line_start.0;
+
+        let mut gap = 0;
+        for multi_byte in &line_info.multi_byte_chars {
+            if multi_byte.pos_on_line < byte_col {
+                gap += (multi_byte.byte_len - 1) as u32;
+            } else {
+                break;
+            }
+        }
+
+        (line_index as u32 + 1, byte_col - gap + 1)
+    }
+}
+
+/// A per-line info struct that holds the starting byte and all mutli byte chars
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineInfo {
+    line_start: BytePos,
+    multi_byte_chars: Vec<MultiByteChar>,
+}
+
+// A human-readable location
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Location<'a> {
+    pub file: &'a SourceFile,
+    pub line: u32, // 1-based
+    pub col: u32,  // 1-based
+}
+
+impl<'a> Location<'a> {
+    /// 1 based
+    pub fn new(file: &'a SourceFile, line: u32, col: u32) -> Self {
+        Self { file, line, col }
+    }
+}
+
+/// The central registry for source files
+///
+/// The [`SourceMap`] is responsible for:
+/// * Loading source files from disk with a configured [`FileLoader`]
+/// * Deduplicating files to save memory (ensuring files are only loaded once)
+/// * Translating low level [`Span`]s (byte offsets) into human-readable [`Location`]s
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceMap<Loader: FileLoader = WasomeLoader> {
+    root_path: PathBuf,
+    file_cache: HashMap<PathBuf, FileID>,
+    files: Vec<SourceFile>,
+    /// The loader's purpose is to let the user define custom loading behavior
+    __loader: PhantomData<Loader>,
+}
+
+impl<Loader: FileLoader> SourceMap<Loader> {
+    /// Creates a new and empty [`SourceMap`] that is rooted at the given path
+    pub fn new(root_path: PathBuf) -> Self {
+        Self {
+            root_path,
+            file_cache: HashMap::new(),
+            files: Vec::new(),
+            __loader: PhantomData,
+        }
+    }
+
+    /// Loads the file to the [`SourceMap`]
+    ///
+    /// Takes a relative path to a file, adds it to the [cache](SourceMap::file_cache),
+    /// loads that content of the file into a [`SourceFile`] and adds the [file](SourceFile) to the [SourceMap](SourceMap::files)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(FileID)`- A handle to the newly *stored* file
+    /// * `Err()` - An i/o [error](std::io::Error) in case the underlying `OS` returns an [error](std::io::Error)
+    pub fn load_file<F: AsRef<Path>>(&mut self, relative_path: F) -> Result<FileID, Error> {
+        // Joining the path to get an absolut path
+        let path = Self::join(&self.root_path, relative_path)?;
+
+        // Checks the cache
+        if let Some(&id) = self.file_cache.get(&path) {
+            return Ok(id);
+        }
+
+        // If not cached, calls the loader
+        let source_file = Loader::load(&path)?;
+
+        // Determines the next file id
+        let file_id = FileID(self.files.len() as u32);
+
+        // Add the file to cache
+        self.file_cache.insert(path, file_id);
+        // Add the file to the SourceMap
+        self.files.push(source_file);
+
+        Ok(file_id)
+    }
+
+    /// Retrieves the SourceFile object from a FileID handle
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&SourceFile)`- A reference to the file associated with the given ID
+    /// * `None` - When the provided [`FileID`] is not found
+    pub fn get_file(&self, id: &FileID) -> Option<&SourceFile> {
+        self.files.get(id.0 as usize)
+    }
+
+    /// __Joins__ and __canonicalizes__ the provided paths
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(PathBuf)`- The newly joined [path](PathBuf)
+    /// * `None` - When the provided [`FileID`] is not found
+    fn join<T: AsRef<Path>, F: AsRef<Path>>(
+        root_path: T,
+        relative_path: F,
+    ) -> Result<PathBuf, Error> {
+        let path = root_path.as_ref().join(relative_path);
+        fs::canonicalize(path.as_path())
+    }
+}
+
+/// A trait that defines the loading behaviour.
+/// Future proof in case WIT components change the file loading process
+pub trait FileLoader {
+    fn load<F: AsRef<Path>>(path: F) -> Result<SourceFile, Error> {
+        let content = fs::read_to_string(&path)?;
+
+        Ok(SourceFile::new(path.as_ref().to_path_buf(), content))
+    }
+}
+
+/// Default loader for `.wasom` files
+pub struct WasomeLoader;
+
+impl FileLoader for WasomeLoader {}
