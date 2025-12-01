@@ -1,11 +1,9 @@
 use std::{
     collections::HashMap,
-    fs::{self, canonicalize},
+    fs,
     io::Error,
     marker::PhantomData,
     path::{Path, PathBuf},
-    thread::LocalKey,
-    usize,
 };
 
 /// The byte offset of the file's content
@@ -20,12 +18,42 @@ pub struct BytePos(pub u32);
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileID(pub u32);
 
+impl FileID {
+    /// Creates a Span inside this file from [`BytePos`]
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - The [pos](BytePos) where the span begins (0-Based)
+    /// * `end` - The [pos](BytePos) where the span ends (0-Based)
+    pub fn span(self, start: u32, end: u32) -> Span {
+        Span {
+            file_id: self,
+            start: BytePos(start),
+            end: BytePos(end),
+        }
+    }
+}
+
 /// A handle to a file which is incredibly cheap to copy, store and pass around
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Span {
     file_id: FileID,
     start: BytePos,
     end: BytePos,
+}
+
+impl Span {
+    /// Gets the start [`BytePos`] of the [`Span`]
+    /// _(0-Based indexing)_
+    pub fn start(&self) -> BytePos {
+        self.start
+    }
+
+    /// Gets the end [`BytePos`] of the [`Span`]
+    /// _(0-Based indexing)_
+    pub fn end(&self) -> BytePos {
+        self.end
+    }
 }
 
 /// Meta data about a [`MultiByteChar`]
