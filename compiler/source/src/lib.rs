@@ -4,6 +4,8 @@ use std::{
     io::Error,
     marker::PhantomData,
     path::{Path, PathBuf},
+    thread::LocalKey,
+    usize,
 };
 
 /// The byte offset of the file's content
@@ -111,7 +113,13 @@ impl SourceFile {
         }
     }
 
-    fn lookup_line_col(&self, file: &SourceFile, pos: BytePos) -> (u32, u32) {
+    /// Retrives the 1-based `line` and `column` index
+    /// from a given [`SourceFile`] and [position](BytePos)
+    ///
+    /// # Returns
+    /// A tuple with: ([line](`u32`),[column](`u32`))
+    /// Will be arbitrary when the BytePos does _not belong_ to the [`SourceFile`]
+    fn lookup_line_col(file: &SourceFile, pos: BytePos) -> (u32, u32) {
         let line_index = match file
             .lines
             .binary_search_by_key(&pos, |info| info.line_start)
@@ -225,6 +233,21 @@ impl<Loader: FileLoader> SourceMap<Loader> {
     /// * `None` - When the provided [`FileID`] is not found
     pub fn get_file(&self, id: &FileID) -> Option<&SourceFile> {
         self.files.get(id.0 as usize)
+    }
+
+    pub fn lookup_location(&self, span: Span) -> Option<Location<'_>> {
+        let file = self.files.get(span.file_id.0 as usize)?;
+        let (line, col) = SourceFile::lookup_line_col(file, span.start);
+        Some(Location { file, line, col })
+    }
+
+    pub fn get_source_slice(&self, span: &Span) -> Option<&str> {
+        let file = self.files.get(span.file_id.0 as usize)?;
+
+        let start = span.start.0 as usize;
+        let end = span.end.0 as usize;
+
+        Some(&file.content[start..end])
     }
 
     /// __Joins__ and __canonicalizes__ the provided paths
