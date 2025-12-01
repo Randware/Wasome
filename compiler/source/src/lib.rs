@@ -235,17 +235,58 @@ impl<Loader: FileLoader> SourceMap<Loader> {
         self.files.get(id.0 as usize)
     }
 
-    pub fn lookup_location(&self, span: Span) -> Option<Location<'_>> {
+    /// Takes a [`Span`] and converts the [`Span::start`] pos to a [location](Location).
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Location)`- The 1-based [`Location`]
+    /// * `None()` - May return [None](Option::None)
+    ///   if the [`Span`] does not belong to the [`SourceMap`]
+    ///
+    /// # Warning
+    ///
+    /// If the [`Span`] does not belong to this [`SourceMap`] **the returned data
+    /// will be arbitrary** or `None` in the best case
+    pub fn location_from_span<'a>(&'a self, span: &'a Span) -> Option<Location<'a>> {
         let file = self.files.get(span.file_id.0 as usize)?;
-        let (line, col) = SourceFile::lookup_line_col(file, span.start);
-        Some(Location { file, line, col })
+        Some(Self::location_from_pos(&span.start, file))
     }
 
+    /// Takes a [pos](BytePos) and a [file](SourceFile) and coverts it to a [location](Location).
+    ///
+    /// # Returns
+    ///
+    /// * `Location`- The 1-based [`Location`]
+    ///
+    /// # Warning
+    ///
+    /// If the [`BytePos`] does not belong to [file](SourceFile) **the returned data
+    /// will be arbitrary!**
+    pub fn location_from_pos<'a>(pos: &'a BytePos, file: &'a SourceFile) -> Location<'a> {
+        let (line, col) = SourceFile::lookup_line_col(file, *pos);
+        Location { file, line, col }
+    }
+
+    /// Takes the [`Span`] and returns the referenced content
+    ///
+    /// # Returns
+    ///
+    /// * `Some(&str)` - The content which is referenced by the [`Span`]
+    /// * `None` - When the [`Span`] does not belong to the [`SourceMap`]
+    ///
+    /// # Warning
+    ///
+    /// If the [`Span`] does not belong to this [`SourceMap`] **the returned data
+    /// will be arbitrary** or `None` in the best case!
     pub fn get_source_slice(&self, span: &Span) -> Option<&str> {
         let file = self.files.get(span.file_id.0 as usize)?;
 
         let start = span.start.0 as usize;
         let end = span.end.0 as usize;
+
+        if start > end {
+            return None;
+        }
 
         Some(&file.content[start..end])
     }
