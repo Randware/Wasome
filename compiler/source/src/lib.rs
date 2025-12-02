@@ -64,6 +64,9 @@ pub struct MultiByteChar {
 
     /// The number of bytes this char occupies (2, 3, or 4)
     pub byte_len: u8,
+
+    // Sum of all (byte_len - 1) for this and previous chars on the line
+    pub accumulated_gap: u32,
 }
 
 /// A struct representing a file
@@ -102,16 +105,22 @@ impl SourceFile {
         let mut lines = Vec::new();
         let mut multi_byte_chars = Vec::new();
         let mut current_line_start = BytePos(0);
+        // Tracking the Gap that the multi byte chars need
+        // To calc: total_bytes - accumulated_gap
+        // this gives an accurate number of columns
+        let mut accumulated_gap = 0u32;
 
         for (byte_pos, ch) in content.char_indices() {
             let ch_len = ch.len_utf8() as u8;
             let byte_pos = byte_pos as u32;
+            accumulated_gap += (ch_len - 1) as u32;
 
             // If the char is a multi byte char, cache it
             if ch_len > 1 {
                 multi_byte_chars.push(MultiByteChar {
                     pos_on_line: byte_pos - current_line_start.0,
                     byte_len: ch_len,
+                    accumulated_gap,
                 });
             }
 
@@ -124,6 +133,7 @@ impl SourceFile {
 
                 current_line_start = BytePos(byte_pos + 1);
                 multi_byte_chars = Vec::new();
+                accumulated_gap = 0;
             }
         }
 
@@ -160,16 +170,21 @@ impl SourceFile {
 
         let byte_col = pos.0 - line_info.line_start.0;
 
-        let mut gap = 0;
-        for multi_byte in &line_info.multi_byte_chars {
-            if multi_byte.pos_on_line < byte_col {
-                gap += (multi_byte.byte_len - 1) as u32;
-            } else {
-                break;
-            }
-        }
+        // Looks at the indexx of the last mb before the byte_col
+        let idx = line_info
+            .multi_byte_chars
+            .partition_point(|mb| mb.pos_on_line < byte_col);
 
-        (line_index as u32 + 1, byte_col - gap + 1)
+        // Access to accumulated gao of the nerest mb
+        let gap = if idx > 0 {
+            line_info.multi_byte_chars[idx - 1].accumulated_gap
+        } else {
+            0
+        };
+
+        // Safety: When the provided span would have a start INSIDE a multi byte char
+        // this - would panic if we don't use saturating_sub because the result would be negative
+        (line_index as u32 + 1, byte_col.saturating_sub(gap) + 1)
     }
 }
 
@@ -316,7 +331,7 @@ impl<Loader: FileLoader> SourceMap<Loader> {
             return None;
         }
 
-        Some(&file.content[start..end])
+        file.content.get(start..end)
     }
 
     /// __Joins__ and __canonicalizes__ the provided paths
