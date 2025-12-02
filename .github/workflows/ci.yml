@@ -27,14 +27,15 @@ jobs:
 
       - name: Run Tests
         id: test
-        continue-on-error: true
         working-directory: compiler
         run: cargo test --workspace
 
       - name: Save Result
+        if: always()
         run: echo "${{ matrix.os }}|Standard OS|${{ steps.test.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_${{ matrix.os }}.txt
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: result-${{ matrix.os }}
           path: result_*.txt
@@ -47,7 +48,6 @@ jobs:
       - name: Test on FreeBSD
         id: freebsd
         uses: vmactions/freebsd-vm@v1
-        continue-on-error: true
         with:
           usesh: true
           prepare: pkg install -y rust git cmake
@@ -56,9 +56,11 @@ jobs:
             cargo test --workspace
 
       - name: Save Result
+        if: always()
         run: echo "FreeBSD|VM Environment|${{ steps.freebsd.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_freebsd.txt
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: result-freebsd
           path: result_freebsd.txt
@@ -81,15 +83,16 @@ jobs:
 
       - name: Test via QEMU
         id: sim
-        continue-on-error: true
         run: cross test --workspace --target ${{ matrix.target }} --manifest-path compiler/Cargo.toml
 
       - name: Save Result
+        if: always()
         run: |
           SAFE_TARGET=$(echo "${{ matrix.target }}" | tr -d ' ')
           echo "$SAFE_TARGET|Simulated Hardware|${{ steps.sim.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_$SAFE_TARGET.txt
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: result-${{ matrix.target }}
           path: result_*.txt
@@ -131,7 +134,7 @@ jobs:
 
           while IFS='|' read -r ENV TYPE STATUS LOG_URL; do
             if [ "$STATUS" == "success" ]; then
-              ICON="✅ PASS"
+              ICON="✨ PASS"
             else
               ICON="❌ FAIL"
               OVERALL_STATUS=1
