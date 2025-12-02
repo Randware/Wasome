@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [chore/github-action] # SWITCH WHEN PUSHING TO PROD!
+    branches: [chore/github-action] # Switch to main later
 
 permissions:
   contents: read
@@ -21,11 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: compiler
 
       - name: Run Tests
         id: test
         continue-on-error: true
+        working-directory: compiler
         run: cargo test --workspace
 
       - name: Save Result
@@ -48,9 +52,10 @@ jobs:
         continue-on-error: true
         with:
           usesh: true
-          # Optimization: pkg install is standard and safe here
           prepare: pkg install -y rust cargo
-          run: cargo test --workspace
+          run: |
+            cd compiler
+            cargo test --workspace
 
       - name: Save Result
         run: echo "FreeBSD|VM Environment|${{ steps.freebsd.outcome }}" > result_freebsd.txt
@@ -72,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Cross (Fast)
+      - name: Install Cross
         uses: taiki-e/install-action@v2
         with:
           tool: cross
@@ -80,7 +85,7 @@ jobs:
       - name: Test via QEMU
         id: sim
         continue-on-error: true
-        run: cross test --workspace --target ${{ matrix.target }}
+        run: cross test --workspace --target ${{ matrix.target }} --manifest-path compiler/Cargo.toml
 
       - name: Save Result
         run: |
@@ -109,9 +114,7 @@ jobs:
         run: |
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           LOGO_WASOME="https://raw.githubusercontent.com/${{ github.repository }}/$BRANCH_NAME/.github/assets/Wasome_Yellow.png"
-          LOGO_RANDWARE="https://raw.githubusercontent.com/${{ github.repository }}/$BRANCH_NAME/.github/assets/Randware_Logo_white_text_background.png"
 
-          # Start constructing the Output
           {
             echo "REPORT<<EOF"
             echo "<div align='center'>"
@@ -124,7 +127,6 @@ jobs:
           } >> $GITHUB_OUTPUT
 
           cat result_*.txt | sort > all_results.txt
-
           OVERALL_STATUS=0
 
           while IFS='|' read -r ENV TYPE STATUS; do
@@ -139,15 +141,7 @@ jobs:
             echo "| <code>$ENV</code> | $TYPE | $ICON | $TEXT |" >> $GITHUB_OUTPUT
           done < all_results.txt
 
-          {
-            echo ""
-            echo "---"
-            echo "<div align='center'>"
-            echo "  <p><sub>Automated Hardware Verification by</sub></p>"
-            echo "  <img src='$LOGO_RANDWARE' width='120' alt='Randware Logo'>"
-            echo "</div>"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
           echo "FAIL_WORKFLOW=$OVERALL_STATUS" >> $GITHUB_ENV
 
