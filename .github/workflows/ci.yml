@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [chore/github-action] # SWITCH WHEN PUSHING TO PROD!
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Standard OS
+  test-standard:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run Tests
+        id: test
+        continue-on-error: true
+        run: cargo test --workspace
+
+      - name: Save Result
+        run: echo "${{ matrix.os }}|Standard OS|${{ steps.test.outcome }}" > result_${{ matrix.os }}.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.os }}
+          path: result_*.txt
+
+  # FreeBSD
+  test-freebsd:
+    name: FreeBSD
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test on FreeBSD
+        id: freebsd
+        uses: vmactions/freebsd-vm@v1
+        continue-on-error: true
+        with:
+          usesh: true
+          # Optimization: pkg install is standard and safe here
+          prepare: pkg install -y rust cargo
+          run: cargo test --workspace
+
+      - name: Save Result
+        run: echo "FreeBSD|VM Environment|${{ steps.freebsd.outcome }}" > result_freebsd.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-freebsd
+          path: result_freebsd.txt
+
+  # Hardware Simulation
+  test-simulated:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-unknown-linux-gnu, mips64-unknown-linux-gnuabi64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Cross (Fast)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Test via QEMU
+        id: sim
+        continue-on-error: true
+        run: cross test --workspace --target ${{ matrix.target }}
+
+      - name: Save Result
+        run: |
+          SAFE_TARGET=$(echo "${{ matrix.target }}" | tr -d ' ')
+          echo "$SAFE_TARGET|Simulated Hardware|${{ steps.sim.outcome }}" > result_$SAFE_TARGET.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.target }}
+          path: result_*.txt
+
+  # The Report
+  report:
+    needs: [test-standard, test-freebsd, test-simulated]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          merge-multiple: true
+
+      - name: Generate Randware Themed Report
+        id: generate
+        shell: bash
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          LOGO_WASOME="https://raw.githubusercontent.com/${{ github.repository }}/$BRANCH_NAME/.github/assets/Wasome_Yellow.png"
+          LOGO_RANDWARE="https://raw.githubusercontent.com/${{ github.repository }}/$BRANCH_NAME/.github/assets/Randware_Logo_white_text_background.png"
+
+          # Start constructing the Output
+          {
+            echo "REPORT<<EOF"
+            echo "<div align='center'>"
+            echo "  <img src='$LOGO_WASOME' width='100' alt='Wasome Logo'>"
+            echo "  <h3>Wasome Integration Report</h3>"
+            echo "</div>"
+            echo ""
+            echo "| System Architecture | Environment Type | Status | Outcome |"
+            echo "| :--- | :--- | :---: | :---: |"
+          } >> $GITHUB_OUTPUT
+
+          cat result_*.txt | sort > all_results.txt
+
+          OVERALL_STATUS=0
+
+          while IFS='|' read -r ENV TYPE STATUS; do
+            if [ "$STATUS" == "success" ]; then
+              ICON="✨" 
+              TEXT="**PASS**"
+            else
+              ICON="❌"
+              TEXT="**FAIL**"
+              OVERALL_STATUS=1
+            fi
+            echo "| <code>$ENV</code> | $TYPE | $ICON | $TEXT |" >> $GITHUB_OUTPUT
+          done < all_results.txt
+
+          {
+            echo ""
+            echo "---"
+            echo "<div align='center'>"
+            echo "  <p><sub>Automated Hardware Verification by</sub></p>"
+            echo "  <img src='$LOGO_RANDWARE' width='120' alt='Randware Logo'>"
+            echo "</div>"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          echo "FAIL_WORKFLOW=$OVERALL_STATUS" >> $GITHUB_ENV
+
+      - name: Post Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: ci-report
+          message: ${{ steps.generate.outputs.REPORT }}
+
+      - name: Check for Failures
+        if: env.FAIL_WORKFLOW == '1'
+        run: |
+          echo "::error::One or more test matrix combinations failed."
+          exit 1
