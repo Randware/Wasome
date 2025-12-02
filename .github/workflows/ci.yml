@@ -3,14 +3,13 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [chore/github-action] # Switch to main later
+    branches: [chore/github-action] # SWITCH BEFORE PROD!
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
-  # Standard OS
   test-standard:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -40,7 +39,6 @@ jobs:
           name: result-${{ matrix.os }}
           path: result_*.txt
 
-  # FreeBSD
   test-freebsd:
     name: FreeBSD
     runs-on: ubuntu-latest
@@ -52,7 +50,7 @@ jobs:
         continue-on-error: true
         with:
           usesh: true
-          prepare: pkg install -y rust cargo
+          prepare: pkg install -y rust git cmake
           run: |
             cd compiler
             cargo test --workspace
@@ -65,14 +63,13 @@ jobs:
           name: result-freebsd
           path: result_freebsd.txt
 
-  # Hardware Simulation
   test-simulated:
     name: ${{ matrix.target }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        target: [aarch64-unknown-linux-gnu, mips64-unknown-linux-gnuabi64]
+        target: [aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -97,7 +94,6 @@ jobs:
           name: result-${{ matrix.target }}
           path: result_*.txt
 
-  # The Report
   report:
     needs: [test-standard, test-freebsd, test-simulated]
     if: always()
@@ -108,7 +104,7 @@ jobs:
           pattern: result-*
           merge-multiple: true
 
-      - name: Generate Randware Themed Report
+      - name: Generate Report
         id: generate
         shell: bash
         run: |
