@@ -36,6 +36,6 @@ mod tests {
     #[test]
     fn code_find_create_display() {
         let code_file = CodeFile::new(PathBuf::from("test/test"));
-        assert_eq!("test/testttt".to_string(), code_file.to_string())
+        assert_eq!("test/test".to_string(), code_file.to_string())
     }
 }
