@@ -134,7 +134,7 @@ jobs:
 
           while IFS='|' read -r ENV TYPE STATUS LOG_URL; do
             if [ "$STATUS" == "success" ]; then
-              ICON="✨ PASS"
+              ICON="✅ PASS"
             else
               ICON="❌ FAIL"
               OVERALL_STATUS=1
