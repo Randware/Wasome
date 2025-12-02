@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [chore/github-action] # SWITCH BEFORE PROD!
+    branches: [chore/github-action] # Remember to switch to main later!
 
 permissions:
   contents: read
@@ -32,7 +32,7 @@ jobs:
         run: cargo test --workspace
 
       - name: Save Result
-        run: echo "${{ matrix.os }}|Standard OS|${{ steps.test.outcome }}" > result_${{ matrix.os }}.txt
+        run: echo "${{ matrix.os }}|Standard OS|${{ steps.test.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_${{ matrix.os }}.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -56,7 +56,7 @@ jobs:
             cargo test --workspace
 
       - name: Save Result
-        run: echo "FreeBSD|VM Environment|${{ steps.freebsd.outcome }}" > result_freebsd.txt
+        run: echo "FreeBSD|VM Environment|${{ steps.freebsd.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_freebsd.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -87,7 +87,7 @@ jobs:
       - name: Save Result
         run: |
           SAFE_TARGET=$(echo "${{ matrix.target }}" | tr -d ' ')
-          echo "$SAFE_TARGET|Simulated Hardware|${{ steps.sim.outcome }}" > result_$SAFE_TARGET.txt
+          echo "$SAFE_TARGET|Simulated Hardware|${{ steps.sim.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_$SAFE_TARGET.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -114,30 +114,41 @@ jobs:
           {
             echo "REPORT<<EOF"
             echo "<div align='center'>"
-            echo "  <img src='$LOGO_WASOME' width='100' alt='Wasome Logo'>"
+            echo "  <img src='$LOGO_WASOME' width='150' alt='Wasome Logo'>"
             echo "  <h3>Wasome Integration Report</h3>"
-            echo "</div>"
             echo ""
-            echo "| System Architecture | Environment Type | Status | Outcome |"
-            echo "| :--- | :--- | :---: | :---: |"
+            echo "  <table>"
+            echo "    <tr>"
+            echo "      <th>System Architecture</th>"
+            echo "      <th>Environment Type</th>"
+            echo "      <th align='center'>Status</th>"
+            echo "      <th align='center'>Logs</th>"
+            echo "    </tr>"
           } >> $GITHUB_OUTPUT
 
-          cat result_*.txt | sort > all_results.txt
+          cat result_*.txt | tr -d '\r' | sort > all_results.txt
           OVERALL_STATUS=0
 
-          while IFS='|' read -r ENV TYPE STATUS; do
+          while IFS='|' read -r ENV TYPE STATUS LOG_URL; do
             if [ "$STATUS" == "success" ]; then
-              ICON="✨" 
-              TEXT="**PASS**"
+              ICON="✅ PASS"
             else
-              ICON="❌"
-              TEXT="**FAIL**"
+              ICON="❌ FAIL"
               OVERALL_STATUS=1
             fi
-            echo "| <code>$ENV</code> | $TYPE | $ICON | $TEXT |" >> $GITHUB_OUTPUT
+            echo "    <tr>" >> $GITHUB_OUTPUT
+            echo "      <td><code>$ENV</code></td>" >> $GITHUB_OUTPUT
+            echo "      <td>$TYPE</td>" >> $GITHUB_OUTPUT
+            echo "      <td align='center'><strong>$ICON</strong></td>" >> $GITHUB_OUTPUT
+            echo "      <td align='center'><a href='$LOG_URL'>🔍 View</a></td>" >> $GITHUB_OUTPUT
+            echo "    </tr>" >> $GITHUB_OUTPUT
           done < all_results.txt
 
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "  </table>"
+            echo "</div>"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
           echo "FAIL_WORKFLOW=$OVERALL_STATUS" >> $GITHUB_ENV
 
