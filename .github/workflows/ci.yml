@@ -113,8 +113,7 @@ jobs:
 
           {
             echo "REPORT<<EOF"
-            echo "<div align='center'>"
-            echo "  <img src='$LOGO_WASOME' width='150' alt='Wasome Logo'>"
+            echo "  <img src='$LOGO_WASOME' width='600' alt='Wasome Integration Report Banner'>"
             echo "  <h3>Wasome Integration Report</h3>"
             echo ""
             echo "  <table>"
