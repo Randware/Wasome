@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn ast() {
-        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
+        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F64));
         let statement = ASTNode::new(
             Statement::VariableDeclaration(basic_test_variable(symbol.clone()).unwrap()),
             sample_codearea(),

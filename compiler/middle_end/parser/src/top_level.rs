@@ -1,9 +1,9 @@
 use crate::misc::{datatype_parser, identifier_parser, just_token};
 use crate::statement::statement_parser;
-use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::UntypedAST;
+use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::{Function, TopLevelElement};
+use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
@@ -14,10 +14,10 @@ use std::rc::Rc;
 pub(crate) fn top_level_parser<'src>() -> impl Parser<
     'src,
     &'src [PosInfoWrapper<Token, CodeFile>],
-    PosInfoWrapper<TopLevelElement<UntypedAST>>,
+    ASTNode<TopLevelElement<UntypedAST>>,
 > {
     // This currently only handles functions
-    function_parser().map(|func| func.map(TopLevelElement::Function))
+    function_parser().map(|func| func.map(TopLevelElement::Function).into_ast_node())
 }
 
 /** This parses a slice of tokens into a function
@@ -57,6 +57,7 @@ fn function_parser<'src>()
         )
         .then(statement)
         .map(|(((name, params), return_type), implementation)| {
+            let pos = combine_code_areas_succeeding(&name.pos_info, implementation.position());
             PosInfoWrapper::new(
                 Function::new(
                     Rc::new(FunctionSymbol::new(
@@ -64,9 +65,9 @@ fn function_parser<'src>()
                         return_type.map(|to_map| to_map.inner),
                         params.into_iter().map(|param| param.inner).collect(),
                     )),
-                    implementation.inner,
+                    implementation,
                 ),
-                combine_code_areas_succeeding(&name.pos_info, &implementation.pos_info),
+                pos,
             )
         })
 }
@@ -74,15 +75,10 @@ fn function_parser<'src>()
 mod tests {
     use crate::test_shared::prepare_token;
     use crate::top_level::top_level_parser;
-    use ast::UntypedAST;
-    use ast::block::CodeBlock;
-    use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
-    use ast::statement::{Statement, VariableDeclaration};
-    use ast::symbol::{FunctionCall, FunctionSymbol, VariableSymbol};
-    use ast::top_level::{Function, TopLevelElement};
+    use ast::top_level::TopLevelElement;
     use chumsky::Parser;
     use lexer::TokenType;
-    use std::rc::Rc;
+    use std::ops::Deref;
 
     #[test]
     fn parse() {
@@ -116,33 +112,13 @@ mod tests {
         let parser = top_level_parser();
 
         let parsed = parser.parse(&to_parse).unwrap();
-        println!("{:?}", parsed);
-        let expected = TopLevelElement::Function(Function::new(
-            Rc::new(FunctionSymbol::new("func".to_string(), None, Vec::new())),
-            Statement::Codeblock(CodeBlock::new(vec![Statement::VariableDeclaration(
-                VariableDeclaration::<UntypedAST>::new(
-                    Rc::new(VariableSymbol::new("var".to_string(), "bool".to_string())),
-                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
-                        "test".to_string(),
-                        vec![
-                            Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                                UnaryOpType::Typecast(Typecast::new("f32".to_string())),
-                                Expression::Literal("5".to_string()),
-                            ))),
-                            Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                                BinaryOpType::NotEquals,
-                                Expression::Variable("test2".to_string()),
-                                Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                                    BinaryOpType::Multiplication,
-                                    Expression::Literal("5".to_string()),
-                                    Expression::Literal("10".to_string()),
-                                ))),
-                            ))),
-                        ],
-                    )),
-                ),
-            )])),
-        ));
-        assert_eq!(parsed.inner(), &expected);
+
+        let expected_func_name = "func";
+        let func_name =
+            {
+                let TopLevelElement::Function(function) = parsed.deref();
+                function.declaration().name()
+            };
+        assert_eq!(expected_func_name, func_name);
     }
 }

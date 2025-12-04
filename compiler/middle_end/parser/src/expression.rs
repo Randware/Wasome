@@ -1,9 +1,8 @@
 use crate::misc::{datatype_parser, identifier_parser, just_token};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::UntypedAST;
+use ast::{ASTNode, UntypedAST};
 use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
 use ast::symbol::FunctionCall;
-use chumsky::combinator::To;
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
@@ -14,7 +13,7 @@ fn narrow<
     T: Parser<
             'src,
             &'src [PosInfoWrapper<Token, CodeFile>],
-            PosInfoWrapper<Expression<UntypedAST>>,
+            ASTNode<Expression<UntypedAST>>,
         > + Clone,
 >(
     input: T,
@@ -24,20 +23,20 @@ fn narrow<
 /** This parses a slice of tokens into an expression
 */
 pub(crate) fn expression_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Expression<UntypedAST>>>
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>>
 + Clone {
     recursive(|expr| {
         let expr = narrow(expr);
         let literal = custom::<
             _,
             &[PosInfoWrapper<Token, CodeFile>],
-            PosInfoWrapper<Expression<UntypedAST>>,
+            ASTNode<Expression<UntypedAST>>,
             _,
         >(|token| {
             {
                 let next_token = token.next().ok_or(EmptyErr::default())?;
                 let (tok, pos) = (next_token.inner, next_token.pos_info);
-                Ok(PosInfoWrapper::new(
+                Ok(ASTNode::new(
                     Expression::Literal(
                         match tok.kind {
                             TokenType::Decimal(inner) => inner.to_string(),
@@ -65,7 +64,7 @@ pub(crate) fn expression_parser<'src>()
             .then(
                 expr.clone()
                     .separated_by(just_token(TokenType::ArgumentSeparator))
-                    .collect::<Vec<PosInfoWrapper<Expression<UntypedAST>>>>()
+                    .collect::<Vec<ASTNode<Expression<UntypedAST>>>>()
                     .delimited_by(
                         just_token(TokenType::OpenParen),
                         just_token(TokenType::CloseParen),
@@ -75,13 +74,13 @@ pub(crate) fn expression_parser<'src>()
                 let pos = combine_code_areas_succeeding(
                     &name.pos_info,
                     args.last()
-                        .map(|to_map| to_map.pos_info())
+                        .map(|to_map| to_map.position())
                         .unwrap_or(name.pos_info()),
                 );
-                PosInfoWrapper::new(
+                ASTNode::new(
                     Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
                         name.inner,
-                        args.into_iter().map(|arg| arg.inner).collect(),
+                        args,
                     )),
                     pos,
                 )
@@ -89,7 +88,7 @@ pub(crate) fn expression_parser<'src>()
 
         let atom = call
             .or(literal)
-            .or(ident.map(|input| input.map(Expression::Variable)))
+            .or(ident.map(|input| ASTNode::new(Expression::Variable(input.inner), input.pos_info)))
             .or(expr.delimited_by(
                 just_token(TokenType::OpenParen),
                 just_token(TokenType::CloseParen),
@@ -100,18 +99,19 @@ pub(crate) fn expression_parser<'src>()
             .then_ignore(just_token(TokenType::As))
             .then(datatype_parser())
             .map(|(expr, new_type)| {
-                PosInfoWrapper::new(
+                let new_pos = combine_code_areas_succeeding(expr.position(), &new_type.pos_info);
+                ASTNode::new(
                     Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
                         UnaryOpType::Typecast(Typecast::new(new_type.inner)),
-                        expr.inner,
+                        expr,
                     ))),
-                    combine_code_areas_succeeding(&expr.pos_info, &new_type.pos_info),
+                    new_pos,
                 )
             });
 
         let unary_op = choice((
-            single_unary(TokenType::Subtraction, UnaryOpType::Negative),
-            single_unary(TokenType::Not, UnaryOpType::Not),
+            just_token(TokenType::Subtraction).map(|token| unary_op_mapper(UnaryOpType::Negative, token.pos_info.start().clone())),
+            just_token(TokenType::Not).map(|token| unary_op_mapper(UnaryOpType::Not, token.pos_info.start().clone())),
         ));
         let unary = choice((typecast, unary_op.repeated().foldr(atom, |op, rhs| op(rhs))));
 
@@ -177,15 +177,15 @@ fn binary_operator_parser<'a>(
     input: impl Parser<
         'a,
         &'a [PosInfoWrapper<Token, CodeFile>],
-        PosInfoWrapper<Expression<UntypedAST>>,
+        ASTNode<Expression<UntypedAST>>,
     > + Clone,
     ops: &[(TokenType, BinaryOpType)],
-) -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Expression<UntypedAST>>> + Clone
+) -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>> + Clone
 {
     input.clone().foldl(
         choice(
             ops.iter()
-                .map(|(token, op)| single_binary(token.clone(), *op))
+                .map(|(token, op)| just_token(token.clone()).map(|_| binary_op_mapper(*op)))
                 .collect::<Vec<_>>(),
         )
         .then(input)
@@ -194,30 +194,40 @@ fn binary_operator_parser<'a>(
     )
 }
 
-// There is no way known to me to split the return type up
-#[allow(clippy::type_complexity)]
-fn single_unary<'a>(
-    input: TokenType,
-    operator_type: UnaryOpType<UntypedAST>,
-) -> To<
-    impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<TokenType, CodeArea>> + Clone,
-    //Just<TokenType, &'a [PosInfoWrapper<Token>], Full<EmptyErr, (), ()>>,
-    PosInfoWrapper<TokenType>,
-    impl Clone + Fn(PosInfoWrapper<Expression<UntypedAST>>) -> PosInfoWrapper<Expression<UntypedAST>>,
-> {
-    just_token(input).to(move |input: PosInfoWrapper<Expression<UntypedAST>>| {
-        let (expr, pos) = (input.inner, input.pos_info);
-        PosInfoWrapper::new(
-            Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                operator_type.clone(),
-                expr,
-            ))),
-            pos,
-        )
-    })
+fn map_unary_op(operator_type: UnaryOpType<UntypedAST>, op_start: CodeLocation, input: ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
+    let combined_pos = CodeArea::new(op_start, input.position().end().clone(), input.position().file().clone())
+        .expect("This should never happen. The unary operator is on front of the expression");
+    ASTNode::new(
+        Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+            operator_type.clone(),
+            input,
+        ))),
+        combined_pos
+    )
 }
 
-// There is no way known to me to split the return type up
+fn unary_op_mapper(token_type: UnaryOpType<UntypedAST>, op_start: CodeLocation) -> impl Fn(ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
+    move |expr| map_unary_op(token_type.clone(), op_start.clone(), expr)
+}
+
+fn map_binary_op(operator_type: BinaryOpType, lhs: ASTNode<Expression<UntypedAST>>, rhs: ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
+    let combined_pos = CodeArea::new(lhs.position().start().clone(), rhs.position().end().clone(), lhs.position().file().clone())
+        .expect("This should never happen. The unary operator is on front of the expression");
+    ASTNode::new(
+        Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+            operator_type,
+            lhs,
+            rhs,
+        ))),
+        combined_pos
+    )
+}
+
+fn binary_op_mapper(token_type: BinaryOpType) -> impl Fn(ASTNode<Expression<UntypedAST>>, ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
+    move |lhs, rhs| map_binary_op(token_type, lhs, rhs)
+}
+
+/*// There is no way known to me to split the return type up
 #[allow(clippy::type_complexity)]
 fn single_binary<'a>(
     input: TokenType,
@@ -257,13 +267,13 @@ fn single_binary<'a>(
             }
         },
     )
-}
+}*/
 
 #[cfg(test)]
 mod tests {
     use crate::expression::expression_parser;
-    use crate::test_shared::prepare_token;
-    use ast::UntypedAST;
+    use crate::test_shared::{prepare_token, wrap_in_astnode};
+    use ast::{SemanticEquality, UntypedAST};
     use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
     use ast::symbol::FunctionCall;
     use chumsky::Parser;
@@ -290,25 +300,25 @@ mod tests {
         let parser = expression_parser();
 
         let parsed = parser.parse(&to_parse).unwrap();
-        let expected = Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+        let expected = wrap_in_astnode(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
             "test".to_string(),
             vec![
-                Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                wrap_in_astnode(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
                     UnaryOpType::Typecast(Typecast::new("f32".to_string())),
-                    Expression::Literal("5".to_string()),
-                ))),
-                Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    wrap_in_astnode(Expression::Literal("5".to_string())),
+                )))),
+                wrap_in_astnode(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                     BinaryOpType::NotEquals,
-                    Expression::Variable("test2".to_string()),
-                    Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    wrap_in_astnode(Expression::Variable("test2".to_string())),
+                    wrap_in_astnode(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                         BinaryOpType::Multiplication,
-                        Expression::Literal("5".to_string()),
-                        Expression::Literal("10".to_string()),
-                    ))),
-                ))),
+                        wrap_in_astnode(Expression::Literal("5".to_string())),
+                        wrap_in_astnode(Expression::Literal("10".to_string())),
+                    )))),
+                )))),
             ],
-        ));
-        assert_eq!(parsed.inner(), &expected);
+        )));
+        assert!(parsed.semantic_equals(&expected));
     }
 
     #[test]
@@ -334,25 +344,25 @@ mod tests {
         let parser = expression_parser();
 
         let parsed = parser.parse(&to_parse).unwrap();
-        let expected = Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+        let expected = wrap_in_astnode(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
             "test".to_string(),
             vec![
-                Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                wrap_in_astnode(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
                     UnaryOpType::Typecast(Typecast::new("f32".to_string())),
-                    Expression::Literal("5".to_string()),
-                ))),
-                Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    wrap_in_astnode(Expression::Literal("5".to_string())),
+                )))),
+                wrap_in_astnode(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                     BinaryOpType::NotEquals,
-                    Expression::Variable("test2".to_string()),
-                    Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    wrap_in_astnode(Expression::Variable("test2".to_string())),
+                    wrap_in_astnode(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                         BinaryOpType::Multiplication,
-                        Expression::Literal("5".to_string()),
-                        Expression::Literal("10".to_string()),
-                    ))),
-                ))),
+                        wrap_in_astnode(Expression::Literal("5".to_string())),
+                        wrap_in_astnode(Expression::Literal("10".to_string())),
+                    )))),
+                )))),
             ],
-        ));
-        assert_eq!(parsed.inner, expected);
+        )));
+        assert!(parsed.semantic_equals(&expected));
     }
 
     #[test]
@@ -361,8 +371,8 @@ mod tests {
 
         let parser = expression_parser();
 
-        let expected = Expression::Variable("test".to_string());
-        assert_eq!(&expected, parser.parse(&to_parse).unwrap().inner());
+        let expected = wrap_in_astnode(Expression::Variable("test".to_string()));
+        assert!(expected.semantic_equals(&parser.parse(&to_parse).unwrap()));
     }
 
     #[test]

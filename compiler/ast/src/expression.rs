@@ -550,7 +550,7 @@ mod tests {
     #[test]
     fn expression() {
         let expression = generate_sample_expression();
-        assert_eq!(DataType::S32, expression.data_type());
+        assert_eq!(DataType::S64, expression.data_type());
     }
 
     #[test]

@@ -1,4 +1,4 @@
 [workspace]
 resolver = "3"
 
-members = ["ast", "lexer", "shared", "middle_end/parser", "middle_end/semantic_analyzer"]
+members = ["ast", "lexer", "shared", "middle_end/parser"]

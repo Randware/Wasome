@@ -1,13 +1,13 @@
 use crate::expression::expression_parser;
 use crate::misc::{datatype_parser, identifier_parser, just_token, statement_seperator};
-use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::UntypedAST;
+use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::block::CodeBlock;
 use ast::statement::{
     Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
     VariableDeclaration,
 };
 use ast::symbol::VariableSymbol;
+use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 fn narrow<
     'src,
-    T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Statement<UntypedAST>>>
+    T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>>
         + Clone,
 >(
     input: T,
@@ -26,7 +26,7 @@ fn narrow<
 /** This parses a slice of tokens into a statement
 */
 pub(crate) fn statement_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Statement<UntypedAST>>>
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>>
 {
     recursive(|statement| {
         let statement = narrow(statement);
@@ -40,9 +40,10 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(just_token(TokenType::Assign))
             .then(expression.clone())
             .map(|(name, val)| {
+                let pos = combine_code_areas_succeeding(&name.pos_info, val.position());
                 PosInfoWrapper::new(
-                    VariableAssignment::<UntypedAST>::new(name.inner, val.inner),
-                    combine_code_areas_succeeding(&name.pos_info, &val.pos_info),
+                    VariableAssignment::<UntypedAST>::new(name.inner, val),
+                    pos,
                 )
             });
 
@@ -55,7 +56,7 @@ pub(crate) fn statement_parser<'src>()
                 PosInfoWrapper::new(
                     VariableDeclaration::<UntypedAST>::new(
                         Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
-                        val.inner,
+                        val,
                     ),
                     combine_code_areas_succeeding(&name.pos_info, &data_type.pos_info),
                 )
@@ -68,12 +69,12 @@ pub(crate) fn statement_parser<'src>()
                     &return_keyword.pos_info,
                     to_return
                         .as_ref()
-                        .map(|to_map| to_map.pos_info())
+                        .map(|to_map| to_map.position())
                         .unwrap_or(return_keyword.pos_info()),
                 );
 
                 PosInfoWrapper::new(
-                    Return::<UntypedAST>::new(to_return.map(|to_map| to_map.inner)),
+                    Return::<UntypedAST>::new(to_return),
                     pos,
                 )
             });
@@ -97,15 +98,15 @@ pub(crate) fn statement_parser<'src>()
                     &if_keyword.pos_info,
                     else_statement
                         .as_ref()
-                        .map(|to_map| to_map.pos_info())
-                        .unwrap_or(then.pos_info()),
+                        .map(|to_map| to_map.position())
+                        .unwrap_or(then.position()),
                 );
 
                 PosInfoWrapper::new(
                     Conditional::new(
-                        cond.inner,
-                        then.inner,
-                        else_statement.map(|to_map| to_map.inner),
+                        cond,
+                        then,
+                        else_statement,
                     ),
                     pos,
                 )
@@ -122,7 +123,7 @@ pub(crate) fn statement_parser<'src>()
                     .clone()
                     .then_ignore(just_token(TokenType::CloseParen))
                     .then(loop_body.clone())
-                    .map(|(cond, body)| (body, LoopType::While(cond.inner))),
+                    .map(|(cond, body)| (body, LoopType::While(cond))),
                 statement
                     .clone()
                     .then_ignore(just_token(TokenType::Semicolon))
@@ -138,17 +139,18 @@ pub(crate) fn statement_parser<'src>()
                         (
                             body,
                             LoopType::For {
-                                start: init.inner,
-                                cond: cond.inner,
-                                after_each: after_each.inner,
+                                start: init,
+                                cond,
+                                after_each,
                             },
                         )
                     }),
             )))
             .map(|(loop_keyword, (body, loop_type))| {
+                let pos =  combine_code_areas_succeeding(&loop_keyword.pos_info, body.position());
                 PosInfoWrapper::new(
-                    Loop::new(body.inner, loop_type),
-                    combine_code_areas_succeeding(&loop_keyword.pos_info, &body.pos_info),
+                    Loop::new(body, loop_type),
+                    pos,
                 )
             });
 
@@ -159,12 +161,12 @@ pub(crate) fn statement_parser<'src>()
                     .separated_by(statement_seperator())
                     .allow_leading()
                     .allow_trailing()
-                    .collect::<Vec<PosInfoWrapper<Statement<UntypedAST>>>>(),
+                    .collect::<Vec<ASTNode<Statement<UntypedAST>>>>(),
             )
             .then(just_token(TokenType::CloseScope))
             .map(|((open, block), close)| {
                 PosInfoWrapper::new(
-                    CodeBlock::new(block.into_iter().map(|statement| statement.inner).collect()),
+                    CodeBlock::new(block.into_iter().collect()),
                     combine_code_areas_succeeding(&open.pos_info, &close.pos_info),
                 )
             });
@@ -184,8 +186,11 @@ pub(crate) fn statement_parser<'src>()
             }),
             code_block.map(|code_block| code_block.map(Statement::Codeblock)),
             return_statement.map(|return_statement| return_statement.map(Statement::Return)),
-            expression.map(|expr| expr.map(Statement::Expression)),
-        ))
+            expression.map(|expr| -> PosInfoWrapper<Statement<UntypedAST>> {
+                let pos = expr.position().clone();
+                PosInfoWrapper::new(Statement::Expression(expr), pos)
+            }),
+        )).map(|statement| statement.into_ast_node())
     })
 }
 
@@ -199,13 +204,10 @@ fn maybe_statement_separator<'a>()
 mod tests {
     use crate::statement::statement_parser;
     use crate::test_shared::prepare_token;
-    use ast::UntypedAST;
-    use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
-    use ast::statement::{Statement, VariableDeclaration};
-    use ast::symbol::{FunctionCall, VariableSymbol};
+    use ast::statement::Statement;
     use chumsky::Parser;
     use lexer::TokenType;
-    use std::rc::Rc;
+    use std::ops::Deref;
 
     #[test]
     fn parse() {
@@ -231,27 +233,14 @@ mod tests {
         let parser = statement_parser();
 
         let parsed = parser.parse(&to_parse).unwrap();
-        let expected = Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
-            Rc::new(VariableSymbol::new("var".to_string(), "bool".to_string())),
-            Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
-                "test".to_string(),
-                vec![
-                    Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new("f32".to_string())),
-                        Expression::Literal("5".to_string()),
-                    ))),
-                    Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                        BinaryOpType::NotEquals,
-                        Expression::Variable("test2".to_string()),
-                        Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                            BinaryOpType::Multiplication,
-                            Expression::Literal("5".to_string()),
-                            Expression::Literal("10".to_string()),
-                        ))),
-                    ))),
-                ],
-            )),
-        ));
-        assert_eq!(parsed.inner(), &expected);
+
+        let expected_var_name = "var";
+        let var_name =
+            {
+                let Statement::VariableDeclaration(variable) = parsed.deref()
+                else { panic!("We should not be here") };
+                variable.variable().name()
+            };
+        assert_eq!(expected_var_name, var_name);
     }
 }

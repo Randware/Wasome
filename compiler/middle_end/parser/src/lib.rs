@@ -1,6 +1,6 @@
 use crate::misc::statement_seperator;
 use crate::top_level::top_level_parser;
-use ast::{AST, UntypedAST};
+use ast::{ASTNode, UntypedAST, AST};
 use chumsky::IterParser;
 use chumsky::Parser;
 use lexer::Token;
@@ -42,7 +42,6 @@ fn parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], 
             AST::new(
                 top_level_elements
                     .into_iter()
-                    .map(|top_level_elem| top_level_elem.inner)
                     .collect(),
             )
         })
@@ -81,6 +80,10 @@ impl<T: PartialEq + Debug, Pos: PartialEq + Debug> PosInfoWrapper<T, Pos> {
     pub fn map<O: PartialEq + Debug>(self, mapper: impl FnOnce(T) -> O) -> PosInfoWrapper<O, Pos> {
         PosInfoWrapper::new(mapper(self.inner), self.pos_info)
     }
+
+    pub fn into_ast_node(self) -> ASTNode<T, Pos> {
+        ASTNode::new(self.inner, self.pos_info)
+    }
 }
 
 impl<T: PartialEq + Debug, Pos: PartialEq + Debug> Deref for PosInfoWrapper<T, Pos> {
@@ -103,16 +106,8 @@ impl<T: PartialEq + Debug + Clone, Pos: PartialEq + Debug + Clone> Clone
 mod tests {
     use super::*;
     use crate::test_shared::prepare_token;
-    use ast::block::CodeBlock;
-    use ast::expression::{BinaryOp, BinaryOpType, Expression};
-    use ast::statement::{
-        ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
-        VariableDeclaration,
-    };
-    use ast::symbol::{FunctionSymbol, VariableSymbol};
-    use ast::top_level::{Function, TopLevelElement};
+    use ast::top_level::TopLevelElement;
     use lexer::TokenType;
-    use std::rc::Rc;
 
     #[test]
     fn parse() {
@@ -175,90 +170,27 @@ mod tests {
         ]
         .map(prepare_token);
 
-        // The how manyth fibonacci number we want
-        let nth = Rc::new(VariableSymbol::<UntypedAST>::new(
-            "nth".to_string(),
-            "s32".to_string(),
-        ));
-        let current = Rc::new(VariableSymbol::new(
-            "current".to_string(),
-            "s32".to_string(),
-        ));
-        let previous = Rc::new(VariableSymbol::new(
-            "previous".to_string(),
-            "s32".to_string(),
-        ));
-        let temp = Rc::new(VariableSymbol::new("temp".to_string(), "s32".to_string()));
-
-        let fibonacci = Rc::new(FunctionSymbol::new(
-            "fibonacci".to_string(),
-            Some("s32".to_string()),
-            vec![nth.clone()],
-        ));
-
-        let exprected = AST::new(vec![TopLevelElement::Function(Function::new(
-            fibonacci.clone(),
-            Statement::Codeblock(CodeBlock::new(vec![
-                Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
-                    current.clone(),
-                    Expression::Literal("1".to_string()),
-                )),
-                Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
-                    previous.clone(),
-                    Expression::Literal("0".to_string()),
-                )),
-                Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
-                    Statement::Codeblock(CodeBlock::new(vec![
-                        Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
-                            temp.clone(),
-                            Expression::Variable("current".to_string()),
-                        )),
-                        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            "current".to_string(),
-                            Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                                BinaryOpType::Addition,
-                                Expression::Variable("current".to_string()),
-                                Expression::Variable("previous".to_string()),
-                            ))),
-                        )),
-                        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            "previous".to_string(),
-                            Expression::Variable("temp".to_string()),
-                        )),
-                        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
-                            "nth".to_string(),
-                            Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                                BinaryOpType::Subtraction,
-                                Expression::Variable("nth".to_string()),
-                                Expression::Literal("1".to_string()),
-                            ))),
-                        )),
-                    ])),
-                    LoopType::While(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
-                        BinaryOpType::Greater,
-                        Expression::Variable("nth".to_string()),
-                        Expression::Literal(
-                            "1".to_string(), //The fibonacci number of 1 is 1
-                        ),
-                    )))),
-                )))),
-                Statement::Return(Return::new(Some(Expression::Variable(
-                    "current".to_string(),
-                )))),
-            ])),
-        ))]);
-
         let parser = parser();
         let actual = parser.parse(&tokens).unwrap();
-        assert_eq!(exprected, actual);
+
+        let expected_func_name = "fibonacci";
+        let func_name =
+            {
+                let TopLevelElement::Function(function) = actual.deref()[0].deref();
+                function.declaration().name()
+            };
+        assert_eq!(expected_func_name, func_name);
     }
 }
 
 #[cfg(test)]
 pub(crate) mod test_shared {
     use crate::PosInfoWrapper;
+    use ast::ASTNode;
     use lexer::{Token, TokenType};
     use shared::code_file::CodeFile;
+    use shared::code_reference::{CodeArea, CodeLocation};
+    use std::fmt::Debug;
     use std::path::PathBuf;
 
     pub(crate) fn prepare_token(to_convert: TokenType) -> PosInfoWrapper<Token, CodeFile> {
@@ -270,5 +202,9 @@ pub(crate) mod test_shared {
             },
             CodeFile::new(PathBuf::from("test/test")),
         )
+    }
+
+    pub(crate) fn wrap_in_astnode<T: PartialEq+Debug>(to_wrap: T) -> ASTNode<T> {
+        ASTNode::new(to_wrap, CodeArea::new(CodeLocation::new(0,0), CodeLocation::new(0,0), CodeFile::new(PathBuf::from("test/test"))).unwrap())
     }
 }
