@@ -92,7 +92,7 @@ pub struct UnaryOp<Type: ASTType> {
 }
 
 impl<Type: ASTType> UnaryOp<Type> {
-    pub fn input(&self) -> &Expression<Type> {
+    pub fn input(&self) -> &ASTNode<Expression<Type>> {
         &self.input
     }
 
@@ -100,7 +100,7 @@ impl<Type: ASTType> UnaryOp<Type> {
         &self.op_type
     }
 
-    pub fn destructure(&self) -> (&UnaryOpType<Type>, &Expression<Type>) {
+    pub fn destructure(&self) -> (&UnaryOpType<Type>,  &ASTNode<Expression<Type>>) {
         (&self.op_type, &self.input)
     }
 }
@@ -273,11 +273,11 @@ impl<Type: ASTType> SemanticEquality for BinaryOp<Type> {
 }
 
 impl<Type: ASTType> BinaryOp<Type> {
-    pub fn left(&self) -> &Expression<Type> {
+    pub fn left(&self) -> &ASTNode<Expression<Type>> {
         &self.left
     }
 
-    pub fn right(&self) -> &Expression<Type> {
+    pub fn right(&self) -> &ASTNode<Expression<Type>> {
         &self.right
     }
 
@@ -285,7 +285,7 @@ impl<Type: ASTType> BinaryOp<Type> {
         &self.op_type
     }
 
-    pub fn destructure(&self) -> (BinaryOpType, &Expression<Type>, &Expression<Type>) {
+    pub fn destructure(&self) -> (BinaryOpType, &ASTNode<Expression<Type>>, &ASTNode<Expression<Type>>) {
         (self.op_type, &self.left, &self.right)
     }
 }

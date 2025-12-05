@@ -20,7 +20,7 @@ pub struct StatementTraversalHelper<'a, Type: ASTType> {
 }
 
 impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
-    pub fn get_inner(&self) -> &Statement<Type> {
+    pub fn get_inner(&self) -> &ASTNode<Statement<Type>> {
         self.inner
     }
 

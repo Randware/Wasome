@@ -145,7 +145,7 @@ impl<Type: ASTType> VariableDeclaration<Type> {
         self.variable.clone()
     }
 
-    pub fn value(&self) -> &Expression<Type> {
+    pub fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
 }

@@ -1,7 +1,7 @@
 use crate::function_symbol_mapper::FunctionSymbolMapper;
 use crate::mics_sa::analyze_data_type;
 use ast::expression::{BinaryOp, Expression, Literal, Typecast, UnaryOp, UnaryOpType};
-use ast::{TypedAST, UntypedAST};
+use ast::{ASTNode, TypedAST, UntypedAST};
 
 /** Analyzes an untyped expression and converts it into a typed `Expression`.
 @params
@@ -75,7 +75,9 @@ fn analyze_unary_op(
     symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<UnaryOp<TypedAST>>> {
     let (op_type, expression) = to_analyze.destructure();
+
     let converted_input = analyze_expression(&expression, symbol_mapper)?;
+
     let converted_unary_op_type = match op_type {
         UnaryOpType::Typecast(inner) => {
             let data_type = inner.target();
@@ -87,7 +89,9 @@ fn analyze_unary_op(
         UnaryOpType::Not => UnaryOpType::Not,
     };
 
-    let analyzed = UnaryOp::<TypedAST>::new(converted_unary_op_type, converted_input)?;
+    let postion = expression.position().clone();
+
+    let analyzed = UnaryOp::<TypedAST>::new(converted_unary_op_type, ASTNode::new(converted_input,postion))?;
     Some(Box::new(analyzed))
 }
 
@@ -98,17 +102,41 @@ fn analyze_unary_op(
 Some(Box<BinaryOp<TypedAST>>) if the Binary operation and its operand can be analyzed and converted to a typed form
 None if analysis or conversion fails
 */
+// In expression_sa.rs
+
 fn analyze_binary_op(
     to_analyze: &Box<BinaryOp<UntypedAST>>,
     symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<BinaryOp<TypedAST>>> {
     let (op_type, left_expr, right_expr) = to_analyze.destructure();
-    let converted_left = analyze_expression(&left_expr, symbol_mapper)?;
-    let converted_right = analyze_expression(&right_expr, symbol_mapper)?;
 
-    let analyzed = BinaryOp::<TypedAST>::new(op_type, converted_left, converted_right)?;
+    let converted_left = analyze_expression(left_expr, symbol_mapper)?;
+    let converted_right = analyze_expression(right_expr, symbol_mapper)?;
+
+    let left_position = left_expr.position().clone();
+    let right_position = right_expr.position().clone();
+
+    let typed_left_node = ASTNode::new(converted_left, left_position);
+    let typed_right_node = ASTNode::new(converted_right, right_position);
+
+    let analyzed = BinaryOp::<TypedAST>::new(op_type, typed_left_node, typed_right_node)?;
 
     Some(Box::new(analyzed))
+}
+
+
+#[cfg(test)]
+pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {
+    use shared::code_file::CodeFile;
+    use shared::code_reference::{CodeArea, CodeLocation};
+    use std::path::PathBuf;
+
+    CodeArea::new(
+        CodeLocation::new(0, 0),
+        CodeLocation::new(0, 10),
+        CodeFile::new(PathBuf::from("test/test")),
+    )
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -149,8 +177,15 @@ mod tests {
     #[test]
     fn analyze_unary_negative_converts_op() {
         use ast::expression::{Expression, Literal, UnaryOp, UnaryOpType};
-        let inner = Expression::Literal(String::from("42"));
-        let untyped = UnaryOp::<UntypedAST>::new(UnaryOpType::Negative, inner);
+        // 1. Expression erstellen
+        let inner_expr = Expression::Literal(String::from("42"));
+
+        // 2. Expression in ASTNode verpacken
+        let inner_node = ASTNode::new(inner_expr, sample_codearea());
+
+        // 3. UnaryOp mit dem ASTNode erstellen
+        let untyped = UnaryOp::<UntypedAST>::new(UnaryOpType::Negative, inner_node);
+
         let mut file_mapper = FileSymbolMapper::new();
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
@@ -160,15 +195,16 @@ mod tests {
         let (op_type, expr) = result.destructure();
 
         assert_eq!(&UnaryOpType::Negative, op_type);
-        assert_eq!(&Expression::Literal(Literal::S32(42)), expr);
+        assert_eq!(&Expression::Literal(Literal::S32(42)), &**expr);
     }
 
     #[test]
     fn analyze_binary_add_converts_op() {
         use ast::expression::{BinaryOp, BinaryOpType, Expression, Literal};
-        let left = Expression::Literal(String::from("17"));
-        let right = Expression::Literal(String::from("5"));
-        let untyped = BinaryOp::<UntypedAST>::new(BinaryOpType::Addition, left, right);
+        let left_node = ASTNode::new(Expression::Literal(String::from("17")), sample_codearea());
+        let right_node = ASTNode::new(Expression::Literal(String::from("5")), sample_codearea());
+
+        let untyped = BinaryOp::<UntypedAST>::new(BinaryOpType::Addition, left_node, right_node);
         let mut file_mapper = FileSymbolMapper::new();
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
@@ -178,8 +214,8 @@ mod tests {
         let (op_type, l_expr, r_expr) = result.destructure();
         assert_eq!(BinaryOpType::Addition, op_type);
 
-        assert_eq!(&Expression::Literal(Literal::S32(17)), l_expr);
+        assert_eq!(&Expression::Literal(Literal::S32(17)), &**l_expr);
 
-        assert_eq!(&Expression::Literal(Literal::S32(5)), r_expr);
+        assert_eq!(&Expression::Literal(Literal::S32(5)), &**r_expr);
     }
 }

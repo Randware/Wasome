@@ -7,7 +7,7 @@ use ast::statement::{
 };
 use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use ast::{TypedAST, UntypedAST};
+use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 
 /** Analyzes a statement referenced by a traversal helper and converts it into a typed statement node
@@ -20,7 +20,7 @@ pub(crate) fn analyze_statement(
     to_analyze: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Statement<TypedAST>> {
-    match to_analyze.get_inner() {
+    match &**to_analyze.get_inner() {
         Statement::VariableAssignment(_) => todo!(),
         Statement::VariableDeclaration(inner) => {
             let declared_variable = analyze_variable_declaration(inner, function_symbol_mapper)?;
@@ -28,7 +28,8 @@ pub(crate) fn analyze_statement(
         }
         Statement::Expression(inner) => {
             let typed_expr = analyze_expression(inner, function_symbol_mapper)?;
-            Some(Statement::Expression(typed_expr))
+            let pos = inner.position().clone();
+            Some(Statement::Expression(ASTNode::new(typed_expr, pos)))
         }
         Statement::Return(inner) => {
             let typed_return = analyze_return(inner, function_symbol_mapper)?;
@@ -46,6 +47,7 @@ pub(crate) fn analyze_statement(
             Some(Statement::Codeblock(analyzed_cb))
         }
         Statement::VoidFunctionCall(_) => todo!(),
+        Statement::Break => todo!()
     }
 }
 
@@ -58,14 +60,21 @@ fn analyze_variable_declaration<'a>(
     to_analyze: &VariableDeclaration<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper<'a>,
 ) -> Option<VariableDeclaration<TypedAST>> {
-    let untyped_initializer = to_analyze.value();
-    let typed_initializer = analyze_expression(untyped_initializer, function_symbol_mapper)?;
+    let untyped_initializer_node_ref = &to_analyze.value();
+
+    let position = untyped_initializer_node_ref.position().clone();
+
+
+    let typed_initializer_expr =
+        analyze_expression(untyped_initializer_node_ref, function_symbol_mapper)?;
+
+    let typed_initializer_node = ASTNode::new(typed_initializer_expr, position);
+
 
     let declared_type_name = to_analyze.variable().data_type();
     let resolved_declared_type = match resolve_type_name(declared_type_name) {
         Some(dt) => dt,
         None => {
-            //  eprintln!("Error: Unknown or unsupported type name '{}' in variable declaration.", declared_type_name);
             return None;
         }
     };
@@ -76,13 +85,11 @@ fn analyze_variable_declaration<'a>(
         resolved_declared_type.clone(),
     ));
 
-    if let Err(e) = function_symbol_mapper.add_variable(typed_variable_symbol.clone()) {
-        // eprintln!("Semantic Error: {}", e);
+    if let Err(_e) = function_symbol_mapper.add_variable(typed_variable_symbol.clone()) {
         return None;
     }
 
-    let typed_declaration =
-        VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_initializer)?;
+    let typed_declaration = VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_initializer_node)?;
 
     Some(typed_declaration)
 }
@@ -123,38 +130,26 @@ fn analyze_return(
     let untyped_expr_option = to_analyze.to_return();
 
     match (expected_type, untyped_expr_option) {
-        (None, Some(untyped_expr_ref)) => {
-            /*eprintln!(
-                "Error: Void function cannot return a value. Found value of type: {:?}",
-                untyped_expr_ref
-            );*/
+        (None, Some(_untyped_expr_ref)) => {
             None
         }
 
-        (Some(expected), None) => {
-            /*eprintln!(
-                "Error: Function expects a return value of type {:?} but got 'return;'.",
-                expected
-            );*/
+        (Some(_expected), None) => {
             None
         }
 
         (None, None) => Some(Return::new(None)),
 
         (Some(expected), Some(untyped_expr_ref)) => {
-            let untyped_expr = untyped_expr_ref.clone();
-            let typed_expr = analyze_expression(untyped_expr, function_symbol_mapper)?;
-            let actual_type = typed_expr.data_type();
+            let typed_expr = analyze_expression(untyped_expr_ref, function_symbol_mapper)?;
+            let typed_node = ASTNode::new(typed_expr, untyped_expr_ref.position().clone());
+            let actual_type = typed_node.data_type();
 
             if actual_type != expected {
-                /* eprintln!(
-                    "Error: Return type mismatch. Expected {:?} but returned {:?}.",
-                    expected, actual_type
-                );*/
                 return None;
             }
 
-            Some(Return::new(Some(typed_expr)))
+            Some(Return::new(Some(typed_node)))
         }
     }
 }
@@ -169,7 +164,7 @@ fn analyze_control_structure(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<ControlStructure<TypedAST>> {
-    let inner_control_structure = match to_analyze_helper.get_inner() {
+    let inner_control_structure = match &**to_analyze_helper.get_inner() {
         Statement::ControlStructure(cs) => cs,
         _ => return None, //"Expected a ControlStructure statement.",
     };
@@ -195,39 +190,46 @@ fn analyze_conditional(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Conditional<TypedAST>> {
-    let inner_box_ref = match to_analyze_helper.get_inner() {
+    let inner_box_ref = match &**to_analyze_helper.get_inner() {
         Statement::ControlStructure(b) => b,
         _ => return None,
     };
 
     let untyped_conditional_ref: &Conditional<UntypedAST> = match **inner_box_ref {
         ControlStructure::Conditional(ref c) => c,
-        ControlStructure::Loop(_) => return None, //"Error: analyze_conditional expects Conditional, but found Loop."
+        ControlStructure::Loop(_) => return None,
     };
+
     let untyped_condition = untyped_conditional_ref.condition();
-    let typed_condition = analyze_expression(untyped_condition, function_symbol_mapper)?;
+    let typed_condition_expr = analyze_expression(untyped_condition, function_symbol_mapper)?;
+    let typed_condition = ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
 
     if typed_condition.data_type() != DataType::Bool {
-        return None; //Error: Conditional expression must be of type Bool
+        return None;
     }
+
     function_symbol_mapper.enter_scope();
     let then_helper = to_analyze_helper.index(0);
+    let then_position = then_helper.get_inner().position().clone();
     let typed_then_statement = analyze_statement(then_helper, function_symbol_mapper)?;
+    let typed_then_node = ASTNode::new(typed_then_statement, then_position);
     function_symbol_mapper.exit_scope();
 
     let typed_else_statement = if untyped_conditional_ref.else_statement().is_some() {
         function_symbol_mapper.enter_scope();
         let else_helper = to_analyze_helper.index(1);
+        let else_position = else_helper.get_inner().position().clone();
         let typed_block = analyze_statement(else_helper, function_symbol_mapper)?;
+        let typed_block_node = ASTNode::new(typed_block, else_position);
         function_symbol_mapper.exit_scope();
-        Some(typed_block)
+        Some(typed_block_node)
     } else {
         None
     };
 
     Some(Conditional::new(
         typed_condition,
-        typed_then_statement,
+        typed_then_node,
         typed_else_statement,
     ))
 }
@@ -242,26 +244,27 @@ fn analyze_loop(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Loop<TypedAST>> {
-    let inner_box_ref = match to_analyze_helper.get_inner() {
+    let inner_box_ref = match &**to_analyze_helper.get_inner() {
         Statement::ControlStructure(b) => b,
         _ => return None,
     };
     let untyped_loop_ref: &Loop<UntypedAST> = match **inner_box_ref {
         ControlStructure::Loop(ref l) => l,
-        _ => return None, //"Error: analyze_loop expects Loop, but found Conditional."
+        _ => return None,
     };
 
     function_symbol_mapper.enter_scope();
 
-    let typed_loop_type = match untyped_loop_ref.loop_type().clone() {
+    let typed_loop_type = match untyped_loop_ref.loop_type() {
         LoopType::Infinite => LoopType::Infinite,
 
         LoopType::While(condition) => {
-            let typed_condition = analyze_expression(condition, function_symbol_mapper)?;
+            let typed_condition_expr = analyze_expression(condition, function_symbol_mapper)?;
+            let typed_condition = ASTNode::new(typed_condition_expr, condition.position().clone());
 
             if typed_condition.data_type() != DataType::Bool {
                 function_symbol_mapper.exit_scope();
-                return None; // "Error: While condition must be of type Bool"
+                return None;
             }
             LoopType::While(typed_condition)
         }
@@ -272,26 +275,35 @@ fn analyze_loop(
             after_each,
         } => {
             let start_helper = to_analyze_helper.index(0);
-            let typed_start = analyze_statement(start_helper, function_symbol_mapper)?;
+            let start_position = start_helper.get_inner().position().clone();
+            let typed_start_stmt = analyze_statement(start_helper, function_symbol_mapper)?;
+            let typed_start_node = ASTNode::new(typed_start_stmt, start_position);
 
-            let typed_cond = analyze_expression(cond, function_symbol_mapper)?;
-            if typed_cond.data_type() != DataType::Bool {
+            let typed_cond_expr = analyze_expression(cond, function_symbol_mapper)?;
+            let typed_cond_node = ASTNode::new(typed_cond_expr, cond.position().clone());
+            if typed_cond_node.data_type() != DataType::Bool {
                 function_symbol_mapper.exit_scope();
-                return None; //"Error: For loop condition must be of type Bool, but found"
+                return None;
             }
+
             let after_each_helper = to_analyze_helper.index(1);
-            let typed_after_each = analyze_statement(after_each_helper, function_symbol_mapper)?;
+            let after_each_position = after_each_helper.get_inner().position().clone();
+            let typed_after_each_stmt = analyze_statement(after_each_helper, function_symbol_mapper)?;
+            let typed_after_each_node = ASTNode::new(typed_after_each_stmt, after_each_position);
+
             LoopType::For {
-                start: typed_start,
-                cond: typed_cond,
-                after_each: typed_after_each,
+                start: typed_start_node,
+                cond: typed_cond_node,
+                after_each: typed_after_each_node,
             }
         }
     };
 
     let to_loop_on_index = untyped_loop_ref.loop_type().len();
     let to_loop_on_helper = to_analyze_helper.index(to_loop_on_index);
-    let typed_to_loop_on = analyze_statement(to_loop_on_helper, function_symbol_mapper)?;
+    let loop_body_position = to_loop_on_helper.get_inner().position().clone();
+    let typed_to_loop_on_stmt = analyze_statement(to_loop_on_helper, function_symbol_mapper)?;
+    let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, loop_body_position);
 
     function_symbol_mapper.exit_scope();
 
@@ -308,16 +320,22 @@ fn analyze_codeblock(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<CodeBlock<TypedAST>> {
+
     function_symbol_mapper.enter_scope();
 
-    let mut typed_statements = Vec::new();
+    let mut typed_statements: Vec<ASTNode<Statement<TypedAST>>> = Vec::new();
     let statement_count = to_analyze_helper.child_len();
 
     for i in 0..statement_count {
         let child_helper = to_analyze_helper.index(i);
 
+
+        let position = child_helper.get_inner().position().clone();
+
         if let Some(typed_statement) = analyze_statement(child_helper, function_symbol_mapper) {
-            typed_statements.push(typed_statement);
+
+            let node = ASTNode::new(typed_statement, position);
+            typed_statements.push(node);
         } else {
             function_symbol_mapper.exit_scope();
             return None;
@@ -340,6 +358,7 @@ mod tests {
     use ast::traversal::function_traversal::FunctionTraversalHelper;
     use ast::{AST, UntypedAST};
     use std::rc::Rc;
+    use crate::expression_sa::sample_codearea;
 
     #[test]
     fn analyze_return_ok_matching_void() {
@@ -368,7 +387,10 @@ mod tests {
         mapper.set_current_function_return_type(Some(expected_type));
 
         let untyped_literal = Expression::Literal(String::from("42"));
-        let untyped_return = Return::new(Some(untyped_literal));
+
+        let untyped_literal_node = ASTNode::new(untyped_literal, sample_codearea());
+
+        let untyped_return = Return::new(Some(untyped_literal_node));
 
         let result = analyze_return(&untyped_return, &mut mapper);
 
@@ -386,7 +408,7 @@ mod tests {
         );
 
         assert!(
-            matches!(typed_return.to_return().unwrap(), Expression::Literal(_)),
+            matches!(**typed_return.to_return().unwrap(), Expression::Literal(_)),
             "The returned expression should be a typed S32 literal."
         );
     }
@@ -397,19 +419,33 @@ mod tests {
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let stmt_to_test = {
-            let condition = Expression::Literal(String::from("true"));
-            let then_block = Statement::Codeblock(CodeBlock::new(Vec::new()));
-            let conditional = Conditional::new(condition, then_block, None);
-            Statement::ControlStructure(Box::new(ControlStructure::Conditional(conditional)))
+
+            let condition_expr = Expression::Literal(String::from("true"));
+            let condition_node = ASTNode::new(condition_expr, sample_codearea());
+
+
+            let then_block_inner = CodeBlock::new(Vec::new());
+            let then_block_stmt = Statement::Codeblock(then_block_inner);
+            let then_block_node = ASTNode::new(then_block_stmt, sample_codearea());
+
+
+            let conditional = Conditional::new(condition_node, then_block_node, None);
+
+            let cs_inner = ControlStructure::Conditional(conditional);
+            let cs_box = Box::new(cs_inner);
+
+            Statement::ControlStructure(cs_box)
         };
+
+        let stmt_to_test_node = ASTNode::new(stmt_to_test, sample_codearea());
 
         let func_symbol = Rc::new(FunctionSymbol::new(
             "test_conditional".to_string(),
             None,
             Vec::new(),
         ));
-        let func = Function::new(func_symbol, stmt_to_test);
-        let ast = AST::new(vec![TopLevelElement::Function(func)]);
+        let func = Function::new(func_symbol, stmt_to_test_node);
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(func),sample_codearea())]);
 
         let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
         let helper = func_ref.ref_to_implementation();
@@ -421,6 +457,7 @@ mod tests {
         );
 
         if let Some(ControlStructure::Conditional(c)) = analyzed {
+
             assert_eq!(c.condition().data_type(), DataType::Bool);
         } else {
             panic!("Expected Conditional variant");
@@ -433,33 +470,48 @@ mod tests {
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let stmt_to_test = {
-            let condition = Expression::Literal(String::from("true"));
+
+            let condition_expr = Expression::Literal(String::from("true"));
+            let condition_node = ASTNode::new(condition_expr, sample_codearea());
+
+
+            let loop_body_inner = CodeBlock::new(Vec::new());
+            let loop_body_stmt = Statement::Codeblock(loop_body_inner);
+            let loop_body_node = ASTNode::new(loop_body_stmt, sample_codearea());
+
             let loop_node = Loop::new(
-                Statement::Codeblock(CodeBlock::new(Vec::new())),
-                LoopType::While(condition),
+                loop_body_node,
+                LoopType::While(condition_node),
             );
-            Statement::ControlStructure(Box::new(ControlStructure::Loop(loop_node)))
+
+            let cs_inner = ControlStructure::Loop(loop_node);
+            let cs_box = Box::new(cs_inner);
+
+
+            Statement::ControlStructure(cs_box)
         };
+
+        let stmt_to_test_node = ASTNode::new(stmt_to_test, sample_codearea());
 
         let func_symbol = Rc::new(FunctionSymbol::new(
             "test_loop".to_string(),
             None,
             Vec::new(),
         ));
-        let func = Function::new(func_symbol, stmt_to_test);
-        let ast = AST::new(vec![TopLevelElement::Function(func)]);
+        let func = Function::new(func_symbol, stmt_to_test_node);
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(func),sample_codearea())]);
 
         let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
         let helper = func_ref.ref_to_implementation();
 
-        // 3. Test
         let analyzed = analyze_control_structure(helper, &mut mapper);
         assert!(analyzed.is_some(), "Expected loop to analyze successfully");
 
         if let Some(ControlStructure::Loop(l)) = analyzed {
             match l.loop_type() {
-                LoopType::While(cond) => {
-                    assert_eq!(cond.data_type(), DataType::Bool);
+
+                LoopType::While(cond_node) => {
+                    assert_eq!(cond_node.data_type(), DataType::Bool);
                 }
                 _ => panic!("Expected While loop type"),
             }
@@ -476,9 +528,15 @@ mod tests {
         mapper.set_current_function_return_type(None);
 
         let stmt_to_test = {
-            let ret_stmt: Statement<UntypedAST> = Statement::Return(Return::new(None));
-            let codeblock = CodeBlock::new(vec![ret_stmt]);
-            Statement::Codeblock(codeblock)
+            let ret_stmt_inner: Statement<UntypedAST> = Statement::Return(Return::new(None));
+
+            let ret_stmt_node = ASTNode::new(ret_stmt_inner, sample_codearea());
+
+            let codeblock_inner = CodeBlock::new(vec![ret_stmt_node]);
+
+            let codeblock_stmt: Statement<UntypedAST> = Statement::Codeblock(codeblock_inner);
+
+            ASTNode::new(codeblock_stmt, sample_codearea())
         };
 
         let func_symbol = Rc::new(FunctionSymbol::new(
@@ -486,8 +544,9 @@ mod tests {
             None,
             Vec::new(),
         ));
+
         let func = Function::new(func_symbol, stmt_to_test);
-        let ast = AST::new(vec![TopLevelElement::Function(func)]);
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(func),sample_codearea())]);
 
         let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
         let helper = func_ref.ref_to_implementation();
@@ -501,25 +560,36 @@ mod tests {
         let cb = analyzed.unwrap();
 
         assert_eq!(cb.len(), 1, "Expected one statement in typed codeblock");
-        assert!(matches!(cb[0], Statement::Return(_)));
+
+        assert!(matches!(*cb[0], Statement::Return(_)));
     }
 
     #[test]
     fn analyze_variable_declaration_basic_ok() {
         let mut file_mapper = FileSymbolMapper::new();
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        
+        let untyped_literal_expr = Expression::Literal("5".to_string());
+        let untyped_literal_node = ASTNode::new(untyped_literal_expr, sample_codearea());
 
         let untyped_var_decl = VariableDeclaration::<UntypedAST>::new(
             Rc::new(VariableSymbol::new("x".to_string(), "s32".to_string())),
-            Expression::Literal("5".to_string()),
+            untyped_literal_node,
         );
 
         let stmt_to_analyze = Statement::VariableDeclaration(untyped_var_decl);
 
+        let stmt_to_analyze_node = ASTNode::new(stmt_to_analyze, sample_codearea());
+
         let func_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, Vec::new()));
-        let implementation_block = Statement::Codeblock(CodeBlock::new(vec![stmt_to_analyze]));
-        let func = Function::new(func_symbol, implementation_block);
-        let ast = AST::new(vec![TopLevelElement::Function(func)]);
+
+        let implementation_block_inner = CodeBlock::new(vec![stmt_to_analyze_node]);
+        let implementation_block_stmt = Statement::Codeblock(implementation_block_inner);
+
+        let implementation_block_node = ASTNode::new(implementation_block_stmt, sample_codearea());
+        let func = Function::new(func_symbol, implementation_block_node);
+
+        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(func),sample_codearea())]);
 
         let func_ref = ast.functions().next().unwrap();
         let root_helper = FunctionTraversalHelper::new(func_ref, &ast);
