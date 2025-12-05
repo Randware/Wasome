@@ -91,7 +91,10 @@ fn analyze_unary_op(
 
     let postion = expression.position().clone();
 
-    let analyzed = UnaryOp::<TypedAST>::new(converted_unary_op_type, ASTNode::new(converted_input,postion))?;
+    let analyzed = UnaryOp::<TypedAST>::new(
+        converted_unary_op_type,
+        ASTNode::new(converted_input, postion),
+    )?;
     Some(Box::new(analyzed))
 }
 
@@ -102,8 +105,6 @@ fn analyze_unary_op(
 Some(Box<BinaryOp<TypedAST>>) if the Binary operation and its operand can be analyzed and converted to a typed form
 None if analysis or conversion fails
 */
-// In expression_sa.rs
-
 fn analyze_binary_op(
     to_analyze: &Box<BinaryOp<UntypedAST>>,
     symbol_mapper: &mut FunctionSymbolMapper,
@@ -124,7 +125,6 @@ fn analyze_binary_op(
     Some(Box::new(analyzed))
 }
 
-
 #[cfg(test)]
 pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {
     use shared::code_file::CodeFile;
@@ -136,7 +136,7 @@ pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {
         CodeLocation::new(0, 10),
         CodeFile::new(PathBuf::from("test/test")),
     )
-        .unwrap()
+    .unwrap()
 }
 
 #[cfg(test)]
@@ -147,6 +147,9 @@ mod tests {
     use ast::expression::Expression;
     use ast::expression::Literal;
 
+    /** Tests the `analyze_literal` helper function to ensure it correctly identifies and parses
+        * various literal types (boolean, char, floating-point, and integer) from string input, and returns None for invalid input.
+     */
     #[test]
     fn analyze_literal_recognizes_values() {
         assert_eq!(analyze_literal("true"), Some(Literal::Bool(true)));
@@ -157,6 +160,9 @@ mod tests {
         assert_eq!(analyze_literal("nope"), None);
     }
 
+    /** Tests the main `analyze_expression` function's ability to handle literal expressions, 
+        * confirming that untyped string literals are correctly parsed and converted into their corresponding typed AST literals (S32 and F64).
+     */
     #[test]
     fn analyze_expression_literal_converts_to_typed_literal() {
         let input: Expression<UntypedAST> = Expression::Literal(String::from("42"));
@@ -174,16 +180,16 @@ mod tests {
         assert_eq!(Expression::Literal(Literal::F64(12.2)), output2);
     }
 
+    /** Tests the semantic analysis of a Unary Operation (e.g., `-42`), ensuring that the inner expression 
+        * is analyzed and typed correctly (S32) before the outer unary operation (Negative) is successfully created.
+     */
     #[test]
     fn analyze_unary_negative_converts_op() {
         use ast::expression::{Expression, Literal, UnaryOp, UnaryOpType};
-        // 1. Expression erstellen
         let inner_expr = Expression::Literal(String::from("42"));
 
-        // 2. Expression in ASTNode verpacken
         let inner_node = ASTNode::new(inner_expr, sample_codearea());
 
-        // 3. UnaryOp mit dem ASTNode erstellen
         let untyped = UnaryOp::<UntypedAST>::new(UnaryOpType::Negative, inner_node);
 
         let mut file_mapper = FileSymbolMapper::new();
@@ -198,6 +204,9 @@ mod tests {
         assert_eq!(&Expression::Literal(Literal::S32(42)), &**expr);
     }
 
+    /** Tests the semantic analysis of a Binary Operation (e.g., `17 + 5`), ensuring that both 
+        * literal operands are analyzed and typed correctly (S32) before the binary addition operation is successfully created.
+     */
     #[test]
     fn analyze_binary_add_converts_op() {
         use ast::expression::{BinaryOp, BinaryOpType, Expression, Literal};

@@ -3,7 +3,8 @@ use crate::function_symbol_mapper::FunctionSymbolMapper;
 use ast::block::CodeBlock;
 use ast::data_type::{DataType, Typed};
 use ast::statement::{
-    Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableDeclaration,
+    Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
+    VariableDeclaration,
 };
 use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
@@ -21,7 +22,10 @@ pub(crate) fn analyze_statement(
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Statement<TypedAST>> {
     match &**to_analyze.get_inner() {
-        Statement::VariableAssignment(_) => todo!(),
+        Statement::VariableAssignment(inner) => {
+            let assigned_variable = analyze_variable_assignment(inner, function_symbol_mapper)?;
+            Some(Statement::VariableAssignment(assigned_variable))
+        }
         Statement::VariableDeclaration(inner) => {
             let declared_variable = analyze_variable_declaration(inner, function_symbol_mapper)?;
             Some(Statement::VariableDeclaration(declared_variable))
@@ -47,8 +51,37 @@ pub(crate) fn analyze_statement(
             Some(Statement::Codeblock(analyzed_cb))
         }
         Statement::VoidFunctionCall(_) => todo!(),
-        Statement::Break => todo!()
+        Statement::Break => todo!(),
     }
+}
+
+/** Analyzes an untyped VariableAssignment statement and converts it into a typed statement.
+  This function resolves the target variable, analyzes the assigned expression value,
+ * and performs type checking to ensure the expression's return type matches the variable's declared type.
+* @params to_analyze: The untyped VariableAssignment statement reference.
+* @params function_symbol_mapper: The mapper used for resolving the variable symbol, managing scope, and analyzing the value expression.
+* @return Some(VariableAssignment<TypedAST>) on success, or None if the target variable is undeclared or a type mismatch occurs.
+ */
+fn analyze_variable_assignment<'a>(
+    to_analyze: &VariableAssignment<UntypedAST>,
+    function_symbol_mapper: &mut FunctionSymbolMapper<'a>,
+) -> Option<VariableAssignment<TypedAST>> {
+    let var_name = to_analyze.variable();
+
+    let typed_variable_symbol = match function_symbol_mapper.lookup_variable(var_name) {
+        Some(symbol) => symbol,
+        None => return None,
+    };
+
+    let untyped_value_node_ref = to_analyze.value();
+
+    let position = untyped_value_node_ref.position().clone();
+
+    let typed_value_expr = analyze_expression(untyped_value_node_ref, function_symbol_mapper)?;
+
+    let typed_value_node = ASTNode::new(typed_value_expr, position);
+
+    VariableAssignment::<TypedAST>::new(typed_variable_symbol, typed_value_node)
 }
 
 /** Analyzes a VariableDeclaration and converts it into a typed statement node.
@@ -64,12 +97,10 @@ fn analyze_variable_declaration<'a>(
 
     let position = untyped_initializer_node_ref.position().clone();
 
-
     let typed_initializer_expr =
         analyze_expression(untyped_initializer_node_ref, function_symbol_mapper)?;
 
     let typed_initializer_node = ASTNode::new(typed_initializer_expr, position);
-
 
     let declared_type_name = to_analyze.variable().data_type();
     let resolved_declared_type = match resolve_type_name(declared_type_name) {
@@ -89,7 +120,8 @@ fn analyze_variable_declaration<'a>(
         return None;
     }
 
-    let typed_declaration = VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_initializer_node)?;
+    let typed_declaration =
+        VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_initializer_node)?;
 
     Some(typed_declaration)
 }
@@ -130,13 +162,9 @@ fn analyze_return(
     let untyped_expr_option = to_analyze.to_return();
 
     match (expected_type, untyped_expr_option) {
-        (None, Some(_untyped_expr_ref)) => {
-            None
-        }
+        (None, Some(_untyped_expr_ref)) => None,
 
-        (Some(_expected), None) => {
-            None
-        }
+        (Some(_expected), None) => None,
 
         (None, None) => Some(Return::new(None)),
 
@@ -288,7 +316,8 @@ fn analyze_loop(
 
             let after_each_helper = to_analyze_helper.index(1);
             let after_each_position = after_each_helper.get_inner().position().clone();
-            let typed_after_each_stmt = analyze_statement(after_each_helper, function_symbol_mapper)?;
+            let typed_after_each_stmt =
+                analyze_statement(after_each_helper, function_symbol_mapper)?;
             let typed_after_each_node = ASTNode::new(typed_after_each_stmt, after_each_position);
 
             LoopType::For {
@@ -320,7 +349,6 @@ fn analyze_codeblock(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<CodeBlock<TypedAST>> {
-
     function_symbol_mapper.enter_scope();
 
     let mut typed_statements: Vec<ASTNode<Statement<TypedAST>>> = Vec::new();
@@ -329,11 +357,9 @@ fn analyze_codeblock(
     for i in 0..statement_count {
         let child_helper = to_analyze_helper.index(i);
 
-
         let position = child_helper.get_inner().position().clone();
 
         if let Some(typed_statement) = analyze_statement(child_helper, function_symbol_mapper) {
-
             let node = ASTNode::new(typed_statement, position);
             typed_statements.push(node);
         } else {
@@ -349,6 +375,7 @@ fn analyze_codeblock(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::expression_sa::sample_codearea;
     use crate::file_symbol_mapper::FileSymbolMapper;
     use ast::data_type::DataType;
     use ast::expression::{Expression, Literal};
@@ -358,8 +385,10 @@ mod tests {
     use ast::traversal::function_traversal::FunctionTraversalHelper;
     use ast::{AST, UntypedAST};
     use std::rc::Rc;
-    use crate::expression_sa::sample_codearea;
 
+    /** Tests the successful semantic analysis of a return statement without an expression,
+     * ensuring it is correctly typed as void.
+     */
     #[test]
     fn analyze_return_ok_matching_void() {
         let mut file_mapper = FileSymbolMapper::new();
@@ -378,6 +407,9 @@ mod tests {
         );
     }
 
+    /** Tests the successful semantic analysis of a return statement containing a literal expression,
+     * verifying that the expression is analyzed and typed (S32) and matches the function's required return type.
+     */
     #[test]
     fn analyze_return_ok_matching_types() {
         let expected_type = DataType::S32;
@@ -413,21 +445,21 @@ mod tests {
         );
     }
 
+    /** Tests the successful semantic analysis of a basic Conditional (if statement),
+     * ensuring the literal condition expression ("true") is correctly analyzed and typed as Bool.
+     */
     #[test]
     fn analyze_control_structure_conditional_ok() {
         let mut file_mapper = FileSymbolMapper::new();
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let stmt_to_test = {
-
             let condition_expr = Expression::Literal(String::from("true"));
             let condition_node = ASTNode::new(condition_expr, sample_codearea());
-
 
             let then_block_inner = CodeBlock::new(Vec::new());
             let then_block_stmt = Statement::Codeblock(then_block_inner);
             let then_block_node = ASTNode::new(then_block_stmt, sample_codearea());
-
 
             let conditional = Conditional::new(condition_node, then_block_node, None);
 
@@ -445,7 +477,10 @@ mod tests {
             Vec::new(),
         ));
         let func = Function::new(func_symbol, stmt_to_test_node);
-        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(func),sample_codearea())]);
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(func),
+            sample_codearea(),
+        )]);
 
         let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
         let helper = func_ref.ref_to_implementation();
@@ -457,36 +492,32 @@ mod tests {
         );
 
         if let Some(ControlStructure::Conditional(c)) = analyzed {
-
             assert_eq!(c.condition().data_type(), DataType::Bool);
         } else {
             panic!("Expected Conditional variant");
         }
     }
 
+    /** Tests the successful semantic analysis of a basic While Loop,
+     * verifying that the literal condition expression ("true") is correctly analyzed and typed as Bool.
+     */
     #[test]
     fn analyze_control_structure_loop_ok() {
         let mut file_mapper = FileSymbolMapper::new();
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
 
         let stmt_to_test = {
-
             let condition_expr = Expression::Literal(String::from("true"));
             let condition_node = ASTNode::new(condition_expr, sample_codearea());
-
 
             let loop_body_inner = CodeBlock::new(Vec::new());
             let loop_body_stmt = Statement::Codeblock(loop_body_inner);
             let loop_body_node = ASTNode::new(loop_body_stmt, sample_codearea());
 
-            let loop_node = Loop::new(
-                loop_body_node,
-                LoopType::While(condition_node),
-            );
+            let loop_node = Loop::new(loop_body_node, LoopType::While(condition_node));
 
             let cs_inner = ControlStructure::Loop(loop_node);
             let cs_box = Box::new(cs_inner);
-
 
             Statement::ControlStructure(cs_box)
         };
@@ -499,7 +530,10 @@ mod tests {
             Vec::new(),
         ));
         let func = Function::new(func_symbol, stmt_to_test_node);
-        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(func),sample_codearea())]);
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(func),
+            sample_codearea(),
+        )]);
 
         let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
         let helper = func_ref.ref_to_implementation();
@@ -509,7 +543,6 @@ mod tests {
 
         if let Some(ControlStructure::Loop(l)) = analyzed {
             match l.loop_type() {
-
                 LoopType::While(cond_node) => {
                     assert_eq!(cond_node.data_type(), DataType::Bool);
                 }
@@ -520,6 +553,9 @@ mod tests {
         }
     }
 
+    /** Tests the successful semantic analysis of a CodeBlock containing a single void Return statement,
+     * ensuring the code block structure is preserved and its internal statements are analyzed.
+     */
     #[test]
     fn analyze_codeblock_ok() {
         let mut file_mapper = FileSymbolMapper::new();
@@ -546,7 +582,10 @@ mod tests {
         ));
 
         let func = Function::new(func_symbol, stmt_to_test);
-        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(func),sample_codearea())]);
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(func),
+            sample_codearea(),
+        )]);
 
         let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
         let helper = func_ref.ref_to_implementation();
@@ -564,11 +603,14 @@ mod tests {
         assert!(matches!(*cb[0], Statement::Return(_)));
     }
 
+    /** Tests the successful semantic analysis of a basic VariableDeclaration (e.g., x: s32 = 5),
+     * ensuring the assignment expression is successfully typed and the declaration is semantically valid.
+     */
     #[test]
     fn analyze_variable_declaration_basic_ok() {
         let mut file_mapper = FileSymbolMapper::new();
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
-        
+
         let untyped_literal_expr = Expression::Literal("5".to_string());
         let untyped_literal_node = ASTNode::new(untyped_literal_expr, sample_codearea());
 
@@ -589,7 +631,10 @@ mod tests {
         let implementation_block_node = ASTNode::new(implementation_block_stmt, sample_codearea());
         let func = Function::new(func_symbol, implementation_block_node);
 
-        let ast = AST::new(vec![ASTNode::new(TopLevelElement::Function(func),sample_codearea())]);
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(func),
+            sample_codearea(),
+        )]);
 
         let func_ref = ast.functions().next().unwrap();
         let root_helper = FunctionTraversalHelper::new(func_ref, &ast);
@@ -603,5 +648,69 @@ mod tests {
             analyzed_stmt.is_some(),
             "Expected variable declaration analysis to succeed, but it failed (returned None)."
         );
+    }
+
+    /** Tests the successful semantic analysis of a basic VariableAssignment (e.g., x = 10),
+     * verifying that the variable is correctly looked up in the symbol table and the assigned literal expression
+     * is correctly analyzed as the matching type (S32).
+     */
+    #[test]
+    fn analyze_variable_assignment_basic_ok() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let var_type = DataType::S32;
+
+        let x_symbol = Rc::new(VariableSymbol::new("x".to_string(), var_type));
+        mapper
+            .add_variable(x_symbol.clone())
+            .expect("Could not add variable.");
+
+        let untyped_value_expr = Expression::Literal("10".to_string());
+        let untyped_value_node = ASTNode::new(untyped_value_expr, sample_codearea());
+
+        let untyped_assignment =
+            VariableAssignment::<UntypedAST>::new("x".to_string(), untyped_value_node);
+        let stmt_to_analyze = Statement::VariableAssignment(untyped_assignment);
+        let stmt_to_analyze_node = ASTNode::new(stmt_to_analyze, sample_codearea());
+
+        let func_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, Vec::new()));
+        let implementation_block_inner = CodeBlock::new(vec![stmt_to_analyze_node]);
+        let implementation_block_stmt = Statement::Codeblock(implementation_block_inner);
+        let implementation_block_node = ASTNode::new(implementation_block_stmt, sample_codearea());
+        let func = Function::new(func_symbol, implementation_block_node);
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(func),
+            sample_codearea(),
+        )]);
+        let func_ref = ast.functions().next().unwrap();
+        let root_helper = FunctionTraversalHelper::new(func_ref, &ast);
+        let helper = root_helper.ref_to_implementation();
+
+        let assign_helper = helper.index(0);
+
+        let analyzed_stmt = analyze_statement(assign_helper, &mut mapper);
+
+        assert!(
+            analyzed_stmt.is_some(),
+            "Variable assignment analysis should succeed."
+        );
+
+        if let Some(Statement::VariableAssignment(typed_assignment)) = analyzed_stmt {
+            assert_eq!(
+                *typed_assignment.variable(),
+                x_symbol,
+                "The variable symbol should be resolved correctly."
+            );
+
+            let assigned_value_node = typed_assignment.value();
+            assert_eq!(assigned_value_node.data_type(), var_type);
+
+            assert!(
+                matches!(**assigned_value_node, Expression::Literal(Literal::S32(10))),
+                "The assigned value should be a typed S32 literal (10)."
+            );
+        } else {
+            panic!("The wrong statement type was returned.");
+        }
     }
 }

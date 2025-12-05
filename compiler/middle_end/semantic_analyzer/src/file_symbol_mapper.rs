@@ -98,7 +98,7 @@ mod tests {
         let func_name = "duplicate_func";
 
         let symbol1 = create_test_function_symbol(func_name, Some(DataType::S32));
-        let symbol2 = create_test_function_symbol(func_name, Some(DataType::F64)); // Gleicher Name, anderer Typ
+        let symbol2 = create_test_function_symbol(func_name, Some(DataType::F64)); 
 
         assert!(
             mapper.add_function_to_file(symbol1).is_ok(),
