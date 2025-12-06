@@ -21,8 +21,11 @@ The origin is one of the following:
 3. `<Name of an external dependency>`: Relative to an external dependency (described later in this document)
 
 Path relative to origin consists of any directories that need to be traversed and then the file without the file extension.
+This means that module paths can only reference files and never directories.
 
-With the exception of the dot and slash when used as described above, only alphanumerical characters are allowed in `Module Paths`
+With the exception of the dot and slash when used as described above, only alphanumerical characters, underscores and hyphens, 
+with the latter two being forbidden at either the start or end of a directory- or filename, are allowed in `Module Paths`.
+This also means that it is impossible to reference hidden files starting with a . with module paths.
 For example, the following specifies `trigonometry` from the `floating_point` directory from the `math` project:
 `math/floating_point/trigonometry`
 
@@ -54,10 +57,15 @@ In the AST, each dependency and the project itself has its own directory in whic
 Note that this directory is virtual and does not exist on disk.
 This allows imports to be processed without much effort.
 
+### 3.6 Transitive dependencies
+Each project must specify its dependencies on its own and can't
+directly use ones from other projects it depends on. For example, if project A depends on project B and project B depends on project C, them project A
+can't access project C without first depending on it itself.
+
 ### 3.5 Other
 Any project can be an external dependency. While any project with a main function can be run on its own, they too can be depended on.
 This also means that dependencies can have dependencies themselves. Furthermore, dependency cycles are permitted and do not need special
-handling from the user.
+handling from the user. Multiple dependencies with the same name aren't supported. Dependency versioning isn't supported.
 
 ## 4. Imports
 
@@ -101,4 +109,7 @@ For example, this imports the trigonometry file as trig:
 It can now be used like this:
 `trig.sin_f64(10.0)`
 
+### Cyclic imports
+
+Imports may be cyclic without having to follow any special rules
 // TODO: Syntax of symbols inside other symbols (e.g.: structs)
