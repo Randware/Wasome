@@ -1,4 +1,4 @@
-use crate::expression_sa::analyze_expression;
+use crate::expression_sa::{analyze_expression, analyze_function_call};
 use crate::function_symbol_mapper::FunctionSymbolMapper;
 use ast::block::CodeBlock;
 use ast::data_type::{DataType, Typed};
@@ -6,7 +6,7 @@ use ast::statement::{
     Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
     VariableDeclaration,
 };
-use ast::symbol::VariableSymbol;
+use ast::symbol::{FunctionCall, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
@@ -50,7 +50,7 @@ pub(crate) fn analyze_statement(
             let analyzed_cb = analyze_codeblock(to_analyze, function_symbol_mapper)?;
             Some(Statement::Codeblock(analyzed_cb))
         }
-        Statement::VoidFunctionCall(_) => todo!(),
+        Statement::VoidFunctionCall(inner) => analyze_void_function_call(inner,function_symbol_mapper),
         Statement::Break => todo!(),
     }
 }
@@ -263,10 +263,10 @@ fn analyze_conditional(
 }
 
 /** Analyzes a Loop control structure and converts it into a typed Loop node
-  @params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the Loop statement
+*  @params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the Loop statement
            function_symbol_mapper: &mut FunctionSymbolMapper - used to validate loop components and manage a new scope for loop body and headers
-  @return Some(Loop<TypedAST>) if the loop header (while/for) and body are semantically valid and typed
-*          None if the helper is not a Loop, a condition is not boolean, or nested analysis fails
+*  @return Some(Loop<TypedAST>) if the loop header (while/for) and body are semantically valid and typed
+          None if the helper is not a Loop, a condition is not boolean, or nested analysis fails
  */
 fn analyze_loop(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
@@ -340,9 +340,9 @@ fn analyze_loop(
 }
 
 /** Analyzes a code block referenced by a traversal helper and converts it into a typed CodeBlock node
-@params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the code block to analyze
+* @params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the code block to analyze
          function_symbol_mapper: &mut FunctionSymbolMapper - provides scope management and context for nested statement analysis
-@return Some(CodeBlock<TypedAST>) containing typed statements if all child statements were successfully analyzed
+* @return Some(CodeBlock<TypedAST>) containing typed statements if all child statements were successfully analyzed
         None if any child statement fails semantic analysis or a nested error occurs
 */
 fn analyze_codeblock(
@@ -370,6 +370,26 @@ fn analyze_codeblock(
     function_symbol_mapper.exit_scope();
 
     Some(CodeBlock::new(typed_statements))
+}
+
+/** Analyzes an untyped function call intended to be used as a standalone statement (for side effects).
+* This function resolves the function symbol, recursively analyzes the arguments, and critically validates
+* that the called function explicitly returns **no value (void)**.
+* @params to_analyze: &FunctionCall<UntypedAST> - The untyped function call structure.
+* @params function_symbol_mapper: &mut FunctionSymbolMapper - Provides symbol resolution for the function and context for argument analysis.
+* @return Some(Statement<TypedAST>) wrapping a VoidFunctionCall if the function is found, arguments are valid, and the return type is None (void).
+* None if the function is undeclared, arguments fail semantic analysis, or the function has a return type (Non-Void).
+ */
+fn analyze_void_function_call(
+    to_analyze: &FunctionCall<UntypedAST>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<Statement<TypedAST>> {
+    let typed_call = analyze_function_call(to_analyze, function_symbol_mapper)?;
+
+    if typed_call.function().return_type().is_some() {
+        return None;
+    }
+    Some(Statement::VoidFunctionCall(typed_call))
 }
 
 #[cfg(test)]
@@ -712,5 +732,71 @@ mod tests {
         } else {
             panic!("The wrong statement type was returned.");
         }
+    }
+
+    /** Tests the successful semantic analysis of a VoidFunctionCall.
+        * Ensures that a function declared with return_type=None is correctly analyzed as a statement.
+     */
+    #[test]
+    fn analyze_void_function_call_ok() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let func_name = "log_message".to_string();
+
+        let param = Rc::new(VariableSymbol::new("msg".to_string(), DataType::S32));
+        let func_symbol = Rc::new(
+            FunctionSymbol::<TypedAST>::new(func_name.clone(), None, vec![param])
+        );
+
+        mapper
+            .get_file_mapper()
+            .add_function_to_file(func_symbol.clone())
+            .expect("Failed to add mock function.");
+
+        let arg = ASTNode::new(
+            Expression::Literal("5".to_string()),
+            sample_codearea(),
+        );
+        let untyped_call = FunctionCall::<UntypedAST>::new(func_name, vec![arg]);
+
+        let analyzed_stmt = analyze_void_function_call(&untyped_call, &mut mapper);
+
+        assert!(
+            analyzed_stmt.is_some(),
+            "Expected void function call analysis to succeed."
+        );
+
+        let Statement::VoidFunctionCall(typed_call) = analyzed_stmt.unwrap() else {
+            panic!("Result was not a Statement::VoidFunctionCall");
+        };
+
+        assert!(typed_call.function().return_type().is_none());
+    }
+
+    /** Tests the failure case where a function returning a value (S32) is used as a VoidStatement.
+        * This ensures the semantic check inside analyze_void_function_call is working.
+     */
+    #[test]
+    fn analyze_void_function_call_must_be_void_fail() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let func_name = "add".to_string();
+
+        let func_symbol = Rc::new(
+            FunctionSymbol::<TypedAST>::new(func_name.clone(), Some(DataType::S32), Vec::new())
+        );
+
+        mapper
+            .get_file_mapper()
+            .add_function_to_file(func_symbol)
+            .expect("Failed to add mock function.");
+
+        let untyped_call = FunctionCall::<UntypedAST>::new(func_name, Vec::new());
+
+        let analyzed_stmt = analyze_void_function_call(&untyped_call, &mut mapper);
+        assert!(
+            analyzed_stmt.is_none(),
+            "Expected analysis to fail because 'add' returns S32, but was used as a Void-Statement."
+        );
     }
 }

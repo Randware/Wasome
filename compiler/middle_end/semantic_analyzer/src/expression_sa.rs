@@ -1,7 +1,7 @@
 use crate::function_symbol_mapper::FunctionSymbolMapper;
 use crate::mics_sa::analyze_data_type;
 use ast::expression::{BinaryOp, Expression, Literal, Typecast, UnaryOp, UnaryOpType};
-use ast::symbol::VariableSymbol;
+use ast::symbol::{FunctionCall, FunctionSymbol, VariableSymbol};
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 
@@ -18,7 +18,13 @@ pub(crate) fn analyze_expression(
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Expression<TypedAST>> {
     Some(match to_analyze {
-        Expression::FunctionCall(_) => todo!(),
+        Expression::FunctionCall(inner) => {
+            let typed_call = analyze_function_call(inner, function_symbol_mapper)?;
+            if typed_call.function().return_type().is_none() {
+                return None;
+            }
+            Expression::FunctionCall(typed_call)
+        }
         Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper)?,
         Expression::Literal(inner) => Expression::Literal(analyze_literal(&inner)?),
         Expression::UnaryOp(inner) => {
@@ -28,6 +34,34 @@ pub(crate) fn analyze_expression(
             Expression::BinaryOp(analyze_binary_op(inner, function_symbol_mapper)?)
         }
     })
+}
+
+/** Analyzes an untyped FunctionCall, resolves the function symbol, recursively analyzes all arguments,
+* and delegates the final argument count and type checking to the FunctionCall::new constructor.
+* @param to_analyze: The untyped FunctionCall structure.
+* @param function_symbol_mapper: The mapper for resolving the function symbol and analyzing nested expressions.
+* @return Some(FunctionCall<TypedAST>) on success, None on semantic error (undeclared function, argument mismatch, or argument analysis failure).
+ */
+pub(crate) fn analyze_function_call(
+    to_analyze: &FunctionCall<UntypedAST>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<FunctionCall<TypedAST>> {
+    let func_name: &String = to_analyze.function();
+
+    let func_symbol: Rc<FunctionSymbol<TypedAST>> =
+        function_symbol_mapper.lookup_function(func_name)?;
+
+    let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();
+
+    for untyped_arg_node in to_analyze.args().iter() {
+        let position = untyped_arg_node.position().clone();
+
+        let typed_expr = analyze_expression(untyped_arg_node, function_symbol_mapper)?;
+
+        typed_args.push(ASTNode::new(typed_expr, position));
+    }
+
+    FunctionCall::<TypedAST>::new(func_symbol, typed_args)
 }
 
 /** Analyzes the use of a variable within an expression.
@@ -284,5 +318,98 @@ mod tests {
         } else {
             panic!("Expected Expression::Variable variant.");
         }
+    }
+
+    /** Tests the successful semantic analysis of a FunctionCall.
+        * It ensures that a pre-declared function (e.g., 'add(S32, S32) -> S32') is resolved correctly,
+        * the arguments (S32 literals) are recursively analyzed and typed, and the argument types match the expected parameters.
+     */
+    #[test]
+    fn analyze_function_call_ok() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let return_type = DataType::S32;
+        let func_name = "add".to_string();
+
+        let param_type = DataType::S32;
+        let param_a = Rc::new(VariableSymbol::new("a".to_string(), param_type));
+        let param_b = Rc::new(VariableSymbol::new("b".to_string(), param_type));
+        let func_params = vec![param_a, param_b];
+
+        let func_symbol = Rc::new(
+            FunctionSymbol::<TypedAST>::new(func_name.clone(), Some(return_type), func_params),
+        );
+
+        mapper
+            .get_file_mapper()
+            .add_function_to_file(func_symbol.clone())
+            .expect("Failed to add mock function.");
+
+        let arg1 = ASTNode::new(
+            Expression::Literal("1".to_string()),
+            sample_codearea(),
+        );
+        let arg2 = ASTNode::new(
+            Expression::Literal("2".to_string()),
+            sample_codearea(),
+        );
+        let untyped_call = FunctionCall::<UntypedAST>::new(func_name, vec![arg1, arg2]);
+
+        let analyzed_call = analyze_function_call(&untyped_call, &mut mapper);
+
+        assert!(
+            analyzed_call.is_some(),
+            "Expected function call analysis to succeed."
+        );
+
+        let typed_call = analyzed_call.unwrap();
+
+        assert_eq!(*typed_call.function(), func_symbol, "Resolved function symbol must match.");
+        assert_eq!(typed_call.args().len(), 2, "Expected 2 arguments.");
+        assert_eq!(typed_call.args()[0].data_type(), DataType::S32);
+        assert_eq!(typed_call.args()[1].data_type(), DataType::S32);
+    }
+
+    /** Tests the failure case where argument types do not match the expected parameter types.
+        * The call is 'add(true, 2)' where 'add' expects (S32, S32). This test ensures the semantic check fails.
+     */
+    #[test]
+    fn analyze_function_call_arg_type_mismatch() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let func_name = "add".to_string();
+
+        let param_type = DataType::S32;
+        let param_a = Rc::new(VariableSymbol::new("a".to_string(), param_type));
+        let param_b = Rc::new(VariableSymbol::new("b".to_string(), param_type));
+        let func_params = vec![param_a, param_b];
+        let func_symbol = Rc::new(
+            FunctionSymbol::<TypedAST>::new(func_name.clone(), Some(DataType::S32), func_params),
+        );
+
+        mapper
+            .get_file_mapper()
+            .add_function_to_file(func_symbol)
+            .expect("Failed to add mock function.");
+
+        let arg1_fail = ASTNode::new(
+            Expression::Literal("true".to_string()),
+            sample_codearea(),
+        );
+        let arg2_ok = ASTNode::new(
+            Expression::Literal("2".to_string()),
+            sample_codearea(),
+        );
+        let untyped_call = FunctionCall::<UntypedAST>::new(
+            func_name,
+            vec![arg1_fail, arg2_ok],
+        );
+
+        let analyzed_call = analyze_function_call(&untyped_call, &mut mapper);
+
+        assert!(
+            analyzed_call.is_none(),
+            "Expected function call analysis to fail due to argument type mismatch (Bool vs S32)."
+        );
     }
 }
