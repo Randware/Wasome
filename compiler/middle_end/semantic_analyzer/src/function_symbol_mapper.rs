@@ -112,6 +112,10 @@ impl<'a> FunctionSymbolMapper<'a> {
     pub fn get_current_function_return_type(&self) -> Option<DataType> {
         self.current_function_return_type
     }
+
+    pub fn get_file_mapper(&mut self) -> &mut FileSymbolMapper {
+        self.file_mapper
+    }
 }
 
 #[cfg(test)]
