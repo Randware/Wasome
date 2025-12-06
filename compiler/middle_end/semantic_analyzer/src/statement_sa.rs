@@ -93,7 +93,7 @@ fn analyze_variable_declaration<'a>(
     to_analyze: &VariableDeclaration<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper<'a>,
 ) -> Option<VariableDeclaration<TypedAST>> {
-    let untyped_initializer_node_ref = &to_analyze.value();
+    let untyped_initializer_node_ref = to_analyze.value();
 
     let position = untyped_initializer_node_ref.position().clone();
 

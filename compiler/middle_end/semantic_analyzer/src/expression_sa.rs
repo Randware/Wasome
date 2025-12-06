@@ -1,7 +1,9 @@
 use crate::function_symbol_mapper::FunctionSymbolMapper;
 use crate::mics_sa::analyze_data_type;
 use ast::expression::{BinaryOp, Expression, Literal, Typecast, UnaryOp, UnaryOpType};
+use ast::symbol::VariableSymbol;
 use ast::{ASTNode, TypedAST, UntypedAST};
+use std::rc::Rc;
 
 /** Analyzes an untyped expression and converts it into a typed `Expression`.
 @params
@@ -17,7 +19,7 @@ pub(crate) fn analyze_expression(
 ) -> Option<Expression<TypedAST>> {
     Some(match to_analyze {
         Expression::FunctionCall(_) => todo!(),
-        Expression::Variable(_) => todo!(),
+        Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper)?,
         Expression::Literal(inner) => Expression::Literal(analyze_literal(&inner)?),
         Expression::UnaryOp(inner) => {
             Expression::UnaryOp(analyze_unary_op(inner, function_symbol_mapper)?)
@@ -26,6 +28,23 @@ pub(crate) fn analyze_expression(
             Expression::BinaryOp(analyze_binary_op(inner, function_symbol_mapper)?)
         }
     })
+}
+
+/** Analyzes the use of a variable within an expression.
+* This function looks up the variable by name in the symbol mapper to ensure it has been declared
+* and retrieves its typed symbol.
+* @param variable_name: The name of the variable (&str) to look up.
+* @param function_symbol_mapper: The mapper for scope and symbol resolution.
+* @return Some(Expression<TypedAST>) if the variable is found, None otherwise (semantic error).
+ */
+fn analyze_variable_use(
+    variable_name: &str,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<Expression<TypedAST>> {
+    let typed_symbol: Rc<VariableSymbol<TypedAST>> =
+        function_symbol_mapper.lookup_variable(variable_name)?;
+
+    Some(Expression::Variable(typed_symbol))
 }
 
 /** Analyzes a literal string and converts it into a `Literal` type
@@ -144,11 +163,12 @@ mod tests {
     use super::*;
     use crate::file_symbol_mapper::FileSymbolMapper;
     use ast::UntypedAST;
+    use ast::data_type::{DataType, Typed};
     use ast::expression::Expression;
     use ast::expression::Literal;
 
     /** Tests the `analyze_literal` helper function to ensure it correctly identifies and parses
-        * various literal types (boolean, char, floating-point, and integer) from string input, and returns None for invalid input.
+     * various literal types (boolean, char, floating-point, and integer) from string input, and returns None for invalid input.
      */
     #[test]
     fn analyze_literal_recognizes_values() {
@@ -160,8 +180,8 @@ mod tests {
         assert_eq!(analyze_literal("nope"), None);
     }
 
-    /** Tests the main `analyze_expression` function's ability to handle literal expressions, 
-        * confirming that untyped string literals are correctly parsed and converted into their corresponding typed AST literals (S32 and F64).
+    /** Tests the main `analyze_expression` function's ability to handle literal expressions,
+     * confirming that untyped string literals are correctly parsed and converted into their corresponding typed AST literals (S32 and F64).
      */
     #[test]
     fn analyze_expression_literal_converts_to_typed_literal() {
@@ -180,8 +200,8 @@ mod tests {
         assert_eq!(Expression::Literal(Literal::F64(12.2)), output2);
     }
 
-    /** Tests the semantic analysis of a Unary Operation (e.g., `-42`), ensuring that the inner expression 
-        * is analyzed and typed correctly (S32) before the outer unary operation (Negative) is successfully created.
+    /** Tests the semantic analysis of a Unary Operation (e.g., `-42`), ensuring that the inner expression
+     * is analyzed and typed correctly (S32) before the outer unary operation (Negative) is successfully created.
      */
     #[test]
     fn analyze_unary_negative_converts_op() {
@@ -204,8 +224,8 @@ mod tests {
         assert_eq!(&Expression::Literal(Literal::S32(42)), &**expr);
     }
 
-    /** Tests the semantic analysis of a Binary Operation (e.g., `17 + 5`), ensuring that both 
-        * literal operands are analyzed and typed correctly (S32) before the binary addition operation is successfully created.
+    /** Tests the semantic analysis of a Binary Operation (e.g., `17 + 5`), ensuring that both
+     * literal operands are analyzed and typed correctly (S32) before the binary addition operation is successfully created.
      */
     #[test]
     fn analyze_binary_add_converts_op() {
@@ -226,5 +246,43 @@ mod tests {
         assert_eq!(&Expression::Literal(Literal::S32(17)), &**l_expr);
 
         assert_eq!(&Expression::Literal(Literal::S32(5)), &**r_expr);
+    }
+
+    /** Tests the successful semantic analysis of an Expression::Variable (variable usage).
+     * It ensures that a pre-declared S32 variable ('x') is correctly resolved via the symbol mapper
+     * and that the resulting typed expression contains the correct symbol and DataType (S32).
+     */
+    #[test]
+    fn analyze_expression_variable_use_ok() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let expected_type = DataType::S32;
+
+        let x_symbol = Rc::new(VariableSymbol::new("x".to_string(), expected_type));
+        mapper
+            .add_variable(x_symbol.clone())
+            .expect("Failed to add variable.");
+
+        let untyped_use: Expression<UntypedAST> = Expression::Variable("x".to_string());
+
+        let analyzed_expr = analyze_expression(&untyped_use, &mut mapper);
+
+        assert!(
+            analyzed_expr.is_some(),
+            "Expected expression analysis to succeed for declared variable 'x'."
+        );
+
+        let typed_expr = analyzed_expr.unwrap();
+
+        assert_eq!(typed_expr.data_type(), expected_type);
+
+        if let Expression::Variable(actual_symbol) = typed_expr {
+            assert_eq!(
+                *actual_symbol, *x_symbol,
+                "The resolved variable symbol must match the declared symbol."
+            );
+        } else {
+            panic!("Expected Expression::Variable variant.");
+        }
     }
 }
