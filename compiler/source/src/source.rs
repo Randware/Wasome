@@ -252,7 +252,7 @@ impl SourceFile {
             .multi_byte_chars
             .partition_point(|mb| mb.pos_on_line < byte_col);
 
-        // Access to accumulated gap of the nerest mb
+        // Access to accumulated gap of the nearest mb
         let gap = if idx > 0 {
             line_info.multi_byte_chars[idx - 1].accumulated_gap
         } else {
