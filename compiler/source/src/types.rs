@@ -143,7 +143,7 @@ pub struct MultiByteChar {
     pub(crate) accumulated_gap: u32,
 }
 
-/// A per-line info struct that holds the starting byte and all mutli byte chars
+/// A per-line info struct that holds the starting byte and all multi byte chars
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LineInfo {
     pub(crate) line_start: BytePos,
