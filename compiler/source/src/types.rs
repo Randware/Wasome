@@ -1,4 +1,7 @@
-use std::ops::{Add, AddAssign, Deref, Mul, Sub, SubAssign};
+use std::{
+    cmp,
+    ops::{Add, AddAssign, Deref, Mul, Sub, SubAssign},
+};
 
 use crate::source::SourceFile;
 
@@ -72,14 +75,13 @@ impl FileID {
 ///
 /// * `start` - is inclusive
 /// * `end`  - is exclusive
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Span {
     pub file_id: FileID,
     pub start: BytePos,
     pub end: BytePos,
 }
 
-// TODO: IMPL Eq and PartialEq trait and methodes like add, sub and contain
 impl Span {
     /// Gets the start [`BytePos`] of the [`Span`]
     /// _(0-Based indexing)_
@@ -101,6 +103,30 @@ impl Span {
     /// Checks if the span is a zero-width "cursor" position
     pub fn is_empty(&self) -> bool {
         self.start == self.end
+    }
+
+    /// Checks if this [`Span`] contains the given one
+    pub fn contains(&self, other: Span) -> bool {
+        self.file_id == other.file_id && self.start <= other.start && self.end >= other.end
+    }
+
+    /// Merges two spans to cover the entire __range__ from the start of the first
+    /// to the end of the second.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(Span)` - The merged span covering the union of both ranges.
+    /// * `None` - If the spans are from different files (They have different FileIds)
+    pub fn merge(self, other: Span) -> Option<Span> {
+        if self.file_id != other.file_id {
+            return None;
+        }
+
+        Some(Span {
+            file_id: self.file_id,
+            start: cmp::min(self.start, other.start),
+            end: cmp::max(self.end, other.end),
+        })
     }
 }
 
