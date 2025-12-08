@@ -247,7 +247,7 @@ impl SourceFile {
 
         let byte_col = pos.0 - line_info.line_start.0;
 
-        // Looks at the indexx of the last mb before the byte_col
+        // Looks at the index of the last mb before the byte_col
         let idx = line_info
             .multi_byte_chars
             .partition_point(|mb| mb.pos_on_line < byte_col);
