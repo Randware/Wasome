@@ -500,7 +500,7 @@ mod tests {
         let span = Span {
             file_id: id,
             start: BytePos(4),
-            end: BytePos(7), // 6 + 1 becuase Span is exclusive
+            end: BytePos(7), // 6 + 1 because Span is exclusive
         };
         let slice = sm.get_source_slice(span).expect("Should find slice");
 
