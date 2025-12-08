@@ -71,7 +71,7 @@ impl FileLoader for WasomeLoader {
     fn load<F: AsRef<Path>>(path: F) -> Result<SourceFile, Error> {
         let content = fs::read_to_string(&path)?;
 
-        if content.len() >= (u32::MAX as usize) {
+        if content.len() > (u32::MAX as usize) {
             return Err(Error::new(
                 std::io::ErrorKind::FileTooLarge,
                 format!(
