@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    ops::{Add, AddAssign, Deref, Mul, Sub, SubAssign},
+    ops::{Add, AddAssign, Deref, Sub},
 };
 
 use crate::source::SourceFile;
@@ -75,7 +75,7 @@ impl FileID {
 ///
 /// * `start` - is inclusive
 /// * `end`  - is exclusive
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Span {
     pub file_id: FileID,
     pub start: BytePos,
