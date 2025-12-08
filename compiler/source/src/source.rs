@@ -46,7 +46,7 @@ impl<Loader: FileLoader> SourceMap<Loader> {
     /// * `Ok(FileID)`- A handle to the newly *stored* file
     /// * `Err()` - An i/o [error](std::io::Error) in case the underlying `OS` returns an [error](std::io::Error)
     pub fn load_file<F: AsRef<Path>>(&mut self, relative_path: F) -> Result<FileID, Error> {
-        // Joining the path to get an absolut path
+        // Joining the path to get an absolute path
         let path = Loader::resolve(&self.root_path, relative_path)?;
 
         // Checks the cache
