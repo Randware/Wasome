@@ -106,3 +106,59 @@ impl FileLoader for WasomeLoader {
         fs::canonicalize(path.as_path())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{fs::File, io::Write};
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_resolve_happy_path() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        // Create a real file so canonicalize works
+        // NOTE: A MockFS would not work because the real
+        // Wasome loader canonicalizes the paths, which means all files
+        // have to exist
+        let file_path = root.join("main.wasom");
+        File::create(&file_path).unwrap();
+
+        // Test resolving
+        let resolved = WasomeLoader::resolve(root, Path::new("main.wasom"));
+        assert!(resolved.is_ok());
+
+        // Canonicalize usually resolves symlinks and absolute paths.
+        // It should match the file_path we created.
+        assert_eq!(resolved.unwrap(), fs::canonicalize(&file_path).unwrap());
+    }
+
+    #[test]
+    fn test_resolve_not_found() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        // We don't create the file
+        let resolved = WasomeLoader::resolve(root, Path::new("ghost.wasom"));
+
+        // Canonicalize fails on non-existent files
+        assert!(resolved.is_err());
+        assert_eq!(resolved.unwrap_err().kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn test_load_happy_path() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test.txt");
+        let content = "Hello World";
+
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        let source_file = WasomeLoader::load(&file_path).expect("Should load");
+
+        // USE THE GETTER! It is public, so use it.
+        assert_eq!(source_file.content(), "Hello World");
+    }
+}

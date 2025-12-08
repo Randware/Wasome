@@ -164,3 +164,145 @@ impl<'a> Location<'a> {
         Self { file, line, col }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cmp::Ordering;
+
+    // --- BytePos Tests ---
+
+    #[test]
+    fn test_bytepos_deref() {
+        let bp = BytePos(10);
+        assert_eq!(*bp, 10);
+    }
+
+    #[test]
+    fn test_bytepos_arithmetic() {
+        let mut bp = BytePos(10);
+
+        assert_eq!(bp + 5, BytePos(15));
+
+        assert_eq!(bp - 5, BytePos(5));
+
+        assert_eq!(BytePos(20) - BytePos(5), 15);
+
+        bp += 10;
+        assert_eq!(bp, BytePos(20));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_bytepos_sub_overflow() {
+        // Rust's default u32 behavior panics in debug on overflow
+        let _ = BytePos(0) - 1;
+    }
+
+    #[test]
+    fn test_bytepos_ordering() {
+        assert!(BytePos(5) < BytePos(10));
+        assert!(BytePos(10) > BytePos(5));
+        assert_eq!(BytePos(5), BytePos(5));
+    }
+
+    // --- FileID Tests ---
+
+    #[test]
+    fn test_fileid_creation_and_span_factory() {
+        let fid = FileID(42);
+        let span = fid.span(10, 20);
+
+        assert_eq!(span.file_id, fid);
+        assert_eq!(span.start, BytePos(10));
+        assert_eq!(span.end, BytePos(20));
+    }
+
+    // --- Span Tests ---
+
+    #[test]
+    fn test_span_accessors() {
+        let span = Span {
+            file_id: FileID(1),
+            start: BytePos(10),
+            end: BytePos(20),
+        };
+        assert_eq!(span.start(), BytePos(10));
+        assert_eq!(span.end(), BytePos(20));
+    }
+
+    #[test]
+    fn test_span_len_and_empty() {
+        let fid = FileID(1);
+
+        let normal = fid.span(10, 20);
+        assert_eq!(normal.len(), 10);
+        assert!(!normal.is_empty());
+
+        let empty = fid.span(10, 10);
+        assert_eq!(empty.len(), 0);
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn test_span_contains() {
+        let fid = FileID(1);
+        let outer = fid.span(10, 30);
+
+        // Valid containment cases
+        assert!(outer.contains(fid.span(10, 30))); // Exact match
+        assert!(outer.contains(fid.span(15, 25))); // Middle
+        assert!(outer.contains(fid.span(10, 15))); // Start boundary
+        assert!(outer.contains(fid.span(25, 30))); // End boundary
+
+        // Invalid cases
+        assert!(!outer.contains(fid.span(0, 5))); // Before
+        assert!(!outer.contains(fid.span(35, 40))); // After
+        assert!(!outer.contains(fid.span(9, 30))); // Starts too early
+        assert!(!outer.contains(fid.span(10, 31))); // Ends too late
+
+        // Different FileID
+        let other_fid = FileID(2);
+        assert!(!outer.contains(other_fid.span(15, 25)));
+    }
+
+    #[test]
+    fn test_span_merge() {
+        let fid = FileID(1);
+        let s1 = fid.span(10, 20);
+        let s2 = fid.span(30, 40); // Gap in middle
+        let s3 = fid.span(15, 35); // Overlapping
+
+        // Disjoint merge
+        let m1 = s1.merge(s2).unwrap();
+        assert_eq!(m1.start, BytePos(10));
+        assert_eq!(m1.end, BytePos(40)); // Covers the gap (20-30)
+
+        // Overlapping merge
+        let m2 = s1.merge(s3).unwrap();
+        assert_eq!(m2.start, BytePos(10));
+        assert_eq!(m2.end, BytePos(35));
+
+        // Different file merge
+        let other_file = FileID(99).span(10, 20);
+        assert_eq!(s1.merge(other_file), None);
+    }
+
+    #[test]
+    fn test_span_ordering() {
+        let fid1 = FileID(1);
+        let fid2 = FileID(2);
+
+        // Different Files: FileID is primary sort key
+        assert_eq!(fid1.span(100, 200).cmp(&fid2.span(0, 5)), Ordering::Less);
+
+        // Same File: Start pos is secondary key
+        assert_eq!(fid1.span(10, 20).cmp(&fid1.span(11, 20)), Ordering::Less);
+
+        // Same Start: End pos is tertiary key
+        assert_eq!(fid1.span(10, 20).cmp(&fid1.span(10, 21)), Ordering::Less);
+
+        // Identity
+        assert_eq!(fid1.span(10, 20).cmp(&fid1.span(10, 20)), Ordering::Equal);
+    }
+}
