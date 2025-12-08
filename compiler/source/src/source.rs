@@ -228,7 +228,7 @@ impl SourceFile {
         }
     }
 
-    /// Retrives the 1-based `line` and `column` index
+    /// Retrieves the 1-based `line` and `column` index
     /// from a given [`SourceFile`] and [position](BytePos)
     ///
     /// # Returns
