@@ -53,7 +53,7 @@ fn test_unicode_handling_sparkles() {
     let id = sm.load_file("sparkles.waso").unwrap();
 
     // We want to point to 'b'
-    // 1 + 2 + 3 = 6 - 1 (Because it is 0-Based)
+    // Byte offset calculation: 'a' (1 byte) + '\n' (1 byte) + '✨' (3 bytes) = 5 bytes; 'b' is at offset 5 (0-based)
     let span = id.span(5, 6);
 
     let loc = sm.lookup_location(span).unwrap();
