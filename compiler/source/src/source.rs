@@ -151,7 +151,7 @@ pub struct SourceFile {
     /// The [path](PathBuf) to the file in question
     path: PathBuf,
     /// An unified representation of the file's content
-    /// All line breake are `\n`
+    /// All line breaks are `\n`
     content: String,
     /// Used for faster indexing
     lines: Vec<LineInfo>,
