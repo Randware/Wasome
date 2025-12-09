@@ -242,7 +242,7 @@ impl SourceFile {
             .binary_search_by_key(&pos, |info| info.line_start)
         {
             Ok(idx) => idx,
-            Err(idx) => idx - 1,
+            Err(idx) => idx.saturating_sub(1),
         };
 
         let line_info = &file.lines[line_index];

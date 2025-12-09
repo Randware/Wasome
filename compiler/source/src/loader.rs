@@ -122,11 +122,11 @@ mod tests {
         // NOTE: A MockFS would not work because the real
         // Wasome loader canonicalizes the paths, which means all files
         // have to exist
-        let file_path = root.join("main.wasom");
+        let file_path = root.join("main.waso");
         File::create(&file_path).unwrap();
 
         // Test resolving
-        let resolved = WasomeLoader::resolve(root, Path::new("main.wasom"));
+        let resolved = WasomeLoader::resolve(root, Path::new("main.waso"));
         assert!(resolved.is_ok());
 
         // Canonicalize usually resolves symlinks and absolute paths.
