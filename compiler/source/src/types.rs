@@ -54,7 +54,7 @@ impl AddAssign<u32> for BytePos {
 ///
 /// The [`FileID`] is dependent on the [`SourceMap`] and *not universally usable*
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FileID(pub u32);
+pub struct FileID(pub(crate) u32);
 
 impl FileID {
     /// Creates a Span inside this file from [`BytePos`]
@@ -110,8 +110,11 @@ impl Span {
         self.file_id == other.file_id && self.start <= other.start && self.end >= other.end
     }
 
-    /// Merges two spans to cover the entire __range__ from the start of the first
-    /// to the end of the second.
+    /// Creates a new Span that covers the **convex hull** of both spans.
+    ///
+    /// This includes the start of the first span, the end of the second span,
+    /// and **any gap** in between. This is useful for creating spans that cover
+    /// entire expressions (e.g., merging `lhs` and `rhs` to cover `lhs + rhs`).
     ///
     /// # Returns
     ///

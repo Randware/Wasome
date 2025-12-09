@@ -40,6 +40,8 @@ impl<Loader: FileLoader> SourceMap<Loader> {
     ///
     /// Takes a relative path to a file, adds it to the [cache](SourceMap::file_cache),
     /// loads that content of the file into a [`SourceFile`] and adds the [file](SourceFile) to the [SourceMap](SourceMap::files)
+    /// If the file is already loaded (present in the cache), this function
+    /// returns the existing [`FileID`] immediately without performing IO.  
     ///
     /// # Returns
     ///
@@ -105,7 +107,7 @@ impl<Loader: FileLoader> SourceMap<Loader> {
     ///
     /// If the [`BytePos`] does not belong to [file](SourceFile) **the returned data
     /// will be arbitrary!**
-    pub fn location_from_pos(pos: BytePos, file: &SourceFile) -> Location<'_> {
+    fn location_from_pos(pos: BytePos, file: &SourceFile) -> Location<'_> {
         let (line, col) = SourceFile::lookup_line_col(file, pos);
         Location { file, line, col }
     }
@@ -250,7 +252,7 @@ impl SourceFile {
         // Looks at the index of the last mb before the byte_col
         let idx = line_info
             .multi_byte_chars
-            .partition_point(|mb| mb.pos_on_line < byte_col);
+            .partition_point(|mb| (mb.pos_on_line + mb.byte_len as u32) <= byte_col);
 
         // Access to accumulated gap of the nearest mb
         let gap = if idx > 0 {
