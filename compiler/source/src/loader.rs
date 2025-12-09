@@ -42,7 +42,7 @@ pub trait FileLoader {
     ) -> Result<PathBuf, Error>;
 }
 
-/// Default loader for `.wasom` files
+/// Default loader for `.waso` files
 pub struct WasomeLoader;
 
 impl FileLoader for WasomeLoader {
@@ -140,7 +140,7 @@ mod tests {
         let root = dir.path();
 
         // We don't create the file
-        let resolved = WasomeLoader::resolve(root, Path::new("ghost.wasom"));
+        let resolved = WasomeLoader::resolve(root, Path::new("ghost.waso"));
 
         // Canonicalize fails on non-existent files
         assert!(resolved.is_err());
