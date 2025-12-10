@@ -580,4 +580,59 @@ mod tests {
         assert!(slice.is_some());
         assert_eq!("a", slice.unwrap());
     }
+
+    #[test]
+    fn test_lookup_col_inside_multibyte_char() {
+        // "a✨b"
+        // 'a' : Byte 0
+        // '✨': Byte 1..4. Len 3
+        // 'b' : Byte 4. Len 1
+        let f = make_file("a✨b");
+
+        // Start of the char (Byte 1)
+        // Should be Col 2
+        let (_, col) = SourceFile::lookup_line_col(&f, BytePos(1));
+        assert_eq!(col, 2, "Start of sparkles");
+
+        // Inside the char (Byte 2)
+        // 1 byte deep into the 3-byte char
+        let (_, col) = SourceFile::lookup_line_col(&f, BytePos(2));
+        assert_eq!(col, 2, "Inside sparkles (offset 1)");
+
+        // past the char (Byte 4) -> 'b'
+        // 'a'(1) + '✨'(3) = 4 bytes.
+        // Now we jump to Col 3
+        let (_, col) = SourceFile::lookup_line_col(&f, BytePos(4));
+        assert_eq!(col, 3, "After sparkles");
+    }
+
+    #[test]
+    fn test_lookup_col_consecutive_multibyte() {
+        // "✨⭐"
+        // Both are 3 bytes long.
+        let f = make_file("✨⭐");
+
+        // Inside first char
+        let (_, col) = SourceFile::lookup_line_col(&f, BytePos(1));
+        assert_eq!(col, 1);
+
+        // Start of second char (Byte 3)
+        // We passed ✨. Gap is 2 (3 bytes - 1 char).
+        // Byte 3.
+        // Col = 3 - 2 + 1 = 2.
+        let (_, col) = SourceFile::lookup_line_col(&f, BytePos(3));
+        assert_eq!(col, 2);
+
+        // Inside second char (Byte 4)
+        // We passed ✨ (Gap 2). We are inside ⭐ (Padding 1).
+        // Total sub: Gap(2) + Padding(1) = 3.
+        // Byte 4.
+        // Col = 4 - 3 + 1 = 2.
+        let (_, col) = SourceFile::lookup_line_col(&f, BytePos(4));
+        assert_eq!(col, 2);
+    }
+
+    fn make_file(content: &str) -> SourceFile {
+        SourceFile::new(PathBuf::from("test.waso"), content.to_string())
+    }
 }
