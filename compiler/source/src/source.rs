@@ -105,7 +105,7 @@ impl<Loader: FileLoader> SourceMap<Loader> {
         Some(Self::location_from_pos(span.start, file))
     }
 
-    /// Takes a [pos](BytePos) and a [file](SourceFile) and coverts it to a [location](Location).
+    /// Takes a [pos](BytePos) and a [file](SourceFile) and converts it to a [location](Location).
     ///
     /// # Returns
     ///
