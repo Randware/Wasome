@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::Error,
+    io::{Error, ErrorKind},
     marker::PhantomData,
     path::{Path, PathBuf},
 };
@@ -58,6 +58,14 @@ impl<Loader: FileLoader> SourceMap<Loader> {
 
         // If not cached, calls the loader
         let source_file = Loader::load(&path)?;
+
+        // Safety check
+        if self.files().len() > u32::MAX as usize {
+            return Err(Error::new(
+                ErrorKind::Other,
+                "Too many files loaded: cannot assign FileID beyond u32::MAX",
+            ));
+        }
 
         // Determines the next file id
         let file_id = FileID(self.files.len() as u32);
