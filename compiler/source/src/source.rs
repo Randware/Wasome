@@ -254,11 +254,34 @@ impl SourceFile {
             .multi_byte_chars
             .partition_point(|mb| (mb.pos_on_line + mb.byte_len as u32) <= byte_col);
 
+        // If we are inside a mb char we need to calculate our position
+        // inside that char ("padding") and treat those extra bytes as part of the gap.
+        //
+        // Example: 'd' (1 byte) followed by '🦀' (4 bytes)
+        //          The cursor is at Byte 2 (inside the crab).
+        //
+        // Bytes:   [0x64] [0xF0 0x9F 0xA6 0x80]
+        // Index:      0     1    2    3    4
+        //                     ^    ^
+        //                     |    |
+        //              MB Start    Cursor (Pos 2)
+        //
+        // Logic:
+        // 1. Previous Gap: 0 (since 'd' is 1 byte, 1 col).
+        // 2. Padding: Cursor(2) - MB Start(1) = 1 byte of internal offset.
+        // 3. Total Gap to subtract: Previous(0) + Padding(1) = 1.
+        let padding = line_info
+            .multi_byte_chars
+            .get(idx)
+            .filter(|mb| byte_col > mb.pos_on_line)
+            .map(|mb| byte_col - mb.pos_on_line)
+            .unwrap_or(0);
+
         // Access to accumulated gap of the nearest mb
         let gap = if idx > 0 {
-            line_info.multi_byte_chars[idx - 1].accumulated_gap
+            line_info.multi_byte_chars[idx - 1].accumulated_gap + padding
         } else {
-            0
+            padding
         };
 
         // Safety: When the provided span would have a start INSIDE a multi byte char
