@@ -22,6 +22,8 @@ The following are supported:
 - `bool` - Either `true` or `false`.
 - `char` - A single Unicode code point (source representation encoded in UTF-8).
 
+Wasome does not have a built in array and string type. They have to be provided by the standard library.
+
 ---
 
 ### Expressions
@@ -48,7 +50,7 @@ Operators combine expressions into a single expression. Operands must be of appr
 #### Operator categories
 
 - **Arithmetic:** `+`, `-`, `*`, `/`, `%`
-- **Bitwise:** `<<`, `>>`, `|`, `&`
+- **Bitwise:** `<<`, `>>`, `|`, `&`, `^`, `~`
 - **Logical:** `||`, `&&`, `!`
 - **Comparison / equality:** `>`, `<`, `>=`, `<=`, `==`, `!=`
 
@@ -56,24 +58,27 @@ Operators combine expressions into a single expression. Operands must be of appr
 
 - Binary arithmetic operators expect two numeric operands of the same type.
 - Unary minus (`-`) negates a numeric operand (equivalent to multiplying by `-1`).
-- `/` performs integer division for integer operands (result rounded/truncated to integer rules).
+- `/` performs integer division for integer operands. The result is truncated toward zero (the fractional part is discarded).
 - `%` is defined only for integer operands and yields the remainder.
 
 #### Other operator rules
 
-- `!` negates a boolean. For integer operands (where applicable), it performs bitwise inversion.
+- `!` negates a boolean.
 - `==` and `!=` work across value types when meaningful (see type system rules for specifics, still TODO).
 
 #### Operator precedence (high → low)
 
-1. Unary: `-` (unary), `!` (right-associative)
+1. Unary: `-` (unary), `!`, `~`
 2. Multiplicative: `*`, `/`, `%` (left-associative)
 3. Additive: `+`, `-` (left-associative)
 4. Shifts: `<<`, `>>` (left-associative)
 5. Comparison: `>`, `<`, `>=`, `<=` (left-associative)
 6. Equality: `==`, `!=` (left-associative)
-7. Bitwise: `&`, `|` (left-associative)
-8. Logical: `&&` (left-associative), `||` (left-associative)
+7. Bitwise AND: `&` (left-associative)
+8. Bitwise XOR: `^` (left-associative)
+9. Bitwise OR: `|` (left-associative)
+10. Logical AND: `&&` (left-associative)
+11. Logical OR: `||` (left-associative)
 
 ---
 
@@ -133,7 +138,7 @@ Declaration syntax:
 ```
 
 - `<type>` - the declared type of the variable.
-- `<variable-name>` - identifier composed of alphanumeric characters and `\_`. The first character cannot be a digit. Use `snake_case`.
+- `<variable-name>` - identifier composed of alphanumeric characters and `_`. The first character cannot be a digit. Use `snake_case`.
 - `<expression>` - evaluated and stored in the variable.
 
 Assignment syntax (after declaration):
@@ -179,7 +184,11 @@ Field declaration form:
 <field-type> <field-name>
 ```
 
-Methods are regular functions declared inside the struct block. Methods may receive a special `self` parameter that references the struct instance. They are otherwise exactly the same as regular functions.
+Methods are regular functions declared inside the struct block. All methods have a special `self` variable in their scope, that is a mutable reference to the struct instance itself.
+
+The `self` parameter does not have to be explicitly specified in the parameter list.
+
+These methods are otherwise exactly the same as regular functions.
 
 Methods and fields can be accessed using the `.` syntax on an instance of a struct.
 
@@ -235,19 +244,13 @@ Cast syntax:
 - Only allowed conversions are valid (see conversion table).
 - The `as` expression evaluates to the value converted to `<type>` if the conversion is defined.
 
-Valid conversions (selection):
+Valid conversions:
 
-- `u8 → s8`, `u8 → u16`
-- `s8 → u8`, `s8 → s16`
-- `u16 → s16`, `u16 → u8`, `u16 → u32`
-- `s16 → u16`, `s16 → s8`, `s16 → s32`
-- `u32 → s32`, `u32 → u16`, `u32 → u64`
-- `s32 → u32`, `s32 → s16`, `s32 → s64`
-- `u64 → s64`, `u64 → u32`
-- `s64 → u64`, `s64 → s32`, `s64 → f64`
-- `s32 → f32`
-- `f32 → s32`, `f32 → f64`
-- `f64 → s64`, `f64 → f32`
+- Widening conversions (from a smaller to a larger integer or floating-point type, or from integer to floating-point) are allowed.
+- Narrowing conversions (from a larger to a smaller type, or from floating-point to integer) are allowed.
+- Signed and unsigned conversions are allowed.
+
+If a conversion does not fit into the target type, the value will overflow or underflow.
 
 This `as` syntax is an expression.
 
@@ -277,6 +280,7 @@ Type parameters become part of the instantiated struct's type.
 Loops execute code repeatedly. Wasome uses the `loop` keyword and supports three forms.
 
 The `break` keyword can be used in any type of loop to exit the innermost loop at any time.
+Wasome does not have a `continue` keyword.
 
 #### Infinite loop
 
