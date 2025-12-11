@@ -184,15 +184,13 @@ impl SourceFile {
         );
 
         // unifies line breaks
-        if content.contains("\r\n") {
-            content = content.replace("\r\n", "\n");
-        }
+        content = content.replace("\r\n", "\n");
 
         // Initialize temporary variables for later use
         let mut lines = Vec::new();
         let mut multi_byte_chars = Vec::new();
         let mut current_line_start = BytePos(0);
-        // Tracking the Gap that the multi byte chars need
+        // tracking the gap that the multi byte chars need
         // To calc: total_bytes - accumulated_gap
         // this gives an accurate number of columns
         let mut accumulated_gap = 0u32;
@@ -257,7 +255,7 @@ impl SourceFile {
 
         let byte_col = pos.0 - line_info.line_start.0;
 
-        // Looks at the index of the last mb before the byte_col
+        // Finds the index of the last multi-byte character that ends before or at byte_col
         let idx = line_info
             .multi_byte_chars
             .partition_point(|mb| (mb.pos_on_line + mb.byte_len as u32) <= byte_col);
@@ -292,7 +290,7 @@ impl SourceFile {
             padding
         };
 
-        // Safety: When the provided span would have a start INSIDE a multi byte char
+        // Note: When the provided span would have a start INSIDE a multi byte char
         // this - would panic if we don't use saturating_sub because the result would be negative
         (line_index as u32 + 1, byte_col.saturating_sub(gap) + 1)
     }
@@ -457,7 +455,7 @@ mod tests {
         // "✨" = 3 bytes (5..8)
         // " " = 1 byte (8..9)
         // "=" = 1 byte (9..10) -> This is our target
-        let target_pos = BytePos(9); //Bcs it is 0 indexed so 10 - 1
+        let target_pos = BytePos(9); // Because it is 0 indexed so 10 - 1
 
         let span = Span {
             file_id: id,
@@ -593,7 +591,7 @@ mod tests {
     fn test_lookup_col_inside_multibyte_char() {
         // "a✨b"
         // 'a' : Byte 0
-        // '✨': Byte 1..4. Len 3
+        // '✨': Bytes 1-3 (3 bytes total)
         // 'b' : Byte 4. Len 1
         let f = make_file("a✨b");
 

@@ -5,7 +5,7 @@ use std::{
 
 use crate::source::SourceFile;
 
-/// The byte offset of the file's content
+/// A byte offset (position) within a file's content.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct BytePos(pub u32);
@@ -52,7 +52,7 @@ impl AddAssign<u32> for BytePos {
 ///
 /// # Warning
 ///
-/// The [`FileID`] is dependent on the [`SourceMap`] and *not universally usable*
+/// The [`FileID`] is dependent on the [`crate::source::SourceMap`] and *not universally usable*
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FileID(pub(crate) u32);
 
@@ -71,7 +71,10 @@ impl FileID {
         }
     }
 }
-/// A handle to a file which is incredibly cheap to copy, store and pass around
+/// A handle to a file span which is incredibly cheap to copy, store, and pass around.
+///
+/// This struct is composed of three `u32` fields (`file_id`, `start`, and `end`), making it only 12 bytes in size.
+/// It is a plain data struct with `Copy` semantics, so copying or passing it is as cheap as copying a few integers.
 ///
 /// * `start` - is inclusive
 /// * `end`  - is exclusive
@@ -153,7 +156,7 @@ pub struct LineInfo {
     pub(crate) multi_byte_chars: Vec<MultiByteChar>,
 }
 
-// A human-readable location
+/// A human-readable location
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Location<'a> {
     pub file: &'a SourceFile,
