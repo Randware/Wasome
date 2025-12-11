@@ -5,6 +5,9 @@ use std::path::PathBuf;
 Any path strings provided by this will be relative to the root of the project in the OSes native format
 */
 #[derive(Debug, Eq, PartialEq, Clone)]
+#[deprecated(
+    note = "Superseded by the `source` crate. The new implementation handles path canonicalization correctly and should be preferred."
+)]
 pub struct CodeFile {
     filepath: PathBuf,
 }
