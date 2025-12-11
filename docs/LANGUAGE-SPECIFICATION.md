@@ -64,6 +64,7 @@ Operators combine expressions into a single expression. Operands must be of appr
 #### Other operator rules
 
 - `!` negates a boolean.
+- When shifting an unsigned value, the `>>` operator is a logical shift. When shifting a signed value, the `>>` operator is an arithmetic shift.
 - `==` and `!=` work across value types when meaningful (see type system rules for specifics, still TODO).
 
 #### Operator precedence (high → low)
@@ -148,6 +149,7 @@ Assignment syntax (after declaration):
 ```
 
 - Variables declared in a code block are scoped to that block and any nested blocks.
+- Variable shadowing is allowed.
 - Reading a variable is done by writing its name as an expression.
 - Variables are mutable (assignment after declaration is allowed).
 
