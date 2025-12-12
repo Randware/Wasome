@@ -33,7 +33,7 @@ impl<'a, Type: ASTType> FunctionTraversalHelper<'a, Type> {
 
     /** Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
      */
-    pub fn symbols(&self) -> impl SymbolTable<Type> {
+    pub fn symbols(&self) -> impl SymbolTable<'_, Type> {
         FunctionSymbolTable::new(self)
     }
 
@@ -59,7 +59,7 @@ impl<'a, Type: ASTType> FunctionTraversalHelper<'a, Type> {
     /** Gets a StatementRef for the top level statement in this function
           This is the intended way to traverse a function
     */
-    pub fn ref_to_implementation(&self) -> StatementTraversalHelper<Type> {
+    pub fn ref_to_implementation(&self) -> StatementTraversalHelper<'_, Type> {
         StatementTraversalHelper::new_root(self)
     }
 }

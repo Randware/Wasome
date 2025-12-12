@@ -1,7 +1,9 @@
 [package]
-name = "ast"
+name = "source"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-shared = { path = "../shared"}
+
+[dev-dependencies]
+tempfile = "3"
