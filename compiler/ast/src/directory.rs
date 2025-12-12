@@ -67,15 +67,22 @@ impl<Type: ASTType> Directory<Type> {
         self.subdirectories().iter()
     }
 
-    /** Looks the symbol specified by path up
-     */
-    pub(crate) fn get_symbol_for_path(&self, path: &[String]) -> Option<Symbol<'_, Type>> {
+    /// Looks the symbol specified by path up
+    /// ### Return
+    /// None if the import could not be resolved.
+    /// * Not using an empty iterator
+    ///     1. Makes it easier to spot problematic imports
+    ///     2. Saves a heap allocation
+    /// An iterator with all `pub` symbols in the found file
+    /// * Note this may be empty if the iterator does not provide any `pub` symbols.
+    pub(crate) fn get_symbols_for_path(&self, path: &[String]) -> Option<impl Iterator<Item=Symbol<'_, Type>>> {
         match path.len() {
-            len if len < 2 => None, //Empty or too short path
-            2 => self.file_by_name(&path[0])?.symbol_public(&path[1]),
+            0 => Some(self.files()
+                .iter().map(|file| file.symbols_public())
+                .flatten()),
             len => self
                 .subdirectory_by_name(&path[0])?
-                .get_symbol_for_path(&path[1..len]),
+                .get_symbols_for_path(&path[1..len]),
         }
     }
 

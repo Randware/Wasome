@@ -112,15 +112,16 @@ impl<'a, 'b, Type: ASTType> FunctionSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for FunctionSymbolTable<'a, 'b, Type> {
-    type Item = Symbol<'b, Type>;
+    type Item = (Option<&'b str>, Symbol<'b, Type>);
 
     fn next(&mut self) -> Option<Self::Item> {
+        // 
         next_item_from_slice(self.parameters, &mut self.parameter_index)
-            .map(|val| Symbol::Variable(val))
+            .map(|val| (None, Symbol::Variable(val)))
             .or_else(|| {
                 self.functions_declarations
                     .next()
-                    .map(|val| Symbol::Function(val))
+                    .map(|val| (None, Symbol::Function(val)))
             })
             .or_else(|| self.file_level_symbols.next())
     }

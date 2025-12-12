@@ -40,20 +40,15 @@ impl<Type: ASTType> File<Type> {
     /** Gets the symbol with the specified name
      */
     pub fn symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.symbol_specified_origin(name, false)
+        self.symbols()
+            .find(|symbol| symbol.name() == name)
     }
 
     /** Gets the symbol with the specified name if it is public
      */
     pub fn symbol_public(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.symbol_specified_origin(name, true)
-    }
-
-    /** Gets the symbol with the specified name if it is public or outside is false
-     */
-    fn symbol_specified_origin(&self, name: &str, outside: bool) -> Option<Symbol<'_, Type>> {
-        self.function_symbol(name, outside)
-            .map(|function_symbol| Symbol::Function(function_symbol))
+        self.symbols_public()
+            .find(|symbol| symbol.name() == name)
     }
 
     /** Gets the function with the specified name
@@ -64,11 +59,47 @@ impl<Type: ASTType> File<Type> {
             .find(|function| function.declaration().name() == name)
     }
 
-    /** Gets the function with the specified name if it is public or only_public is false
-     */
-    fn function_symbol(&self, name: &str, only_public: bool) -> Option<&FunctionSymbol<Type>> {
-        self.specific_function(name)
-            .filter(|function| !only_public || function.visibility() == Visibility::Public)
+    /// Gets symbols, including non-public ones. It does not differentiate between function- and non-function
+    /// symbols.
+    /// - Note that currently, there are only function symbols
+    /// # Return
+    /// The requested symbols
+    pub fn symbols(&self) -> impl Iterator<Item=Symbol<'_, Type>> {
+        self.symbols_chosen_public(false)
+    }
+
+    /// Gets public symbols. It does not differentiate between function- and non-function
+    /// symbols.
+    /// - Note that currently, there are only function symbols
+    /// # Return
+    /// The requested symbols
+    pub fn symbols_public(&self) -> impl Iterator<Item=Symbol<'_, Type>> {
+        self.symbols_chosen_public(true)
+    }
+
+    /// Gets the requested symbols. It does not differentiate between function- and non-function
+    /// symbols.
+    /// - Note that currently, there are only function symbols
+    /// # Parameter
+    /// `only_public`: If true, only `pub` symbols are requested. Otherwise, all are requested
+    /// # Return
+    /// The requested symbols
+    fn symbols_chosen_public(&self, only_public: bool) -> impl Iterator<Item=Symbol<'_, Type>> {
+        self.function_symbols(only_public)
+            .map(|function_symbol| Symbol::Function(function_symbol))
+    }
+
+    /// Gets function symbols
+    /// # Parameter
+    /// `only_public`: Decides if only public function symbols (`true`)
+    /// or all function symbols (`false`) should be returned
+    /// # Return
+    /// An iterator over the function symbols. Note that it may be empty if there are no function
+    /// symbols that meet the provided requirement
+    fn function_symbols(&self, only_public: bool) -> impl Iterator<Item = &FunctionSymbol<Type>> {
+        self.functions()
+            .iter()
+            .filter(move |function| !only_public || (*function).visibility() == Visibility::Public)
             .map(|function| function.declaration())
     }
 }

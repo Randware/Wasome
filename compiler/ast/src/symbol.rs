@@ -4,14 +4,39 @@ use crate::id::Id;
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
 use std::rc::Rc;
 
-/**  Any type that has symbols available for use
-*/
-pub trait SymbolTable<'a, Type: ASTType>: Iterator<Item = Symbol<'a, Type>> {}
+/// Has symbols available to use
+/// # Composition of the provided data
+/// The provided data consists of two parts:
+/// 1. The required prefix
+///
+///     Specifies what prefix has to be used when using this symbol.
+///     For example, here "math" is the prefix:
+///
+///     math.floor(10.5)
+///
+///     This is none if no prefix is required. It is used for the module name when the symbol was imported.
+///
+/// 2. The symbol
+///     This is simply the symbol that is available.
+pub trait SymbolTable<'a, Type: ASTType>: Iterator<Item = (Option<&'a str>, Symbol<'a, Type>)> {}
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Symbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
+}
+
+impl<'a, Type: ASTType> Symbol<'a, Type>
+{
+    /// Gets the name of a symbol. This name is not directly stored in the enum but in the variant.
+    /// # Return
+    /// The name
+    pub fn name(&self) -> &str {
+        match self {
+            Symbol::Function(func) => func.name(),
+            Symbol::Variable(var) => var.name()
+        }
+    }
 }
 
 /** A function symbol

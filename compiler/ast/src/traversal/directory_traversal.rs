@@ -120,16 +120,16 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     /** Gets the symbol imported by a specific import
     Returns None if it doesn't exist or is not visible
     */
-    pub(crate) fn resolve_import(&self, to_resolve: &Import) -> Option<Symbol<'b, Type>> {
+    pub(crate) fn resolve_import(&self, to_resolve: &Import) -> Option<impl Iterator<Item=Symbol<'b, Type>>> {
         let root = match to_resolve.root() {
             ImportRoot::CurrentDirectory => self,
             ImportRoot::ProjectRoot => self.get_root(),
         };
-        root.get_symbol_for_path(to_resolve.path())
+        root.get_symbols_for_path(to_resolve.path())
     }
 
-    fn get_symbol_for_path(&self, path: &[String]) -> Option<Symbol<'b, Type>> {
-        self.inner().get_symbol_for_path(path)
+    fn get_symbols_for_path(&self, path: &[String]) -> Option<impl Iterator<Item=Symbol<'b, Type>>> {
+        self.inner().get_symbols_for_path(path)
     }
 
     fn get_root(&self) -> &DirectoryTraversalHelper<'a, 'b, Type> {

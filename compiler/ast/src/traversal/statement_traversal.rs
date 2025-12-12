@@ -181,7 +181,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
             }
         }
         self.go_up_statement_tree()?;
-        self.next()
+        self.next_variable_symbol()
     }
 
     fn go_up_statement_tree(&mut self) -> Option<()> {
@@ -201,10 +201,12 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
-    type Item = Symbol<'b, Type>;
+    type Item = (Option<&'b str>, Symbol<'b, Type>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_variable_symbol()
+            // A var symbol never requires a prefix
+            .map(|var_symbol| (None, var_symbol))
             .or_else(|| self.root_symbols.next())
     }
 }
@@ -216,14 +218,14 @@ impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for StatementSymbolTable<'a, '
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct StatementLocation<'a> {
     index: usize,
-    prev: Box<Option<&'a StatementLocation<'a>>>,
+    prev: Option<&'a StatementLocation<'a>>,
 }
 
 impl<'a> StatementLocation<'a> {
     pub fn new(index: usize, prev: Option<&'a StatementLocation<'a>>) -> Self {
         Self {
             index,
-            prev: Box::new(prev),
+            prev,
         }
     }
 
@@ -232,7 +234,7 @@ impl<'a> StatementLocation<'a> {
     }
 
     pub fn prev(&self) -> Option<&'a StatementLocation<'a>> {
-        self.prev.as_ref().as_ref().map(|val| *val)
+        self.prev.as_ref().map(|val| *val)
     }
 
     pub fn len(&self) -> usize {

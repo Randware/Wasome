@@ -142,7 +142,7 @@ impl<Type: ASTType> AST<Type> {
             ImportRoot::CurrentDirectory => source_dir,
             ImportRoot::ProjectRoot => &self.inner.inner,
         };
-        check_origin.get_symbol_for_path(to_check.path()).is_some()
+        check_origin.get_symbols_for_path(to_check.path()).is_some()
     }
 }
 
@@ -322,6 +322,7 @@ mod tests {
             statement_ref
                 .symbols_available_at()
                 .unwrap()
+                .map(|symbol| symbol.1)
                 .collect::<Vec<_>>()
         );
     }
@@ -393,6 +394,7 @@ mod tests {
         let actual = statement_ref
             .symbols_available_at()
             .unwrap()
+            .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&symbol),
@@ -404,6 +406,7 @@ mod tests {
         let actual = statement_ref
             .symbols_available_after()
             .unwrap()
+            .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&symbol),
@@ -431,6 +434,7 @@ mod tests {
         let actual = return_statement
             .symbols_available_at()
             .unwrap()
+            .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&nth),
@@ -835,6 +839,7 @@ mod tests {
         let actual = return_statement
             .symbols_available_at()
             .unwrap()
+            .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
             Symbol::Variable(&nth),
@@ -977,7 +982,7 @@ mod tests {
             vec![ASTNode::new(
                 Import::new(
                     ImportRoot::ProjectRoot,
-                    vec!["add".to_string(), "add".to_string()],
+                    vec![],
                 ),
                 CodeArea::new(
                     CodeLocation::new(0, 0),
@@ -1005,8 +1010,8 @@ mod tests {
         let dth = DirectoryTraversalHelper::new_from_ast(&ast);
         let fth = dth.file_by_name("main").unwrap();
         assert_eq!(
-            vec![Symbol::Function(&add_fn_symbol)],
-            fth.symbols().collect::<Vec<_>>()
+            vec![Symbol::Function(&main_fn_symbol), Symbol::Function(&add_fn_symbol)],
+            fth.symbols().map(|symbol| symbol.1).collect::<Vec<_>>()
         );
         assert_eq!(0, dth.len_subdirectories());
         assert_eq!(2, dth.len_files());
