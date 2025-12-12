@@ -1,13 +1,19 @@
-# 1. Introduction
+# Introduction
 
 This Document outlines the concrete implementation of imports and dependencies.
 It also includes Module Paths, which are a concept used in later sections.
+
+## 1. Modules
+
+Modules are a unit of code. They are used throughout wasome, for example for imports.
+Modules are abstract representation of directories and share their properties, including
+the need for a name and the ability to contain submodules.
 
 ## 2. Module Paths
 
 ### 2.1 Purpose
 
-Module Paths define locations within source code, whether local or external to the current project.
+Module Paths are references to modules, whether local or external to the current project.
 These paths are used throughout the rest of this document to describe import behavior.
 
 ### 2.2 Syntax
@@ -20,8 +26,8 @@ The origin is one of the following:
 2. `<Projectname>`: Relative to the current project
 3. `<Name of an external dependency>`: Relative to an external dependency (described later in this document)
 
-Path relative to origin consists of any directories that need to be traversed and then the file without the file extension.
-This means that module paths can only reference files and never directories.
+Path relative to origin consists of any directories that need to be traversed, seperated by slashes.
+It may also be empty if there is nothing to be traversed. In this case, the first slash may be ommited.
 
 With the exception of the dot and slash when used as described above, only alphanumerical characters, underscores and hyphens, 
 with the latter two being forbidden at either the start or end of a directory- or filename, are allowed in `Module Paths`.
@@ -72,9 +78,10 @@ handling from the user. Multiple dependencies with the same name aren't supporte
 ### 4.1 Definition
 
 By default, symbols are only visible in the file they were declared. Imports make it possible to change that.
+This means that it is required to import the own module in order to access symbols in other files in the current module.
 They must be positioned at the top of the source file wanting to use the symbol and bring them into scope.
 
-Imports always work on an entire file. In other words, it is only possible to import full files and not only parts of it.
+Imports always work on an entire module. In other words, it is only possible to import full modules and not only parts of it.
 Only symbols marked as `pub` (public) can be accessed via imports.
 Attempting to use symbols not declared as `pub` leads to a compiler error.
 
@@ -82,34 +89,36 @@ Attempting to use symbols not declared as `pub` leads to a compiler error.
 
 Imports follow the following syntax:
 `import "<Path>"`
-Where Path is the path of the file being imported. It follows the layout of Module Path as described above.
+Where Path is the path of the module being imported. It follows the layout of Module Path as described above.
 
-For example, the following imports `trigonometry` from the `floating_point` directory from the math project:
-`import "math/floating_point/trigonometry"`
+For example, the following imports the module `trigonometry` from the math project:
+`import "math/floating_point"`
+
+Each import is assigned an usage name, which is used when accesing imported symbols.
+By default, this is the is the module name, but can be overridden (more on later).
+Having multiple imports with the same usage location is a compiler error.
+
 
 ### 4.3 Usage of imported symbols
 
-Symbol inside imported files are accessed via the following syntax:
+Symbol inside imported modules are accessed via the following syntax:
 
-`<Location>.<Symbol>`
-By default, location is the filename, but this can be overridden (more on later)
-Importing the same location more than once leads to a compiler error.
+`<Usage Name>.<Symbol>`
 
 For example, this accesses the `sin_f64` function inside the trigonometry file:
-`trigonometry.sin_f64(10.0)`
+`floating_point.sin_f64(10.0)`
 
-### Overriding of location
+### Overriding of usage name
 
-It is also possible to override the location with the as-syntax:
-`import "\<Filepath\>" as \<Location\>` // TODO: Discuss if Location should be in quotes
+It is also possible to override the usage name with the as-syntax:
+`import "\<Filepath\>" as \<Usage Name\>`
 
-For example, this imports the trigonometry file as trig:
-`import "math/floating_point/trigonometry" as trig`
+For example, this imports the floating_point module as fp:
+`import "math/floating_point" as fp`
 
 It can now be used like this:
-`trig.sin_f64(10.0)`
+`fp.sin_f64(10.0)`
 
 ### Cyclic imports
 
 Imports may be cyclic without having to follow any special rules
-// TODO: Syntax of symbols inside other symbols (e.g.: structs)
