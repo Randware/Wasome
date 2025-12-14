@@ -13,12 +13,12 @@ the need for a name and the ability to contain submodules.
 
 ### 2.1 Purpose
 
-Module Paths are references to modules, whether local or external to the current project.
+`Module Paths` are references to modules, whether local or external to the current project.
 These paths are used throughout the rest of this document to describe import behavior.
 
 ### 2.2 Syntax
 
-`Module Path` use the following syntax: 
+`Module Paths` use the following syntax: 
 `<Origin>/<Path relative to origin>`
 
 The origin is one of the following: 
@@ -30,8 +30,8 @@ Path relative to origin consists of any directories that need to be traversed, s
 It may also be empty if there is nothing to be traversed. In this case, the first slash may be ommited.
 
 With the exception of the dot and slash when used as described above, only alphanumerical characters, underscores and hyphens, 
-with the latter two being forbidden at either the start or end of a directory- or filename, are allowed in `Module Paths`.
-This also means that it is impossible to reference hidden files starting with a . with module paths.
+with the latter two being forbidden at either the start or end of a part of a part, are allowed in `Module Paths`.
+This also means that it is impossible to reference hidden directories starting with a . with module paths.
 For example, the following specifies `trigonometry` from the `floating_point` directory from the `math` project:
 `math/floating_point/trigonometry`
 
@@ -54,7 +54,8 @@ These are represented by a vec of dependency structs. A dependency struct looks 
 Name is the name of the dependency and path is an operating-system dependent path to the directory containing the source code
 
 ### 3.3 Converting to filepaths
-There needs to be a functionality that converts Module Paths into filepaths by using the dependency list. 
+
+There needs to be a functionality that converts `Module Paths` into filepaths by using the dependency list. 
 It will be used by the Semantic Analyzer to correctly translate paths provided in imports
 
 ### 3.4 Representation in the AST
@@ -64,11 +65,13 @@ Note that this directory is virtual and does not exist on disk.
 This allows imports to be processed without much effort.
 
 ### 3.6 Transitive dependencies
+
 Each project must specify its dependencies on its own and can't
 directly use ones from other projects it depends on. For example, if project A depends on project B and project B depends on project C, them project A
 can't access project C without first depending on it itself.
 
 ### 3.5 Other
+
 Any project can be an external dependency. While any project with a main function can be run on its own, they too can be depended on.
 This also means that dependencies can have dependencies themselves. Furthermore, dependency cycles are permitted and do not need special
 handling from the user. Multiple dependencies with the same name aren't supported. Dependency versioning isn't supported.
@@ -89,7 +92,7 @@ Attempting to use symbols not declared as `pub` leads to a compiler error.
 
 Imports follow the following syntax:
 `import "<Path>"`
-Where Path is the path of the module being imported. It follows the layout of Module Path as described above.
+Where Path is the path of the module being imported. It follows the layout of `Module Path` as described above.
 
 For example, the following imports the module `trigonometry` from the math project:
 `import "math/floating_point"`
