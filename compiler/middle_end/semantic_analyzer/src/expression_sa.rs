@@ -127,7 +127,7 @@ fn analyze_unary_op(
     to_analyze: &Box<UnaryOp<UntypedAST>>,
     symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<UnaryOp<TypedAST>>> {
-    let (op_type, expression) = to_analyze.destructure();
+    let (op_type, expression) = (to_analyze.op_type(), to_analyze.input());
 
     let converted_input = analyze_expression(&expression, symbol_mapper)?;
 
@@ -162,7 +162,7 @@ fn analyze_binary_op(
     to_analyze: &Box<BinaryOp<UntypedAST>>,
     symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<BinaryOp<TypedAST>>> {
-    let (op_type, left_expr, right_expr) = to_analyze.destructure();
+    let (op_type, left_expr, right_expr) = (to_analyze.op_type(),to_analyze.left(),to_analyze.right());
 
     let converted_left = analyze_expression(left_expr, symbol_mapper)?;
     let converted_right = analyze_expression(right_expr, symbol_mapper)?;
@@ -252,7 +252,7 @@ mod tests {
         let result =
             analyze_unary_op(&Box::new(untyped), &mut mapper).expect("should analyze unary op");
 
-        let (op_type, expr) = result.destructure();
+        let (op_type, expr) = (result.op_type(), result.input());
 
         assert_eq!(&UnaryOpType::Negative, op_type);
         assert_eq!(&Expression::Literal(Literal::S32(42)), &**expr);
@@ -274,7 +274,7 @@ mod tests {
         let result =
             analyze_binary_op(&Box::new(untyped), &mut mapper).expect("should analyze binary op");
 
-        let (op_type, l_expr, r_expr) = result.destructure();
+        let (op_type, l_expr, r_expr) = (result.op_type(),result.left(),result.right());
         assert_eq!(BinaryOpType::Addition, op_type);
 
         assert_eq!(&Expression::Literal(Literal::S32(17)), &**l_expr);

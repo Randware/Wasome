@@ -363,15 +363,19 @@ fn analyze_codeblock(
             let node = ASTNode::new(typed_statement, position);
             typed_statements.push(node);
         } else {
-            function_symbol_mapper.exit_scope();
+            function_symbol_mapper
+                .exit_scope()
+                .expect("Internal Compiler Error: Scope stack imbalance during error recovery.");
             return None;
         }
     }
-    function_symbol_mapper.exit_scope();
+
+    function_symbol_mapper
+        .exit_scope()
+        .expect("Internal Compiler Error: Scope stack imbalance after successful block analysis.");
 
     Some(CodeBlock::new(typed_statements))
 }
-
 /** Analyzes an untyped function call intended to be used as a standalone statement (for side effects).
 * This function resolves the function symbol, recursively analyzes the arguments, and critically validates
 * that the called function explicitly returns **no value (void)**.

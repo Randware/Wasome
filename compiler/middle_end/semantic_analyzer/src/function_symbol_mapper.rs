@@ -41,12 +41,23 @@ impl<'a> FunctionSymbolMapper<'a> {
         });
     }
 
-    /** Exits the current scope on the scope stack.
-     * @param self: The mapper whose current scope will be removed.
-     * @return () - Pops the last Scope from the internal scope_stack (if any).
+    /** Exits the current scope.
+        * Removes the topmost scope from the stack.
+        *
+        * @return Ok(()) if a scope was successfully popped.
+        * Err(String) if the stack is empty or if attempting to pop the base scope (stack size 1).
      */
-    pub fn exit_scope(&mut self) {
+    pub fn exit_scope(&mut self) -> Result<(), String> {
+        if self.scope_stack.is_empty() {
+            return Err(String::from("Internal Compiler Error: Attempted to exit scope on an empty stack."));
+        }
+
+        if self.scope_stack.len() == 1 {
+            return Err(String::from("Internal Compiler Error: Attempted to pop the function's base scope."));
+        }
+
         self.scope_stack.pop();
+        Ok(())
     }
 
     /** Looks up a function symbol by name.
@@ -64,21 +75,21 @@ impl<'a> FunctionSymbolMapper<'a> {
      * @return Ok(()) if inserted; Err(String) if a variable with the same name already exists in the current scope.
      */
     pub fn add_variable(&mut self, symbol: Rc<VariableSymbol<TypedAST>>) -> Result<(), String> {
-        if let Some(current_scope) = self.scope_stack.last_mut() {
-            let name = symbol.name().to_string();
+        let current_scope = self.scope_stack
+            .last_mut()
+            .expect("Internal Compiler Error: Scope stack is empty in add_variable.");
 
-            if current_scope.variables.contains_key(&name) {
-                return Err(format!(
-                    "Error: Variable '{}' is already defined in the current scope.",
-                    name
-                ));
-            }
+        let name = symbol.name().to_string();
 
-            current_scope.variables.insert(name, symbol);
-            Ok(())
-        } else {
-            Err("Cannot define variable: No active scope.".to_string())
+        if current_scope.variables.contains_key(&name) {
+            return Err(format!(
+                "Error: Variable '{}' is already defined in the current scope.",
+                name
+            ));
         }
+
+        current_scope.variables.insert(name, symbol);
+        Ok(())
     }
 
     /** Looks up a variable symbol by name in the scope stack.
