@@ -84,7 +84,7 @@ handling from the user. Multiple dependencies with the same name aren't supporte
 
 By default, symbols are only visible in the file they were declared in. Imports make it possible to change that.
 This means that it is required to import the current module in order to access symbols in other files in the current module.
-They must be positioned at the top of the source file wanting to use the symbol and bring them into scope.
+Import statements must be placed at the beginning of the source file to bring the required symbols into scope.
 
 Imports always work on an entire module. In other words, it is only possible to import full modules and not only parts of them.
 Only symbols marked as `pub` (public) can be accessed via imports.
