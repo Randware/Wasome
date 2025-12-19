@@ -9,7 +9,7 @@ use std::ops::Index;
 /// It keeps a reference to the root (function) and a statement.
 /// This allows it to be used to keep track of all symbols available to a statement
 /// It is supposed to be created by either a FunctionTraversalHelper or the StatementTraversalHelper of the parent statement,
-
+///
 /// # Lifetimes
 ///
 /// | Lifetime     | Purpose      |
@@ -21,8 +21,7 @@ pub struct StatementTraversalHelper<'a, 'b, Type: ASTType> {
     /// The referenced statement
     inner: &'b ASTNode<Statement<Type>>,
     /// The location of this statement, relative to the root
-    /// None means that we are the root
-    location: Option<StatementLocation<'a, 'b, Type>>,
+    location: StatementLocation<'a, 'b, Type>,
     /// The root of the statement tree (should eventually become the function)
     root: &'a FunctionTraversalHelper<'a, 'b, Type>,
 }
@@ -32,13 +31,17 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     pub fn new_root(root: &'a FunctionTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
             inner: root.inner().implementation(),
-            location: None,
+            location: StatementLocation::new_root(root.inner().implementation()),
             root,
         }
     }
 
     pub fn inner(&self) -> &'b ASTNode<Statement<Type>> {
         self.inner
+    }
+
+    pub fn location(&self) -> &StatementLocation<'a, 'b, Type> {
+        &self.location
     }
 
     /// Creates a new StatementRef that is the child of the specified statementRef at the specified index
@@ -59,7 +62,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
         let child = self.inner.index(location);
         Self {
             inner: child,
-            location: Some(StatementLocation::new(location, self.location.as_ref(), child)),
+            location: StatementLocation::new_node(location, &self.location, child),
             root: self.root,
         }
     }
@@ -155,11 +158,10 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
 ///
 /// The intended usage is via the `.next()` method from the iterator trait.
 struct StatementSymbolTable<'a, 'b, Type: ASTType> {
-    source: &'a StatementTraversalHelper<'a, 'b, Type>,
     /// The symbol which child symbols we are currently iterating over
     current: &'b Statement<Type>,
     /// The location of this symbol
-    current_location: Option<&'a StatementLocation<'a, 'b, Type>>,
+    current_location: &'a StatementLocation<'a, 'b, Type>,
     prev_index: usize,
     /// The symbols from the root, for example functions
     root_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
@@ -176,9 +178,8 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
         source: &'a StatementTraversalHelper<'a, 'b, Type>,
     ) -> Self {
         Self {
-            source,
             current: source.inner,
-            current_location: source.location.as_ref(),
+            current_location: source.location(),
             // Setting this to zero will make the next call to
             // next_variable_symbol() go up the statement tree for us
             prev_index: 0,
@@ -255,16 +256,10 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     ///     - If going up was successful
     ///     - Note that this doesn't carry any data
     fn go_up_statement_tree(&mut self) -> Option<()> {
-        let new_current_location = self.current_location?.prev();
-        self.prev_index = self.current_location?.index();
+        let new_current_location = self.current_location.prev()?;
+        self.prev_index = self.current_location.index()?;
         self.current_location = new_current_location;
-        self.current = if let Some(inner_current_location) = self.current_location {
-            // current_location is not None, use its referenced statement
-            inner_current_location.referenced_statement
-        } else {
-            // current_location is None, the root statement
-            self.source.root.inner().implementation()
-        };
+        self.current = self.current_location.referenced_statement();
         Some(())
     }
 }
@@ -286,29 +281,48 @@ impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for StatementSymbolTable<'a, '
 /// Linked list representing the path from the current statement to the root
 /// The first step is at the beginning of the list
 #[derive(Debug, PartialEq)]
-pub(crate) struct StatementLocation<'a, 'b, Type: ASTType> {
-    index: usize,
-    prev: Option<&'a StatementLocation<'a, 'b, Type>>,
+pub struct StatementLocation<'a, 'b, Type: ASTType> {
+    /// None means that this references to a root statement that has no parent
+    ///
+    /// The first part of the tupel is the statement index and the second is the previous part of the list
+    position: Option<(usize, &'a StatementLocation<'a, 'b, Type>)>,
     referenced_statement: &'b Statement<Type>
 }
 
 impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
-    pub fn new(index: usize, prev: Option<&'a StatementLocation<'a, 'b, Type>>, referenced_statement: &'b Statement<Type>) -> Self {
+    pub fn new_root(referenced_statement: &'b Statement<Type>) -> Self {
         Self {
-            index,
-            prev,
+            position: None,
             referenced_statement,
         }
     }
 
-    pub fn index(&self) -> usize {
-        self.index
+    pub fn new_node(index: usize, prev: &'a StatementLocation<'a, 'b, Type>, referenced_statement: &'b Statement<Type>) -> Self {
+        Self {
+            position: Some((index, prev)),
+            referenced_statement,
+        }
+    }
+
+    pub fn index(&self) -> Option<usize> {
+        self.position.map(|pos| pos.0)
     }
 
     pub fn prev(&self) -> Option<&'a StatementLocation<'a, 'b, Type>> {
-        self.prev.as_ref().map(|val| *val)
+        self.position.map(|pos| pos.1)
     }
 
+    pub fn referenced_statement(&self) -> &'b Statement<Type> {
+        self.referenced_statement
+    }
+
+    /// Calculates the length of this.
+    ///
+    /// The length is the number of StatementLocation nodes
+    /// one can get by followimg the prev fields plus one for the starting node.
+    ///
+    /// # Returns
+    /// - The calculated length
     pub fn len(&self) -> usize {
         let mut len = 0;
         let mut current: Option<&StatementLocation<Type>> = Some(self);
