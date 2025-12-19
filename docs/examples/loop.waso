@@ -11,7 +11,7 @@ fn main() {
     s32 sum <- 0
 
     loop (s32 count2 <- 0; count2 < 100; counts <- count2 + 1) {
-        sum = sum + count2
+        sum <- sum + count2
     }
     
     // infinite loop

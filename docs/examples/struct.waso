@@ -5,7 +5,7 @@ struct Point {
 
 fn main() {
 
-    Point p1 <- new Point { 10, 20 }
+    new Point { x <- 10, y <- 20 }
 
     s32 old_x_coordinate <- point.x
     
