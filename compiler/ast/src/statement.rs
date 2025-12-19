@@ -73,7 +73,7 @@ impl<Type: ASTType> Statement<Type> {
     }
 
     /// Same as `get_direct_symbol`, except that the [`Symbol`] struct is used
-    pub fn get_direct_symbol_reference_struct(&self) -> Option<Symbol<Type>> {
+    pub fn get_direct_symbol_reference_struct(&self) -> Option<Symbol<'_, Type>> {
         self.get_direct_symbol().map(Symbol::Variable)
     }
 

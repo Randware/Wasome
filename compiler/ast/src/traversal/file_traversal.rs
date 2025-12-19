@@ -62,7 +62,10 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     }
     /// Gets the symbol imported by a specific import
     /// Returns None if it doesn't exist
-    pub(crate) fn resolve_import(&self, to_resolve: &Import) -> Option<impl Iterator<Item=Symbol<'b, Type>>> {
+    pub(crate) fn resolve_import(
+        &self,
+        to_resolve: &Import,
+    ) -> Option<impl Iterator<Item = Symbol<'b, Type>>> {
         self.parent.resolve_import(to_resolve)
     }
     /// Gets all symbols defined in self
@@ -90,10 +93,17 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                     // Therefore, we can't have an unresolved import here and can safely unwrap
                     // Also, imports with no import path can never be valid.
                     // So that always returns some
-                    .flat_map(|import| symbol_source.resolve_import(import).unwrap()
-                        .map(|imported_symbol|
-                            (import.inner.path().last()
-                                 .map(|path| path.as_str()), imported_symbol))),
+                    .flat_map(|import| {
+                        symbol_source
+                            .resolve_import(import)
+                            .unwrap()
+                            .map(|imported_symbol| {
+                                (
+                                    import.inner.path().last().map(|path| path.as_str()),
+                                    imported_symbol,
+                                )
+                            })
+                    }),
             ),
         }
     }

@@ -1,8 +1,8 @@
-use std::collections::HashSet;
 use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
+use std::collections::HashSet;
 use std::ops::Index;
 
 /// This struct helps with traversing statements
@@ -118,8 +118,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     /// Symbols declared by self directly are not included
     ///
     /// A vec is returned as an iterator would require a trait object
-    pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'b, Type>>
-    {
+    pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'b, Type>> {
         self.symbols_defined_directly_in_before_index(self.amount_children())
     }
 
@@ -167,7 +166,7 @@ struct StatementSymbolTable<'a, 'b, Type: ASTType> {
     /// The symbols from the root, for example functions
     root_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
     /// Deduplicates variables for variable shadowing
-    found_variables: HashSet<&'b str>
+    found_variables: HashSet<&'b str>,
 }
 
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
@@ -220,7 +219,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     ///
     /// - None
     ///     - If there are no more variable symbols available
-    /// -Some(The variable symbol)
+    /// - Some(The variable symbol)
     ///     - If there are still variable symbols available
     fn next_variable_symbol(&mut self) -> Option<Symbol<'b, Type>> {
         // Attempts to get a child symbol from the current symbol
@@ -230,8 +229,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
             if let Some(symbol) = self.current.index(self.prev_index).get_direct_symbol() {
                 // Insert the symbol into the set
                 // Only return it if its new
-                if self.found_variables.insert(symbol.name())
-                {
+                if self.found_variables.insert(symbol.name()) {
                     // Symbol found, return it
                     return Some(Symbol::Variable(symbol));
                 }
@@ -304,7 +302,7 @@ pub struct StatementLocation<'a, 'b, Type: ASTType> {
     ///
     /// The first part of the tupel is the statement index and the second is the previous part of the list
     position: Option<(usize, &'a StatementLocation<'a, 'b, Type>)>,
-    referenced_statement: &'b Statement<Type>
+    referenced_statement: &'b Statement<Type>,
 }
 
 impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
@@ -341,7 +339,11 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
     ///
     /// A `StatementLocation` referencing the provided statement including the path from the parent
     /// statement and therefore also from the root.
-    pub fn new_node(index: usize, parent_statement: &'a StatementLocation<'a, 'b, Type>, referenced_statement: &'b Statement<Type>) -> Self {
+    pub fn new_node(
+        index: usize,
+        parent_statement: &'a StatementLocation<'a, 'b, Type>,
+        referenced_statement: &'b Statement<Type>,
+    ) -> Self {
         Self {
             position: Some((index, parent_statement)),
             referenced_statement,
@@ -367,6 +369,8 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
     ///
     /// # Returns
     /// - The calculated length
+    // An is_empty method would be redundant as len == 0 is not possible
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         let mut len = 0;
         let mut current: Option<&StatementLocation<Type>> = Some(self);
@@ -381,7 +385,7 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Index<usize> for StatementLocation<'a, 'b, Type> {
-    type Output = StatementLocation<'a, 'b, Type> ;
+    type Output = StatementLocation<'a, 'b, Type>;
 
     /// Indexes self with the specified index
     /// 0 results in self

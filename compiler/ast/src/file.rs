@@ -47,14 +47,12 @@ impl<Type: ASTType> File<Type> {
 
     /// Gets the symbol with the specified name
     pub fn symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.symbols()
-            .find(|symbol| symbol.name() == name)
+        self.symbols().find(|symbol| symbol.name() == name)
     }
 
     /// Gets the symbol with the specified name if it is public
     pub fn symbol_public(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.symbols_public()
-            .find(|symbol| symbol.name() == name)
+        self.symbols_public().find(|symbol| symbol.name() == name)
     }
 
     /// Gets the function with the specified name
@@ -71,7 +69,7 @@ impl<Type: ASTType> File<Type> {
     /// # Return
     ///
     /// The requested symbols
-    pub fn symbols(&self) -> impl Iterator<Item=Symbol<'_, Type>> {
+    pub fn symbols(&self) -> impl Iterator<Item = Symbol<'_, Type>> {
         self.symbols_chosen_public(false)
     }
 
@@ -80,7 +78,7 @@ impl<Type: ASTType> File<Type> {
     /// - Note that currently, there are only function symbols
     /// # Return
     /// The requested symbols
-    pub fn symbols_public(&self) -> impl Iterator<Item=Symbol<'_, Type>> {
+    pub fn symbols_public(&self) -> impl Iterator<Item = Symbol<'_, Type>> {
         self.symbols_chosen_public(true)
     }
 
@@ -95,7 +93,7 @@ impl<Type: ASTType> File<Type> {
     /// # Return
     ///
     /// The requested symbols
-    fn symbols_chosen_public(&self, only_public: bool) -> impl Iterator<Item=Symbol<'_, Type>> {
+    fn symbols_chosen_public(&self, only_public: bool) -> impl Iterator<Item = Symbol<'_, Type>> {
         self.function_symbols(only_public)
             .map(|function_symbol| Symbol::Function(function_symbol))
     }
@@ -105,7 +103,7 @@ impl<Type: ASTType> File<Type> {
     /// # Parameter
     ///
     /// - `only_public`: Decides if only public function symbols (`true`)
-    /// or all function symbols (`false`) should be returned
+    ///   or all function symbols (`false`) should be returned
     ///
     /// # Return
     ///

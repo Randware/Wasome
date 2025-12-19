@@ -271,7 +271,7 @@ mod tests {
     use crate::block::{CodeBlock, FunctionBlock};
     use crate::data_type::DataType;
     use crate::directory::Directory;
-    use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal, FunctionCall};
+    use crate::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Literal};
     use crate::file::File;
     use crate::statement::{
         ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
@@ -296,10 +296,7 @@ mod tests {
             sample_codearea(),
         );
 
-        assert_eq!(
-            Some(symbol.as_ref()),
-            statement.get_direct_symbol()
-        );
+        assert_eq!(Some(symbol.as_ref()), statement.get_direct_symbol());
 
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
@@ -977,10 +974,7 @@ mod tests {
         let main_file = File::new(
             "main".to_string(),
             vec![ASTNode::new(
-                Import::new(
-                    ImportRoot::Root,
-                    vec![],
-                ),
+                Import::new(ImportRoot::Root, vec![]),
                 CodeArea::new(
                     CodeLocation::new(0, 0),
                     CodeLocation::new(0, 15),
@@ -1007,7 +1001,10 @@ mod tests {
         let dth = DirectoryTraversalHelper::new_from_ast(&ast);
         let fth = dth.file_by_name("main").unwrap();
         assert_eq!(
-            vec![Symbol::Function(&main_fn_symbol), Symbol::Function(&add_fn_symbol)],
+            vec![
+                Symbol::Function(&main_fn_symbol),
+                Symbol::Function(&add_fn_symbol)
+            ],
             fth.symbols().map(|symbol| symbol.1).collect::<Vec<_>>()
         );
         assert_eq!(0, dth.len_subdirectories());

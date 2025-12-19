@@ -1,8 +1,7 @@
-use crate::statement::Statement;
 use crate::symbol::{FunctionSymbol, Symbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
 use crate::traversal::file_traversal::FileTraversalHelper;
-use crate::traversal::statement_traversal::{StatementLocation, StatementTraversalHelper};
+use crate::traversal::statement_traversal::StatementTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -12,7 +11,7 @@ use std::rc::Rc;
 /// This allows it to be used to keep track of all symbols available in a function
 ///
 /// # Lifetimes
-/// 
+///
 /// | Lifetime     | Purpose      |
 /// | ------------- | ------------- |
 /// | 'a | How long the traversal helper may life |

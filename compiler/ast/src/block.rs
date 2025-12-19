@@ -38,7 +38,7 @@ impl<Content: Debug + PartialEq + SemanticEquality> SemanticEquality
 pub type CodeBlock<Type: ASTType> = SingleContentBlock<Statement<Type>>;
 
 /// This contains functions. When inside a composite, they are methods.
-/// 
+///
 /// Even if unenforced, the trait bound still serves documentation purposes.
 #[allow(type_alias_bounds)]
 pub type FunctionBlock<Type: ASTType> = SingleContentBlock<Function<Type>>;

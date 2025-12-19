@@ -16,7 +16,7 @@ pub enum DataType {
 }
 
 /// A syntax element in wasome with a data type.
-/// 
+///
 /// This trait only is ever implemented for parts of the typed AST
 ///
 /// Examples include expressions and operators

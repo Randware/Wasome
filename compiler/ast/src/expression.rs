@@ -1,7 +1,7 @@
-use std::rc::Rc;
 use crate::data_type::{DataType, Typed};
 use crate::symbol::FunctionSymbol;
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
+use std::rc::Rc;
 
 /// This represents an expression as per section 2 of the lang spec
 ///
@@ -290,9 +290,9 @@ impl BinaryOp<TypedAST> {
     /// # Parameters
     ///
     /// - op_type
-    ///     -The type of this expression
+    ///   -The type of this expression
     /// - input
-    ///     - The expression to base this on
+    ///   - The expression to base this on
     ///
     /// # Return
     ///
@@ -399,7 +399,7 @@ impl BinaryOpType {
     ///     - The provided data types
     ///   
     /// # Return
-    /// 
+    ///
     /// - Some(output data type) if the provided types can be processed to the output type
     /// - None if the processed type can't be processed
     pub fn result_type(&self, left: DataType, right: DataType) -> Option<DataType> {
@@ -520,10 +520,10 @@ impl FunctionCall<TypedAST> {
     ) -> Option<Self> {
         if function.params().len() != args.len()
             || !function
-            .params()
-            .iter()
-            .zip(args.iter())
-            .all(|(expected, provided)| *expected.data_type() == provided.data_type())
+                .params()
+                .iter()
+                .zip(args.iter())
+                .all(|(expected, provided)| *expected.data_type() == provided.data_type())
         {
             return None;
         }
@@ -541,8 +541,8 @@ impl FunctionCall<UntypedAST> {
 
 #[cfg(test)]
 mod tests {
-    use crate::symbol::VariableSymbol;
     use super::*;
+    use crate::symbol::VariableSymbol;
     use crate::test_shared::sample_codearea;
     #[test]
     fn binary_op_type() {

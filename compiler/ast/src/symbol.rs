@@ -1,31 +1,32 @@
 use crate::data_type::{DataType, Typed};
-use crate::expression::Expression;
 use crate::id::Id;
-use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
+use crate::{ASTType, TypedAST};
 use std::rc::Rc;
 
 /// Has symbols available to use
-/// 
+///
 /// # Composition of the provided data
-/// 
+///
 /// The provided data consists of two parts:
 /// 1. The required prefix
+///    Specifies what prefix has to be used when using this symbol.
+///    For example, here "math" is the prefix:
 ///
-///     Specifies what prefix has to be used when using this symbol.
-///     For example, here "math" is the prefix:
+///    math.floor(10.5)
 ///
-///     math.floor(10.5)
-///
-///     This is none if no prefix is required. It is used for the module name when the symbol was imported.
+///    This is none if no prefix is required. It is used for the module name when the symbol was imported.
 ///
 /// 2. The symbol
-///     This is simply the symbol that is available.
-pub trait SymbolTable<'a, Type: ASTType>: Iterator<Item = (Option<&'a str>, Symbol<'a, Type>)> {}
+///    This is simply the symbol that is available.
+pub trait SymbolTable<'a, Type: ASTType>:
+    Iterator<Item = (Option<&'a str>, Symbol<'a, Type>)>
+{
+}
 
 /// A reference to a symbol
-/// 
-/// The data is only owned to allow for efficient creation 
-/// of instanced of this without giving up type safety 
+///
+/// The data is only owned to allow for efficient creation
+/// of instanced of this without giving up type safety
 /// when storing concrete symbols (e.g.: VariableSymbols)
 #[derive(Debug, Eq, PartialEq)]
 pub enum Symbol<'a, Type: ASTType> {
@@ -33,15 +34,14 @@ pub enum Symbol<'a, Type: ASTType> {
     Variable(&'a VariableSymbol<Type>),
 }
 
-impl<'a, Type: ASTType> Symbol<'a, Type>
-{
+impl<'a, Type: ASTType> Symbol<'a, Type> {
     /// Gets the name of a symbol. This name is not directly stored in the enum but in the variant.
     /// # Return
     /// The name
     pub fn name(&self) -> &str {
         match self {
             Symbol::Function(func) => func.name(),
-            Symbol::Variable(var) => var.name()
+            Symbol::Variable(var) => var.name(),
         }
     }
 }
@@ -64,7 +64,7 @@ pub struct FunctionSymbol<Type: ASTType> {
 }
 
 /// A variable symbol
-/// 
+///
 /// # Equality
 ///
 /// Two different VariableSymbols are never equal

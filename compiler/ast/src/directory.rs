@@ -11,9 +11,9 @@ use std::path::PathBuf;
 /// or are root of the ast
 /// + In the latter case, they represent the entire bundle to compile instead
 ///     + Directories contained in these directories represent a single wasome project instead
-/// 
+///
 /// # Contents
-/// 
+///
 /// It has a name, imports and functions
 /// + imports and functions may both be empty vecs
 #[derive(Debug, PartialEq)]
@@ -53,11 +53,11 @@ impl<Type: ASTType> Directory<Type> {
     /// The names have to match exactly, regex or similar is not supported
     ///
     /// # Params
-    /// 
+    ///
     /// name: The name of the file to find
-    /// 
+    ///
     /// # Return
-    /// 
+    ///
     /// None if the file does not exist
     /// Some(file) if the file does exist
     pub fn file_by_name(&self, name: &str) -> Option<&ASTNode<File<Type>, PathBuf>> {
@@ -76,11 +76,11 @@ impl<Type: ASTType> Directory<Type> {
     /// The names have to match exactly, regex or similar is not supported
     ///
     /// # Params
-    /// 
+    ///
     /// name: The name of the directory to find
-    /// 
+    ///
     /// # Return
-    /// 
+    ///
     /// None if the directory does not exist
     /// Some(directory) if the directory does exist
     pub fn subdirectory_by_name(&self, name: &str) -> Option<&ASTNode<Directory<Type>, PathBuf>> {
@@ -98,20 +98,22 @@ impl<Type: ASTType> Directory<Type> {
     }
 
     /// Looks the symbol specified by path up
-    /// 
+    ///
     /// ### Return
-    /// 
+    ///
     /// None if the import could not be resolved.
-    /// * Not using an empty iterator
+    /// * This is not using an empty iterator
     ///     1. Makes it easier to spot problematic imports
     ///     2. Saves a heap allocation as we'd need a trait object
-    /// An iterator with all `pub` symbols in the found file
+    ///
+    /// Otherwise n iterator with all `pub` symbols in the found file is returned
     /// * Note this may be empty if the iterator does not provide any `pub` symbols.
-    pub(crate) fn get_symbols_for_path(&self, path: &[String]) -> Option<impl Iterator<Item=Symbol<'_, Type>>> {
+    pub(crate) fn get_symbols_for_path(
+        &self,
+        path: &[String],
+    ) -> Option<impl Iterator<Item = Symbol<'_, Type>>> {
         match path.len() {
-            0 => Some(self.files()
-                .iter().map(|file| file.symbols_public())
-                .flatten()),
+            0 => Some(self.files().iter().flat_map(|file| file.symbols_public())),
             len => self
                 .subdirectory_by_name(&path[0])?
                 .get_symbols_for_path(&path[1..len]),
