@@ -51,6 +51,9 @@ impl<'a, Type: ASTType> Symbol<'a, Type>
 /// # Equality
 ///
 /// Two different FunctionSymbols are never equal
+/// - Note that semantic equality is the same as regular equality
+///     - Semantic equality checks if two ast parts have the same semantic meaning. Two different symbols
+///       on their own have diffrent semantic meanings even if their names are equal
 #[derive(Debug, Eq, PartialEq)]
 pub struct FunctionSymbol<Type: ASTType> {
     id: Id,
@@ -65,6 +68,9 @@ pub struct FunctionSymbol<Type: ASTType> {
 /// # Equality
 ///
 /// Two different VariableSymbols are never equal
+/// - Note that semantic equality is the same as regular equality
+///     - Semantic equality checks if two ast parts have the same semantic meaning. Two different symbols
+///       on their own have diffrent semantic meanings even if their names are equal
 #[derive(Debug, Eq, PartialEq)]
 pub struct VariableSymbol<Type: ASTType> {
     id: Id,
