@@ -146,6 +146,8 @@ pub enum TokenType {
     StatementSeparator,
     #[token(",")]
     ArgumentSeparator,
+    #[regex(r"//[^\n]*", |lex| lex.slice().to_string())]
+    Comment(String),
 }
 
 /**
