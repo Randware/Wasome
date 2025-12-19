@@ -1,12 +1,13 @@
 use lexer::{lex, Token, TokenType};
 
 #[test]
-fn test_infinite_loop() {
+fn test_comment() {
     let input = r#"
     // This is a comment
     //Wasome is the best language
     // :)
     // // oh my god, DOUBLE COMMENT
+    //
     "#;
 
     let expected_tokens = vec![
@@ -54,6 +55,16 @@ fn test_infinite_loop() {
             kind: TokenType::StatementSeparator,
             line: 4,
             span: 35..36,
+        },
+        Token {
+            kind: TokenType::Comment("//".to_string()),
+            line: 5,
+            span: 4..6,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 5,
+            span: 6..7,
         },
     ];
 
