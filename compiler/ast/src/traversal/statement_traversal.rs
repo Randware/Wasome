@@ -256,7 +256,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     ///     - If going up was successful
     ///     - Note that this doesn't carry any data
     fn go_up_statement_tree(&mut self) -> Option<()> {
-        let new_current_location = self.current_location.prev()?;
+        let new_current_location = self.current_location.parent_statement()?;
         self.prev_index = self.current_location.index()?;
         self.current_location = new_current_location;
         self.current = self.current_location.referenced_statement();
@@ -279,7 +279,16 @@ impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
 impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for StatementSymbolTable<'a, 'b, Type> {}
 
 /// Linked list representing the path from the current statement to the root
+///
+/// For each node, the following is stored:
+/// - Position, consisting of:
+///     - Previous Statement Location
+///     - Index of the previous statement to get to the current
+/// - Current statement
+///
+/// The root node has no position.
 /// The first step is at the beginning of the list
+
 #[derive(Debug, PartialEq)]
 pub struct StatementLocation<'a, 'b, Type: ASTType> {
     /// None means that this references to a root statement that has no parent
@@ -290,6 +299,16 @@ pub struct StatementLocation<'a, 'b, Type: ASTType> {
 }
 
 impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
+    /// Creates a new `StatementLocation` where the provided statement is the root
+    ///
+    /// # Parameter
+    ///
+    /// - referenced_statement
+    ///     - The root statement
+    ///
+    /// # Return
+    ///
+    /// A `StatementLocation` referencing the root statement
     pub fn new_root(referenced_statement: &'b Statement<Type>) -> Self {
         Self {
             position: None,
@@ -297,9 +316,25 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
         }
     }
 
-    pub fn new_node(index: usize, prev: &'a StatementLocation<'a, 'b, Type>, referenced_statement: &'b Statement<Type>) -> Self {
+    /// Creates a new `StatementLocation` which is a child node if the provided location
+    ///
+    /// # Parameterx
+    ///
+    /// - index
+    ///     - The index that is required to take from the referenced statement of `prev` to get to
+    ///       `statement_referenced`
+    /// - parent_statement
+    ///     - The parent statement
+    /// - referenced_statement
+    ///     - The statement
+    ///
+    /// # Return
+    ///
+    /// A `StatementLocation` referencing the provided statement including the path from the parent
+    /// statement and therefore also from the root.
+    pub fn new_node(index: usize, parent_statement: &'a StatementLocation<'a, 'b, Type>, referenced_statement: &'b Statement<Type>) -> Self {
         Self {
-            position: Some((index, prev)),
+            position: Some((index, parent_statement)),
             referenced_statement,
         }
     }
@@ -308,7 +343,7 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
         self.position.map(|pos| pos.0)
     }
 
-    pub fn prev(&self) -> Option<&'a StatementLocation<'a, 'b, Type>> {
+    pub fn parent_statement(&self) -> Option<&'a StatementLocation<'a, 'b, Type>> {
         self.position.map(|pos| pos.1)
     }
 
@@ -329,7 +364,7 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
         while current.is_some() {
             // Unwrap safety:
             // current can't be none as it was checked by the loop condition
-            current = current.unwrap().prev();
+            current = current.unwrap().parent_statement();
             len += 1;
         }
         len
@@ -351,7 +386,7 @@ impl<'a, 'b, Type: ASTType> Index<usize> for StatementLocation<'a, 'b, Type> {
         while index > 0 {
             // Expect safety:
             // If the index is out of bounds, we want to panic
-            current = current.prev().expect("Index out of bounds");
+            current = current.parent_statement().expect("Index out of bounds");
             index -= 1;
         }
         current
