@@ -21,7 +21,6 @@ pub struct Token {
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
 #[logos(extras = (usize,usize))]
-#[logos(skip r"[\t\f]+")]
 pub enum TokenType {
     // Datatypes
     #[token("s8")]
