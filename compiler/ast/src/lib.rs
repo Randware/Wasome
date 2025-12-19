@@ -297,7 +297,7 @@ mod tests {
         );
 
         assert_eq!(
-            Some(Symbol::Variable(&symbol)),
+            Some(symbol.as_ref()),
             statement.get_direct_symbol()
         );
 

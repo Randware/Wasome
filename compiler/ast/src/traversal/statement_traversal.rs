@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::statement::Statement;
 use crate::symbol::{Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
@@ -100,7 +101,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ///
     /// If `index => self.amount_children()`
     pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Vec<Symbol<'b, Type>> {
-        let statement_to_symbol = Statement::get_direct_symbol;
+        let statement_to_symbol = Statement::get_direct_symbol_reference_struct;
         match &**self.inner {
             Statement::ControlStructure(control) => Self::indexable_into_vec(
                 |index| control.child_statement_at(index),
@@ -165,6 +166,8 @@ struct StatementSymbolTable<'a, 'b, Type: ASTType> {
     prev_index: usize,
     /// The symbols from the root, for example functions
     root_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
+    /// Deduplicates variables for variable shadowing
+    found_variables: HashSet<&'b str>
 }
 
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
@@ -184,6 +187,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
             // next_variable_symbol() go up the statement tree for us
             prev_index: 0,
             root_symbols: Box::new(source.root.symbols()),
+            found_variables: HashSet::new(),
         }
     }
 
@@ -224,8 +228,13 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
         while self.prev_index > 0 {
             self.prev_index -= 1;
             if let Some(symbol) = self.current.index(self.prev_index).get_direct_symbol() {
-                // Symbol found, return it
-                return Some(symbol);
+                // Insert the symbol into the set
+                // Only return it if its new
+                if self.found_variables.insert(symbol.name())
+                {
+                    // Symbol found, return it
+                    return Some(Symbol::Variable(symbol));
+                }
             }
         }
         // Attempts to go up the statement tree to get symbols from the layer above the current one

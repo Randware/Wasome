@@ -65,11 +65,16 @@ impl<Type: ASTType> Statement<Type> {
     ///
     /// - Some(symbol) if symbol is defined here
     /// - None if no symbols are defined here
-    pub fn get_direct_symbol(&self) -> Option<Symbol<'_, Type>> {
+    pub fn get_direct_symbol(&self) -> Option<&VariableSymbol<Type>> {
         match self {
-            Statement::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
+            Statement::VariableDeclaration(inner) => Some(inner.variable()),
             _ => None,
         }
+    }
+
+    /// Same as `get_direct_symbol`, except that the [`Symbol`] struct is used
+    pub fn get_direct_symbol_reference_struct(&self) -> Option<Symbol<Type>> {
+        self.get_direct_symbol().map(Symbol::Variable)
     }
 
     /// Gets the length of the child statements
