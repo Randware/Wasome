@@ -5,14 +5,15 @@ use ast::symbol::{FunctionCall, FunctionSymbol, VariableSymbol};
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 
-/** Analyzes an untyped expression and converts it into a typed `Expression`.
-@params
-to_analyze: The expression to be analyzed (`Expression<UntypedAST>`).
-symbol_mapper: Mutable reference to `SymbolMapper` used for resolving symbols and tracking type information during analysis.
-@return
-Some(`Expression<TypedAST>`) if the expression and all nested sub-expressions can be successfully analyzed and typed.
-None if analysis or conversion fails for the expression or any of its sub-expressions.
-*/
+/// Analyzes an untyped expression and converts it into a typed `Expression`.
+///
+/// # Parameters
+/// * `to_analyze` - The expression to be analyzed (`Expression<UntypedAST>`).
+/// * `symbol_mapper` - Mutable reference to `FunctionSymbolMapper` used for resolving symbols and tracking type information during analysis.
+///
+/// # Returns
+/// * `Some(Expression<TypedAST>)` if the expression and all nested sub-expressions can be successfully analyzed and typed.
+/// * `None` if analysis or conversion fails for the expression or any of its sub-expressions.
 pub(crate) fn analyze_expression(
     to_analyze: &Expression<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -36,12 +37,16 @@ pub(crate) fn analyze_expression(
     })
 }
 
-/** Analyzes an untyped FunctionCall, resolves the function symbol, recursively analyzes all arguments,
-* and delegates the final argument count and type checking to the FunctionCall::new constructor.
-* @param to_analyze: The untyped FunctionCall structure.
-* @param function_symbol_mapper: The mapper for resolving the function symbol and analyzing nested expressions.
-* @return Some(FunctionCall<TypedAST>) on success, None on semantic error (undeclared function, argument mismatch, or argument analysis failure).
- */
+/// Analyzes an untyped `FunctionCall`, resolves the function symbol, recursively analyzes all arguments,
+/// and delegates the final argument count and type checking to the `FunctionCall::new` constructor.
+///
+/// # Parameters
+/// * `to_analyze` - The untyped `FunctionCall` structure.
+/// * `function_symbol_mapper` - The mapper for resolving the function symbol and analyzing nested expressions.
+///
+/// # Returns
+/// * `Some(FunctionCall<TypedAST>)` on success.
+/// * `None` on semantic error (undeclared function, argument mismatch, or argument analysis failure).
 pub(crate) fn analyze_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -64,13 +69,18 @@ pub(crate) fn analyze_function_call(
     FunctionCall::<TypedAST>::new(func_symbol, typed_args)
 }
 
-/** Analyzes the use of a variable within an expression.
-* This function looks up the variable by name in the symbol mapper to ensure it has been declared
-* and retrieves its typed symbol.
-* @param variable_name: The name of the variable (&str) to look up.
-* @param function_symbol_mapper: The mapper for scope and symbol resolution.
-* @return Some(Expression<TypedAST>) if the variable is found, None otherwise (semantic error).
- */
+/// Analyzes the use of a variable within an expression.
+///
+/// This function looks up the variable by name in the symbol mapper to ensure it has been declared
+/// and retrieves its typed symbol.
+///
+/// # Parameters
+/// * `variable_name` - The name of the variable (`&str`) to look up.
+/// * `function_symbol_mapper` - The mapper for scope and symbol resolution.
+///
+/// # Returns
+/// * `Some(Expression<TypedAST>)` if the variable is found.
+/// * `None` otherwise (semantic error).
 fn analyze_variable_use(
     variable_name: &str,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -81,13 +91,14 @@ fn analyze_variable_use(
     Some(Expression::Variable(typed_symbol))
 }
 
-/** Analyzes a literal string and converts it into a `Literal` type
- @params
- to_analyze: The literal string to be analyzed
- @return
-Some(Literal) if the string can be successfully recognized and converted as a literal
-None if the analysis or conversion fails
-*/
+/// Analyzes a literal string and converts it into a `Literal` type.
+///
+/// # Parameters
+/// * `to_analyze` - The literal string to be analyzed.
+///
+/// # Returns
+/// * `Some(Literal)` if the string can be successfully recognized and converted as a literal.
+/// * `None` if the analysis or conversion fails.
 fn analyze_literal(to_analyze: &str) -> Option<Literal> {
     if to_analyze == "true" {
         return Some(Literal::Bool(true));
@@ -116,13 +127,15 @@ fn analyze_literal(to_analyze: &str) -> Option<Literal> {
     None
 }
 
-/** Creates a new instance of UnaryOp
- @params
- to_analyze: The unary operation to be analyzed
- @return
-Some(Box<UnaryOp<TypedAST>>) if the unary operation and its operand can be analyzed and converted to a typed form
-None if analysis or conversion fails
-*/
+/// Creates a new instance of `UnaryOp`.
+///
+/// # Parameters
+/// * `to_analyze` - The unary operation to be analyzed.
+/// * `symbol_mapper` - The mapper for resolving symbols.
+///
+/// # Returns
+/// * `Some(Box<UnaryOp<TypedAST>>)` if the unary operation and its operand can be analyzed and converted to a typed form.
+/// * `None` if analysis or conversion fails.
 fn analyze_unary_op(
     to_analyze: &Box<UnaryOp<UntypedAST>>,
     symbol_mapper: &mut FunctionSymbolMapper,
@@ -151,18 +164,20 @@ fn analyze_unary_op(
     Some(Box::new(analyzed))
 }
 
-/** Creates a new instance of BinaryOP
- @params
- to_analyze: The Binary operation to be analyzed
- @return
-Some(Box<BinaryOp<TypedAST>>) if the Binary operation and its operand can be analyzed and converted to a typed form
-None if analysis or conversion fails
-*/
+/// Creates a new instance of `BinaryOp`.
+///
+/// # Parameters
+/// * `to_analyze` - The Binary operation to be analyzed.
+/// * `symbol_mapper` - The mapper for resolving symbols.
+///
+/// # Returns
+/// * `Some(Box<BinaryOp<TypedAST>>)` if the Binary operation and its operand can be analyzed and converted to a typed form.
+/// * `None` if analysis or conversion fails.
 fn analyze_binary_op(
     to_analyze: &Box<BinaryOp<UntypedAST>>,
     symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<BinaryOp<TypedAST>>> {
-    let (op_type, left_expr, right_expr) = (to_analyze.op_type(),to_analyze.left(),to_analyze.right());
+    let (op_type, left_expr, right_expr) = (to_analyze.op_type(), to_analyze.left(), to_analyze.right());
 
     let converted_left = analyze_expression(left_expr, symbol_mapper)?;
     let converted_right = analyze_expression(right_expr, symbol_mapper)?;
@@ -189,21 +204,20 @@ pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {
         CodeLocation::new(0, 10),
         CodeFile::new(PathBuf::from("test/test")),
     )
-    .unwrap()
+        .unwrap()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::file_symbol_mapper::FileSymbolMapper;
-    use ast::UntypedAST;
     use ast::data_type::{DataType, Typed};
     use ast::expression::Expression;
     use ast::expression::Literal;
+    use ast::UntypedAST;
 
-    /** Tests the `analyze_literal` helper function to ensure it correctly identifies and parses
-     * various literal types (boolean, char, floating-point, and integer) from string input, and returns None for invalid input.
-     */
+    /// Tests the `analyze_literal` helper function to ensure it correctly identifies and parses
+    /// various literal types (boolean, char, floating-point, and integer) from string input, and returns None for invalid input.
     #[test]
     fn analyze_literal_recognizes_values() {
         assert_eq!(analyze_literal("true"), Some(Literal::Bool(true)));
@@ -214,9 +228,8 @@ mod tests {
         assert_eq!(analyze_literal("nope"), None);
     }
 
-    /** Tests the main `analyze_expression` function's ability to handle literal expressions,
-     * confirming that untyped string literals are correctly parsed and converted into their corresponding typed AST literals (S32 and F64).
-     */
+    /// Tests the main `analyze_expression` function's ability to handle literal expressions,
+    /// confirming that untyped string literals are correctly parsed and converted into their corresponding typed AST literals (S32 and F64).
     #[test]
     fn analyze_expression_literal_converts_to_typed_literal() {
         let input: Expression<UntypedAST> = Expression::Literal(String::from("42"));
@@ -234,9 +247,8 @@ mod tests {
         assert_eq!(Expression::Literal(Literal::F64(12.2)), output2);
     }
 
-    /** Tests the semantic analysis of a Unary Operation (e.g., `-42`), ensuring that the inner expression
-     * is analyzed and typed correctly (S32) before the outer unary operation (Negative) is successfully created.
-     */
+    /// Tests the semantic analysis of a Unary Operation (e.g., `-42`), ensuring that the inner expression
+    /// is analyzed and typed correctly (S32) before the outer unary operation (Negative) is successfully created.
     #[test]
     fn analyze_unary_negative_converts_op() {
         use ast::expression::{Expression, Literal, UnaryOp, UnaryOpType};
@@ -258,9 +270,8 @@ mod tests {
         assert_eq!(&Expression::Literal(Literal::S32(42)), &**expr);
     }
 
-    /** Tests the semantic analysis of a Binary Operation (e.g., `17 + 5`), ensuring that both
-     * literal operands are analyzed and typed correctly (S32) before the binary addition operation is successfully created.
-     */
+    /// Tests the semantic analysis of a Binary Operation (e.g., `17 + 5`), ensuring that both
+    /// literal operands are analyzed and typed correctly (S32) before the binary addition operation is successfully created.
     #[test]
     fn analyze_binary_add_converts_op() {
         use ast::expression::{BinaryOp, BinaryOpType, Expression, Literal};
@@ -274,7 +285,7 @@ mod tests {
         let result =
             analyze_binary_op(&Box::new(untyped), &mut mapper).expect("should analyze binary op");
 
-        let (op_type, l_expr, r_expr) = (result.op_type(),result.left(),result.right());
+        let (op_type, l_expr, r_expr) = (result.op_type(), result.left(), result.right());
         assert_eq!(BinaryOpType::Addition, op_type);
 
         assert_eq!(&Expression::Literal(Literal::S32(17)), &**l_expr);
@@ -282,10 +293,9 @@ mod tests {
         assert_eq!(&Expression::Literal(Literal::S32(5)), &**r_expr);
     }
 
-    /** Tests the successful semantic analysis of an Expression::Variable (variable usage).
-     * It ensures that a pre-declared S32 variable ('x') is correctly resolved via the symbol mapper
-     * and that the resulting typed expression contains the correct symbol and DataType (S32).
-     */
+    /// Tests the successful semantic analysis of an `Expression::Variable` (variable usage).
+    /// It ensures that a pre-declared S32 variable ('x') is correctly resolved via the symbol mapper
+    /// and that the resulting typed expression contains the correct symbol and `DataType` (S32).
     #[test]
     fn analyze_expression_variable_use_ok() {
         let mut file_mapper = FileSymbolMapper::new();
@@ -320,10 +330,9 @@ mod tests {
         }
     }
 
-    /** Tests the successful semantic analysis of a FunctionCall.
-        * It ensures that a pre-declared function (e.g., 'add(S32, S32) -> S32') is resolved correctly,
-        * the arguments (S32 literals) are recursively analyzed and typed, and the argument types match the expected parameters.
-     */
+    /// Tests the successful semantic analysis of a `FunctionCall`.
+    /// It ensures that a pre-declared function (e.g., 'add(S32, S32) -> S32') is resolved correctly,
+    /// the arguments (S32 literals) are recursively analyzed and typed, and the argument types match the expected parameters.
     #[test]
     fn analyze_function_call_ok() {
         let mut file_mapper = FileSymbolMapper::new();
@@ -336,23 +345,19 @@ mod tests {
         let param_b = Rc::new(VariableSymbol::new("b".to_string(), param_type));
         let func_params = vec![param_a, param_b];
 
-        let func_symbol = Rc::new(
-            FunctionSymbol::<TypedAST>::new(func_name.clone(), Some(return_type), func_params),
-        );
+        let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            func_name.clone(),
+            Some(return_type),
+            func_params,
+        ));
 
         mapper
             .get_file_mapper()
             .add_function_to_file(func_symbol.clone())
             .expect("Failed to add mock function.");
 
-        let arg1 = ASTNode::new(
-            Expression::Literal("1".to_string()),
-            sample_codearea(),
-        );
-        let arg2 = ASTNode::new(
-            Expression::Literal("2".to_string()),
-            sample_codearea(),
-        );
+        let arg1 = ASTNode::new(Expression::Literal("1".to_string()), sample_codearea());
+        let arg2 = ASTNode::new(Expression::Literal("2".to_string()), sample_codearea());
         let untyped_call = FunctionCall::<UntypedAST>::new(func_name, vec![arg1, arg2]);
 
         let analyzed_call = analyze_function_call(&untyped_call, &mut mapper);
@@ -364,15 +369,18 @@ mod tests {
 
         let typed_call = analyzed_call.unwrap();
 
-        assert_eq!(*typed_call.function(), func_symbol, "Resolved function symbol must match.");
+        assert_eq!(
+            *typed_call.function(),
+            func_symbol,
+            "Resolved function symbol must match."
+        );
         assert_eq!(typed_call.args().len(), 2, "Expected 2 arguments.");
         assert_eq!(typed_call.args()[0].data_type(), DataType::S32);
         assert_eq!(typed_call.args()[1].data_type(), DataType::S32);
     }
 
-    /** Tests the failure case where argument types do not match the expected parameter types.
-        * The call is 'add(true, 2)' where 'add' expects (S32, S32). This test ensures the semantic check fails.
-     */
+    /// Tests the failure case where argument types do not match the expected parameter types.
+    /// The call is 'add(true, 2)' where 'add' expects (S32, S32). This test ensures the semantic check fails.
     #[test]
     fn analyze_function_call_arg_type_mismatch() {
         let mut file_mapper = FileSymbolMapper::new();
@@ -383,27 +391,20 @@ mod tests {
         let param_a = Rc::new(VariableSymbol::new("a".to_string(), param_type));
         let param_b = Rc::new(VariableSymbol::new("b".to_string(), param_type));
         let func_params = vec![param_a, param_b];
-        let func_symbol = Rc::new(
-            FunctionSymbol::<TypedAST>::new(func_name.clone(), Some(DataType::S32), func_params),
-        );
+        let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            func_name.clone(),
+            Some(DataType::S32),
+            func_params,
+        ));
 
         mapper
             .get_file_mapper()
             .add_function_to_file(func_symbol)
             .expect("Failed to add mock function.");
 
-        let arg1_fail = ASTNode::new(
-            Expression::Literal("true".to_string()),
-            sample_codearea(),
-        );
-        let arg2_ok = ASTNode::new(
-            Expression::Literal("2".to_string()),
-            sample_codearea(),
-        );
-        let untyped_call = FunctionCall::<UntypedAST>::new(
-            func_name,
-            vec![arg1_fail, arg2_ok],
-        );
+        let arg1_fail = ASTNode::new(Expression::Literal("true".to_string()), sample_codearea());
+        let arg2_ok = ASTNode::new(Expression::Literal("2".to_string()), sample_codearea());
+        let untyped_call = FunctionCall::<UntypedAST>::new(func_name, vec![arg1_fail, arg2_ok]);
 
         let analyzed_call = analyze_function_call(&untyped_call, &mut mapper);
 

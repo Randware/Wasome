@@ -1,5 +1,6 @@
 use crate::expression_sa::{analyze_expression, analyze_function_call};
 use crate::function_symbol_mapper::FunctionSymbolMapper;
+use crate::mics_sa::analyze_data_type;
 use ast::block::CodeBlock;
 use ast::data_type::{DataType, Typed};
 use ast::statement::{
@@ -11,12 +12,15 @@ use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 
-/** Analyzes a statement referenced by a traversal helper and converts it into a typed statement node
-@params  to_analyze: StatementTraversalHelper<UntypedAST> - traversal helper pointing to the statement to analyze
-         function_symbol_mapper: &mut FunctionSymbolMapper - provides current function return type and scope context for validation
-@return Some(Statement<TypedAST>) if the statement (and any nested expressions/statements) could be successfully analyzed
-        None if analysis fails (type errors, invalid constructs, or other semantic errors)
-*/
+/// Analyzes a statement referenced by a traversal helper and converts it into a typed statement node.
+///
+/// # Parameters
+/// * `to_analyze` - Traversal helper pointing to the statement to analyze (`StatementTraversalHelper<UntypedAST>`).
+/// * `function_symbol_mapper` - Provides current function return type and scope context for validation (`&mut FunctionSymbolMapper`).
+///
+/// # Returns
+/// * `Some(Statement<TypedAST>)` if the statement (and any nested expressions/statements) could be successfully analyzed.
+/// * `None` if analysis fails (type errors, invalid constructs, or other semantic errors).
 pub(crate) fn analyze_statement(
     to_analyze: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -50,28 +54,32 @@ pub(crate) fn analyze_statement(
             let analyzed_cb = analyze_codeblock(to_analyze, function_symbol_mapper)?;
             Some(Statement::Codeblock(analyzed_cb))
         }
-        Statement::VoidFunctionCall(inner) => analyze_void_function_call(inner,function_symbol_mapper),
+        Statement::VoidFunctionCall(inner) => {
+            analyze_void_function_call(inner, function_symbol_mapper)
+        }
         Statement::Break => todo!(),
     }
 }
 
-/** Analyzes an untyped VariableAssignment statement and converts it into a typed statement.
-  This function resolves the target variable, analyzes the assigned expression value,
- * and performs type checking to ensure the expression's return type matches the variable's declared type.
-* @params to_analyze: The untyped VariableAssignment statement reference.
-* @params function_symbol_mapper: The mapper used for resolving the variable symbol, managing scope, and analyzing the value expression.
-* @return Some(VariableAssignment<TypedAST>) on success, or None if the target variable is undeclared or a type mismatch occurs.
- */
+/// Analyzes an untyped `VariableAssignment` statement and converts it into a typed statement.
+///
+/// This function resolves the target variable, analyzes the assigned expression value,
+/// and performs type checking to ensure the expression's return type matches the variable's declared type.
+///
+/// # Parameters
+/// * `to_analyze` - The untyped `VariableAssignment` statement reference.
+/// * `function_symbol_mapper` - The mapper used for resolving the variable symbol, managing scope, and analyzing the value expression.
+///
+/// # Returns
+/// * `Some(VariableAssignment<TypedAST>)` on success.
+/// * `None` if the target variable is undeclared or a type mismatch occurs.
 fn analyze_variable_assignment<'a>(
     to_analyze: &VariableAssignment<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper<'a>,
 ) -> Option<VariableAssignment<TypedAST>> {
     let var_name = to_analyze.variable();
 
-    let typed_variable_symbol = match function_symbol_mapper.lookup_variable(var_name) {
-        Some(symbol) => symbol,
-        None => return None,
-    };
+    let typed_variable_symbol = function_symbol_mapper.lookup_variable(var_name)?;
 
     let untyped_value_node_ref = to_analyze.value();
 
@@ -84,11 +92,15 @@ fn analyze_variable_assignment<'a>(
     VariableAssignment::<TypedAST>::new(typed_variable_symbol, typed_value_node)
 }
 
-/** Analyzes a VariableDeclaration and converts it into a typed statement node.
-* @params to_analyze: The untyped VariableDeclaration statement.
-* @params function_symbol_mapper: The mapper for scope and type registration.
-* @return Some(Statement<TypedAST>) on success, None on semantic error.
- */
+/// Analyzes a `VariableDeclaration` and converts it into a typed statement node.
+///
+/// # Parameters
+/// * `to_analyze` - The untyped `VariableDeclaration` statement.
+/// * `function_symbol_mapper` - The mapper for scope and type registration.
+///
+/// # Returns
+/// * `Some(VariableDeclaration<TypedAST>)` on success.
+/// * `None` on semantic error.
 fn analyze_variable_declaration<'a>(
     to_analyze: &VariableDeclaration<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper<'a>,
@@ -103,12 +115,7 @@ fn analyze_variable_declaration<'a>(
     let typed_initializer_node = ASTNode::new(typed_initializer_expr, position);
 
     let declared_type_name = to_analyze.variable().data_type();
-    let resolved_declared_type = match resolve_type_name(declared_type_name) {
-        Some(dt) => dt,
-        None => {
-            return None;
-        }
-    };
+    let resolved_declared_type = analyze_data_type(declared_type_name)?;
 
     let var_name = to_analyze.variable().name().to_string();
     let typed_variable_symbol = Rc::new(VariableSymbol::new(
@@ -116,9 +123,9 @@ fn analyze_variable_declaration<'a>(
         resolved_declared_type.clone(),
     ));
 
-    if let Err(_e) = function_symbol_mapper.add_variable(typed_variable_symbol.clone()) {
-        return None;
-    }
+    function_symbol_mapper
+        .add_variable(typed_variable_symbol.clone())
+        .ok()?;
 
     let typed_declaration =
         VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_initializer_node)?;
@@ -126,33 +133,15 @@ fn analyze_variable_declaration<'a>(
     Some(typed_declaration)
 }
 
-/**
-    A helperfunction that resolves the type names into to the right types
-*/
-fn resolve_type_name(type_name: &str) -> Option<DataType> {
-    match type_name {
-        "char" => Some(DataType::Char),
-        "u8" => Some(DataType::U8),
-        "s8" => Some(DataType::S8),
-        "u16" => Some(DataType::U16),
-        "s16" => Some(DataType::S16),
-        "u32" => Some(DataType::U32),
-        "s32" => Some(DataType::S32),
-        "u64" => Some(DataType::U64),
-        "s64" => Some(DataType::S64),
-        "bool" => Some(DataType::Bool),
-        "f32" => Some(DataType::F32),
-        "f64" => Some(DataType::F64),
-        _ => None,
-    }
-}
-
-/** Analyzes a Return statement and converts it into a typed Return node
-@params  to_analyze: &Return<UntypedAST> - the untyped Return statement to analyze
-          function_symbol_mapper: &mut FunctionSymbolMapper - provides the current function return type and scope context for validation
- @return Some(Return<TypedAST>) if the Return (and its inner expression, if present) can be analyzed and types match
-         None if analysis fails, a type mismatch occurs, or an invalid return is found (e.g. value returned from void function or missing value for non-void function)
-*/
+/// Analyzes a `Return` statement and converts it into a typed `Return` node.
+///
+/// # Parameters
+/// * `to_analyze` - The untyped `Return` statement to analyze (`&Return<UntypedAST>`).
+/// * `function_symbol_mapper` - Provides the current function return type and scope context for validation (`&mut FunctionSymbolMapper`).
+///
+/// # Returns
+/// * `Some(Return<TypedAST>)` if the `Return` (and its inner expression, if present) can be analyzed and types match.
+/// * `None` if analysis fails, a type mismatch occurs, or an invalid return is found (e.g., value returned from void function or missing value for non-void function).
 fn analyze_return(
     to_analyze: &Return<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -182,12 +171,15 @@ fn analyze_return(
     }
 }
 
-/** Analyzes a control-structure statement referenced by a traversal helper and returns a typed control structure
-@params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper pointing to the control-structure statement
-         function_symbol_mapper: &mut FunctionSymbolMapper - provides scope context and supports nested statement analysis
-@return Some(ControlStructure<TypedAST>) if the contained control structure (conditional or loop) was successfully analyzed
-        None if the helper does not point to a control structure or if nested analysis fails
-*/
+/// Analyzes a control-structure statement referenced by a traversal helper and returns a typed control structure.
+///
+/// # Parameters
+/// * `to_analyze_helper` - Traversal helper pointing to the control-structure statement (`StatementTraversalHelper<UntypedAST>`).
+/// * `function_symbol_mapper` - Provides scope context and supports nested statement analysis (`&mut FunctionSymbolMapper`).
+///
+/// # Returns
+/// * `Some(ControlStructure<TypedAST>)` if the contained control structure (conditional or loop) was successfully analyzed.
+/// * `None` if the helper does not point to a control structure or if nested analysis fails.
 fn analyze_control_structure(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -208,12 +200,15 @@ fn analyze_control_structure(
     }
 }
 
-/** Analyzes a Conditional control structure (if/then/else) and converts it into a typed Conditional node
-  @params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the Conditional statement
-        function_symbol_mapper: &mut FunctionSymbolMapper - used to validate the condition type and manage scopes for then/else branches
-  @return Some(Conditional<TypedAST>) if the condition and both branches (when present) are semantically valid and typed
-        None if the helper is not a Conditional, the condition is not boolean, or nested branch analysis fails
-*/
+/// Analyzes a `Conditional` control structure (if/then/else) and converts it into a typed `Conditional` node.
+///
+/// # Parameters
+/// * `to_analyze_helper` - Traversal helper positioned at the `Conditional` statement (`StatementTraversalHelper<UntypedAST>`).
+/// * `function_symbol_mapper` - Used to validate the condition type and manage scopes for then/else branches (`&mut FunctionSymbolMapper`).
+///
+/// # Returns
+/// * `Some(Conditional<TypedAST>)` if the condition and both branches (when present) are semantically valid and typed.
+/// * `None` if the helper is not a `Conditional`, the condition is not boolean, or nested branch analysis fails.
 fn analyze_conditional(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -230,7 +225,8 @@ fn analyze_conditional(
 
     let untyped_condition = untyped_conditional_ref.condition();
     let typed_condition_expr = analyze_expression(untyped_condition, function_symbol_mapper)?;
-    let typed_condition = ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
+    let typed_condition =
+        ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
 
     if typed_condition.data_type() != DataType::Bool {
         return None;
@@ -262,12 +258,15 @@ fn analyze_conditional(
     ))
 }
 
-/** Analyzes a Loop control structure and converts it into a typed Loop node
-*  @params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the Loop statement
-           function_symbol_mapper: &mut FunctionSymbolMapper - used to validate loop components and manage a new scope for loop body and headers
-*  @return Some(Loop<TypedAST>) if the loop header (while/for) and body are semantically valid and typed
-          None if the helper is not a Loop, a condition is not boolean, or nested analysis fails
- */
+/// Analyzes a `Loop` control structure and converts it into a typed `Loop` node.
+///
+/// # Parameters
+/// * `to_analyze_helper` - Traversal helper positioned at the `Loop` statement (`StatementTraversalHelper<UntypedAST>`).
+/// * `function_symbol_mapper` - Used to validate loop components and manage a new scope for loop body and headers (`&mut FunctionSymbolMapper`).
+///
+/// # Returns
+/// * `Some(Loop<TypedAST>)` if the loop header (while/for) and body are semantically valid and typed.
+/// * `None` if the helper is not a `Loop`, a condition is not boolean, or nested analysis fails.
 fn analyze_loop(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -339,12 +338,15 @@ fn analyze_loop(
     Some(Loop::new(typed_to_loop_on, typed_loop_type))
 }
 
-/** Analyzes a code block referenced by a traversal helper and converts it into a typed CodeBlock node
-* @params  to_analyze_helper: StatementTraversalHelper<UntypedAST> - traversal helper positioned at the code block to analyze
-         function_symbol_mapper: &mut FunctionSymbolMapper - provides scope management and context for nested statement analysis
-* @return Some(CodeBlock<TypedAST>) containing typed statements if all child statements were successfully analyzed
-        None if any child statement fails semantic analysis or a nested error occurs
-*/
+/// Analyzes a code block referenced by a traversal helper and converts it into a typed `CodeBlock` node.
+///
+/// # Parameters
+/// * `to_analyze_helper` - Traversal helper positioned at the code block to analyze (`StatementTraversalHelper<UntypedAST>`).
+/// * `function_symbol_mapper` - Provides scope management and context for nested statement analysis (`&mut FunctionSymbolMapper`).
+///
+/// # Returns
+/// * `Some(CodeBlock<TypedAST>)` containing typed statements if all child statements were successfully analyzed.
+/// * `None` if any child statement fails semantic analysis or a nested error occurs.
 fn analyze_codeblock(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -376,14 +378,19 @@ fn analyze_codeblock(
 
     Some(CodeBlock::new(typed_statements))
 }
-/** Analyzes an untyped function call intended to be used as a standalone statement (for side effects).
-* This function resolves the function symbol, recursively analyzes the arguments, and critically validates
-* that the called function explicitly returns **no value (void)**.
-* @params to_analyze: &FunctionCall<UntypedAST> - The untyped function call structure.
-* @params function_symbol_mapper: &mut FunctionSymbolMapper - Provides symbol resolution for the function and context for argument analysis.
-* @return Some(Statement<TypedAST>) wrapping a VoidFunctionCall if the function is found, arguments are valid, and the return type is None (void).
-* None if the function is undeclared, arguments fail semantic analysis, or the function has a return type (Non-Void).
- */
+
+/// Analyzes an untyped function call intended to be used as a standalone statement (for side effects).
+///
+/// This function resolves the function symbol, recursively analyzes the arguments, and critically validates
+/// that the called function explicitly returns **no value (void)**.
+///
+/// # Parameters
+/// * `to_analyze` - The untyped function call structure (`&FunctionCall<UntypedAST>`).
+/// * `function_symbol_mapper` - Provides symbol resolution for the function and context for argument analysis (`&mut FunctionSymbolMapper`).
+///
+/// # Returns
+/// * `Some(Statement<TypedAST>)` wrapping a VoidFunctionCall if the function is found, arguments are valid, and the return type is None (void).
+/// * `None` if the function is undeclared, arguments fail semantic analysis, or the function has a return type (Non-Void).
 fn analyze_void_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,

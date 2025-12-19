@@ -8,14 +8,18 @@ use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 
-/** Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
-* This process ensures semantic correctness for the element's implementation body.
-* @params to_analyze: TopLevelElement<UntypedAST> - The untyped element to be analyzed.
-* @params file_mapper: &mut FileSymbolMapper - Provides global context for symbol lookup (e.g., function declarations).
-* @params root_helper: &FunctionTraversalHelper<UntypedAST> - The traversal context for the function's implementation.
-* @return Some(TopLevelElement<TypedAST>) if the element (including its body) could be successfully analyzed.
-* None if analysis fails (type errors, invalid constructs, or other semantic errors).
- */
+/// Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
+///
+/// This process ensures semantic correctness for the element's implementation body.
+///
+/// # Parameters
+/// * `to_analyze` - The untyped element to be analyzed (`TopLevelElement<UntypedAST>`).
+/// * `file_mapper` - Provides global context for symbol lookup (e.g., function declarations) (`&mut FileSymbolMapper`).
+/// * `root_helper` - The traversal context for the function's implementation (`&FunctionTraversalHelper<UntypedAST>`).
+///
+/// # Returns
+/// * `Some(TopLevelElement<TypedAST>)` if the element (including its body) could be successfully analyzed.
+/// * `None` if analysis fails (type errors, invalid constructs, or other semantic errors).
 pub(crate) fn analyze_top_level(
     to_analyze: TopLevelElement<UntypedAST>,
     file_mapper: &mut FileSymbolMapper,
@@ -29,16 +33,19 @@ pub(crate) fn analyze_top_level(
     }
 }
 
-/** Analyzes the implementation (body) of an untyped function.
-* Initializes the function's local scope, registers parameters, and validates all contained statements and expressions.
-* Requires the function's signature to be present in the file symbol table prior to execution.
-
-* @param untyped_function: &Function<UntypedAST> - Function element with the body to analyze.
-* @param root_helper: &FunctionTraversalHelper<UntypedAST> - Traversal context for the function's body.
-* @param file_mapper: &mut FileSymbolMapper - Global symbol table for declaration lookup and context.
-* @return Some(Function<TypedAST>) if the body is semantically correct.
-* None if analysis fails (e.g., type or scope errors).
-*/
+/// Analyzes the implementation (body) of an untyped function.
+///
+/// Initializes the function's local scope, registers parameters, and validates all contained statements and expressions.
+/// Requires the function's signature to be present in the file symbol table prior to execution.
+///
+/// # Parameters
+/// * `untyped_function` - Function element with the body to analyze (`&Function<UntypedAST>`).
+/// * `root_helper` - Traversal context for the function's body (`&FunctionTraversalHelper<UntypedAST>`).
+/// * `file_mapper` - Global symbol table for declaration lookup and context (`&mut FileSymbolMapper`).
+///
+/// # Returns
+/// * `Some(Function<TypedAST>)` if the body is semantically correct.
+/// * `None` if analysis fails (e.g., type or scope errors).
 fn analyze_function(
     untyped_function: &Function<UntypedAST>,
     root_helper: &FunctionTraversalHelper<UntypedAST>,
@@ -68,3 +75,5 @@ fn analyze_function(
         implementation_node,
     ))
 }
+
+//todo Testing

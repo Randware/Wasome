@@ -1,5 +1,5 @@
-use ast::TypedAST;
 use ast::symbol::FunctionSymbol;
+use ast::TypedAST;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -8,20 +8,24 @@ pub struct FileSymbolMapper {
 }
 
 impl FileSymbolMapper {
-    /** Creates a new FileSymbolMapper instance.
-         @return A new FileSymbolMapper with an empty function table.
-    */
+    /// Creates a new `FileSymbolMapper` instance.
+    ///
+    /// # Returns
+    /// * A new `FileSymbolMapper` with an empty function table.
     pub fn new() -> Self {
         Self {
             file_functions: HashMap::new(),
         }
     }
 
-    /** Adds a function symbol to the file-level symbol table.
-         @param self: &mut FileSymbolMapper - The mapper to modify.
-         @param symbol: Rc<FunctionSymbol<TypedAST>> - The function symbol to add.
-         @return Ok(()) if the function was inserted; Err(String) if a function with the same name already exists.
-    */
+    /// Adds a function symbol to the file-level symbol table.
+    ///
+    /// # Parameters
+    /// * `symbol` - The function symbol to add (`Rc<FunctionSymbol<TypedAST>>`).
+    ///
+    /// # Returns
+    /// * `Ok(())` if the function was inserted.
+    /// * `Err(String)` if a function with the same name already exists.
     pub fn add_function_to_file(
         &mut self,
         symbol: Rc<FunctionSymbol<TypedAST>>,
@@ -37,12 +41,16 @@ impl FileSymbolMapper {
         Ok(())
     }
 
-    /** Looks up a function symbol by name in the file-level table.
-         This method is used by the FunctionSymbolMapper to resolve global function calls.
-         @param self: &FileSymbolMapper - The mapper performing the lookup.
-         @param name: &str - The identifier of the function to search for.
-         @return Some(Rc<FunctionSymbol<TypedAST>>) if a function with `name` is found; None otherwise.
-    */
+    /// Looks up a function symbol by name in the file-level table.
+    ///
+    /// This method is used by the `FunctionSymbolMapper` to resolve global function calls.
+    ///
+    /// # Parameters
+    /// * `name` - The identifier of the function to search for (`&str`).
+    ///
+    /// # Returns
+    /// * `Some(Rc<FunctionSymbol<TypedAST>>)` if a function with `name` is found.
+    /// * `None` otherwise.
     pub fn lookup_function(&self, name: &str) -> Option<Rc<FunctionSymbol<TypedAST>>> {
         self.file_functions.get(name).cloned()
     }
@@ -55,13 +63,17 @@ mod tests {
     use ast::symbol::{FunctionSymbol, VariableSymbol};
     use std::rc::Rc;
 
-    fn create_test_function_symbol(name: &str, return_type: Option<DataType>) -> Rc<FunctionSymbol<TypedAST>> {
+    fn create_test_function_symbol(
+        name: &str,
+        return_type: Option<DataType>,
+    ) -> Rc<FunctionSymbol<TypedAST>> {
         Rc::new(FunctionSymbol::new(
             name.to_string(),
             return_type,
-            vec![
-                Rc::new(VariableSymbol::new("p1".to_string(), DataType::S32))
-            ]
+            vec![Rc::new(VariableSymbol::new(
+                "p1".to_string(),
+                DataType::S32,
+            ))],
         ))
     }
 
@@ -85,11 +97,22 @@ mod tests {
         assert!(result.is_ok(), "Adding the function should succeed.");
 
         let found_symbol = mapper.lookup_function(func_name);
-        assert!(found_symbol.is_some(), "Lookup should find the added function.");
+        assert!(
+            found_symbol.is_some(),
+            "Lookup should find the added function."
+        );
 
         let found_symbol = found_symbol.unwrap();
-        assert_eq!(found_symbol.name(), func_name, "Found function name must match.");
-        assert_eq!(found_symbol.return_type(), Some(&DataType::S32), "Found function type must match.");
+        assert_eq!(
+            found_symbol.name(),
+            func_name,
+            "Found function name must match."
+        );
+        assert_eq!(
+            found_symbol.return_type(),
+            Some(&DataType::S32),
+            "Found function type must match."
+        );
     }
 
     #[test]
@@ -98,7 +121,7 @@ mod tests {
         let func_name = "duplicate_func";
 
         let symbol1 = create_test_function_symbol(func_name, Some(DataType::S32));
-        let symbol2 = create_test_function_symbol(func_name, Some(DataType::F64)); 
+        let symbol2 = create_test_function_symbol(func_name, Some(DataType::F64));
 
         assert!(
             mapper.add_function_to_file(symbol1).is_ok(),
@@ -128,4 +151,3 @@ mod tests {
         );
     }
 }
-

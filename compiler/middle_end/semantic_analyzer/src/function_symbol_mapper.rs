@@ -1,7 +1,7 @@
 use crate::file_symbol_mapper::FileSymbolMapper;
-use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
+use ast::TypedAST;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -16,11 +16,15 @@ pub struct FunctionSymbolMapper<'a> {
 }
 
 impl<'a> FunctionSymbolMapper<'a> {
-    /** Creates a new instance of FunctionSymbolMapper.
-     * Initializes with a reference to the global file scope and establishes the base scope.
-     * @param file_mapper: &'a mut FileSymbolMapper - The global symbol table for the file.
-     * @return A new FunctionSymbolMapper with initialized fields and an active base scope.
-     */
+    /// Creates a new instance of `FunctionSymbolMapper`.
+    ///
+    /// Initializes with a reference to the global file scope and establishes the base scope.
+    ///
+    /// # Parameters
+    /// * `file_mapper` - The global symbol table for the file (`&'a mut FileSymbolMapper`).
+    ///
+    /// # Returns
+    /// * A new `FunctionSymbolMapper` with initialized fields and an active base scope.
     pub fn new(file_mapper: &'a mut FileSymbolMapper) -> Self {
         let mut mapper = Self {
             scope_stack: Vec::new(),
@@ -31,51 +35,65 @@ impl<'a> FunctionSymbolMapper<'a> {
         mapper
     }
 
-    /** Enters a new scope on the scope stack.
-     * @param self: The mapper whose scope stack will receive a new, empty scope.
-     * @return () - Pushes a new Scope (with no variables) onto the internal scope_stack.
-     */
+    /// Enters a new scope on the scope stack.
+    ///
+    /// # Returns
+    /// * `()` - Pushes a new `Scope` (with no variables) onto the internal `scope_stack`.
     pub fn enter_scope(&mut self) {
         self.scope_stack.push(Scope {
             variables: HashMap::new(),
         });
     }
 
-    /** Exits the current scope.
-        * Removes the topmost scope from the stack.
-        *
-        * @return Ok(()) if a scope was successfully popped.
-        * Err(String) if the stack is empty or if attempting to pop the base scope (stack size 1).
-     */
+    /// Exits the current scope.
+    ///
+    /// Removes the topmost scope from the stack.
+    ///
+    /// # Returns
+    /// * `Ok(())` if a scope was successfully popped.
+    /// * `Err(String)` if the stack is empty or if attempting to pop the base scope (stack size 1).
     pub fn exit_scope(&mut self) -> Result<(), String> {
         if self.scope_stack.is_empty() {
-            return Err(String::from("Internal Compiler Error: Attempted to exit scope on an empty stack."));
+            return Err(String::from(
+                "Internal Compiler Error: Attempted to exit scope on an empty stack.",
+            ));
         }
 
         if self.scope_stack.len() == 1 {
-            return Err(String::from("Internal Compiler Error: Attempted to pop the function's base scope."));
+            return Err(String::from(
+                "Internal Compiler Error: Attempted to pop the function's base scope.",
+            ));
         }
 
         self.scope_stack.pop();
         Ok(())
     }
 
-    /** Looks up a function symbol by name.
-     * Delegates the lookup to the associated FileSymbolMapper (global scope).
-     * @param name: &str - The identifier of the function to search for.
-     * @return Some(Rc<FunctionSymbol<TypedAST>>) if found; None otherwise.
-     */
+    /// Looks up a function symbol by name.
+    ///
+    /// Delegates the lookup to the associated `FileSymbolMapper` (global scope).
+    ///
+    /// # Parameters
+    /// * `name` - The identifier of the function to search for (`&str`).
+    ///
+    /// # Returns
+    /// * `Some(Rc<FunctionSymbol<TypedAST>>)` if found.
+    /// * `None` otherwise.
     pub fn lookup_function(&self, name: &str) -> Option<Rc<FunctionSymbol<TypedAST>>> {
         self.file_mapper.lookup_function(name)
     }
 
-    /** Adds a variable symbol to the current scope.
-     * @param self: The SymbolMapper to modify.
-     * @param symbol: Rc<VariableSymbol<TypedAST>> - The variable symbol to insert.
-     * @return Ok(()) if inserted; Err(String) if a variable with the same name already exists in the current scope.
-     */
+    /// Adds a variable symbol to the current scope.
+    ///
+    /// # Parameters
+    /// * `symbol` - The variable symbol to insert (`Rc<VariableSymbol<TypedAST>>`).
+    ///
+    /// # Returns
+    /// * `Ok(())` if inserted.
+    /// * `Err(String)` if a variable with the same name already exists in the current scope.
     pub fn add_variable(&mut self, symbol: Rc<VariableSymbol<TypedAST>>) -> Result<(), String> {
-        let current_scope = self.scope_stack
+        let current_scope = self
+            .scope_stack
             .last_mut()
             .expect("Internal Compiler Error: Scope stack is empty in add_variable.");
 
@@ -92,12 +110,16 @@ impl<'a> FunctionSymbolMapper<'a> {
         Ok(())
     }
 
-    /** Looks up a variable symbol by name in the scope stack.
-     * Searches from the innermost scope outwards.
-     * @param self: The SymbolMapper performing the lookup.
-     * @param name: &str - The identifier of the variable to search for.
-     * @return Some(Rc<VariableSymbol<TypedAST>>) if a variable with `name` is found; None otherwise.
-     */
+    /// Looks up a variable symbol by name in the scope stack.
+    ///
+    /// Searches from the innermost scope outwards.
+    ///
+    /// # Parameters
+    /// * `name` - The identifier of the variable to search for (`&str`).
+    ///
+    /// # Returns
+    /// * `Some(Rc<VariableSymbol<TypedAST>>)` if a variable with `name` is found.
+    /// * `None` otherwise.
     pub fn lookup_variable(&self, name: &str) -> Option<Rc<VariableSymbol<TypedAST>>> {
         for scope in self.scope_stack.iter().rev() {
             if let Some(symbol) = scope.variables.get(name) {
@@ -107,19 +129,18 @@ impl<'a> FunctionSymbolMapper<'a> {
         None
     }
 
-    /** Sets the current function return type for subsequent analysis.
-     * @param self: The SymbolMapper to modify.
-     * @param return_type: Option<DataType> - The return type to record for the currently analyzed function (None for void).
-     * @return () - Updates the internal current_function_return_type.
-     */
+    /// Sets the current function return type for subsequent analysis.
+    ///
+    /// # Parameters
+    /// * `return_type` - The return type to record for the currently analyzed function (`None` for void).
     pub fn set_current_function_return_type(&mut self, return_type: Option<DataType>) {
         self.current_function_return_type = return_type;
     }
 
-    /** Gets the currently recorded function return type.
-     * @param self: The SymbolMapper used to query the return type.
-     * @return Option<DataType> - The recorded return type for the current function, or None if not set.
-     */
+    /// Gets the currently recorded function return type.
+    ///
+    /// # Returns
+    /// * `Option<DataType>` - The recorded return type for the current function, or `None` if not set.
     pub fn get_current_function_return_type(&self) -> Option<DataType> {
         self.current_function_return_type
     }
@@ -175,7 +196,7 @@ mod tests {
             mapper.lookup_variable("nope").is_none(),
             "Lookup should still be None in new inner scope."
         );
-        mapper.exit_scope();
+        mapper.exit_scope().expect("Should be able to exit scope");
     }
 
     #[test]
