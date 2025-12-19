@@ -30,7 +30,7 @@ Path relative to origin consists of any directories that need to be traversed, s
 It may also be empty if there is nothing to be traversed. In this case, the first slash may be omitted.
 
 With the exception of the dot and slash when used as described above, only alphanumerical characters, underscores and hyphens, 
-with the latter two being forbidden at either the start or end of a part of a part, are allowed in `Module Paths`.
+with the latter two being forbidden at either the start or end of a part, are allowed in `Module Paths`.
 This also means that it is impossible to reference hidden directories starting with a "." with module paths.
 For example, the following specifies `trigonometry` from the `floating_point` directory from the `math` project:
 `math/floating_point/trigonometry`
@@ -64,19 +64,18 @@ In the AST, each dependency and the project itself has its own directory in whic
 Note that this directory is virtual and does not exist on disk.
 This allows imports to be processed without much effort.
 
-### 3.6 Transitive dependencies
+### 3.5 Transitive dependencies
 
 Each project must specify its dependencies on its own and can't
 directly use ones from other projects it depends on. For example, if project A depends on project B and project B depends on project C, then project A
 can't access project C without first depending on it itself.
 
-### 3.5 Other
+### 3.6 Other
 
 Any project can be an external dependency. While any project with a main function can be run on its own, they too can be depended on.
 
-This also means that dependencies can have dependencies themselves. Furthermore, dependency cycles are permitted and do not need special
-
-handling from the user. Multiple dependencies with the same name aren't supported. Dependency versioning isn't supported.
+This also means that dependencies can have dependencies themselves. Furthermore, dependency cycles are not permitted.
+Multiple dependencies with the same name aren't supported. Dependency versioning isn't supported.
 
 ## 4. Imports
 
@@ -96,7 +95,7 @@ Imports follow the following syntax:
 `import "<Path>"`
 Where Path is the path of the module being imported. It follows the layout of `Module Path` as described above.
 
-For example, the following imports the module `trigonometry` from the math project:
+For example, the following imports the module `floating_point` from the math project:
 `import "math/floating_point"`
 
 Each import is assigned a usage name, which is used when accessing imported symbols.
@@ -109,7 +108,7 @@ Symbols inside imported modules are accessed via the following syntax:
 
 `<Usage Name>.<Symbol>`
 
-For example, this accesses the `sin_f64` function inside the trigonometry file:
+For example, this accesses the `sin_f64` function inside the floating_point module:
 `floating_point.sin_f64(10.0)`
 
 ### Overriding of usage name
