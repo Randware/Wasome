@@ -114,7 +114,7 @@ For example, this accesses the `sin_f64` function inside the floating_point modu
 ### Overriding of usage name
 
 It is also possible to override the usage name with the as-syntax:
-`import "\<Filepath\>" as \<Usage Name\>`
+`import <Filepath> as <Usage Name>`
 
 For example, this imports the floating_point module as fp:
 `import "math/floating_point" as fp`
