@@ -5,6 +5,9 @@ use crate::{ASTNode, ASTType, SemanticEquality};
 use std::fmt::Debug;
 use std::rc::Rc;
 
+/// A function
+///
+/// This can be called via a [`FunctionCall`](crate::expression::FunctionCall)
 #[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
@@ -31,8 +34,7 @@ impl<Type: ASTType> Function<Type> {
         &self.declaration
     }
 
-    /** Gets the declaration by cloning the rc
-     */
+    /// Gets the declaration by cloning the rc
     pub fn declaration_owned(&self) -> Rc<FunctionSymbol<Type>> {
         self.declaration.clone()
     }
@@ -55,9 +57,8 @@ impl<Type: ASTType> Visible for Function<Type> {
     }
 }
 
-/** An import
-In the typed AST, this has no semantic meaning and is only there to not lose any information
-*/
+/// An import
+/// In the typed AST, this has no semantic meaning and is only there to not lose any information // TODO: Remove from typed AST
 #[derive(Debug, PartialEq)]
 pub struct Import {
     root: ImportRoot,
@@ -88,5 +89,5 @@ impl SemanticEquality for Import {
 #[derive(Debug, PartialEq)]
 pub enum ImportRoot {
     CurrentDirectory,
-    ProjectRoot,
+    Root,
 }

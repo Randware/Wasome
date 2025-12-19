@@ -4,6 +4,14 @@ use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
 use crate::{ASTNode, ASTType, SemanticEquality};
 
+/// A file containing code
+///
+/// Files are located in directories
+///
+/// # Contents
+///
+/// It has a name, imports and functions
+/// + imports and functions may both be empty vecs
 #[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType> {
     /// Filename without the file extension
@@ -37,22 +45,19 @@ impl<Type: ASTType> File<Type> {
         &self.functions
     }
 
-    /** Gets the symbol with the specified name
-     */
+    /// Gets the symbol with the specified name
     pub fn symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
         self.symbols()
             .find(|symbol| symbol.name() == name)
     }
 
-    /** Gets the symbol with the specified name if it is public
-     */
+    /// Gets the symbol with the specified name if it is public
     pub fn symbol_public(&self, name: &str) -> Option<Symbol<'_, Type>> {
         self.symbols_public()
             .find(|symbol| symbol.name() == name)
     }
 
-    /** Gets the function with the specified name
-     */
+    /// Gets the function with the specified name
     pub fn specific_function(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
         self.functions()
             .iter()
@@ -62,7 +67,9 @@ impl<Type: ASTType> File<Type> {
     /// Gets symbols, including non-public ones. It does not differentiate between function- and non-function
     /// symbols.
     /// - Note that currently, there are only function symbols
+    ///
     /// # Return
+    ///
     /// The requested symbols
     pub fn symbols(&self) -> impl Iterator<Item=Symbol<'_, Type>> {
         self.symbols_chosen_public(false)
@@ -80,9 +87,13 @@ impl<Type: ASTType> File<Type> {
     /// Gets the requested symbols. It does not differentiate between function- and non-function
     /// symbols.
     /// - Note that currently, there are only function symbols
+    ///
     /// # Parameter
-    /// `only_public`: If true, only `pub` symbols are requested. Otherwise, all are requested
+    ///
+    /// - `only_public`: If true, only `pub` symbols are requested. Otherwise, all are requested
+    ///
     /// # Return
+    ///
     /// The requested symbols
     fn symbols_chosen_public(&self, only_public: bool) -> impl Iterator<Item=Symbol<'_, Type>> {
         self.function_symbols(only_public)
@@ -90,10 +101,14 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets function symbols
+    ///
     /// # Parameter
-    /// `only_public`: Decides if only public function symbols (`true`)
+    ///
+    /// - `only_public`: Decides if only public function symbols (`true`)
     /// or all function symbols (`false`) should be returned
+    ///
     /// # Return
+    ///
     /// An iterator over the function symbols. Note that it may be empty if there are no function
     /// symbols that meet the provided requirement
     fn function_symbols(&self, only_public: bool) -> impl Iterator<Item = &FunctionSymbol<Type>> {

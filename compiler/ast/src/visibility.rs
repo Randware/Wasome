@@ -1,8 +1,7 @@
-/** The visibility of a language element
-
-This is used for both typed and untyped ASTs as we need to do importing on the untyped AST
-and using strings there would make that harder
-*/
+/// The visibility of a syntax element
+///
+/// This is used for both typed and untyped ASTs as we need to do importing on the untyped AST // TODO: Only in untypedAST
+/// and using strings there would make that harder
 #[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum Visibility {
     /// Only visible inside the same file
@@ -11,8 +10,7 @@ pub enum Visibility {
     Public,
 }
 
-/** Types that have a specific visibility
-*/
+/// Types that have a specific visibility
 pub trait Visible {
     fn visibility(&self) -> Visibility;
 }

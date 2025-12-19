@@ -7,15 +7,16 @@ use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
-/** This struct helps with traversing the AST
-It keeps a reference to the ast and a function.
-This allows it to be used to keep track of all symbols available in a function
-
-| Lifetime     | Purpose      |
-| ------------- | ------------- |
-| 'a | How long the traversal helper may life |
-| 'b | How long the underlying data may life |
-*/
+/// This struct helps with traversing the AST
+/// It keeps a reference to the ast and a function.
+/// This allows it to be used to keep track of all symbols available in a function
+///
+/// # Lifetimes
+/// 
+/// | Lifetime     | Purpose      |
+/// | ------------- | ------------- |
+/// | 'a | How long the traversal helper may life |
+/// | 'b | How long the underlying data may life |
 #[derive(Debug)]
 pub struct FunctionTraversalHelper<'a, 'b, Type: ASTType> {
     // The referenced function
@@ -42,35 +43,13 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
         self.parent
     }
 
-    /** Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
-     */
+    /// Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
     pub fn symbols(&self) -> impl SymbolTable<'b, Type> + 'a {
         FunctionSymbolTable::new(self)
     }
 
-    /** Indexes the implementation with index
-     */
-    pub(crate) fn index_implementation<'c>(
-        &'c self,
-        index: &StatementLocation,
-    ) -> &'b Statement<Type> {
-        // Using deref produces a syntax error
-        let mut current_statement = self.inner().implementation();
-        let starting_index_size = index.len();
-        let mut current_index_size = starting_index_size;
-        let mut current_index;
-        while current_index_size > 0 {
-            current_index = &index[starting_index_size - current_index_size];
-            let path = current_index.index();
-            current_statement = &current_statement[path];
-            current_index_size -= 1;
-        }
-        current_statement
-    }
-
-    /** Gets a StatementRef for the top level statement in this function
-          This is the intended way to traverse a function
-    */
+    /// Gets a StatementRef for the top level statement in this function
+    /// This is the intended way to traverse a function
     pub fn ref_to_implementation(&self) -> StatementTraversalHelper<'_, 'b, Type> {
         StatementTraversalHelper::new_root(self)
     }
@@ -115,7 +94,6 @@ impl<'a, 'b, Type: ASTType> Iterator for FunctionSymbolTable<'a, 'b, Type> {
     type Item = (Option<&'b str>, Symbol<'b, Type>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        // 
         next_item_from_slice(self.parameters, &mut self.parameter_index)
             .map(|val| (None, Symbol::Variable(val)))
             .or_else(|| {

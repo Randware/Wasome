@@ -41,21 +41,21 @@ pub mod top_level;
 pub mod traversal;
 mod visibility;
 
-/** Comparing semantics only.
-
-More precisely, this checks if two language constructs have the same meaning
-while disregarding identifiers such as ids and positional information.
-The only exception are symbols, where it is required that the same are used.
-*/
-// Its primary intended use case it for tests, but it may find application elsewhere
+///  Comparing semantics only.
+///
+/// More precisely, this checks if two language constructs have the same meaning
+/// while disregarding identifiers such as ids and positional information.
+/// The only exception are symbols, where it is required that the same are used.
+///
+/// Its primary intended use case it for tests, but it may find application elsewhere
 pub trait SemanticEquality {
-    /** The equality method. <br>
-    For more information, refer to the trait documentation
-    */
+    ///  The equality method.
+    /// For more information, refer to the trait documentation
     fn semantic_equals(&self, other: &Self) -> bool;
 }
 
 // SemanticEquality for common containers of types implementing SemanticEquality
+
 impl<T: SemanticEquality> SemanticEquality for [T] {
     fn semantic_equals(&self, other: &Self) -> bool {
         self.len() == other.len()
@@ -79,14 +79,19 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
     }
 }
 
-/** An AST
-## Type
-The type decides if it will be untyped or typed
-## Root
-The root-level element is supposed to be the directory containing the source code (e.g.: src)
-
-All imports in this must be valid
-*/
+/// An AST
+///
+/// An AST consists of many projects, all of which are linked together by dependendies
+///
+/// # Type
+///
+/// The type decides if it will be untyped or typed
+///
+/// # Root
+///
+/// The root-level element is supposed to contain the individual projects
+/// All imports in this must be valid
+// TODO: Remove imports
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
     // The root directory (e.g.: src)
@@ -107,10 +112,9 @@ impl<Type: ASTType> UnresolvedImports<Type> {
 }
 
 impl<Type: ASTType> AST<Type> {
-    /** Creates a new instance of AST
-    
-    Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
-    */
+    /// Creates a new instance of AST
+    ///
+    /// Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
     // Lifetime issues prevent the imports from being returned directly
     pub fn new(inner: ASTNode<Directory<Type>, PathBuf>) -> Result<Self, UnresolvedImports<Type>> {
         let ast = Self { inner };
@@ -135,12 +139,11 @@ impl<Type: ASTType> AST<Type> {
         imports
     }
 
-    /** Checks a specifiec import for validity. source_dir is where the import is from
-     */
+    /// Checks a specifiec import for validity. source_dir is where the import is from
     fn check_import(&self, to_check: &Import, source_dir: &Directory<Type>) -> bool {
         let check_origin = match to_check.root() {
             ImportRoot::CurrentDirectory => source_dir,
-            ImportRoot::ProjectRoot => &self.inner.inner,
+            ImportRoot::Root => &self.inner.inner,
         };
         check_origin.get_symbols_for_path(to_check.path()).is_some()
     }
@@ -160,12 +163,11 @@ impl<Type: ASTType> SemanticEquality for AST<Type> {
     }
 }
 
-/** This represents an AST Type and its location. Which type of AST node this is depends on its first
-generic. The second generic decides what is used to store positional information.
-# Equality
-Two different ASTNodes are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This represents an AST Type and its location. Which type of AST node this is depends on its first
+/// generic. The second generic decides what is used to store positional information.
+/// # Equality
+/// Two different ASTNodes are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 
 #[derive(Debug, PartialEq)]
 pub struct ASTNode<T: Debug + PartialEq, Position = CodeArea> {
@@ -214,14 +216,17 @@ impl<T: Debug + PartialEq> Hash for ASTNode<T> {
     }
 }
 
-/** This compares two values
-This is useful for returning with the ? operator if values are not equal
-@params
-left, right: The values to compare
-@return
-None if not equal
-Some if equal
-*/
+/// This compares two values
+/// This is useful for returning with the ? operator if values are not equal
+///
+/// # Params
+///
+/// - left, right
+///     - The values to compare
+///
+/// # return
+/// - None if not equal
+/// - Some if equal
 fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
     if left == right {
         return Some(());
@@ -229,19 +234,16 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
     None
 }
 
-/** This decided what type the ast is.
-*/
+///  This decided what type the ast is.
 pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type LiteralType: PartialEq + Debug;
-
     type GeneralDataType: Eq + PartialEq + Debug + Clone;
     type FunctionCallSymbol: Debug + PartialEq;
     type VariableUse: Debug + PartialEq;
 }
 
-/** This is an ast type
-ASTs with this type include concrete data types
-*/
+///  This is an ast type
+/// ASTs with this type include concrete data types
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedAST {}
 
@@ -252,9 +254,8 @@ impl ASTType for TypedAST {
     type VariableUse = Rc<VariableSymbol<TypedAST>>;
 }
 
-/** This is an ast type
-ASTs with this type carry the data type used in a string and perform no validation on it
-*/
+///  This is an ast type
+/// ASTs with this type carry the data type used in a string and perform no validation on it
 #[derive(Clone, PartialEq, Debug)]
 pub struct UntypedAST {}
 
@@ -270,12 +271,12 @@ mod tests {
     use crate::block::{CodeBlock, FunctionBlock};
     use crate::data_type::DataType;
     use crate::directory::Directory;
-    use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal};
+    use crate::expression::{BinaryOp, BinaryOpType, Expression, Literal, FunctionCall};
     use crate::file::File;
     use crate::statement::{
         ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
     };
-    use crate::symbol::{FunctionCall, FunctionSymbol, Symbol, VariableSymbol};
+    use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
@@ -316,12 +317,11 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
-        let statement_ref = root.index(0);
+        let statement_ref = root.get_child(0);
         assert_eq!(
             vec![Symbol::Function(function_ref.inner().declaration())],
             statement_ref
                 .symbols_available_at()
-                .unwrap()
                 .map(|symbol| symbol.1)
                 .collect::<Vec<_>>()
         );
@@ -383,17 +383,16 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
-        let loop_statement = root.index(1);
+        let loop_statement = root.get_child(1);
 
         assert_eq!(
             vec![Symbol::Variable(&symbol2)],
             loop_statement.symbols_defined_directly_in()
         );
-        let statement_ref = loop_statement.index(0);
+        let statement_ref = loop_statement.get_child(0);
 
         let actual = statement_ref
             .symbols_available_at()
-            .unwrap()
             .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
@@ -429,11 +428,10 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
-        let return_statement = root.index(3);
+        let return_statement = root.get_child(3);
 
         let actual = return_statement
             .symbols_available_at()
-            .unwrap()
             .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
@@ -834,11 +832,10 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
-        let return_statement = root.index(3);
+        let return_statement = root.get_child(3);
 
         let actual = return_statement
             .symbols_available_at()
-            .unwrap()
             .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
@@ -981,7 +978,7 @@ mod tests {
             "main".to_string(),
             vec![ASTNode::new(
                 Import::new(
-                    ImportRoot::ProjectRoot,
+                    ImportRoot::Root,
                     vec![],
                 ),
                 CodeArea::new(
@@ -1027,7 +1024,7 @@ mod tests {
             File::<TypedAST>::new(
                 "main".to_string(),
                 vec![ASTNode::new(
-                    Import::new(ImportRoot::ProjectRoot, vec!["nonexistent".to_string()]),
+                    Import::new(ImportRoot::Root, vec!["nonexistent".to_string()]),
                     CodeArea::new(
                         CodeLocation::new(0, 0),
                         CodeLocation::new(0, 10),
@@ -1047,6 +1044,65 @@ mod tests {
         let unresolved = ast.unwrap_err();
         let imports = unresolved.unresolved_imports();
         assert_eq!(1, imports.len())
+    }
+
+    #[test]
+    fn create_function_call_untyped() {
+        let name = "test".to_string();
+        let arg = ASTNode::new(
+            Expression::<UntypedAST>::Literal("10".to_string()),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
+        assert_eq!("test", call.function());
+        assert_eq!(1, call.args().len());
+    }
+
+    #[test]
+    fn create_function_call_typed_wrong_args() {
+        let symbol = Rc::new(FunctionSymbol::new(
+            "test".to_string(),
+            None,
+            vec![Rc::new(VariableSymbol::new(
+                "test1".to_string(),
+                DataType::Bool,
+            ))],
+        ));
+        let arg = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::S32(10)),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call);
+
+        let call_empty = FunctionCall::<TypedAST>::new(symbol, Vec::new());
+        assert_eq!(None, call_empty)
+    }
+
+    #[test]
+    fn create_function_call_typed() {
+        let symbol = Rc::new(FunctionSymbol::new(
+            "test".to_string(),
+            None,
+            vec![Rc::new(VariableSymbol::new(
+                "test1".to_string(),
+                DataType::Bool,
+            ))],
+        ));
+        let arg = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::Bool(true)),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call.as_ref().unwrap().function().return_type());
+        assert_eq!("test", call.as_ref().unwrap().function().name());
+
+        let arg2 = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::Bool(true)),
+            sample_codearea(),
+        );
+        let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
+        assert!(call.semantic_equals(&call2));
     }
 }
 

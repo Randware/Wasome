@@ -31,14 +31,14 @@ impl<Content: Debug + PartialEq + SemanticEquality> SemanticEquality
     }
 }
 
-/** This represents a codeblock as per section 4 of the lang spec
-*/
-// Even if unenforced, the trait bound still serves documentation purposes.
+/// This represents a codeblock as per section 4 of the lang spec
+///
+/// Even if unenforced, the trait bound still serves documentation purposes.
 #[allow(type_alias_bounds)]
 pub type CodeBlock<Type: ASTType> = SingleContentBlock<Statement<Type>>;
 
-/** This contains functions. When inside a composite, they are methods.
-*/
-// Even if unenforced, the trait bound still serves documentation purposes.
+/// This contains functions. When inside a composite, they are methods.
+/// 
+/// Even if unenforced, the trait bound still serves documentation purposes.
 #[allow(type_alias_bounds)]
 pub type FunctionBlock<Type: ASTType> = SingleContentBlock<Function<Type>>;

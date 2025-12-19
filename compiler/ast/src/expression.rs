@@ -1,15 +1,17 @@
+use std::rc::Rc;
 use crate::data_type::{DataType, Typed};
-use crate::symbol::FunctionCall;
+use crate::symbol::FunctionSymbol;
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 
-/** This represents an expression as per section 2 of the lang spec
-# Equality
-Two different Expressions are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This represents an expression as per section 2 of the lang spec
+///
+/// # Equality
+///
+/// Two different Expressions are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum Expression<Type: ASTType> {
-    // Only valid if it doesn't return void
+    /// This is only valid if there is a return value and not void
     FunctionCall(FunctionCall<Type>),
     Variable(Type::VariableUse),
     Literal(Type::LiteralType),
@@ -53,14 +55,15 @@ impl<Type: ASTType> SemanticEquality for Expression<Type> {
     }
 }
 
-/** This represents a literal as described at the end of section 2 of the lang spec
-*/
+/// A literal
+/// The value of the literal is contained within this enum
 #[derive(Debug, PartialEq)]
 pub enum Literal {
-    // All integer literals are of type S32
+    /// All integer literals are of type S32
     S32(i32),
     Bool(bool),
-    Char(u32), //UTF-8 character
+    /// A UTF-8 character
+    Char(u32),
     F32(f32),
     F64(f64),
 }
@@ -78,11 +81,17 @@ impl Literal {
     }
 }
 
-/** This is a type of operator that only takes one input
-# Equality
-Two different UnaryOps are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This is a type of operator that only takes one input
+///
+/// # Validity
+///
+/// A typed UnaryOp is only valid if the type of the result of the expression can be processed by
+/// the provided operator
+///
+/// # Equality
+///
+/// Two different UnaryOps are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct UnaryOp<Type: ASTType> {
     // The type of the expression
@@ -92,14 +101,20 @@ pub struct UnaryOp<Type: ASTType> {
 }
 
 impl UnaryOp<TypedAST> {
-    /** Creates a new instance of UnaryOp
-    @params
-    op_type: The type of this expression
-    input: The expression to base this on
-    @return
-    Some(output data type) if the provided type can be processed to the output type
-    None if the processed type can't be processed
-    */
+    /// Creates a new instance of UnaryOp
+    ///
+    /// # Parameters:
+    ///
+    /// - op_type
+    ///     - The type of this expression
+    /// - input
+    ///     - The expression to base this on
+    ///
+    /// # Return:
+    ///
+    /// - Some(unaryOp) if the provided type can be processed to the output type
+    /// - None if the processed type can't be processed
+    ///
     pub fn new(
         op_type: UnaryOpType<TypedAST>,
         input: ASTNode<Expression<TypedAST>>,
@@ -117,11 +132,14 @@ impl<Type: ASTType> SemanticEquality for UnaryOp<Type> {
 }
 
 impl UnaryOp<UntypedAST> {
-    /** Creates a new instance of UnaryOp
-       @params
-       op_type: The type of this expression
-       input: The expression to base this on
-    */
+    /// Creates a new instance of UnaryOp
+    ///
+    /// # Parameters
+    ///
+    /// - op_type
+    ///     - The type of this expression
+    /// - input
+    ///     - The expression to base this on
     pub fn new(op_type: UnaryOpType<UntypedAST>, input: ASTNode<Expression<UntypedAST>>) -> Self {
         Self { op_type, input }
     }
@@ -135,8 +153,9 @@ impl Typed for UnaryOp<TypedAST> {
     }
 }
 
-/** This is the type of an unary operator
-*/
+/// The type of a unary operator
+///
+/// It only provides the operator type and not the operands
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum UnaryOpType<Type: ASTType> {
     /// Section 3 lang spec, subtract operator with only one operand
@@ -148,13 +167,16 @@ pub enum UnaryOpType<Type: ASTType> {
 }
 
 impl UnaryOpType<TypedAST> {
-    /** Gets the type from processing the provided type
-    @params
-    to_process: The provided data type
-    @return
-    Some(output data type) if the provided type can be processed to the output type
-    None if the processed type can't be processed
-    */
+    /// Gets the type from processing the provided type
+    ///
+    /// # Parameter
+    ///
+    /// - to_process: The provided data type
+    ///
+    /// # Return
+    ///
+    /// - Some(output data type) if the provided type can be processed to the output type
+    /// - None if the processed type can't be processed
     pub fn result_type(&self, to_process: DataType) -> Option<DataType> {
         match self {
             UnaryOpType::Negative => Self::minus_type(to_process),
@@ -163,9 +185,8 @@ impl UnaryOpType<TypedAST> {
         }
     }
 
-    /** Returns the type of data from putting the input type through a negation operator
-       (lang spec, section 3)
-    */
+    /// Returns the type of data from putting the input type through a negation operator
+    /// (lang spec, section 3)
     fn neg_type(to_process: DataType) -> Option<DataType> {
         match to_process {
             DataType::Bool => Some(DataType::Bool),
@@ -173,9 +194,8 @@ impl UnaryOpType<TypedAST> {
         }
     }
 
-    /** Returns the type of data from putting the input type through a minus operator
-          (lang spec, section 3)
-    */
+    /// Returns the type of data from putting the input type through a minus operator
+    /// (lang spec, section 3)
     fn minus_type(to_process: DataType) -> Option<DataType> {
         match to_process {
             DataType::Char
@@ -189,29 +209,40 @@ impl UnaryOpType<TypedAST> {
     }
 }
 
+/// A typecast that changes data type of the result of an expression
+///
+/// Note that this only stores the target type and requires the expression to be supplied
+/// externally.
+///
+/// # Type conversions
+///
+/// Not all type conversions are valid.
+/// - Consult the lang spec for more information
+/// - Typecast however can always exist as it only stores the target data tyoe
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-/** Represents a typecast that casts the provided type to target
-*/
 pub struct Typecast<Type: ASTType> {
     target: Type::GeneralDataType,
 }
 
 impl<Type: ASTType> Typecast<Type> {
-    /** Creates a new Typecast
-     */
+    /// Creates a new Typecast
     pub fn new(target: Type::GeneralDataType) -> Self {
         Self { target }
     }
 }
 
 impl Typecast<TypedAST> {
-    /** Returns what a specific type typecasted with self would return
-       @Param
-       to_process: The Type to process
-       @Return
-       Some(result) if to_process can be casted to result
-       None if there is no cast available
-    */
+    /// Returns what a specific type typecasted with self would return
+    ///
+    /// # Parameters
+    ///
+    /// - to_process
+    ///     - The Type to process
+    ///
+    /// # Return
+    ///
+    /// - Some(result) if to_process can be casted to result
+    /// - None if there is no cast available
     pub fn result_type(&self, to_process: DataType) -> Option<DataType> {
         match (to_process, self.target) {
             (DataType::S8 | DataType::U16, DataType::U8)
@@ -229,11 +260,12 @@ impl Typecast<TypedAST> {
     }
 }
 
-/** This is a type of operator that takes two inputs
-# Equality
-Two different BinaryOps are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This is an operator that takes two inputs
+///
+/// # Equality
+///
+/// Two different BinaryOps are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct BinaryOp<Type: ASTType> {
     // The type of the expression
@@ -253,14 +285,19 @@ impl<Type: ASTType> SemanticEquality for BinaryOp<Type> {
 }
 
 impl BinaryOp<TypedAST> {
-    /** Creates a new instance of UnaryOp
-          @params
-          op_type: The type of this expression
-          input: The expression to base this on
-          @return
-          Some(output data type) if the provided type can be processed to the output type
-          None if the processed type can't be processed
-    */
+    /// Creates a new instance of UnaryOp
+    ///
+    /// # Parameters
+    ///
+    /// - op_type
+    ///     -The type of this expression
+    /// - input
+    ///     - The expression to base this on
+    ///
+    /// # Return
+    ///
+    /// - Some(output data type) if the provided type can be processed to the output type
+    /// - None if the processed type can't be processed
     pub fn new(
         op_type: BinaryOpType,
         left: ASTNode<Expression<TypedAST>>,
@@ -277,11 +314,14 @@ impl BinaryOp<TypedAST> {
 }
 
 impl BinaryOp<UntypedAST> {
-    /** Creates a new instance of UnaryOp
-             @params
-             op_type: The type of this expression
-             input: The expression to base this on
-    */
+    /// Creates a new instance of UnaryOp
+    ///
+    /// # Parameters
+    ///
+    /// - op_type
+    ///     - The type of this expression
+    /// - input
+    ///     - The expression to base this on
     pub fn new(
         op_type: BinaryOpType,
         left: ASTNode<Expression<UntypedAST>>,
@@ -305,8 +345,9 @@ impl Typed for BinaryOp<TypedAST> {
     }
 }
 
-/** This is the type of an unary operator
-*/
+/// This is the type of an unary operator
+///
+/// It only provides the operator type and not the operands
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum BinaryOpType {
     /// Section 3 lang spec, addition operator
@@ -350,13 +391,17 @@ pub enum BinaryOpType {
 }
 
 impl BinaryOpType {
-    /** Gets the type from processing the provided type
-       @params
-       left, right: The provided data types
-       @return
-       Some(output data type) if the provided types can be processed to the output type
-       None if the processed type can't be processed
-    */
+    /// Gets the type from processing the provided type
+    ///   
+    /// # Parameters
+    ///   
+    /// - left, right:
+    ///     - The provided data types
+    ///   
+    /// # Return
+    /// 
+    /// - Some(output data type) if the provided types can be processed to the output type
+    /// - None if the processed type can't be processed
     pub fn result_type(&self, left: DataType, right: DataType) -> Option<DataType> {
         use BinaryOpType as BOT;
         match self {
@@ -380,9 +425,8 @@ impl BinaryOpType {
         }
     }
 
-    /** Returns the type of data from putting the two input types through an arethmetic operator
-    (lang spec, section 3)
-    */
+    /// Returns the type of data from putting the two input types through an arethmetic operator
+    /// (lang spec, section 3)
     fn arithmetic_type(left: DataType, right: DataType) -> Option<DataType> {
         eq_return_option(left, right)?;
         match left {
@@ -400,9 +444,8 @@ impl BinaryOpType {
         }
     }
 
-    /** Returns the type of data from putting the two input types through an integer only operator
-    (lang spec, section 3)
-    */
+    /// Returns the type of data from putting the two input types through an integer only operator
+    /// (lang spec, section 3)
     fn int_op_type(left: DataType, right: DataType) -> Option<DataType> {
         eq_return_option(left, right)?;
         match left {
@@ -418,9 +461,8 @@ impl BinaryOpType {
         }
     }
 
-    /** Returns the type of data from putting the two input types through a bool only (such as or) operator
-       (lang spec, section 3)
-    */
+    /// Returns the type of data from putting the two input types through a bool only (such as or) operator
+    /// (lang spec, section 3)
     fn bool_op_type(left: DataType, right: DataType) -> Option<DataType> {
         eq_return_option(left, right)?;
         match left {
@@ -429,9 +471,8 @@ impl BinaryOpType {
         }
     }
 
-    /** Returns the type of data from putting the two input types through a comparison operator
-       (lang spec, section 3)
-    */
+    /// Returns the type of data from putting the two input types through a comparison operator
+    /// (lang spec, section 3)
     fn comparison_op_type(left: DataType, right: DataType) -> Option<DataType> {
         eq_return_option(left, right)?;
         if left == DataType::Bool || left == DataType::Char {
@@ -441,8 +482,66 @@ impl BinaryOpType {
     }
 }
 
+/// A function call
+///
+/// This is only a part of an expression if it has a return value
+/// - Otherwise, it is a statement part
+#[derive(Debug, PartialEq)]
+pub struct FunctionCall<Type: ASTType> {
+    function: Type::FunctionCallSymbol,
+    args: Vec<ASTNode<Expression<Type>>>,
+}
+
+impl<Type: ASTType> FunctionCall<Type> {
+    pub fn function(&self) -> &Type::FunctionCallSymbol {
+        &self.function
+    }
+
+    pub fn args(&self) -> &Vec<ASTNode<Expression<Type>>> {
+        &self.args
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for FunctionCall<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.function == other.function && self.args.semantic_equals(&other.args)
+    }
+}
+
+impl FunctionCall<TypedAST> {
+    /** Creates a new function call
+       Checks if the provided and expected params are the same number and have the same data types
+       Returns None if these checks failed
+       Some(new instance) otherwise
+    */
+    pub fn new(
+        function: Rc<FunctionSymbol<TypedAST>>,
+        args: Vec<ASTNode<Expression<TypedAST>>>,
+    ) -> Option<Self> {
+        if function.params().len() != args.len()
+            || !function
+            .params()
+            .iter()
+            .zip(args.iter())
+            .all(|(expected, provided)| *expected.data_type() == provided.data_type())
+        {
+            return None;
+        }
+        Some(Self { function, args })
+    }
+}
+
+impl FunctionCall<UntypedAST> {
+    /** Creates a new function call
+     */
+    pub fn new(function: String, args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
+        Self { function, args }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::symbol::VariableSymbol;
     use super::*;
     use crate::test_shared::sample_codearea;
     #[test]
@@ -552,5 +651,64 @@ mod tests {
             )
             .unwrap(),
         ))
+    }
+
+    #[test]
+    fn create_function_call_untyped() {
+        let name = "test".to_string();
+        let arg = ASTNode::new(
+            Expression::<UntypedAST>::Literal("10".to_string()),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
+        assert_eq!("test", call.function());
+        assert_eq!(1, call.args().len());
+    }
+
+    #[test]
+    fn create_function_call_typed_wrong_args() {
+        let symbol = Rc::new(FunctionSymbol::new(
+            "test".to_string(),
+            None,
+            vec![Rc::new(VariableSymbol::new(
+                "test1".to_string(),
+                DataType::Bool,
+            ))],
+        ));
+        let arg = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::S32(10)),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call);
+
+        let call_empty = FunctionCall::<TypedAST>::new(symbol, Vec::new());
+        assert_eq!(None, call_empty)
+    }
+
+    #[test]
+    fn create_function_call_typed() {
+        let symbol = Rc::new(FunctionSymbol::new(
+            "test".to_string(),
+            None,
+            vec![Rc::new(VariableSymbol::new(
+                "test1".to_string(),
+                DataType::Bool,
+            ))],
+        ));
+        let arg = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::Bool(true)),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call.as_ref().unwrap().function().return_type());
+        assert_eq!("test", call.as_ref().unwrap().function().name());
+
+        let arg2 = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::Bool(true)),
+            sample_codearea(),
+        );
+        let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
+        assert!(call.semantic_equals(&call2));
     }
 }
