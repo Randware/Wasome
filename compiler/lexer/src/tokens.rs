@@ -21,7 +21,7 @@ pub struct Token {
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
 #[logos(extras = (usize,usize))]
-#[logos(skip r"[\t\f]+")]
+#[logos(skip r"[ \t\r\f]+")]
 pub enum TokenType {
     // Datatypes
     #[token("s8")]
@@ -146,6 +146,8 @@ pub enum TokenType {
     StatementSeparator,
     #[token(",")]
     ArgumentSeparator,
+    #[regex(r"//[^\n]*", |lex| lex.slice().to_string())]
+    Comment(String),
 }
 
 /**
