@@ -68,7 +68,9 @@ fn test_comment() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
-
+    let tokens: Vec<Token> = lex(input)
+        .filter_map(|result| result.ok())
+        .collect();
+    
     assert_eq!(tokens, expected_tokens);
 }
