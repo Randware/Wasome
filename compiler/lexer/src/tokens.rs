@@ -148,10 +148,8 @@ pub enum TokenType {
     ArgumentSeparator,
 }
 
-/**
-This function is called when any character is detected.
-It handles escape sequences and ensures that only valid characters are processed.
-*/
+/// This function is called when any character is detected.
+/// It handles escape sequences and ensures that only valid characters are processed.
 fn char_callback(lex: &mut Lexer<TokenType>) -> Result<char, LexError> {
     let s = lex.slice();
     let content = &s[1..s.len() - 1];

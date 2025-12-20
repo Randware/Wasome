@@ -1,10 +1,9 @@
 use crate::code_file::CodeFile;
 use std::cmp::Ordering;
 
-/** A location in some code.
-Identified by line and char.
-Both line and char are zero-based
-*/
+/// A location in some code.
+/// Identified by line and char.
+/// Both line and char are zero-based
 #[derive(Debug, PartialEq, Eq)]
 #[deprecated(
     note = "Superseded by the `source` crate. The new implementation handles path canonicalization correctly and should be preferred."
@@ -51,10 +50,9 @@ impl Ord for CodeLocation {
     }
 }
 
-/** A area of code represented by start and end and a file where it is located
-The start is inclusive
-The line of the end is inclusive, the char exclusive
-*/
+/// A area of code represented by start and end and a file where it is located
+/// The start is inclusive
+/// The line of the end is inclusive, the char exclusive
 #[derive(Debug, PartialEq, Eq)]
 #[deprecated(
     note = "Superseded by the `source` crate. The new implementation handles path canonicalization correctly and should be preferred."
@@ -66,10 +64,9 @@ pub struct CodeArea {
 }
 
 impl CodeArea {
-    /** Creates a new [`CodeArea`]
-    Returns some if start is not before end
-    else None
-    */
+    /// Creates a new [`CodeArea`]
+/// Returns some if start is not before end
+/// else None
     pub fn new(start: CodeLocation, end: CodeLocation, file: CodeFile) -> Option<Self> {
         if start > end {
             return None;

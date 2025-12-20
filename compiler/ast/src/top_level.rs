@@ -58,7 +58,7 @@ impl<Type: ASTType> Visible for Function<Type> {
 }
 
 /// An import
-/// In the typed AST, this has no semantic meaning and is only there to not lose any information // TODO: Remove from typed AST
+/// In the typed AST, this has no semantic meaning and is only there to not lose any information
 #[derive(Debug, PartialEq)]
 pub struct Import {
     root: ImportRoot,

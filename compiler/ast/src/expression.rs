@@ -509,11 +509,11 @@ impl<Type: ASTType> SemanticEquality for FunctionCall<Type> {
 }
 
 impl FunctionCall<TypedAST> {
-    /** Creates a new function call
-       Checks if the provided and expected params are the same number and have the same data types
-       Returns None if these checks failed
-       Some(new instance) otherwise
-    */
+    /// Creates a new function call
+    ///
+    /// Checks if the provided and expected params are the same number and have the same data types
+    /// Returns None if these checks failed
+    /// Some(new instance) otherwise
     pub fn new(
         function: Rc<FunctionSymbol<TypedAST>>,
         args: Vec<ASTNode<Expression<TypedAST>>>,
@@ -532,8 +532,7 @@ impl FunctionCall<TypedAST> {
 }
 
 impl FunctionCall<UntypedAST> {
-    /** Creates a new function call
-     */
+    /// Creates a new function call
     pub fn new(function: String, args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
         Self { function, args }
     }

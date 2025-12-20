@@ -91,7 +91,6 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
 ///
 /// The root-level element is supposed to contain the individual projects
 /// All imports in this must be valid
-// TODO: Remove imports
 #[derive(Debug)]
 pub struct AST<Type: ASTType> {
     // The root directory (e.g.: src)
