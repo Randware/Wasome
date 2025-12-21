@@ -1,9 +1,10 @@
 [package]
-name = "error_new"
+name = "error"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 source = { path = "../source" }
-ariadne = "0.6.0"
+shared = { path = "../shared" }
 bon = "3.8.1"
+ariadne = "0.5.1"

@@ -1,8 +1,10 @@
+use std::{ops::Range};
+
 use bon::Builder;
-use shared::code_reference::{CodeArea, CodeLocation};
+use source::types::{FileID}
 
 pub(crate) struct Annotation {
-    locations: Box<dyn Iterator<Item = (CodeLocation, CodeLocation)>>,
+    locations: Box<dyn Iterator<Item = Range<u32>>>,
     message: String,
 }
 
@@ -11,15 +13,16 @@ pub struct Snippet {
     #[builder(field)]
     pub(crate) annotations: Vec<Annotation>,
 
-    pub(crate) source: CodeArea,
+    pub(crate) source: FileID,
 }
 
 impl<S: snippet_builder::State> SnippetBuilder<S> {
     pub fn annotate_many(
         mut self,
-        locations: impl IntoIterator<Item = (CodeLocation, CodeLocation)> + 'static,
+        locations: impl IntoIterator<Item = Range<u32>> + 'static,
         message: &str,
     ) -> Self {
+
         self.annotations.push(Annotation {
             locations: Box::new(locations.into_iter()),
             message: message.to_string(),
@@ -27,7 +30,7 @@ impl<S: snippet_builder::State> SnippetBuilder<S> {
         self
     }
 
-    pub fn annotate(mut self, location: (CodeLocation, CodeLocation), message: &str) -> Self {
+    pub fn annotate(mut self, location: Range<u32>, message: &str) -> Self {
         self.annotations.push(Annotation {
             locations: Box::new(std::iter::once(location)),
             message: message.to_string(),

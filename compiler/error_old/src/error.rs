@@ -5,6 +5,7 @@ use std::{
 
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use bon::Builder;
+use source::types::Span;
 
 use crate::snippet::Snippet;
 
@@ -41,9 +42,10 @@ impl Error {
         )
         .with_message(&self.message)
         .with_labels(self.snippets.iter().map(|snippet| {
+                let spans = snippet.annotations.iter().map(|a| Span{file_id: snippet.source., start: todo!(), end: todo!() })
             Label::new((
-                snippet.source.file().filepath().to_str().unwrap(),
-                snippet.source.start().line()..snippet.source.start().char(),
+                snippet.source.path().to_str().unwrap(),
+                ,
             ))
         }));
 
