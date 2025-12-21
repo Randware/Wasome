@@ -218,7 +218,7 @@ impl UnaryOpType<TypedAST> {
 ///
 /// Not all type conversions are valid.
 /// - Consult the lang spec for more information
-/// - Typecast however can always exist as it only stores the target data tyoe
+/// - Typecast however can always exist as it only stores the target data type
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Typecast<Type: ASTType> {
     target: Type::GeneralDataType,
@@ -290,7 +290,7 @@ impl BinaryOp<TypedAST> {
     /// # Parameters
     ///
     /// - op_type
-    ///   -The type of this expression
+    ///   - The type of this expression
     /// - input
     ///   - The expression to base this on
     ///
@@ -425,7 +425,7 @@ impl BinaryOpType {
         }
     }
 
-    /// Returns the type of data from putting the two input types through an arethmetic operator
+    /// Returns the type of data from putting the two input types through an arithmetic operator
     /// (lang spec, section 3)
     fn arithmetic_type(left: DataType, right: DataType) -> Option<DataType> {
         eq_return_option(left, right)?;

@@ -249,16 +249,16 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     /// 1. `current_location`
     ///     - Set to the above location
     ///     - The method fails if if `current_location` is None
-    ///         - The above location may be None hoewever
+    ///         - The above location may be None however
     /// 2. prev_index
     ///     - Set to the index of the current `current_statement`
     /// 3. current_statement
-    ///     - Set to its paremt
+    ///     - Set to its parent
     ///
     /// # Return
     ///
     /// - None
-    ///     - If going up failed due to us already being at the heighest level
+    ///     - If going up failed due to us already being at the highest level
     /// - Some(())
     ///     - If going up was successful
     ///     - Note that this doesn't carry any data
@@ -272,7 +272,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
-    /// A tupel of prefix and symbol as required by  [`SymbolTable`]
+    /// A tuple of prefix and symbol as required by  [`SymbolTable`]
     type Item = (Option<&'b str>, Symbol<'b, Type>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -300,7 +300,7 @@ impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for StatementSymbolTable<'a, '
 pub struct StatementLocation<'a, 'b, Type: ASTType> {
     /// None means that this references to a root statement that has no parent
     ///
-    /// The first part of the tupel is the statement index and the second is the previous part of the list
+    /// The first part of the tuple is the statement index and the second is the previous part of the list
     position: Option<(usize, &'a StatementLocation<'a, 'b, Type>)>,
     referenced_statement: &'b Statement<Type>,
 }
@@ -325,7 +325,7 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
 
     /// Creates a new `StatementLocation` which is a child node if the provided location
     ///
-    /// # Parameterx
+    /// # Parameters
     ///
     /// - index
     ///     - The index that is required to take from the referenced statement of `prev` to get to
@@ -365,7 +365,7 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
     /// Calculates the length of this.
     ///
     /// The length is the number of StatementLocation nodes
-    /// one can get by followimg the prev fields plus one for the starting node.
+    /// one can get by following the prev fields plus one for the starting node.
     ///
     /// # Returns
     /// - The calculated length

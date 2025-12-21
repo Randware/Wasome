@@ -81,7 +81,7 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
 
 /// An AST
 ///
-/// An AST consists of many projects, all of which are linked together by dependendies
+/// An AST consists of many projects, all of which are linked together by dependencies
 ///
 /// # Type
 ///

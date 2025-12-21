@@ -162,7 +162,7 @@ impl<Type: ASTType> VariableAssignment<Type> {
 /// # Equality
 ///
 /// Two different ControlStructures are never equal.
-///Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
