@@ -29,7 +29,6 @@ use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
 
-pub mod block;
 pub mod data_type;
 pub mod directory;
 pub mod expression;
@@ -141,7 +140,7 @@ impl<Type: ASTType> AST<Type> {
     /// Checks a specifiec import for validity. source_dir is where the import is from
     fn check_import(&self, to_check: &Import, source_dir: &Directory<Type>) -> bool {
         let check_origin = match to_check.root() {
-            ImportRoot::CurrentDirectory => source_dir,
+            ImportRoot::CurrentModule => source_dir,
             ImportRoot::Root => &self.inner.inner,
         };
         check_origin.get_symbols_for_path(to_check.path()).is_some()
@@ -267,15 +266,12 @@ impl ASTType for UntypedAST {
 
 #[cfg(test)]
 mod tests {
-    use crate::block::{CodeBlock, FunctionBlock};
     use crate::data_type::DataType;
     use crate::directory::Directory;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Literal};
     use crate::file::File;
-    use crate::statement::{
-        ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
-    };
-    use crate::symbol::{FunctionSymbol, Symbol, VariableSymbol};
+    use crate::statement::{CodeBlock, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment};
+    use crate::symbol::{FunctionSymbol, ModuleUsageNameSymbol, Symbol, VariableSymbol};
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
@@ -313,7 +309,7 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
-        let statement_ref = root.get_child(0);
+        let statement_ref = root.get_child(0).unwrap();
         assert_eq!(
             vec![Symbol::Function(function_ref.inner().declaration())],
             statement_ref
@@ -379,13 +375,13 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
-        let loop_statement = root.get_child(1);
+        let loop_statement = root.get_child(1).unwrap();
 
         assert_eq!(
             vec![Symbol::Variable(&symbol2)],
-            loop_statement.symbols_defined_directly_in()
+            loop_statement.symbols_defined_directly_in().unwrap()
         );
-        let statement_ref = loop_statement.get_child(0);
+        let statement_ref = loop_statement.get_child(0).unwrap();
 
         let actual = statement_ref
             .symbols_available_at()
@@ -424,7 +420,7 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
-        let return_statement = root.get_child(3);
+        let return_statement = root.get_child(3).unwrap();
 
         let actual = return_statement
             .symbols_available_at()
@@ -828,7 +824,7 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
-        let return_statement = root.get_child(3);
+        let return_statement = root.get_child(3).unwrap();
 
         let actual = return_statement
             .symbols_available_at()
@@ -858,6 +854,8 @@ mod tests {
             Some(DataType::S32),
             vec![lhs_var.clone(), rhs_var.clone()],
         ));
+
+        let testproject_symbol = Rc::new(ModuleUsageNameSymbol::new("testproject".to_string()));
         let add_function = ASTNode::new(
             Function::new(
                 add_fn_symbol.clone(),
@@ -913,7 +911,7 @@ mod tests {
         let add_file = File::new(
             "add".to_string(),
             Vec::new(),
-            FunctionBlock::new(vec![add_function]),
+            vec![add_function],
         );
 
         let main_function = ASTNode::new(
@@ -973,7 +971,7 @@ mod tests {
         let main_file = File::new(
             "main".to_string(),
             vec![ASTNode::new(
-                Import::new(ImportRoot::Root, vec![]),
+                Import::new(ImportRoot::Root, vec![], testproject_symbol.clone()),
                 CodeArea::new(
                     CodeLocation::new(0, 0),
                     CodeLocation::new(0, 15),
@@ -981,7 +979,7 @@ mod tests {
                 )
                 .unwrap(),
             )],
-            FunctionBlock::new(vec![main_function]),
+            vec![main_function],
         );
 
         let ast = AST::new(ASTNode::new(
@@ -1002,7 +1000,8 @@ mod tests {
         assert_eq!(
             vec![
                 Symbol::Function(&main_fn_symbol),
-                Symbol::Function(&add_fn_symbol)
+                Symbol::Function(&add_fn_symbol),
+                Symbol::ModuleUsageName(&testproject_symbol)
             ],
             fth.symbols().map(|symbol| symbol.1).collect::<Vec<_>>()
         );
@@ -1010,7 +1009,7 @@ mod tests {
         assert_eq!(2, dth.len_files());
         assert_eq!(0, dth.subdirectories_iterator().count());
         assert_eq!(2, dth.files_iterator().count());
-        assert_ne!(dth.index_file(0).inner(), dth.index_file(1).inner());
+        assert_ne!(dth.index_file(0).unwrap().inner(), dth.index_file(1).unwrap().inner());
         assert_eq!(2, dth.inner().files().len())
     }
 
@@ -1020,7 +1019,7 @@ mod tests {
             File::<TypedAST>::new(
                 "main".to_string(),
                 vec![ASTNode::new(
-                    Import::new(ImportRoot::Root, vec!["nonexistent".to_string()]),
+                    Import::new(ImportRoot::Root, vec!["nonexistent".to_string()], Rc::new(ModuleUsageNameSymbol::new("testproject".to_string()))),
                     CodeArea::new(
                         CodeLocation::new(0, 0),
                         CodeLocation::new(0, 10),
@@ -1028,7 +1027,7 @@ mod tests {
                     )
                     .unwrap(),
                 )],
-                FunctionBlock::new(Vec::new()),
+                Vec::new(),
             ),
             PathBuf::from("main.waso"),
         );
@@ -1105,7 +1104,6 @@ mod tests {
 #[cfg(test)]
 // Stuff that is needed in tests in the entire crate
 pub(crate) mod test_shared {
-    use crate::block::FunctionBlock;
     use crate::directory::Directory;
     use crate::expression::{Expression, Literal};
     use crate::file::File;
@@ -1151,7 +1149,7 @@ pub(crate) mod test_shared {
                     File::new(
                         "main.waso".to_string(),
                         Vec::new(),
-                        FunctionBlock::new(functions),
+                        functions,
                     ),
                     main_path,
                 )],

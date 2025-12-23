@@ -8,8 +8,8 @@ use std::rc::Rc;
 /// # Composition of the provided data
 ///
 /// The provided data consists of two parts:
-/// 1. The required prefix
-///    Specifies what prefix has to be used when using this symbol.
+/// 1. The module usage name
+///    Specifies in what module name or alias given by the import the symbol is.
 ///    For example, here "math" is the prefix:
 ///
 ///    math.floor(10.5)
@@ -19,7 +19,7 @@ use std::rc::Rc;
 /// 2. The symbol
 ///    This is simply the symbol that is available.
 pub trait SymbolTable<'a, Type: ASTType>:
-    Iterator<Item = (Option<&'a str>, Symbol<'a, Type>)>
+    Iterator<Item = (Option<&'a ModuleUsageNameSymbol>, Symbol<'a, Type>)>
 {
 }
 
@@ -32,6 +32,7 @@ pub trait SymbolTable<'a, Type: ASTType>:
 pub enum Symbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
+    ModuleUsageName(&'a ModuleUsageNameSymbol)
 }
 
 impl<'a, Type: ASTType> Symbol<'a, Type> {
@@ -42,7 +43,39 @@ impl<'a, Type: ASTType> Symbol<'a, Type> {
         match self {
             Symbol::Function(func) => func.name(),
             Symbol::Variable(var) => var.name(),
+            &Symbol::ModuleUsageName(mun) => mun.name(),
         }
+    }
+}
+
+/// A module usage name symbol
+///
+/// It stores the usage name of a module, that is required to access imported symbols from this module.
+/// For example, in the following snippet, `trigonometry` is a module usage name
+/// `trigonometry.sin_degrees(20.0)`
+///
+/// # Equality
+///
+/// Two different ModuleUsageNameSymbols are never equal
+/// - Note that semantic equality is the same as regular equality
+///     - Semantic equality checks if two ast parts have the same semantic meaning. Two different symbols
+///       on their own have different semantic meanings even if their names are equal
+#[derive(Debug, Eq, PartialEq)]
+pub struct ModuleUsageNameSymbol {
+    id: Id,
+    name: String,
+}
+
+impl ModuleUsageNameSymbol {
+    pub fn new(name: String) -> Self {
+        Self {
+            id: Id::new(),
+            name,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 

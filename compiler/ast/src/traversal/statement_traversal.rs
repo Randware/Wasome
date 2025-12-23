@@ -1,5 +1,5 @@
 use crate::statement::Statement;
-use crate::symbol::{Symbol, SymbolTable};
+use crate::symbol::{ModuleUsageNameSymbol, Symbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
@@ -54,18 +54,18 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ///
     /// # Return
     ///
-    /// The `StatementTraversalHelper of the requested child
-    ///
-    /// # Panics
-    ///
-    /// If `location => self.amount_children()`
-    pub fn get_child(&'a self, location: usize) -> StatementTraversalHelper<'a, 'b, Type> {
+    /// - `None` if `location >= self.amount_children()`
+    /// - `Some(<The StatementTraversalHelper of the requested child>)` otherwise
+    pub fn get_child(&'a self, location: usize) -> Option<StatementTraversalHelper<'a, 'b, Type>> {
+        if location >= self.amount_children() {
+            return None;
+        }
         let child = self.inner.index(location);
-        Self {
+        Some(Self {
             inner: child,
             location: StatementLocation::new_node(location, &self.location, child),
             root: self.root,
-        }
+        })
     }
 
     /// Creates a symbol table that iterates over all symbols available to the current statement
@@ -97,12 +97,16 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ///
     /// A vec is returned as an iterator would require a trait object
     ///
-    /// # Panics
+    /// # Return
     ///
-    /// If `index => self.amount_children()`
-    pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Vec<Symbol<'b, Type>> {
+    /// - `None` if `location > self.amount_children()`
+    /// - `Some(<The requested symbols>)` otherwise
+    pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Option<Vec<Symbol<'b, Type>>> {
+        if index > self.amount_children() {
+            return None;
+        }
         let statement_to_symbol = Statement::get_direct_symbol_reference_struct;
-        match &**self.inner {
+        Some(match &**self.inner {
             Statement::ControlStructure(control) => Self::indexable_into_vec(
                 |index| control.child_statement_at(index),
                 index,
@@ -112,13 +116,18 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
                 Self::indexable_into_vec(|index| &codeblock[index], index, statement_to_symbol)
             }
             _ => Vec::new(),
-        }
+        })
     }
     /// Gets a vec of all symbols declared in a direct child of self
     /// Symbols declared by self directly are not included
     ///
     /// A vec is returned as an iterator would require a trait object
-    pub fn symbols_defined_directly_in(&self) -> Vec<Symbol<'b, Type>> {
+    ///
+    /// # Return
+    ///
+    /// - `None` if `location >= self.amount_children()`
+    /// - `Some(<The requested symbols>)` otherwise
+    pub fn symbols_defined_directly_in(&self) -> Option<Vec<Symbol<'b, Type>>> {
         self.symbols_defined_directly_in_before_index(self.amount_children())
     }
 
@@ -273,7 +282,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
 
 impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
     /// A tuple of prefix and symbol as required by  [`SymbolTable`]
-    type Item = (Option<&'b str>, Symbol<'b, Type>);
+    type Item = (Option<&'b ModuleUsageNameSymbol>, Symbol<'b, Type>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_variable_symbol()
@@ -372,8 +381,8 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
     // An is_empty method would be redundant as len == 0 is not possible
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
-        let mut len = 0;
-        let mut current: Option<&StatementLocation<Type>> = Some(self);
+        let mut len = 1;
+        let mut current: Option<&StatementLocation<Type>> = self.parent_statement();
         while current.is_some() {
             // Unwrap safety:
             // current can't be none as it was checked by the loop condition
@@ -381,6 +390,24 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
             len += 1;
         }
         len
+    }
+
+    /// Indexes self with the specified index
+    /// 0 results in self
+    /// len()-1 results in a StatementLocation that just indexes one level deeper than root
+    ///
+    /// # Return
+    ///
+    /// - `None` if `self.len() <= index`
+    /// - `Some(<StatementLocation>)` otherwise
+    pub fn get(&self, index: usize) -> Option<&StatementLocation<'a, 'b, Type>> {
+        if index >= self.len() {
+            return None;
+        }
+        // Panic safety:
+        // This only panics if self.len() <= index
+        // This can't be the case as we checked that
+        Some(&self[index])
     }
 }
 

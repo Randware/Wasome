@@ -137,8 +137,10 @@ fn test_logic_operators() {
     assert_eq!(tokens, expected_tokens);
 }
 
-/// This Test showcases that the lexer will always tokenize the longest possible token first.
-/// This is referred to as "greedy tokenization".
+/**
+This Test showcases that the lexer will always tokenize the longest possible token first.
+This is referred to as "greedy tokenization".
+*/
 #[test]
 fn test_greedy_tokens() {
     let input = r#"

@@ -1,4 +1,3 @@
-use crate::block::FunctionBlock;
 use crate::symbol::{FunctionSymbol, Symbol};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
@@ -17,14 +16,14 @@ pub struct File<Type: ASTType> {
     /// Filename without the file extension
     name: String,
     imports: Vec<ASTNode<Import>>,
-    functions: FunctionBlock<Type>,
+    functions: Vec<ASTNode<Function<Type>>>,
 }
 
 impl<Type: ASTType> File<Type> {
     pub fn new(
         name: String,
         imports: Vec<ASTNode<Import>>,
-        functions: FunctionBlock<Type>,
+        functions: Vec<ASTNode<Function<Type>>>,
     ) -> Self {
         Self {
             name,
@@ -41,18 +40,36 @@ impl<Type: ASTType> File<Type> {
         &self.imports
     }
 
-    pub fn functions(&self) -> &FunctionBlock<Type> {
+    pub fn functions(&self) -> &[ASTNode<Function<Type>>] {
         &self.functions
     }
 
     /// Gets the symbol with the specified name
     pub fn symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.symbols().find(|symbol| symbol.name() == name)
+        self.symbol_chosen_public(name, true)
+
     }
 
     /// Gets the symbol with the specified name if it is public
     pub fn symbol_public(&self, name: &str) -> Option<Symbol<'_, Type>> {
-        self.symbols_public().find(|symbol| symbol.name() == name)
+        self.symbol_chosen_public(name, false)
+    }
+
+    /// Gets the requested symbol. It does not differentiate between function- and non-function
+    /// symbols.
+    /// - Note that currently, there are only function symbols
+    ///
+    /// # Parameter
+    ///
+    /// - `only_public`: If true, the symbol is only returned if it is public. Otherwise, there is no filtering
+    ///
+    /// # Return
+    ///
+    /// - `None`: If no symbol was found
+    /// - `Some(<Symbol>)`: If a symbol was found
+    fn symbol_chosen_public(&self, name: &str, only_public: bool) -> Option<Symbol<'_, Type>> {
+        self.symbols_chosen_public(only_public).find(|symbol| symbol.name() == name)
+
     }
 
     /// Gets the function with the specified name

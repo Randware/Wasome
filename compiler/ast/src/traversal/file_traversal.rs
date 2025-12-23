@@ -1,5 +1,6 @@
+use std::iter;
 use crate::file::File;
-use crate::symbol::{Symbol, SymbolTable};
+use crate::symbol::{ModuleUsageNameSymbol, Symbol, SymbolTable};
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
@@ -60,8 +61,12 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
             .iter()
             .map(|function| FunctionTraversalHelper::new(function, self))
     }
-    /// Gets the symbol imported by a specific import
-    /// Returns None if it doesn't exist
+    /// Gets the symbols imported by a specific import
+    ///
+    /// # Return
+    ///
+    /// - `None` if the import could not be resolved
+    /// - `Some(<Symbols>)` if the import was successfully resolved
     pub(crate) fn resolve_import(
         &self,
         to_resolve: &Import,
@@ -75,7 +80,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
 }
 
 struct FileSymbolTable<'a, 'b, Type: ASTType> {
-    symbols: Box<dyn Iterator<Item = (Option<&'b str>, Symbol<'b, Type>)> + 'a>,
+    symbols: Box<dyn Iterator<Item = (Option<&'b ModuleUsageNameSymbol>, Symbol<'b, Type>)> + 'a>,
 }
 
 impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
@@ -99,10 +104,10 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                             .unwrap()
                             .map(|imported_symbol| {
                                 (
-                                    import.inner.path().last().map(|path| path.as_str()),
+                                    Some(import.inner.usage_name()),
                                     imported_symbol,
                                 )
-                            })
+                            }).chain(iter::once((None, Symbol::ModuleUsageName(import.usage_name()))))
                     }),
             ),
         }
@@ -110,7 +115,7 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for FileSymbolTable<'a, 'b, Type> {
-    type Item = (Option<&'b str>, Symbol<'b, Type>);
+    type Item = (Option<&'b ModuleUsageNameSymbol>, Symbol<'b, Type>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.symbols.next()

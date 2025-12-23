@@ -5,7 +5,9 @@ use crate::{ASTNode, ASTType, SemanticEquality};
 use std::ops::Deref;
 use std::path::PathBuf;
 
-/// A directory containing code
+/// A directory containing code.
+///
+/// Directories are also known as modules
 ///
 /// Directories are located in directories
 /// or are root of the ast
@@ -14,8 +16,8 @@ use std::path::PathBuf;
 ///
 /// # Contents
 ///
-/// It has a name, imports and functions
-/// + imports and functions may both be empty vecs
+/// It has a name, subdirectories and files
+/// + subdirectories and files may both be empty vecs
 #[derive(Debug, PartialEq)]
 pub struct Directory<Type: ASTType> {
     name: String,

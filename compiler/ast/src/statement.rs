@@ -1,10 +1,9 @@
-use crate::block::CodeBlock;
 use crate::data_type::{DataType, Typed};
 use crate::expression::{Expression, FunctionCall};
 use crate::symbol::{Symbol, VariableSymbol};
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
-use std::ops::Index;
+use std::ops::{Deref, Index};
 use std::rc::Rc;
 
 /// A Statement as per section 4 of the lang spec
@@ -458,6 +457,33 @@ impl Return<TypedAST> {
     pub fn return_type(&self) -> Option<DataType> {
         // Gets the type from the expression
         self.to_return().map(|val| val.data_type())
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct CodeBlock<Type: ASTType> {
+    contents: Vec<ASTNode<Statement<Type>>>,
+}
+
+impl<Type: ASTType> CodeBlock<Type> {
+    pub fn new(contents: Vec<ASTNode<Statement<Type>>>) -> Self {
+        Self { contents }
+    }
+}
+
+impl<Type: ASTType> Deref for CodeBlock<Type> {
+    type Target = [ASTNode<Statement<Type>>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.contents
+    }
+}
+
+impl<Type: ASTType> SemanticEquality
+for CodeBlock<Type>
+{
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.contents.semantic_equals(&other.contents)
     }
 }
 

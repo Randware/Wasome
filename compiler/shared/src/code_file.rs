@@ -1,8 +1,9 @@
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 
-/// This is a file that contains code.
-/// Any path strings provided by this will be relative to the root of the project in the OSes native format
+/** This is a file that contains code.
+Any path strings provided by this will be relative to the root of the project in the OSes native format
+*/
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[deprecated(
     note = "Superseded by the `source` crate. The new implementation handles path canonicalization correctly and should be preferred."
@@ -12,8 +13,9 @@ pub struct CodeFile {
 }
 
 impl CodeFile {
-    /// Constructs a new CodeFile with the specified PathBuf <br>
-/// It is assumed to be relative the project root
+    /** Constructs a new CodeFile with the specified PathBuf <br>
+       It is assumed to be relative the project root
+    */
     pub fn new(filepath: PathBuf) -> Self {
         Self { filepath }
     }

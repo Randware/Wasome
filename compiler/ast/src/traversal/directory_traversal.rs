@@ -56,10 +56,13 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
         self.inner.subdirectories().len()
     }
     /// Gets the subdirectory at a specific index
-    /// # Panics
-    /// Panics if ```index > self.len_subdirectories()```
-    pub fn index_subdirectory(&self, index: usize) -> DirectoryTraversalHelper<'_, 'b, Type> {
-        DirectoryTraversalHelper::new_child(&self.inner.subdirectories()[index], self)
+    ///
+    /// # Return
+    ///
+    /// - `None` if `index >= self.len_subdirectories()`
+    /// - `Some(<Subdir>)` otherwise
+    pub fn index_subdirectory(&self, index: usize) -> Option<DirectoryTraversalHelper<'_, 'b, Type>> {
+        Some(DirectoryTraversalHelper::new_child(self.inner.subdirectories().get(index)?, self))
     }
     /// Gets the subdirectory with the specified name.
     /// Returns None if it doesn't exist
@@ -84,10 +87,13 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
         self.inner.files().len()
     }
     /// Gets the file at a specific index
-    /// # Panics
-    /// Panics if `index > self.len_files()`
-    pub fn index_file(&self, index: usize) -> FileTraversalHelper<'_, 'b, Type> {
-        FileTraversalHelper::new(&self.inner.files()[index], self)
+    ///
+    /// # Return
+    ///
+    /// - `None` if `index >= self.len_files()`
+    /// - `Some(<Subdir>)` otherwise
+    pub fn index_file(&self, index: usize) -> Option<FileTraversalHelper<'_, 'b, Type>> {
+        Some(FileTraversalHelper::new(self.inner.files().get(index)?, self))
     }
     /// Gets the file with the specified name
     /// Returns None if it doesn't exist
@@ -111,7 +117,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
         to_resolve: &Import,
     ) -> Option<impl Iterator<Item = Symbol<'b, Type>>> {
         let root = match to_resolve.root() {
-            ImportRoot::CurrentDirectory => self,
+            ImportRoot::CurrentModule => self,
             ImportRoot::Root => self.get_root(),
         };
         root.get_symbols_for_path(to_resolve.path())
