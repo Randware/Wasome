@@ -14,7 +14,7 @@ pub struct CodeFile {
 
 impl CodeFile {
     /** Constructs a new CodeFile with the specified PathBuf <br>
-       It is assumed to be relative the project root
+    It is assumed to be relative the project root
     */
     pub fn new(filepath: PathBuf) -> Self {
         Self { filepath }

@@ -67,8 +67,8 @@ pub struct CodeArea {
 
 impl CodeArea {
     /** Creates a new [`CodeArea`]
-       Returns some if start is not before end
-       else None
+    Returns some if start is not before end
+    else None
     */
     pub fn new(start: CodeLocation, end: CodeLocation, file: CodeFile) -> Option<Self> {
         if start > end {
@@ -107,7 +107,7 @@ mod tests {
             CodeLocation::new(10, 0),
             test_code_file(),
         )
-            .unwrap();
+        .unwrap();
         assert_eq!(codearea.start(), &CodeLocation::new(5, 5));
         assert_eq!(codearea.file.to_string(), "test/test".to_string())
     }
