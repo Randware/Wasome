@@ -81,9 +81,10 @@ Multiple dependencies with the same name aren't supported. Dependency versioning
 
 ### 4.1 Definition
 
-By default, symbols are only visible in the file they were declared in. Imports make it possible to change that.
-This means that it is required to import the current module in order to access symbols in other files in the current module.
-Import statements must be placed at the beginning of the source file to bring the required symbols into scope.
+By default, symbols, that is anything that can be referenced via an identifier, are only visible in the file they were declared in. 
+Imports make it possible to change that. This means that it is required to import the current module in order to access symbols in 
+other files in the current module. Import statements must be placed at the beginning of the source file to bring the required 
+symbols into scope.
 
 Imports always work on an entire module. In other words, it is only possible to import full modules and not only parts of them.
 Only symbols marked as `pub` (public) can be accessed via imports.
@@ -100,7 +101,7 @@ For example, the following imports the module `floating_point` from the math pro
 
 Each import is assigned a usage name, which is used when accessing imported symbols.
 By default, this is the module name but can be overridden (more on that later).
-Having multiple imports with the same usage location is a compiler error.
+Having multiple imports with the same usage name is a compiler error.
 
 ### 4.3 Usage of imported symbols
 
