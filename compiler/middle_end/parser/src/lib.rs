@@ -1,4 +1,4 @@
-use crate::misc::statement_seperator;
+use crate::misc::statement_separator;
 use crate::top_level::top_level_parser;
 use ast::{ASTNode, UntypedAST, AST};
 use chumsky::IterParser;
@@ -9,16 +9,18 @@ use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::path::PathBuf;
+use ast::file::File;
 
 mod expression;
 mod misc;
 mod statement;
 mod top_level;
 
-pub fn parse(to_parse: Vec<Token>, file: String) -> Option<AST<UntypedAST>> {
-    let to_parse_with_file_info = inject_file_information(to_parse, file);
-    let parser = parser();
-    parser.parse(&to_parse_with_file_info).into_output()
+pub fn parse(to_parse: Vec<Token>, file: String) -> Option<File<UntypedAST>> {
+    let to_parse_with_file_info = inject_file_information(to_parse, file.clone());
+    let parser = top_level_parser();
+    parser.parse(&to_parse_with_file_info).into_output().map(|(imports, funcs)|
+    File::new(file, imports, funcs))
 }
 
 fn inject_file_information(
@@ -30,21 +32,6 @@ fn inject_file_information(
         .into_iter()
         .map(|token| PosInfoWrapper::new(token, code_file.clone()))
         .collect()
-}
-/** This parses a slice of tokens into an ast
-*/
-fn parser<'src>() -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], AST<UntypedAST>> {
-    let top_level = top_level_parser();
-    top_level
-        .separated_by(statement_seperator())
-        .collect::<Vec<_>>()
-        .map(|top_level_elements| {
-            AST::new(
-                top_level_elements
-                    .into_iter()
-                    .collect(),
-            )
-        })
 }
 
 pub(crate) fn combine_code_areas(a: &CodeArea, b: &CodeArea) -> Option<CodeArea> {
@@ -105,12 +92,11 @@ impl<T: PartialEq + Debug + Clone, Pos: PartialEq + Debug + Clone> Clone
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_shared::prepare_token;
-    use ast::top_level::TopLevelElement;
+    use crate::test_shared::{prepare_token, wrap_token};
     use lexer::TokenType;
 
     #[test]
-    fn parse() {
+    fn parse_full() {
         let tokens = [
             TokenType::Function,
             TokenType::Identifier("fibonacci".to_string()),
@@ -168,15 +154,14 @@ mod tests {
             TokenType::StatementSeparator,
             TokenType::CloseScope,
         ]
-        .map(prepare_token);
+        .map(prepare_token).to_vec();
 
-        let parser = parser();
-        let actual = parser.parse(&tokens).unwrap();
+        let actual = parse(tokens, "test".to_string()).unwrap();
 
         let expected_func_name = "fibonacci";
         let func_name =
             {
-                let TopLevelElement::Function(function) = actual.deref()[0].deref();
+                let function = actual.functions()[0].deref();
                 function.declaration().name()
             };
         assert_eq!(expected_func_name, func_name);
@@ -193,15 +178,19 @@ pub(crate) mod test_shared {
     use std::fmt::Debug;
     use std::path::PathBuf;
 
-    pub(crate) fn prepare_token(to_convert: TokenType) -> PosInfoWrapper<Token, CodeFile> {
+    pub(crate) fn wrap_token(to_convert: TokenType) -> PosInfoWrapper<Token, CodeFile> {
         PosInfoWrapper::new(
-            Token {
-                kind: to_convert,
-                line: 0,
-                span: Default::default(),
-            },
+            prepare_token(to_convert),
             CodeFile::new(PathBuf::from("test/test")),
         )
+    }
+
+    pub(crate) fn prepare_token(to_convert: TokenType) -> Token {
+        Token {
+            kind: to_convert,
+            line: 0,
+            span: Default::default(),
+        }
     }
 
     pub(crate) fn wrap_in_astnode<T: PartialEq+Debug>(to_wrap: T) -> ASTNode<T> {

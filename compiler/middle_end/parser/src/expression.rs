@@ -1,8 +1,7 @@
 use crate::misc::{datatype_parser, identifier_parser, just_token};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::{ASTNode, UntypedAST};
-use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
-use ast::symbol::FunctionCall;
+use ast::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
@@ -272,10 +271,9 @@ fn single_binary<'a>(
 #[cfg(test)]
 mod tests {
     use crate::expression::expression_parser;
-    use crate::test_shared::{prepare_token, wrap_in_astnode};
+    use crate::test_shared::{wrap_token, wrap_in_astnode};
     use ast::{SemanticEquality, UntypedAST};
-    use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
-    use ast::symbol::FunctionCall;
+    use ast::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType};
     use chumsky::Parser;
     use lexer::TokenType;
 
@@ -295,7 +293,7 @@ mod tests {
             TokenType::Decimal(10.0),
             TokenType::CloseParen, //TokenType::Integer(10), TokenType::As, TokenType::Identifier("f32".to_string())
         ]
-        .map(prepare_token);
+        .map(wrap_token);
 
         let parser = expression_parser();
 
@@ -339,7 +337,7 @@ mod tests {
             TokenType::CloseParen,
             TokenType::CloseParen, //TokenType::Integer(10), TokenType::As, TokenType::Identifier("f32".to_string())
         ]
-        .map(prepare_token);
+        .map(wrap_token);
 
         let parser = expression_parser();
 
@@ -367,7 +365,7 @@ mod tests {
 
     #[test]
     fn parse_just_idendifier() {
-        let to_parse = [TokenType::Identifier("test".to_string())].map(prepare_token);
+        let to_parse = [TokenType::Identifier("test".to_string())].map(wrap_token);
 
         let parser = expression_parser();
 
@@ -394,7 +392,7 @@ mod tests {
             TokenType::Decimal(10.0),
             TokenType::CloseParen,
         ]
-        .map(prepare_token);
+        .map(wrap_token);
 
         let parser = expression_parser();
 

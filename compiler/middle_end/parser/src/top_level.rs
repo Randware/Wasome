@@ -1,23 +1,28 @@
-use crate::misc::{datatype_parser, identifier_parser, just_token};
+use crate::misc::{datatype_parser, identifier_parser, just_token, statement_separator};
 use crate::statement::statement_parser;
 use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
-use ast::top_level::{Function, TopLevelElement};
+use ast::top_level::{Function, Import};
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
 use std::rc::Rc;
+use ast::file::File;
+use ast::visibility::Visibility;
 
-/** This parses a slice of tokens into an arbitiary top-level element
+/** This parses a slice of tokens into a file
 */
 pub(crate) fn top_level_parser<'src>() -> impl Parser<
     'src,
     &'src [PosInfoWrapper<Token, CodeFile>],
-    ASTNode<TopLevelElement<UntypedAST>>,
+    (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
 > {
     // This currently only handles functions
-    function_parser().map(|func| func.map(TopLevelElement::Function).into_ast_node())
+    function_parser().map(|func| func.into_ast_node())
+        .separated_by(crate::misc::statement_separator())
+        .collect::<Vec<_>>()
+        .map(|functions| (Vec::new(), functions))
 }
 
 /** This parses a slice of tokens into a function
@@ -38,6 +43,7 @@ fn function_parser<'src>()
             )
         });
 
+    just_token(TokenType::Public).or_not().then(
     just_token(TokenType::Function)
         .ignore_then(ident)
         .then(
@@ -49,14 +55,14 @@ fn function_parser<'src>()
                     just_token(TokenType::OpenParen),
                     just_token(TokenType::CloseParen),
                 ),
-        )
+        ))
         .then(
             just_token(TokenType::Return)
                 .ignore_then(data_type)
                 .or_not(),
         )
         .then(statement)
-        .map(|(((name, params), return_type), implementation)| {
+        .map(|(((visibility, (name, params)), return_type), implementation)| {
             let pos = combine_code_areas_succeeding(&name.pos_info, implementation.position());
             PosInfoWrapper::new(
                 Function::new(
@@ -66,6 +72,7 @@ fn function_parser<'src>()
                         params.into_iter().map(|param| param.inner).collect(),
                     )),
                     implementation,
+                    visibility.map(|_| Visibility::Public).unwrap_or(Visibility::Private),
                 ),
                 pos,
             )
@@ -73,9 +80,8 @@ fn function_parser<'src>()
 }
 #[cfg(test)]
 mod tests {
-    use crate::test_shared::prepare_token;
+    use crate::test_shared::wrap_token;
     use crate::top_level::top_level_parser;
-    use ast::top_level::TopLevelElement;
     use chumsky::Parser;
     use lexer::TokenType;
     use std::ops::Deref;
@@ -107,7 +113,7 @@ mod tests {
             TokenType::StatementSeparator,
             TokenType::CloseScope,
         ]
-        .map(prepare_token);
+        .map(wrap_token);
 
         let parser = top_level_parser();
 
@@ -116,7 +122,7 @@ mod tests {
         let expected_func_name = "func";
         let func_name =
             {
-                let TopLevelElement::Function(function) = parsed.deref();
+                let function = parsed.1.first().unwrap();
                 function.declaration().name()
             };
         assert_eq!(expected_func_name, func_name);

@@ -1,17 +1,17 @@
-use crate::block::CodeBlock;
 use crate::data_type::{DataType, Typed};
-use crate::expression::Expression;
-use crate::symbol::{FunctionCall, Symbol, VariableSymbol};
+use crate::expression::{Expression, FunctionCall};
+use crate::symbol::{Symbol, VariableSymbol};
 use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
 
-/** This represents a Statement as per section 4 of the lang spec
-# Equality
-Two different Statements are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// A Statement as per section 4 of the lang spec
+///
+/// # Equality
+///
+/// Two different Statements are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
@@ -56,22 +56,28 @@ impl<Type: ASTType> SemanticEquality for Statement<Type> {
 }
 
 impl<Type: ASTType> Statement<Type> {
-    /** Gets the symbol defined in this expression
-    Only this is considered, while subexpressions are ignored
-    @return
-    Some(symbol) if symbol is defined here
-    None if no symbols are defined here
-    */
-    pub fn get_direct_symbol(&self) -> Option<Symbol<'_, Type>> {
+    /// Gets the symbol defined in this statement
+    /// Only symbols that can be accessed by following statements in the
+    /// following scope are considered. For example, variables
+    ///
+    /// # Return
+    ///
+    /// - Some(symbol) if symbol is defined here
+    /// - None if no symbols are defined here
+    pub fn get_direct_symbol(&self) -> Option<&VariableSymbol<Type>> {
         match self {
-            Statement::VariableDeclaration(inner) => Some(Symbol::Variable(inner.variable())),
+            Statement::VariableDeclaration(inner) => Some(inner.variable()),
             _ => None,
         }
     }
 
-    /** Gets the length of the child statements
-     */
-    pub fn len_children(&self) -> usize {
+    /// Same as `get_direct_symbol`, except that the [`Symbol`] struct is used
+    pub fn get_direct_symbol_reference_struct(&self) -> Option<Symbol<'_, Type>> {
+        self.get_direct_symbol().map(Symbol::Variable)
+    }
+
+    /// Gets the length of the child statements
+    pub fn amount_children(&self) -> usize {
         match self {
             Statement::ControlStructure(structure) => structure.child_len(),
             Statement::Codeblock(codeblock) => codeblock.len(),
@@ -83,9 +89,8 @@ impl<Type: ASTType> Statement<Type> {
 impl<Type: ASTType> Index<usize> for Statement<Type> {
     type Output = ASTNode<Statement<Type>>;
 
-    /** Gets the indexth child statement
-    panics if self has no children or index is out of bounds
-    */
+    /// Gets the indexth child statement
+    // panics if self has no children or index is out of bounds
     fn index(&self, index: usize) -> &Self::Output {
         match self {
             Statement::Codeblock(block) => &block[index],
@@ -95,11 +100,12 @@ impl<Type: ASTType> Index<usize> for Statement<Type> {
     }
 }
 
-/** This represents an assignement to a variable. If this variable doesn't exist previously, it is created
-# Equality
-Two different VariableAssignement are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This represents an assignement to a variable. If this variable doesn't exist previously, it is created
+///
+/// # Equality
+///
+/// Two different VariableAssignement are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct VariableDeclaration<Type: ASTType> {
     variable: Rc<VariableSymbol<Type>>,
@@ -159,10 +165,9 @@ pub struct VariableAssignment<Type: ASTType> {
 }
 
 impl VariableAssignment<TypedAST> {
-    /** Tries to create a new assignment to a variable
-             returns None if the type of the variable symbol and the return type of the expression doesn't
-             match
-    */
+    /// Tries to create a new instance
+    /// returns None if the type of the variable symbol and the return type of the expression doesn't
+    /// match
     pub fn new(
         variable: Rc<VariableSymbol<TypedAST>>,
         value: ASTNode<Expression<TypedAST>>,
@@ -173,8 +178,7 @@ impl VariableAssignment<TypedAST> {
 }
 
 impl VariableAssignment<UntypedAST> {
-    /** Creates a new instance
-     */
+    /// Creates a new instance
     pub fn new(
         variable: String,
         value: ASTNode<Expression<UntypedAST>>,
@@ -186,6 +190,7 @@ impl<Type: ASTType> VariableAssignment<Type> {
     pub fn variable(&self) -> &Type::VariableUse {
         &self.variable
     }
+    
     pub fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
@@ -197,11 +202,12 @@ impl<Type: ASTType> SemanticEquality for VariableAssignment<Type> {
     }
 }
 
-/** This represents a control structure as defined in chapters 8 and 13 of the lang spec
-# Equality
-Two different ControlStructures are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This represents a control structure as defined in chapters 8 and 13 of the lang spec
+///
+/// # Equality
+///
+/// Two different ControlStructures are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
@@ -223,8 +229,9 @@ impl<Type: ASTType> SemanticEquality for ControlStructure<Type> {
 }
 
 impl<Type: ASTType> ControlStructure<Type> {
-    /** Returns the number of child statements
-     */
+    /// Returns the number of direct child statements
+    ///
+    /// This includes the before and after statements of the for loop
     pub fn child_len(&self) -> usize {
         match self {
             ControlStructure::Conditional(inner) => inner.len(),
@@ -232,8 +239,9 @@ impl<Type: ASTType> ControlStructure<Type> {
         }
     }
 
-    /** Returns the child statement at index
-     */
+    /// Returns the child statement at index
+    ///
+    /// The available statements are the same as in [`child_len`](ControlStructure::child_len)
     pub(crate) fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match self {
             ControlStructure::Conditional(cond) => cond.child_statement_at(index),
@@ -242,11 +250,12 @@ impl<Type: ASTType> ControlStructure<Type> {
     }
 }
 
-/** This represents a conditional as defined in chapter 8 of the lang spec
-# Equality
-Two different Conditionals are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This represents a conditional as defined in chapter 8 of the lang spec
+///
+/// # Equality
+///
+/// Two different Conditionals are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Conditional<Type: ASTType> {
     condition: ASTNode<Expression<Type>>,
@@ -267,8 +276,9 @@ impl<Type: ASTType> Conditional<Type> {
         }
     }
 
-    /** Returns the number of child statements
-     */
+    /// Returns the number of direct child statements
+    ///
+    /// This includes the if and the else statement, if it exists
     pub(crate) fn len(&self) -> usize {
         1 + self.else_statement.is_some() as usize
     }
@@ -285,10 +295,16 @@ impl<Type: ASTType> Conditional<Type> {
         self.else_statement.as_ref()
     }
 
-    /** Returns the child statement at index
-    0 is the then-statement
-    1 is the else-statement
-    */
+    /// Returns the child statement at index
+    /// 0 is the then-statement
+    /// 1 is the else-statement
+    ///
+    /// # Panics
+    ///
+    /// Panics if index is out of bounds.
+    /// - This is if:
+    ///     - There is an else statement and index >= 2
+    ///     - There is no else statement and index >= 1
     fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match index {
             0 => &self.then_statement,
@@ -310,11 +326,11 @@ impl<Type: ASTType> SemanticEquality for Conditional<Type> {
     }
 }
 
-/** This represents a conditional as defined in chapter 13 of the lang spec
-# Equality
-Two different Loops are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This represents a loop as defined in chapter 13 of the lang spec
+///
+/// # Equality
+/// Two different Loops are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Loop<Type: ASTType> {
     to_loop_on: ASTNode<Statement<Type>>,
@@ -329,8 +345,9 @@ impl<Type: ASTType> Loop<Type> {
         }
     }
 
-    /** Returns the number of child statements
-     */
+    /// Returns the number of direct child statements
+    ///
+    /// This includes the before and after statements of the for loop
     pub(crate) fn len(&self) -> usize {
         self.loop_type.len() + 1
     }
@@ -343,8 +360,9 @@ impl<Type: ASTType> Loop<Type> {
         &self.loop_type
     }
 
-    /** Returns the child statement at index
-     */
+    /// Returns the child statement at index
+    ///
+    /// The available statements are the same as in [`child_len`](Loop::len)
     fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         // The after each statement comes after the looped on code
         // So it needs special handling
@@ -376,8 +394,9 @@ impl<Type: ASTType> SemanticEquality for Loop<Type> {
     }
 }
 
-/** This is the type of a loop
-*/
+/// This is the type of a loop
+///
+/// It includes all type-specific elements (e.g.: the before Statement of a for loop
 #[derive(Debug, PartialEq)]
 pub enum LoopType<Type: ASTType> {
     Infinite,
@@ -390,9 +409,10 @@ pub enum LoopType<Type: ASTType> {
 }
 
 impl<Type: ASTType> LoopType<Type> {
-    /** Returns the number of child statements
-     */
-    pub fn len(&self) -> usize {
+    /// Returns the number of child statements
+    ///
+    /// This is two for a for loop and zero for everything else
+    pub(crate) fn len(&self) -> usize {
         match self {
             LoopType::Infinite => 0,
             LoopType::While(_) => 0,
@@ -400,8 +420,9 @@ impl<Type: ASTType> LoopType<Type> {
         }
     }
 
-    /** Returns the child statement at index
-     */
+    /// Returns the child statement at index
+    ///
+    /// The available statement are the same as in [`child_len`](LoopType::len)
     fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         if let LoopType::For {
             start,
@@ -448,12 +469,11 @@ impl<Type: ASTType> SemanticEquality for LoopType<Type> {
     }
 }
 
-/** A return in wasome code
-This is a wrapper around Expression with the wrapped one being the one's result that will be returned
-# Equality
-Two different Returns are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// A return in wasome code
+/// This is a wrapper around Expression with the wrapped one being the one's result that will be returned
+/// # Equality
+/// Two different Returns are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Return<Type: ASTType> {
     to_return: Option<ASTNode<Expression<Type>>>,
@@ -476,13 +496,38 @@ impl<Type: ASTType> SemanticEquality for Return<Type> {
 }
 
 impl Return<TypedAST> {
-    /** Gets the type being returned
-       Returns none if nothing
-       And Some(type) if an expression with type is being returned
-    */
+    /// Gets the type being returned
+    ///
+    /// Returns none if nothing
+    /// And Some(type) if an expression with type is being returned
     pub fn return_type(&self) -> Option<DataType> {
         // Gets the type from the expression
         self.to_return().map(|val| val.data_type())
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct CodeBlock<Type: ASTType> {
+    contents: Vec<ASTNode<Statement<Type>>>,
+}
+
+impl<Type: ASTType> CodeBlock<Type> {
+    pub fn new(contents: Vec<ASTNode<Statement<Type>>>) -> Self {
+        Self { contents }
+    }
+}
+
+impl<Type: ASTType> Deref for CodeBlock<Type> {
+    type Target = [ASTNode<Statement<Type>>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.contents
+    }
+}
+
+impl<Type: ASTType> SemanticEquality for CodeBlock<Type> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.contents.semantic_equals(&other.contents)
     }
 }
 

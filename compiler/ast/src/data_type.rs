@@ -1,5 +1,4 @@
-/** This represents the data types specified in section one of the lang spec
-*/
+/// A data type
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq)]
 pub enum DataType {
     Char,
@@ -16,10 +15,12 @@ pub enum DataType {
     F64,
 }
 
-/** This represents some wasome concept with a data type
-*/
+/// A syntax element in wasome with a data type.
+///
+/// This trait only is ever implemented for parts of the typed AST
+///
+/// Examples include expressions and operators
 pub trait Typed {
-    /** This method gets the type
-     */
+    /// Gets the data type
     fn data_type(&self) -> DataType;
 }

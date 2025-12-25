@@ -1,11 +1,7 @@
 use crate::expression::expression_parser;
-use crate::misc::{datatype_parser, identifier_parser, just_token, statement_seperator};
+use crate::misc::{datatype_parser, identifier_parser, just_token, statement_separator};
 use crate::{combine_code_areas_succeeding, PosInfoWrapper};
-use ast::block::CodeBlock;
-use ast::statement::{
-    Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
-    VariableDeclaration,
-};
+use ast::statement::{CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
 use ast::symbol::VariableSymbol;
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
@@ -158,7 +154,7 @@ pub(crate) fn statement_parser<'src>()
             .then(
                 statement
                     .clone()
-                    .separated_by(statement_seperator())
+                    .separated_by(statement_separator())
                     .allow_leading()
                     .allow_trailing()
                     .collect::<Vec<ASTNode<Statement<UntypedAST>>>>(),
@@ -203,7 +199,7 @@ fn maybe_statement_separator<'a>()
 #[cfg(test)]
 mod tests {
     use crate::statement::statement_parser;
-    use crate::test_shared::prepare_token;
+    use crate::test_shared::wrap_token;
     use ast::statement::Statement;
     use chumsky::Parser;
     use lexer::TokenType;
@@ -228,7 +224,7 @@ mod tests {
             TokenType::Decimal(10.0),
             TokenType::CloseParen,
         ]
-        .map(prepare_token);
+        .map(wrap_token);
 
         let parser = statement_parser();
 

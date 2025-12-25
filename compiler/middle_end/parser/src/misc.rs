@@ -51,7 +51,7 @@ pub(crate) fn identifier_parser<'a>()
 
 /** This parses statement seperators.
 */
-pub(crate) fn statement_seperator<'a>()
+pub(crate) fn statement_separator<'a>()
 -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ()> + Clone {
     just_token(TokenType::StatementSeparator)
         .repeated()
