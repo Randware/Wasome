@@ -135,7 +135,10 @@ impl VariableDeclaration<TypedAST> {
 impl VariableDeclaration<UntypedAST> {
     /** Creates a new instance
      */
-    pub fn new(variable: Rc<VariableSymbol<UntypedAST>>, value: ASTNode<Expression<UntypedAST>>) -> Self {
+    pub fn new(
+        variable: Rc<VariableSymbol<UntypedAST>>,
+        value: ASTNode<Expression<UntypedAST>>,
+    ) -> Self {
         Self { variable, value }
     }
 }
@@ -179,10 +182,8 @@ impl VariableAssignment<TypedAST> {
 
 impl VariableAssignment<UntypedAST> {
     /// Creates a new instance
-    pub fn new(
-        variable: String,
-        value: ASTNode<Expression<UntypedAST>>,
-    ) -> Self { Self { variable, value }
+    pub fn new(variable: String, value: ASTNode<Expression<UntypedAST>>) -> Self {
+        Self { variable, value }
     }
 }
 
@@ -190,7 +191,7 @@ impl<Type: ASTType> VariableAssignment<Type> {
     pub fn variable(&self) -> &Type::VariableUse {
         &self.variable
     }
-    
+
     pub fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }

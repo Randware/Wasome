@@ -1,6 +1,7 @@
 use crate::misc::statement_separator;
 use crate::top_level::top_level_parser;
-use ast::{ASTNode, UntypedAST, AST};
+use ast::file::File;
+use ast::{AST, ASTNode, UntypedAST};
 use chumsky::IterParser;
 use chumsky::Parser;
 use lexer::Token;
@@ -9,7 +10,6 @@ use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::path::PathBuf;
-use ast::file::File;
 
 mod expression;
 mod misc;
@@ -19,8 +19,10 @@ mod top_level;
 pub fn parse(to_parse: Vec<Token>, file: String) -> Option<File<UntypedAST>> {
     let to_parse_with_file_info = inject_file_information(to_parse, file.clone());
     let parser = top_level_parser();
-    parser.parse(&to_parse_with_file_info).into_output().map(|(imports, funcs)|
-    File::new(file, imports, funcs))
+    parser
+        .parse(&to_parse_with_file_info)
+        .into_output()
+        .map(|(imports, funcs)| File::new(file, imports, funcs))
 }
 
 fn inject_file_information(
@@ -154,16 +156,16 @@ mod tests {
             TokenType::StatementSeparator,
             TokenType::CloseScope,
         ]
-        .map(prepare_token).to_vec();
+        .map(prepare_token)
+        .to_vec();
 
         let actual = parse(tokens, "test".to_string()).unwrap();
 
         let expected_func_name = "fibonacci";
-        let func_name =
-            {
-                let function = actual.functions()[0].deref();
-                function.declaration().name()
-            };
+        let func_name = {
+            let function = actual.functions()[0].deref();
+            function.declaration().name()
+        };
         assert_eq!(expected_func_name, func_name);
     }
 }
@@ -193,7 +195,15 @@ pub(crate) mod test_shared {
         }
     }
 
-    pub(crate) fn wrap_in_astnode<T: PartialEq+Debug>(to_wrap: T) -> ASTNode<T> {
-        ASTNode::new(to_wrap, CodeArea::new(CodeLocation::new(0,0), CodeLocation::new(0,0), CodeFile::new(PathBuf::from("test/test"))).unwrap())
+    pub(crate) fn wrap_in_astnode<T: PartialEq + Debug>(to_wrap: T) -> ASTNode<T> {
+        ASTNode::new(
+            to_wrap,
+            CodeArea::new(
+                CodeLocation::new(0, 0),
+                CodeLocation::new(0, 0),
+                CodeFile::new(PathBuf::from("test/test")),
+            )
+            .unwrap(),
+        )
     }
 }

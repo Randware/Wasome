@@ -1,15 +1,15 @@
 use crate::misc::{datatype_parser, identifier_parser, just_token, statement_separator};
 use crate::statement::statement_parser;
-use crate::{combine_code_areas_succeeding, PosInfoWrapper};
+use crate::{PosInfoWrapper, combine_code_areas_succeeding};
+use ast::file::File;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::{Function, Import};
+use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
 use std::rc::Rc;
-use ast::file::File;
-use ast::visibility::Visibility;
 
 /** This parses a slice of tokens into a file
 */
@@ -19,7 +19,8 @@ pub(crate) fn top_level_parser<'src>() -> impl Parser<
     (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
 > {
     // This currently only handles functions
-    function_parser().map(|func| func.into_ast_node())
+    function_parser()
+        .map(|func| func.into_ast_node())
         .separated_by(crate::misc::statement_separator())
         .collect::<Vec<_>>()
         .map(|functions| (Vec::new(), functions))
@@ -43,40 +44,45 @@ fn function_parser<'src>()
             )
         });
 
-    just_token(TokenType::Public).or_not().then(
-    just_token(TokenType::Function)
-        .ignore_then(ident)
+    just_token(TokenType::Public)
+        .or_not()
         .then(
-            param
-                .clone()
-                .separated_by(just_token(TokenType::ArgumentSeparator))
-                .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
-                .delimited_by(
-                    just_token(TokenType::OpenParen),
-                    just_token(TokenType::CloseParen),
-                ),
-        ))
+            just_token(TokenType::Function).ignore_then(ident).then(
+                param
+                    .clone()
+                    .separated_by(just_token(TokenType::ArgumentSeparator))
+                    .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
+                    .delimited_by(
+                        just_token(TokenType::OpenParen),
+                        just_token(TokenType::CloseParen),
+                    ),
+            ),
+        )
         .then(
             just_token(TokenType::Return)
                 .ignore_then(data_type)
                 .or_not(),
         )
         .then(statement)
-        .map(|(((visibility, (name, params)), return_type), implementation)| {
-            let pos = combine_code_areas_succeeding(&name.pos_info, implementation.position());
-            PosInfoWrapper::new(
-                Function::new(
-                    Rc::new(FunctionSymbol::new(
-                        name.inner,
-                        return_type.map(|to_map| to_map.inner),
-                        params.into_iter().map(|param| param.inner).collect(),
-                    )),
-                    implementation,
-                    visibility.map(|_| Visibility::Public).unwrap_or(Visibility::Private),
-                ),
-                pos,
-            )
-        })
+        .map(
+            |(((visibility, (name, params)), return_type), implementation)| {
+                let pos = combine_code_areas_succeeding(&name.pos_info, implementation.position());
+                PosInfoWrapper::new(
+                    Function::new(
+                        Rc::new(FunctionSymbol::new(
+                            name.inner,
+                            return_type.map(|to_map| to_map.inner),
+                            params.into_iter().map(|param| param.inner).collect(),
+                        )),
+                        implementation,
+                        visibility
+                            .map(|_| Visibility::Public)
+                            .unwrap_or(Visibility::Private),
+                    ),
+                    pos,
+                )
+            },
+        )
 }
 #[cfg(test)]
 mod tests {
@@ -120,11 +126,10 @@ mod tests {
         let parsed = parser.parse(&to_parse).unwrap();
 
         let expected_func_name = "func";
-        let func_name =
-            {
-                let function = parsed.1.first().unwrap();
-                function.declaration().name()
-            };
+        let func_name = {
+            let function = parsed.1.first().unwrap();
+            function.declaration().name()
+        };
         assert_eq!(expected_func_name, func_name);
     }
 }

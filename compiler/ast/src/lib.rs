@@ -270,7 +270,10 @@ mod tests {
     use crate::directory::Directory;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Literal};
     use crate::file::File;
-    use crate::statement::{CodeBlock, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
+    use crate::statement::{
+        CodeBlock, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
+        VariableDeclaration,
+    };
     use crate::symbol::{FunctionSymbol, ModuleUsageNameSymbol, Symbol, VariableSymbol};
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
@@ -411,7 +414,7 @@ mod tests {
     #[test]
     fn fibonacci_typed() {
         // The how manyth fibonacci number we want
-        
+
         let (nth, current, previous, temp, fibonacci) = create_fibonacci_typed_symbols();
         let ast = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
 
@@ -1109,8 +1112,8 @@ mod tests {
 pub(crate) mod test_shared {
     use crate::directory::Directory;
     use crate::expression::{Expression, Literal};
-    use crate::statement::{VariableAssignment, VariableDeclaration};
     use crate::file::File;
+    use crate::statement::{VariableAssignment, VariableDeclaration};
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
     use crate::{AST, ASTNode, ASTType, TypedAST};

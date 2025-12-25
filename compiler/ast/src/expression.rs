@@ -935,12 +935,9 @@ mod tests {
                     Expression::UnaryOp(Box::new(
                         UnaryOp::<TypedAST>::new(
                             UnaryOpType::Typecast(Typecast::new(DataType::S64)),
-                            ASTNode::new(
-                                Expression::Literal(Literal::S32(5)),
-                                sample_codearea(),
-                            ),
+                            ASTNode::new(Expression::Literal(Literal::S32(5)), sample_codearea()),
                         )
-                            .unwrap(),
+                        .unwrap(),
                     )),
                     sample_codearea(),
                 ),

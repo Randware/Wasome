@@ -27,8 +27,6 @@ pub struct StatementTraversalHelper<'a, 'b, Type: ASTType> {
     root: &'a FunctionTraversalHelper<'a, 'b, Type>,
 }
 
-
-
 impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     /// Creates a new StatementRef where inner is the root
     pub fn new_root(root: &'a FunctionTraversalHelper<'a, 'b, Type>) -> Self {

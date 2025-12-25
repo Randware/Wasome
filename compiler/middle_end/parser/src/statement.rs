@@ -1,7 +1,10 @@
 use crate::expression::expression_parser;
 use crate::misc::{datatype_parser, identifier_parser, just_token, statement_separator};
-use crate::{combine_code_areas_succeeding, PosInfoWrapper};
-use ast::statement::{CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
+use crate::{PosInfoWrapper, combine_code_areas_succeeding};
+use ast::statement::{
+    CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
+    VariableAssignment, VariableDeclaration,
+};
 use ast::symbol::VariableSymbol;
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
@@ -11,8 +14,7 @@ use std::rc::Rc;
 
 fn narrow<
     'src,
-    T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>>
-        + Clone,
+    T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>> + Clone,
 >(
     input: T,
 ) -> T {
@@ -22,8 +24,7 @@ fn narrow<
 /** This parses a slice of tokens into a statement
 */
 pub(crate) fn statement_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>>
-{
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>> {
     recursive(|statement| {
         let statement = narrow(statement);
         let data_type = datatype_parser();
@@ -37,10 +38,7 @@ pub(crate) fn statement_parser<'src>()
             .then(expression.clone())
             .map(|(name, val)| {
                 let pos = combine_code_areas_succeeding(&name.pos_info, val.position());
-                PosInfoWrapper::new(
-                    VariableAssignment::<UntypedAST>::new(name.inner, val),
-                    pos,
-                )
+                PosInfoWrapper::new(VariableAssignment::<UntypedAST>::new(name.inner, val), pos)
             });
 
         let variable_declaration = data_type
@@ -69,10 +67,7 @@ pub(crate) fn statement_parser<'src>()
                         .unwrap_or(return_keyword.pos_info()),
                 );
 
-                PosInfoWrapper::new(
-                    Return::<UntypedAST>::new(to_return),
-                    pos,
-                )
+                PosInfoWrapper::new(Return::<UntypedAST>::new(to_return), pos)
             });
 
         let conditional = just_token(TokenType::If)
@@ -98,14 +93,7 @@ pub(crate) fn statement_parser<'src>()
                         .unwrap_or(then.position()),
                 );
 
-                PosInfoWrapper::new(
-                    Conditional::new(
-                        cond,
-                        then,
-                        else_statement,
-                    ),
-                    pos,
-                )
+                PosInfoWrapper::new(Conditional::new(cond, then, else_statement), pos)
             });
 
         let loop_body = maybe_statement_separator().ignore_then(statement.clone());
@@ -143,11 +131,8 @@ pub(crate) fn statement_parser<'src>()
                     }),
             )))
             .map(|(loop_keyword, (body, loop_type))| {
-                let pos =  combine_code_areas_succeeding(&loop_keyword.pos_info, body.position());
-                PosInfoWrapper::new(
-                    Loop::new(body, loop_type),
-                    pos,
-                )
+                let pos = combine_code_areas_succeeding(&loop_keyword.pos_info, body.position());
+                PosInfoWrapper::new(Loop::new(body, loop_type), pos)
             });
 
         let code_block = just_token(TokenType::OpenScope)
@@ -186,7 +171,8 @@ pub(crate) fn statement_parser<'src>()
                 let pos = expr.position().clone();
                 PosInfoWrapper::new(Statement::Expression(expr), pos)
             }),
-        )).map(|statement| statement.into_ast_node())
+        ))
+        .map(|statement| statement.into_ast_node())
     })
 }
 
@@ -231,12 +217,12 @@ mod tests {
         let parsed = parser.parse(&to_parse).unwrap();
 
         let expected_var_name = "var";
-        let var_name =
-            {
-                let Statement::VariableDeclaration(variable) = parsed.deref()
-                else { panic!("We should not be here") };
-                variable.variable().name()
+        let var_name = {
+            let Statement::VariableDeclaration(variable) = parsed.deref() else {
+                panic!("We should not be here")
             };
+            variable.variable().name()
+        };
         assert_eq!(expected_var_name, var_name);
     }
 }

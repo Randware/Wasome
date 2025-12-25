@@ -1,7 +1,9 @@
 use crate::misc::{datatype_parser, identifier_parser, just_token};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
+use ast::expression::{
+    BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
+};
 use ast::{ASTNode, UntypedAST};
-use ast::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
@@ -9,11 +11,7 @@ use shared::code_reference::{CodeArea, CodeLocation};
 
 fn narrow<
     'src,
-    T: Parser<
-            'src,
-            &'src [PosInfoWrapper<Token, CodeFile>],
-            ASTNode<Expression<UntypedAST>>,
-        > + Clone,
+    T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>> + Clone,
 >(
     input: T,
 ) -> T {
@@ -22,39 +20,37 @@ fn narrow<
 /** This parses a slice of tokens into an expression
 */
 pub(crate) fn expression_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>>
-+ Clone {
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>> + Clone
+{
     recursive(|expr| {
         let expr = narrow(expr);
-        let literal = custom::<
-            _,
-            &[PosInfoWrapper<Token, CodeFile>],
-            ASTNode<Expression<UntypedAST>>,
-            _,
-        >(|token| {
-            {
-                let next_token = token.next().ok_or(EmptyErr::default())?;
-                let (tok, pos) = (next_token.inner, next_token.pos_info);
-                Ok(ASTNode::new(
-                    Expression::Literal(
-                        match tok.kind {
-                            TokenType::Decimal(inner) => inner.to_string(),
-                            TokenType::Integer(inner) => inner.to_string(),
-                            _ => return Err(EmptyErr::default()),
-                        },
-                        // new only returns None if start > end
-                        // If this is the case, then there is a bug
-                        // So the error is unrecoverable
-                    ),
-                    CodeArea::new(
-                        CodeLocation::new(tok.line, tok.span.start),
-                        CodeLocation::new(tok.line, tok.span.end),
-                        pos,
-                    )
-                    .unwrap(),
-                ))
-            }
-        });
+        let literal =
+            custom::<_, &[PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>, _>(
+                |token| {
+                    {
+                        let next_token = token.next().ok_or(EmptyErr::default())?;
+                        let (tok, pos) = (next_token.inner, next_token.pos_info);
+                        Ok(ASTNode::new(
+                            Expression::Literal(
+                                match tok.kind {
+                                    TokenType::Decimal(inner) => inner.to_string(),
+                                    TokenType::Integer(inner) => inner.to_string(),
+                                    _ => return Err(EmptyErr::default()),
+                                },
+                                // new only returns None if start > end
+                                // If this is the case, then there is a bug
+                                // So the error is unrecoverable
+                            ),
+                            CodeArea::new(
+                                CodeLocation::new(tok.line, tok.span.start),
+                                CodeLocation::new(tok.line, tok.span.end),
+                                pos,
+                            )
+                            .unwrap(),
+                        ))
+                    }
+                },
+            );
 
         let ident = identifier_parser();
 
@@ -77,10 +73,7 @@ pub(crate) fn expression_parser<'src>()
                         .unwrap_or(name.pos_info()),
                 );
                 ASTNode::new(
-                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
-                        name.inner,
-                        args,
-                    )),
+                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new(name.inner, args)),
                     pos,
                 )
             });
@@ -109,8 +102,11 @@ pub(crate) fn expression_parser<'src>()
             });
 
         let unary_op = choice((
-            just_token(TokenType::Subtraction).map(|token| unary_op_mapper(UnaryOpType::Negative, token.pos_info.start().clone())),
-            just_token(TokenType::Not).map(|token| unary_op_mapper(UnaryOpType::Not, token.pos_info.start().clone())),
+            just_token(TokenType::Subtraction).map(|token| {
+                unary_op_mapper(UnaryOpType::Negative, token.pos_info.start().clone())
+            }),
+            just_token(TokenType::Not)
+                .map(|token| unary_op_mapper(UnaryOpType::Not, token.pos_info.start().clone())),
         ));
         let unary = choice((typecast, unary_op.repeated().foldr(atom, |op, rhs| op(rhs))));
 
@@ -173,11 +169,8 @@ pub(crate) fn expression_parser<'src>()
 }
 
 fn binary_operator_parser<'a>(
-    input: impl Parser<
-        'a,
-        &'a [PosInfoWrapper<Token, CodeFile>],
-        ASTNode<Expression<UntypedAST>>,
-    > + Clone,
+    input: impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>>
+    + Clone,
     ops: &[(TokenType, BinaryOpType)],
 ) -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>> + Clone
 {
@@ -193,36 +186,60 @@ fn binary_operator_parser<'a>(
     )
 }
 
-fn map_unary_op(operator_type: UnaryOpType<UntypedAST>, op_start: CodeLocation, input: ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
-    let combined_pos = CodeArea::new(op_start, input.position().end().clone(), input.position().file().clone())
-        .expect("This should never happen. The unary operator is on front of the expression");
+fn map_unary_op(
+    operator_type: UnaryOpType<UntypedAST>,
+    op_start: CodeLocation,
+    input: ASTNode<Expression<UntypedAST>>,
+) -> ASTNode<Expression<UntypedAST>> {
+    let combined_pos = CodeArea::new(
+        op_start,
+        input.position().end().clone(),
+        input.position().file().clone(),
+    )
+    .expect("This should never happen. The unary operator is on front of the expression");
     ASTNode::new(
         Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
             operator_type.clone(),
             input,
         ))),
-        combined_pos
+        combined_pos,
     )
 }
 
-fn unary_op_mapper(token_type: UnaryOpType<UntypedAST>, op_start: CodeLocation) -> impl Fn(ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
+fn unary_op_mapper(
+    token_type: UnaryOpType<UntypedAST>,
+    op_start: CodeLocation,
+) -> impl Fn(ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
     move |expr| map_unary_op(token_type.clone(), op_start.clone(), expr)
 }
 
-fn map_binary_op(operator_type: BinaryOpType, lhs: ASTNode<Expression<UntypedAST>>, rhs: ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
-    let combined_pos = CodeArea::new(lhs.position().start().clone(), rhs.position().end().clone(), lhs.position().file().clone())
-        .expect("This should never happen. The unary operator is on front of the expression");
+fn map_binary_op(
+    operator_type: BinaryOpType,
+    lhs: ASTNode<Expression<UntypedAST>>,
+    rhs: ASTNode<Expression<UntypedAST>>,
+) -> ASTNode<Expression<UntypedAST>> {
+    let combined_pos = CodeArea::new(
+        lhs.position().start().clone(),
+        rhs.position().end().clone(),
+        lhs.position().file().clone(),
+    )
+    .expect("This should never happen. The unary operator is on front of the expression");
     ASTNode::new(
         Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
             operator_type,
             lhs,
             rhs,
         ))),
-        combined_pos
+        combined_pos,
     )
 }
 
-fn binary_op_mapper(token_type: BinaryOpType) -> impl Fn(ASTNode<Expression<UntypedAST>>, ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
+fn binary_op_mapper(
+    token_type: BinaryOpType,
+) -> impl Fn(
+    ASTNode<Expression<UntypedAST>>,
+    ASTNode<Expression<UntypedAST>>,
+) -> ASTNode<Expression<UntypedAST>> {
     move |lhs, rhs| map_binary_op(token_type, lhs, rhs)
 }
 
@@ -271,9 +288,11 @@ fn single_binary<'a>(
 #[cfg(test)]
 mod tests {
     use crate::expression::expression_parser;
-    use crate::test_shared::{wrap_token, wrap_in_astnode};
+    use crate::test_shared::{wrap_in_astnode, wrap_token};
+    use ast::expression::{
+        BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
+    };
     use ast::{SemanticEquality, UntypedAST};
-    use ast::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType};
     use chumsky::Parser;
     use lexer::TokenType;
 
