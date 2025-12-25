@@ -2,13 +2,14 @@ use crate::misc::{datatype_parser, identifier_parser, just_token, statement_sepa
 use crate::statement::statement_parser;
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::file::File;
-use ast::symbol::{FunctionSymbol, VariableSymbol};
-use ast::top_level::{Function, Import};
+use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol, VariableSymbol};
+use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
+use shared::code_reference::CodeArea;
 use std::rc::Rc;
 
 /** This parses a slice of tokens into a file
@@ -19,11 +20,79 @@ pub(crate) fn top_level_parser<'src>() -> impl Parser<
     (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
 > {
     // This currently only handles functions
-    function_parser()
+    let imports = import_parser()
         .map(|func| func.into_ast_node())
-        .separated_by(crate::misc::statement_separator())
+        .separated_by(statement_separator())
+        .collect::<Vec<_>>();
+
+    let functions = function_parser()
+        .map(|func| func.into_ast_node())
+        .separated_by(statement_separator())
+        .collect::<Vec<_>>();
+
+    imports
+        .then(functions)
+        .map(|(imports, functions)| (imports, functions))
+}
+
+fn import_parser<'src>()
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Import>> {
+    let ident = identifier_parser();
+    let path = ident
+        .clone()
+        .separated_by(just_token(TokenType::PathSeparator))
+        .at_least(1)
         .collect::<Vec<_>>()
-        .map(|functions| (Vec::new(), functions))
+        .map(|elements| {
+            // We specified that the path must be at least one long
+            // Therefore the vec may not be empty, last can not return None and we never panic
+            let pos = elements.last().unwrap().pos_info.clone();
+            (
+                elements
+                    .into_iter()
+                    .map(|elem| elem.inner)
+                    .collect::<Vec<_>>(),
+                pos,
+            )
+        });
+    // TODO: Change token to import
+    // TODO: Change ArgSep to quote
+    just_token(TokenType::Function)
+        .then(
+            just_token(TokenType::ArgumentSeparator)
+                .ignore_then(path)
+                .then_ignore(just_token(TokenType::ArgumentSeparator))
+                .then(just_token(TokenType::As).ignore_then(ident).or_not()),
+        )
+        .map(|(import, ((mut path, path_end_pos), usage_name))| {
+            let start = import.pos_info.start().clone();
+            let end = usage_name
+                .as_ref()
+                .map(|inner| inner.pos_info.clone())
+                .unwrap_or(path_end_pos)
+                .end()
+                .clone();
+
+            let root = if path.first().unwrap() == "." {
+                path.remove(0);
+                ImportRoot::CurrentModule
+            } else {
+                ImportRoot::Root
+            };
+
+            // This never panics due to the same reason as above
+            let use_as = Rc::new(ModuleUsageNameSymbol::new(
+                usage_name
+                    .map(|un| un.inner)
+                    .unwrap_or_else(|| path.last().unwrap().clone()),
+            ));
+            // The pos info of a later token can never be before that of an earlier token
+            // Therefore, this can never panic
+            PosInfoWrapper::new(
+                Import::new(root, path, use_as),
+                CodeArea::new(start, end, import.pos_info.file().clone()).unwrap(),
+            )
+        })
 }
 
 /** This parses a slice of tokens into a function
