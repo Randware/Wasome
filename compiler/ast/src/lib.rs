@@ -38,7 +38,7 @@ pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
-mod visibility;
+pub mod visibility;
 
 ///  Comparing semantics only.
 ///
