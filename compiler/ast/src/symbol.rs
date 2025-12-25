@@ -32,7 +32,7 @@ pub trait SymbolTable<'a, Type: ASTType>:
 pub enum Symbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
-    ModuleUsageName(&'a ModuleUsageNameSymbol)
+    ModuleUsageName(&'a ModuleUsageNameSymbol),
 }
 
 impl<'a, Type: ASTType> Symbol<'a, Type> {

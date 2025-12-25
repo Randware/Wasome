@@ -1,10 +1,10 @@
-use std::iter;
 use crate::file::File;
 use crate::symbol::{ModuleUsageNameSymbol, Symbol, SymbolTable};
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
+use std::iter;
 use std::path::PathBuf;
 
 /// This struct helps with traversing files
@@ -103,11 +103,12 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                             .resolve_import(import)
                             .unwrap()
                             .map(|imported_symbol| {
-                                (
-                                    Some(import.inner.usage_name()),
-                                    imported_symbol,
-                                )
-                            }).chain(iter::once((None, Symbol::ModuleUsageName(import.usage_name()))))
+                                (Some(import.inner.usage_name()), imported_symbol)
+                            })
+                            .chain(iter::once((
+                                None,
+                                Symbol::ModuleUsageName(import.usage_name()),
+                            )))
                     }),
             ),
         }

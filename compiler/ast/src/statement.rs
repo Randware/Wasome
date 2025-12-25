@@ -479,9 +479,7 @@ impl<Type: ASTType> Deref for CodeBlock<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality
-for CodeBlock<Type>
-{
+impl<Type: ASTType> SemanticEquality for CodeBlock<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
         self.contents.semantic_equals(&other.contents)
     }

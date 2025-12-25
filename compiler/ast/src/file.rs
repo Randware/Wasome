@@ -47,7 +47,6 @@ impl<Type: ASTType> File<Type> {
     /// Gets the symbol with the specified name
     pub fn symbol(&self, name: &str) -> Option<Symbol<'_, Type>> {
         self.symbol_chosen_public(name, true)
-
     }
 
     /// Gets the symbol with the specified name if it is public
@@ -68,8 +67,8 @@ impl<Type: ASTType> File<Type> {
     /// - `None`: If no symbol was found
     /// - `Some(<Symbol>)`: If a symbol was found
     fn symbol_chosen_public(&self, name: &str, only_public: bool) -> Option<Symbol<'_, Type>> {
-        self.symbols_chosen_public(only_public).find(|symbol| symbol.name() == name)
-
+        self.symbols_chosen_public(only_public)
+            .find(|symbol| symbol.name() == name)
     }
 
     /// Gets the function with the specified name

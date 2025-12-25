@@ -270,7 +270,9 @@ mod tests {
     use crate::directory::Directory;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Literal};
     use crate::file::File;
-    use crate::statement::{CodeBlock, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment};
+    use crate::statement::{
+        CodeBlock, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
+    };
     use crate::symbol::{FunctionSymbol, ModuleUsageNameSymbol, Symbol, VariableSymbol};
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
@@ -908,11 +910,7 @@ mod tests {
             )
             .unwrap(),
         );
-        let add_file = File::new(
-            "add".to_string(),
-            Vec::new(),
-            vec![add_function],
-        );
+        let add_file = File::new("add".to_string(), Vec::new(), vec![add_function]);
 
         let main_function = ASTNode::new(
             Function::new(
@@ -1009,7 +1007,10 @@ mod tests {
         assert_eq!(2, dth.len_files());
         assert_eq!(0, dth.subdirectories_iterator().count());
         assert_eq!(2, dth.files_iterator().count());
-        assert_ne!(dth.index_file(0).unwrap().inner(), dth.index_file(1).unwrap().inner());
+        assert_ne!(
+            dth.index_file(0).unwrap().inner(),
+            dth.index_file(1).unwrap().inner()
+        );
         assert_eq!(2, dth.inner().files().len())
     }
 
@@ -1019,7 +1020,11 @@ mod tests {
             File::<TypedAST>::new(
                 "main".to_string(),
                 vec![ASTNode::new(
-                    Import::new(ImportRoot::Root, vec!["nonexistent".to_string()], Rc::new(ModuleUsageNameSymbol::new("testproject".to_string()))),
+                    Import::new(
+                        ImportRoot::Root,
+                        vec!["nonexistent".to_string()],
+                        Rc::new(ModuleUsageNameSymbol::new("testproject".to_string())),
+                    ),
                     CodeArea::new(
                         CodeLocation::new(0, 0),
                         CodeLocation::new(0, 10),
@@ -1146,11 +1151,7 @@ pub(crate) mod test_shared {
                 "src".to_string(),
                 Vec::new(),
                 vec![ASTNode::new(
-                    File::new(
-                        "main.waso".to_string(),
-                        Vec::new(),
-                        functions,
-                    ),
+                    File::new("main.waso".to_string(), Vec::new(), functions),
                     main_path,
                 )],
             ),

@@ -64,20 +64,24 @@ pub struct Import {
     root: ImportRoot,
     path: Vec<String>,
     /// The name under which the result can be used
-    /// 
+    ///
     /// This is:
     /// - **The name provided in the as-syntax** if one was provided
     /// - **The last part of path** if path is not empty**
     /// - **./** if root is [`ImportRoot::CurrentModule`]
     /// - **<The project name** if root is [`ImportRoot::Root`]
-    /// 
+    ///
     /// If multiple match, only the first match is considered
-    usage_name: Rc<ModuleUsageNameSymbol>
+    usage_name: Rc<ModuleUsageNameSymbol>,
 }
 
 impl Import {
     pub fn new(root: ImportRoot, path: Vec<String>, usage_name: Rc<ModuleUsageNameSymbol>) -> Self {
-        Self { root, path, usage_name }
+        Self {
+            root,
+            path,
+            usage_name,
+        }
     }
 
     pub fn root(&self) -> &ImportRoot {

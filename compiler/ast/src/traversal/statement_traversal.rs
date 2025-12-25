@@ -101,7 +101,10 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ///
     /// - `None` if `location > self.amount_children()`
     /// - `Some(<The requested symbols>)` otherwise
-    pub fn symbols_defined_directly_in_before_index(&self, index: usize) -> Option<Vec<Symbol<'b, Type>>> {
+    pub fn symbols_defined_directly_in_before_index(
+        &self,
+        index: usize,
+    ) -> Option<Vec<Symbol<'b, Type>>> {
         if index > self.amount_children() {
             return None;
         }

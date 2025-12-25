@@ -61,8 +61,14 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     ///
     /// - `None` if `index >= self.len_subdirectories()`
     /// - `Some(<Subdir>)` otherwise
-    pub fn index_subdirectory(&self, index: usize) -> Option<DirectoryTraversalHelper<'_, 'b, Type>> {
-        Some(DirectoryTraversalHelper::new_child(self.inner.subdirectories().get(index)?, self))
+    pub fn index_subdirectory(
+        &self,
+        index: usize,
+    ) -> Option<DirectoryTraversalHelper<'_, 'b, Type>> {
+        Some(DirectoryTraversalHelper::new_child(
+            self.inner.subdirectories().get(index)?,
+            self,
+        ))
     }
     /// Gets the subdirectory with the specified name.
     /// Returns None if it doesn't exist
@@ -93,7 +99,10 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     /// - `None` if `index >= self.len_files()`
     /// - `Some(<Subdir>)` otherwise
     pub fn index_file(&self, index: usize) -> Option<FileTraversalHelper<'_, 'b, Type>> {
-        Some(FileTraversalHelper::new(self.inner.files().get(index)?, self))
+        Some(FileTraversalHelper::new(
+            self.inner.files().get(index)?,
+            self,
+        ))
     }
     /// Gets the file with the specified name
     /// Returns None if it doesn't exist
