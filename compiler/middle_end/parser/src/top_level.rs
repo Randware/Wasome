@@ -1,7 +1,6 @@
 use crate::misc::{datatype_parser, identifier_parser, just_token, statement_separator};
 use crate::statement::statement_parser;
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::file::File;
 use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol, VariableSymbol};
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
@@ -19,7 +18,6 @@ pub(crate) fn top_level_parser<'src>() -> impl Parser<
     &'src [PosInfoWrapper<Token, CodeFile>],
     (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
 > {
-    // This currently only handles functions
     let imports = import_parser()
         .map(|func| func.into_ast_node())
         .separated_by(statement_separator())

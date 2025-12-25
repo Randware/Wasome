@@ -1,7 +1,6 @@
-use crate::misc::statement_separator;
 use crate::top_level::top_level_parser;
 use ast::file::File;
-use ast::{AST, ASTNode, UntypedAST};
+use ast::{ASTNode, UntypedAST};
 use chumsky::IterParser;
 use chumsky::Parser;
 use lexer::Token;
