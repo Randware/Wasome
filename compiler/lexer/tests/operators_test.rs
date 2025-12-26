@@ -28,7 +28,7 @@ fn test_math_operators() {
             span: 8..9,
         },
         Token {
-            kind: TokenType::Division,
+            kind: TokenType::Slash,
             line: 1,
             span: 10..11,
         },

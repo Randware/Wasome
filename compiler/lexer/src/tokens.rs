@@ -54,6 +54,8 @@ pub enum TokenType {
     // Values
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
+    #[regex(r#""(\\.|[^\\"])*""#, |lex| lex.slice().to_string())]
+    Quote(String),
     #[regex(r"\d+\.\d+", |lex| lex.slice().parse().map_err(LexError::Float))]
     Decimal(f64),
     #[regex(r"\d+", |lex| lex.slice().parse().map_err(LexError::Int))]
@@ -68,11 +70,13 @@ pub enum TokenType {
     Subtraction,
     #[token("*")]
     Multiplication,
-    #[token("/")]
-    Division,
     #[token("%")]
     Modulo,
-
+    
+    // '/' is a bit extra, since we will be using it for both Math and Filepaths.
+    #[token("/")]
+    Slash,
+    
     // Logic Operators
     #[token("<")]
     LessThan,
@@ -130,7 +134,9 @@ pub enum TokenType {
     Public,
     #[token("new")]
     New,
-
+    #[token("import")]
+    Import,
+    
     // Symbols
     #[token("->")]
     Return,
