@@ -16,7 +16,6 @@
 //! For more information on how to use this, refer to the tests in this file.
 //! Note that unlike in the tests, ASTs are not supposed to be hardcoded
 
-use std::borrow::Borrow;
 use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
@@ -24,6 +23,7 @@ use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
 use crate::top_level::{Import, ImportRoot};
 use shared::code_reference::CodeArea;
+use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
@@ -247,7 +247,6 @@ impl<T: Debug + PartialEq, Position> PartialEq for ASTNode<T, Position> {
 }
 
 impl<T: Debug + PartialEq, Position> Eq for ASTNode<T, Position> {}
-
 
 /// This compares two values
 /// This is useful for returning with the ? operator if values are not equal

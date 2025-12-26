@@ -114,7 +114,8 @@ pub struct VariableAssignment<Type: ASTType> {
 
 impl<Type: ASTType> SemanticEquality for VariableAssignment<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.variable().semantic_equals(other.variable()) && self.value.semantic_equals(&other.value)
+        self.variable().semantic_equals(other.variable())
+            && self.value.semantic_equals(&other.value)
     }
 }
 

@@ -60,7 +60,7 @@ impl<Type: ASTType> SemanticEquality for Symbol<'_, Type> {
             (S::Function(lhs), S::Function(rhs)) => lhs.semantic_equals(rhs),
             (S::Variable(lhs), S::Variable(rhs)) => lhs.semantic_equals(rhs),
             (S::ModuleUsageName(lhs), S::ModuleUsageName(rhs)) => lhs.semantic_equals(rhs),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -144,9 +144,9 @@ impl<Type: ASTType> FunctionSymbol<Type> {
 
 impl<Type: ASTType> SemanticEquality for FunctionSymbol<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.name().semantic_equals(&other.name()) &&
-            self.return_type().semantic_equals(&other.return_type()) &&
-            self.params().semantic_equals(self.params())
+        self.name().semantic_equals(&other.name())
+            && self.return_type().semantic_equals(&other.return_type())
+            && self.params().semantic_equals(self.params())
     }
 }
 
@@ -189,7 +189,7 @@ impl Typed for VariableSymbol<TypedAST> {
 
 impl<Type: ASTType> SemanticEquality for VariableSymbol<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.name().semantic_equals(&other.name()) &&
-            self.data_type().semantic_equals(other.data_type())
+        self.name().semantic_equals(&other.name())
+            && self.data_type().semantic_equals(other.data_type())
     }
 }
