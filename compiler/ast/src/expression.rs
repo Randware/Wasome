@@ -41,11 +41,11 @@ impl<Type: ASTType> SemanticEquality for Expression<Type> {
             (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
                 inner.semantic_equals(other_inner)
             }
-            // For Variables, we want to ensure that the same symbols are used
-            // For Literals, there are no inner structs with ids
-            (Exp::Variable(_), Exp::Variable(_)) | (Exp::Literal(_), Exp::Literal(_)) => {
-                self == other
+            (Exp::Variable(inner), Exp::Variable(other_inner)) => {
+                inner.semantic_equals(other_inner)
             }
+            // For Literals, there are no inner structs with ids
+            (Exp::Literal(_), Exp::Literal(_)) => self == other,
             (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_equals(other_inner),
             (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => {
                 inner.semantic_equals(other_inner)
@@ -78,13 +78,6 @@ impl Literal {
             Literal::F32(_) => DT::F32,
             Literal::F64(_) => DT::F64,
         }
-    }
-}
-
-impl SemanticEquality for Literal {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        // No ids
-        self == other
     }
 }
 

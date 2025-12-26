@@ -1,4 +1,4 @@
-use lexer::{lex, Token, TokenType};
+use lexer::{Token, TokenType, lex};
 
 #[test]
 fn test_comment() {
@@ -68,9 +68,7 @@ fn test_comment() {
         },
     ];
 
-    let tokens: Vec<Token> = lex(input)
-        .filter_map(|result| result.ok())
-        .collect();
-    
+    let tokens: Vec<Token> = lex(input).filter_map(|result| result.ok()).collect();
+
     assert_eq!(tokens, expected_tokens);
 }

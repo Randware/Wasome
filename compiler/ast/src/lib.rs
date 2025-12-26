@@ -267,7 +267,7 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
 
 ///  This decided what type the ast is.
 pub trait ASTType: Sized + PartialEq + 'static + Debug {
-    type LiteralType: PartialEq + Debug + SemanticEquality;
+    type LiteralType: PartialEq + Debug;
     type GeneralDataType: Eq + PartialEq + Debug + Clone + SemanticEquality;
     type FunctionCallSymbol: Debug + PartialEq + SemanticEquality;
     type VariableUse: Debug + PartialEq + Clone + SemanticEquality;

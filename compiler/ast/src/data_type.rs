@@ -29,7 +29,7 @@ pub trait Typed {
 
 impl SemanticEquality for DataType {
     fn semantic_equals(&self, other: &Self) -> bool {
-        // No ids
+        // DataType has no Id
         self == other
     }
 }
