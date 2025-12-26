@@ -16,6 +16,7 @@
 //! For more information on how to use this, refer to the tests in this file.
 //! Note that unlike in the tests, ASTs are not supposed to be hardcoded
 
+use std::borrow::Borrow;
 use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
@@ -78,6 +79,30 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
     }
 }
 
+impl SemanticEquality for str {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+impl SemanticEquality for String {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+impl<T: SemanticEquality> SemanticEquality for &T {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        (*self).semantic_equals(*other)
+    }
+}
+
+impl<T: SemanticEquality> SemanticEquality for Rc<T> {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        self.deref().semantic_equals(other.deref())
+    }
+}
+
 /// An AST
 ///
 /// An AST consists of many projects, all of which are linked together by dependencies
@@ -90,7 +115,7 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
 ///
 /// The root-level element is supposed to contain the individual projects
 /// All imports in this must be valid
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct AST<Type: ASTType> {
     // The root directory (e.g.: src)
     inner: ASTNode<Directory<Type>, PathBuf>,
@@ -167,14 +192,14 @@ impl<Type: ASTType> SemanticEquality for AST<Type> {
 /// Two different ASTNodes are never equal.
 /// Use semantic_equals from [`SemanticEquality`] to check semantics only
 
-#[derive(Debug, PartialEq)]
-pub struct ASTNode<T: Debug + PartialEq, Position = CodeArea> {
+#[derive(Debug)]
+pub struct ASTNode<T: Debug, Position = CodeArea> {
     id: Id,
     inner: T,
     position: Position,
 }
 
-impl<T: Debug + PartialEq, Position> ASTNode<T, Position> {
+impl<T: Debug, Position> ASTNode<T, Position> {
     pub fn new(inner: T, position: Position) -> Self {
         Self {
             inner,
@@ -188,7 +213,7 @@ impl<T: Debug + PartialEq, Position> ASTNode<T, Position> {
     }
 }
 
-impl<T: Debug + PartialEq, Position> Deref for ASTNode<T, Position> {
+impl<T: Debug, Position> Deref for ASTNode<T, Position> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -196,23 +221,33 @@ impl<T: Debug + PartialEq, Position> Deref for ASTNode<T, Position> {
     }
 }
 
-impl<T: Debug + PartialEq, Position> DerefMut for ASTNode<T, Position> {
+impl<T: Debug, Position> DerefMut for ASTNode<T, Position> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl<T: SemanticEquality + Debug + PartialEq, Position> SemanticEquality for ASTNode<T, Position> {
+impl<T: SemanticEquality + Debug, Position> SemanticEquality for ASTNode<T, Position> {
     fn semantic_equals(&self, other: &Self) -> bool {
         self.inner.semantic_equals(&other.inner)
     }
 }
 
-impl<T: Debug + PartialEq> Hash for ASTNode<T> {
+impl<T: Debug> Hash for ASTNode<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
 }
+
+// More efficient than deriving
+impl<T: Debug + PartialEq, Position> PartialEq for ASTNode<T, Position> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<T: Debug + PartialEq, Position> Eq for ASTNode<T, Position> {}
+
 
 /// This compares two values
 /// This is useful for returning with the ? operator if values are not equal
@@ -234,10 +269,10 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
 
 ///  This decided what type the ast is.
 pub trait ASTType: Sized + PartialEq + 'static + Debug {
-    type LiteralType: PartialEq + Debug;
-    type GeneralDataType: Eq + PartialEq + Debug + Clone;
-    type FunctionCallSymbol: Debug + PartialEq;
-    type VariableUse: Debug + PartialEq;
+    type LiteralType: PartialEq + Debug + SemanticEquality;
+    type GeneralDataType: Eq + PartialEq + Debug + Clone + SemanticEquality;
+    type FunctionCallSymbol: Debug + PartialEq + SemanticEquality;
+    type VariableUse: Debug + PartialEq + Clone + SemanticEquality;
 }
 
 ///  This is an ast type

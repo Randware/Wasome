@@ -46,7 +46,7 @@ impl<Type: ASTType> Function<Type> {
 
 impl<Type: ASTType> SemanticEquality for Function<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.declaration == other.declaration
+        self.declaration().semantic_equals(other.declaration())
             && self.implementation.semantic_equals(&other.implementation)
     }
 }

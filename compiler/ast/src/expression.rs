@@ -81,6 +81,13 @@ impl Literal {
     }
 }
 
+impl SemanticEquality for Literal {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        // No ids
+        self == other
+    }
+}
+
 /// This is a type of operator that only takes one input
 ///
 /// # Validity
@@ -504,7 +511,7 @@ impl<Type: ASTType> FunctionCall<Type> {
 
 impl<Type: ASTType> SemanticEquality for FunctionCall<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.function == other.function && self.args.semantic_equals(&other.args)
+        self.function().semantic_equals(other.function()) && self.args.semantic_equals(&other.args)
     }
 }
 

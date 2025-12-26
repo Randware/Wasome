@@ -1,3 +1,5 @@
+use crate::SemanticEquality;
+
 /// A data type
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq)]
 pub enum DataType {
@@ -23,4 +25,11 @@ pub enum DataType {
 pub trait Typed {
     /// Gets the data type
     fn data_type(&self) -> DataType;
+}
+
+impl SemanticEquality for DataType {
+    fn semantic_equals(&self, other: &Self) -> bool {
+        // No ids
+        self == other
+    }
 }
