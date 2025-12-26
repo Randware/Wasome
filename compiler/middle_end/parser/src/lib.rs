@@ -15,6 +15,16 @@ mod misc_parsers;
 mod statement_parser;
 mod top_level_parser;
 
+/// Parses the provided [`SourceFile`] to a file from the ast
+///
+/// # Parameter
+///
+/// **to_parse**: The [`SourceFile`] to parse
+///
+/// # Return
+///
+/// - **None**: The parsing failed // TODO: Add error handling support
+/// - **Some**: The parsing succeeded and the result is contained within
 pub fn parse(to_parse: &SourceFile) -> Option<File<UntypedAST>> {
     let mut tokens = Vec::new();
     let mut all_ok = true;
@@ -59,7 +69,7 @@ fn parse_tokens(to_parse: Vec<Token>, file: String) -> Option<File<UntypedAST>> 
     parser
         .parse(&to_parse_with_file_info)
         .into_output()
-        .map(|(imports, funcs)| File::new(file, imports, funcs))
+        .map(|(imports, functions)| File::new(file, imports, functions))
 }
 
 fn inject_file_information(
@@ -85,7 +95,7 @@ pub(crate) fn combine_code_areas_succeeding(a: &CodeArea, b: &CodeArea) -> CodeA
 }
 
 /// Stores positional information and an element
-/// 
+///
 /// This is like [`ASTNode`], except that it doesn't indicate that this belongs in an AST
 #[derive(PartialEq, Debug)]
 pub(crate) struct PosInfoWrapper<T: PartialEq + Debug, Pos: PartialEq + Debug = CodeArea> {
@@ -235,7 +245,7 @@ pub(crate) mod test_shared {
         }
     }
 
-    pub(crate) fn wrap_in_astnode<T: PartialEq + Debug>(to_wrap: T) -> ASTNode<T> {
+    pub(crate) fn wrap_in_ast_node<T: PartialEq + Debug>(to_wrap: T) -> ASTNode<T> {
         ASTNode::new(
             to_wrap,
             CodeArea::new(

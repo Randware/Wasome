@@ -1,5 +1,5 @@
 use crate::expression_parser::expression_parser;
-use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, statement_separator};
+use crate::misc_parsers::{datatype_parser, identifier_parser, statement_separator, token_parser};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
@@ -13,7 +13,7 @@ use shared::code_file::CodeFile;
 use std::rc::Rc;
 
 /// Ensures that T implements a specific trait
-/// 
+///
 /// This is only used to prevent type annotation issues without specifying the entire type
 fn narrow<
     'src,
@@ -178,10 +178,12 @@ pub(crate) fn statement_parser<'src>()
     })
 }
 
-/// Either parses a statementSeperator or nothing
+/// Either parses a statementSeparator or nothing
 fn maybe_statement_separator<'a>()
 -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ()> + Clone {
-    token_parser(TokenType::StatementSeparator).or_not().ignored()
+    token_parser(TokenType::StatementSeparator)
+        .or_not()
+        .ignored()
 }
 #[cfg(test)]
 mod tests {

@@ -1,10 +1,10 @@
-use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, statement_separator};
+use crate::misc_parsers::{datatype_parser, identifier_parser, statement_separator, token_parser};
 use crate::statement_parser::statement_parser;
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol, VariableSymbol};
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
-use ast::{ASTNode, UntypedAST, AST};
+use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
@@ -93,8 +93,7 @@ fn import_parser<'src>()
 
 /// Parses a single function
 fn function_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Function<UntypedAST>>>
-{
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Function<UntypedAST>>> {
     let statement = statement_parser();
     let data_type = datatype_parser();
     let ident = identifier_parser();

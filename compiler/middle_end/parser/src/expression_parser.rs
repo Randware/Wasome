@@ -200,7 +200,7 @@ fn map_binary_op(
         rhs.position().end().clone(),
         lhs.position().file().clone(),
     )
-        .expect("This should never happen. lhs should always be before rhs");
+    .expect("This should never happen. lhs should always be before rhs");
     ASTNode::new(
         Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
             operator_type,
@@ -228,7 +228,7 @@ fn map_unary_op(
         input.position().end().clone(),
         input.position().file().clone(),
     )
-        .expect("This should never happen. The operator should always be before the expression");
+    .expect("This should never happen. The operator should always be before the expression");
     ASTNode::new(
         Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
             operator_type.clone(),
@@ -241,7 +241,7 @@ fn map_unary_op(
 #[cfg(test)]
 mod tests {
     use crate::expression_parser::expression_parser;
-    use crate::test_shared::{wrap_in_astnode, wrap_token};
+    use crate::test_shared::{wrap_in_ast_node, wrap_token};
     use ast::expression::{
         BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
     };
@@ -270,20 +270,20 @@ mod tests {
         let parser = expression_parser();
 
         let parsed = parser.parse(&to_parse).unwrap();
-        let expected = wrap_in_astnode(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+        let expected = wrap_in_ast_node(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
             "test".to_string(),
             vec![
-                wrap_in_astnode(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
                     UnaryOpType::Typecast(Typecast::new("f32".to_string())),
-                    wrap_in_astnode(Expression::Literal("5".to_string())),
+                    wrap_in_ast_node(Expression::Literal("5".to_string())),
                 )))),
-                wrap_in_astnode(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                     BinaryOpType::NotEquals,
-                    wrap_in_astnode(Expression::Variable("test2".to_string())),
-                    wrap_in_astnode(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    wrap_in_ast_node(Expression::Variable("test2".to_string())),
+                    wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                         BinaryOpType::Multiplication,
-                        wrap_in_astnode(Expression::Literal("5".to_string())),
-                        wrap_in_astnode(Expression::Literal("10".to_string())),
+                        wrap_in_ast_node(Expression::Literal("5".to_string())),
+                        wrap_in_ast_node(Expression::Literal("10".to_string())),
                     )))),
                 )))),
             ],
@@ -314,20 +314,20 @@ mod tests {
         let parser = expression_parser();
 
         let parsed = parser.parse(&to_parse).unwrap();
-        let expected = wrap_in_astnode(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+        let expected = wrap_in_ast_node(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
             "test".to_string(),
             vec![
-                wrap_in_astnode(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
                     UnaryOpType::Typecast(Typecast::new("f32".to_string())),
-                    wrap_in_astnode(Expression::Literal("5".to_string())),
+                    wrap_in_ast_node(Expression::Literal("5".to_string())),
                 )))),
-                wrap_in_astnode(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                     BinaryOpType::NotEquals,
-                    wrap_in_astnode(Expression::Variable("test2".to_string())),
-                    wrap_in_astnode(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    wrap_in_ast_node(Expression::Variable("test2".to_string())),
+                    wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                         BinaryOpType::Multiplication,
-                        wrap_in_astnode(Expression::Literal("5".to_string())),
-                        wrap_in_astnode(Expression::Literal("10".to_string())),
+                        wrap_in_ast_node(Expression::Literal("5".to_string())),
+                        wrap_in_ast_node(Expression::Literal("10".to_string())),
                     )))),
                 )))),
             ],
@@ -336,12 +336,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_just_idendifier() {
+    fn parse_just_identifier() {
         let to_parse = [TokenType::Identifier("test".to_string())].map(wrap_token);
 
         let parser = expression_parser();
 
-        let expected = wrap_in_astnode(Expression::Variable("test".to_string()));
+        let expected = wrap_in_ast_node(Expression::Variable("test".to_string()));
         assert!(expected.semantic_equals(&parser.parse(&to_parse).unwrap()));
     }
 
