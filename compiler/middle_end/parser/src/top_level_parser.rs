@@ -4,7 +4,7 @@ use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol, VariableSymbol};
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
-use ast::{ASTNode, UntypedAST};
+use ast::{ASTNode, UntypedAST, AST};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
@@ -19,12 +19,10 @@ pub(crate) fn top_level_parser<'src>() -> impl Parser<
     (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
 > {
     let imports = import_parser()
-        .map(|func| func.into_ast_node())
         .separated_by(statement_separator())
         .collect::<Vec<_>>();
 
     let functions = function_parser()
-        .map(|func| func.into_ast_node())
         .separated_by(statement_separator())
         .collect::<Vec<_>>();
 
@@ -34,7 +32,7 @@ pub(crate) fn top_level_parser<'src>() -> impl Parser<
 }
 
 fn import_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Import>> {
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Import>> {
     let ident = identifier_parser();
     let path = ident
         .clone()
@@ -86,7 +84,7 @@ fn import_parser<'src>()
             ));
             // The pos info of a later token can never be before that of an earlier token
             // Therefore, this can never panic
-            PosInfoWrapper::new(
+            ASTNode::new(
                 Import::new(root, path, use_as),
                 CodeArea::new(start, end, import.pos_info.file().clone()).unwrap(),
             )
@@ -96,7 +94,7 @@ fn import_parser<'src>()
 /** This parses a slice of tokens into a function
 */
 fn function_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<Function<UntypedAST>>>
+-> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Function<UntypedAST>>>
 {
     let statement = statement_parser();
     let data_type = datatype_parser();
@@ -134,7 +132,7 @@ fn function_parser<'src>()
         .map(
             |(((visibility, (name, params)), return_type), implementation)| {
                 let pos = combine_code_areas_succeeding(&name.pos_info, implementation.position());
-                PosInfoWrapper::new(
+                ASTNode::new(
                     Function::new(
                         Rc::new(FunctionSymbol::new(
                             name.inner,

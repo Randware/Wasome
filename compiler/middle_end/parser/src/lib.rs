@@ -77,13 +77,16 @@ pub(crate) fn combine_code_areas(a: &CodeArea, b: &CodeArea) -> Option<CodeArea>
     if a.file() != b.file() {
         return None;
     }
-    CodeArea::new(a.start().clone(), b.start().clone(), a.file().clone())
+    CodeArea::new(a.start().clone(), b.end().clone(), a.file().clone())
 }
 
 pub(crate) fn combine_code_areas_succeeding(a: &CodeArea, b: &CodeArea) -> CodeArea {
     combine_code_areas(a, b).unwrap()
 }
 
+/// Stores positional information and an element
+/// 
+/// This is like [`ASTNode`], except that it doesn't indicate that this belongs in an AST
 #[derive(PartialEq, Debug)]
 pub(crate) struct PosInfoWrapper<T: PartialEq + Debug, Pos: PartialEq + Debug = CodeArea> {
     pub inner: T,
