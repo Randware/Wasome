@@ -78,6 +78,7 @@ impl<T: SemanticEquality> SemanticEquality for Option<T> {
     }
 }
 
+// Required for ASTType
 impl SemanticEquality for str {
     fn semantic_equals(&self, other: &Self) -> bool {
         self == other
