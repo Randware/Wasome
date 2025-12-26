@@ -1,4 +1,4 @@
-use crate::misc_parsers::{datatype_parser, identifier_parser, just_token, statement_separator};
+use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, statement_separator};
 use crate::statement_parser::statement_parser;
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol, VariableSymbol};
@@ -11,8 +11,7 @@ use shared::code_file::CodeFile;
 use shared::code_reference::CodeArea;
 use std::rc::Rc;
 
-/** This parses a slice of tokens into a file
-*/
+/// Parses all Top-Level elements in a file
 pub(crate) fn top_level_parser<'src>() -> impl Parser<
     'src,
     &'src [PosInfoWrapper<Token, CodeFile>],
@@ -31,12 +30,13 @@ pub(crate) fn top_level_parser<'src>() -> impl Parser<
         .map(|(imports, functions)| (imports, functions))
 }
 
+/// Parses a single import
 fn import_parser<'src>()
 -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Import>> {
     let ident = identifier_parser();
     let path = ident
         .clone()
-        .separated_by(just_token(TokenType::PathSeparator))
+        .separated_by(token_parser(TokenType::PathSeparator))
         .at_least(1)
         .collect::<Vec<_>>()
         .map(|elements| {
@@ -53,12 +53,12 @@ fn import_parser<'src>()
         });
     // TODO: Change token to import
     // TODO: Change ArgSep to quote
-    just_token(TokenType::Function)
+    token_parser(TokenType::Function)
         .then(
-            just_token(TokenType::ArgumentSeparator)
+            token_parser(TokenType::ArgumentSeparator)
                 .ignore_then(path)
-                .then_ignore(just_token(TokenType::Division))
-                .then(just_token(TokenType::As).ignore_then(ident).or_not()),
+                .then_ignore(token_parser(TokenType::Division))
+                .then(token_parser(TokenType::As).ignore_then(ident).or_not()),
         )
         .map(|(import, ((mut path, path_end_pos), usage_name))| {
             let start = import.pos_info.start().clone();
@@ -91,8 +91,7 @@ fn import_parser<'src>()
         })
 }
 
-/** This parses a slice of tokens into a function
-*/
+/// Parses a single function
 fn function_parser<'src>()
 -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Function<UntypedAST>>>
 {
@@ -109,22 +108,22 @@ fn function_parser<'src>()
             )
         });
 
-    just_token(TokenType::Public)
+    token_parser(TokenType::Public)
         .or_not()
         .then(
-            just_token(TokenType::Function).ignore_then(ident).then(
+            token_parser(TokenType::Function).ignore_then(ident).then(
                 param
                     .clone()
-                    .separated_by(just_token(TokenType::ArgumentSeparator))
+                    .separated_by(token_parser(TokenType::ArgumentSeparator))
                     .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
                     .delimited_by(
-                        just_token(TokenType::OpenParen),
-                        just_token(TokenType::CloseParen),
+                        token_parser(TokenType::OpenParen),
+                        token_parser(TokenType::CloseParen),
                     ),
             ),
         )
         .then(
-            just_token(TokenType::Return)
+            token_parser(TokenType::Return)
                 .ignore_then(data_type)
                 .or_not(),
         )
@@ -155,7 +154,6 @@ mod tests {
     use crate::top_level_parser::top_level_parser;
     use chumsky::Parser;
     use lexer::TokenType;
-    use std::ops::Deref;
 
     #[test]
     fn parse() {

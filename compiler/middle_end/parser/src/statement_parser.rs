@@ -1,5 +1,5 @@
 use crate::expression_parser::expression_parser;
-use crate::misc_parsers::{datatype_parser, identifier_parser, just_token, statement_separator};
+use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, statement_separator};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
@@ -12,6 +12,9 @@ use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
 use std::rc::Rc;
 
+/// Ensures that T implements a specific trait
+/// 
+/// This is only used to prevent type annotation issues without specifying the entire type
 fn narrow<
     'src,
     T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>> + Clone,
@@ -21,8 +24,7 @@ fn narrow<
     input
 }
 
-/** This parses a slice of tokens into a statement
-*/
+/// Parses a single statement
 pub(crate) fn statement_parser<'src>()
 -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>> {
     recursive(|statement| {
@@ -34,7 +36,7 @@ pub(crate) fn statement_parser<'src>()
 
         let variable_assignment = ident
             .clone()
-            .then_ignore(just_token(TokenType::Assign))
+            .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|(name, val)| {
                 let pos = combine_code_areas_succeeding(&name.pos_info, val.position());
@@ -44,7 +46,7 @@ pub(crate) fn statement_parser<'src>()
         let variable_declaration = data_type
             .clone()
             .then(ident)
-            .then_ignore(just_token(TokenType::Assign))
+            .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|((data_type, name), val)| {
                 PosInfoWrapper::new(
@@ -56,7 +58,7 @@ pub(crate) fn statement_parser<'src>()
                 )
             });
 
-        let return_statement = just_token(TokenType::Return)
+        let return_statement = token_parser(TokenType::Return)
             .then(expression.clone().or_not())
             .map(|(return_keyword, to_return)| {
                 let pos = combine_code_areas_succeeding(
@@ -70,16 +72,16 @@ pub(crate) fn statement_parser<'src>()
                 PosInfoWrapper::new(Return::<UntypedAST>::new(to_return), pos)
             });
 
-        let conditional = just_token(TokenType::If)
+        let conditional = token_parser(TokenType::If)
             .then(expression.clone().delimited_by(
-                just_token(TokenType::OpenParen),
-                just_token(TokenType::CloseScope),
+                token_parser(TokenType::OpenParen),
+                token_parser(TokenType::CloseScope),
             ))
             .then_ignore(maybe_statement_separator())
             .then(statement.clone())
             .then(
                 maybe_statement_separator()
-                    .then_ignore(just_token(TokenType::Else))
+                    .then_ignore(token_parser(TokenType::Else))
                     .then_ignore(maybe_statement_separator())
                     .ignore_then(statement.clone())
                     .or_not(),
@@ -97,27 +99,27 @@ pub(crate) fn statement_parser<'src>()
             });
 
         let loop_body = maybe_statement_separator().ignore_then(statement.clone());
-        let loop_statement = just_token(TokenType::Loop)
-            .then_ignore(just_token(TokenType::OpenParen))
+        let loop_statement = token_parser(TokenType::Loop)
+            .then_ignore(token_parser(TokenType::OpenParen))
             .then(choice((
-                just_token(TokenType::CloseParen)
+                token_parser(TokenType::CloseParen)
                     .ignore_then(loop_body.clone())
                     .map(|body| (body, LoopType::Infinite)),
                 expression
                     .clone()
-                    .then_ignore(just_token(TokenType::CloseParen))
+                    .then_ignore(token_parser(TokenType::CloseParen))
                     .then(loop_body.clone())
                     .map(|(cond, body)| (body, LoopType::While(cond))),
                 statement
                     .clone()
-                    .then_ignore(just_token(TokenType::Semicolon))
+                    .then_ignore(token_parser(TokenType::Semicolon))
                     .then(
                         expression
                             .clone()
-                            .then_ignore(just_token(TokenType::Semicolon)),
+                            .then_ignore(token_parser(TokenType::Semicolon)),
                     )
                     .then(statement.clone())
-                    .then_ignore(just_token(TokenType::CloseParen))
+                    .then_ignore(token_parser(TokenType::CloseParen))
                     .then(loop_body.clone())
                     .map(|(((init, cond), after_each), body)| {
                         (
@@ -135,7 +137,7 @@ pub(crate) fn statement_parser<'src>()
                 PosInfoWrapper::new(Loop::new(body, loop_type), pos)
             });
 
-        let code_block = just_token(TokenType::OpenScope)
+        let code_block = token_parser(TokenType::OpenScope)
             .then(
                 statement
                     .clone()
@@ -144,7 +146,7 @@ pub(crate) fn statement_parser<'src>()
                     .allow_trailing()
                     .collect::<Vec<ASTNode<Statement<UntypedAST>>>>(),
             )
-            .then(just_token(TokenType::CloseScope))
+            .then(token_parser(TokenType::CloseScope))
             .map(|((open, block), close)| {
                 PosInfoWrapper::new(
                     CodeBlock::new(block.into_iter().collect()),
@@ -176,11 +178,10 @@ pub(crate) fn statement_parser<'src>()
     })
 }
 
-/** This parses a statement seperator or nothing
-*/
+/// Either parses a statementSeperator or nothing
 fn maybe_statement_separator<'a>()
 -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ()> + Clone {
-    just_token(TokenType::StatementSeparator).or_not().ignored()
+    token_parser(TokenType::StatementSeparator).or_not().ignored()
 }
 #[cfg(test)]
 mod tests {

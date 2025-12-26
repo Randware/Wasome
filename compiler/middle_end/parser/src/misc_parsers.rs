@@ -4,28 +4,26 @@ use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
 use shared::code_reference::{CodeArea, CodeLocation};
 
-/** This parses arbitiary data types
-*/
+/// Parses data types
 pub(crate) fn datatype_parser<'src>()
 -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<String>> + Clone {
     choice((
-        just_token(TokenType::F32).map(|to_map| to_map.map(|_| "f32".to_string())),
-        just_token(TokenType::F64).map(|to_map| to_map.map(|_| "f64".to_string())),
-        just_token(TokenType::S8).map(|to_map| to_map.map(|_| "s8".to_string())),
-        just_token(TokenType::U8).map(|to_map| to_map.map(|_| "u8".to_string())),
-        just_token(TokenType::S16).map(|to_map| to_map.map(|_| "s16".to_string())),
-        just_token(TokenType::U16).map(|to_map| to_map.map(|_| "u16".to_string())),
-        just_token(TokenType::S32).map(|to_map| to_map.map(|_| "s32".to_string())),
-        just_token(TokenType::U32).map(|to_map| to_map.map(|_| "u32".to_string())),
-        just_token(TokenType::S64).map(|to_map| to_map.map(|_| "s64".to_string())),
-        just_token(TokenType::U64).map(|to_map| to_map.map(|_| "u64".to_string())),
-        just_token(TokenType::Bool).map(|to_map| to_map.map(|_| "bool".to_string())),
-        just_token(TokenType::Char).map(|to_map| to_map.map(|_| "char".to_string())),
+        token_parser(TokenType::F32).map(|to_map| to_map.map(|_| "f32".to_string())),
+        token_parser(TokenType::F64).map(|to_map| to_map.map(|_| "f64".to_string())),
+        token_parser(TokenType::S8).map(|to_map| to_map.map(|_| "s8".to_string())),
+        token_parser(TokenType::U8).map(|to_map| to_map.map(|_| "u8".to_string())),
+        token_parser(TokenType::S16).map(|to_map| to_map.map(|_| "s16".to_string())),
+        token_parser(TokenType::U16).map(|to_map| to_map.map(|_| "u16".to_string())),
+        token_parser(TokenType::S32).map(|to_map| to_map.map(|_| "s32".to_string())),
+        token_parser(TokenType::U32).map(|to_map| to_map.map(|_| "u32".to_string())),
+        token_parser(TokenType::S64).map(|to_map| to_map.map(|_| "s64".to_string())),
+        token_parser(TokenType::U64).map(|to_map| to_map.map(|_| "u64".to_string())),
+        token_parser(TokenType::Bool).map(|to_map| to_map.map(|_| "bool".to_string())),
+        token_parser(TokenType::Char).map(|to_map| to_map.map(|_| "char".to_string())),
     ))
 }
 
-/** This parses idendifierts
-*/
+/// Parses identifiers
 pub(crate) fn identifier_parser<'a>()
 -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<String>> + Clone {
     custom(|token| {
@@ -49,17 +47,17 @@ pub(crate) fn identifier_parser<'a>()
     })
 }
 
-/** This parses statement seperators.
-*/
+/// Parses one or multiple statement separators
 pub(crate) fn statement_separator<'a>()
 -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ()> + Clone {
-    just_token(TokenType::StatementSeparator)
+    token_parser(TokenType::StatementSeparator)
         .repeated()
         .at_least(1)
         .ignored()
 }
 
-pub(crate) fn just_token<'a>(
+/// Parses a single token
+pub(crate) fn token_parser<'a>(
     token: TokenType,
 ) -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<TokenType, CodeArea>> + Clone
 {
