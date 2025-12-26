@@ -1,5 +1,5 @@
-use crate::misc::{datatype_parser, identifier_parser, just_token, statement_separator};
-use crate::statement::statement_parser;
+use crate::misc_parsers::{datatype_parser, identifier_parser, just_token, statement_separator};
+use crate::statement_parser::statement_parser;
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol, VariableSymbol};
 use ast::top_level::{Function, Import, ImportRoot};
@@ -154,7 +154,7 @@ fn function_parser<'src>()
 #[cfg(test)]
 mod tests {
     use crate::test_shared::wrap_token;
-    use crate::top_level::top_level_parser;
+    use crate::top_level_parser::top_level_parser;
     use chumsky::Parser;
     use lexer::TokenType;
     use std::ops::Deref;

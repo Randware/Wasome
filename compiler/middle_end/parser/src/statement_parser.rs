@@ -1,5 +1,5 @@
-use crate::expression::expression_parser;
-use crate::misc::{datatype_parser, identifier_parser, just_token, statement_separator};
+use crate::expression_parser::expression_parser;
+use crate::misc_parsers::{datatype_parser, identifier_parser, just_token, statement_separator};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
@@ -184,7 +184,7 @@ fn maybe_statement_separator<'a>()
 }
 #[cfg(test)]
 mod tests {
-    use crate::statement::statement_parser;
+    use crate::statement_parser::statement_parser;
     use crate::test_shared::wrap_token;
     use ast::statement::Statement;
     use chumsky::Parser;

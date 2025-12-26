@@ -1,27 +1,26 @@
-use crate::top_level::top_level_parser;
+use crate::top_level_parser::top_level_parser;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
 use chumsky::Parser;
-use lexer::{lex, Token};
+use lexer::{Token, lex};
 use shared::code_file::CodeFile;
 use shared::code_reference::CodeArea;
+use source::SourceFile;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::path::PathBuf;
-use source::SourceFile;
 
-mod expression;
-mod misc;
-mod statement;
-mod top_level;
+mod expression_parser;
+mod misc_parsers;
+mod statement_parser;
+mod top_level_parser;
 
 pub fn parse(to_parse: &SourceFile) -> Option<File<UntypedAST>> {
     let mut tokens = Vec::new();
     let mut all_ok = true;
-    lex(to_parse.content()).for_each(|token|
-    match token {
+    lex(to_parse.content()).for_each(|token| match token {
         Ok(inner_token) => tokens.push(inner_token),
-        Err(_) => all_ok = false
+        Err(_) => all_ok = false,
     });
     parse_tokens(tokens, filename_without_extension(to_parse)?.to_owned())
 }
@@ -44,10 +43,15 @@ pub fn parse(to_parse: &SourceFile) -> Option<File<UntypedAST>> {
 ///
 /// The name without file extension
 fn filename_without_extension(from: &SourceFile) -> Option<&str> {
-    from.path().iter().last()?.to_str()?.split('.').last()
+    from.path()
+        .iter()
+        .next_back()?
+        .to_str()?
+        .split('.')
+        .next_back()
 }
 
-pub(crate) fn parse_tokens(to_parse: Vec<Token>, file: String) -> Option<File<UntypedAST>> {
+fn parse_tokens(to_parse: Vec<Token>, file: String) -> Option<File<UntypedAST>> {
     let to_parse_with_file_info = inject_file_information(to_parse, file.clone());
     // It's not a good idea to put this into a static to prevent recreating the parser
     // as it would require a lot of HRTB stuff
@@ -127,7 +131,7 @@ impl<T: PartialEq + Debug + Clone, Pos: PartialEq + Debug + Clone> Clone
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_shared::{prepare_token, wrap_token};
+    use crate::test_shared::prepare_token;
     use lexer::TokenType;
 
     #[test]

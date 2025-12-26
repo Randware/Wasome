@@ -1,4 +1,4 @@
-use crate::misc::{datatype_parser, identifier_parser, just_token};
+use crate::misc_parsers::{datatype_parser, identifier_parser, just_token};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
@@ -287,7 +287,7 @@ fn single_binary<'a>(
 
 #[cfg(test)]
 mod tests {
-    use crate::expression::expression_parser;
+    use crate::expression_parser::expression_parser;
     use crate::test_shared::{wrap_in_astnode, wrap_token};
     use ast::expression::{
         BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
