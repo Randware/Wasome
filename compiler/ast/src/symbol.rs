@@ -96,7 +96,7 @@ impl ModuleUsageNameSymbol {
 
 impl SemanticEquality for ModuleUsageNameSymbol {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.name().semantic_equals(&other.name())
+        self.name().semantic_equals(other.name())
     }
 }
 
@@ -144,7 +144,7 @@ impl<Type: ASTType> FunctionSymbol<Type> {
 
 impl<Type: ASTType> SemanticEquality for FunctionSymbol<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.name().semantic_equals(&other.name())
+        self.name().semantic_equals(other.name())
             && self.return_type().semantic_equals(&other.return_type())
             && self.params().semantic_equals(self.params())
     }
@@ -189,7 +189,7 @@ impl Typed for VariableSymbol<TypedAST> {
 
 impl<Type: ASTType> SemanticEquality for VariableSymbol<Type> {
     fn semantic_equals(&self, other: &Self) -> bool {
-        self.name().semantic_equals(&other.name())
+        self.name().semantic_equals(other.name())
             && self.data_type().semantic_equals(other.data_type())
     }
 }

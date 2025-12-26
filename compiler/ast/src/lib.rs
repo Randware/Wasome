@@ -23,7 +23,6 @@ use crate::id::Id;
 use crate::symbol::{FunctionSymbol, VariableSymbol};
 use crate::top_level::{Import, ImportRoot};
 use shared::code_reference::CodeArea;
-use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
