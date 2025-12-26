@@ -1,22 +1,56 @@
 use crate::top_level::top_level_parser;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
-use chumsky::IterParser;
 use chumsky::Parser;
-use lexer::Token;
+use lexer::{lex, Token};
 use shared::code_file::CodeFile;
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::path::PathBuf;
+use source::SourceFile;
 
 mod expression;
 mod misc;
 mod statement;
 mod top_level;
 
-pub fn parse(to_parse: Vec<Token>, file: String) -> Option<File<UntypedAST>> {
+pub fn parse(to_parse: &SourceFile) -> Option<File<UntypedAST>> {
+    let mut tokens = Vec::new();
+    let mut all_ok = true;
+    lex(to_parse.content()).for_each(|token|
+    match token {
+        Ok(inner_token) => tokens.push(inner_token),
+        Err(_) => all_ok = false
+    });
+    parse_tokens(tokens, filename_without_extension(to_parse)?.to_owned())
+}
+
+/// Gets the filename without extension from the provided [`SourceFile`]
+///
+/// # Failure
+///
+/// This may fail for a variety of reasons:
+/// 1. **Empty Path**: The path of the file is empty
+/// 2. **Non-UTF8 Characters**: The name of the file contains non-utf8 characters
+/// 3. **Empty Filename**: The filename is empty. This differs from 1. by the fact that having
+///    elements before the filepath does not exclude this failure condition
+///
+/// # Parameter
+///
+/// **from**: The [`SourceFile`] to extract the name from
+///
+/// # Return
+///
+/// The name without file extension
+fn filename_without_extension(from: &SourceFile) -> Option<&str> {
+    from.path().iter().last()?.to_str()?.split('.').last()
+}
+
+pub(crate) fn parse_tokens(to_parse: Vec<Token>, file: String) -> Option<File<UntypedAST>> {
     let to_parse_with_file_info = inject_file_information(to_parse, file.clone());
+    // It's not a good idea to put this into a static to prevent recreating the parser
+    // as it would require a lot of HRTB stuff
     let parser = top_level_parser();
     parser
         .parse(&to_parse_with_file_info)
@@ -158,7 +192,7 @@ mod tests {
         .map(prepare_token)
         .to_vec();
 
-        let actual = parse(tokens, "test".to_string()).unwrap();
+        let actual = parse_tokens(tokens, "test".to_string()).unwrap();
 
         let expected_func_name = "fibonacci";
         let func_name = {
