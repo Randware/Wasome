@@ -1,9 +1,17 @@
+use crate::{ASTNode, ASTType, SemanticEq};
 use crate::composite::{Enum, Struct};
-use crate::symbol::{DirectlyAvailableSymbol, FunctionSymbol};
+use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
-use crate::{ASTNode, ASTType, SemanticEquality};
 
+/// A file containing code
+///
+/// Files are located in directories
+///
+/// # Contents
+///
+/// It has a name, imports and functions
+/// + imports and functions may both be empty vecs
 #[derive(Debug, PartialEq)]
 pub struct File<Type: ASTType> {
     /// Filename without the file extension
@@ -51,18 +59,6 @@ impl<Type: ASTType> File<Type> {
         &self.structs
     }
 
-    /** Gets the symbol with the specified name
-     */
-    pub fn symbol(&self, origin: &[String]) -> Option<DirectlyAvailableSymbol<'_, Type>> {
-        self.symbol_specified_origin(origin, false)
-    }
-
-    /** Gets the symbol with the specified name if it is public
-     */
-    pub fn symbol_public(&self, origin: &[String]) -> Option<DirectlyAvailableSymbol<'_, Type>> {
-        self.symbol_specified_origin(origin, true)
-    }
-
     /** Gets the symbol with the specified origin if it is public or outside is false
      */
     fn symbol_specified_origin(
@@ -94,9 +90,35 @@ impl<Type: ASTType> File<Type> {
             })
     }
 
-    /** Gets the function with the specified name
-     */
-    pub fn function_by_name(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
+    /// Gets the symbol with the specified name
+    pub fn symbol(&self, name: &str) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+        self.symbol_chosen_public(name, true)
+    }
+
+    /// Gets the symbol with the specified name if it is public
+    pub fn symbol_public(&self, name: &str) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+        self.symbol_chosen_public(name, false)
+    }
+
+    /// Gets the requested symbol. It does not differentiate between function- and non-function
+    /// symbols.
+    /// - Note that currently, there are only function symbols
+    ///
+    /// # Parameter
+    ///
+    /// - `only_public`: If true, the symbol is only returned if it is public. Otherwise, there is no filtering
+    ///
+    /// # Return
+    ///
+    /// - `None`: If no symbol was found
+    /// - `Some(<Symbol>)`: If a symbol was found
+    fn symbol_chosen_public(&self, name: &str, only_public: bool) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+        self.symbols_chosen_public(only_public)
+            .find(|symbol| symbol.name() == name)
+    }
+
+    /// Gets the function with the specified name
+    pub fn specific_function(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
         self.functions()
             .iter()
             .find(|function| function.declaration().name() == name)
@@ -108,6 +130,19 @@ impl<Type: ASTType> File<Type> {
         self.function_by_name(name)
             .filter(|function| !only_public || function.visibility() == Visibility::Public)
             .map(|function| function.declaration())
+    }
+
+    /** Gets the function with the specified name
+    */
+    pub fn function_by_name(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
+        self.functions()
+            .iter()
+            .find(|function| function.declaration().name() == name)
+    }
+
+    /// Gets an iterator over all functions inside this file
+    pub fn function_iterator(&self) -> impl Iterator<Item = &ASTNode<Function<Type>>> {
+        self.functions().iter()
     }
 
     /** Gets the struct with the specified name
@@ -124,24 +159,115 @@ impl<Type: ASTType> File<Type> {
 
     /** Gets an iterator over all enums
      */
-    pub fn enums_iterator(&self) -> impl Iterator<Item = &ASTNode<Enum<Type>>> {
+    pub fn enum_iterator(&self) -> impl Iterator<Item = &ASTNode<Enum<Type>>> {
         self.enums().iter()
     }
 
     /** Gets an iterator over all structs
      */
-    pub fn structs_iterator(&self) -> impl Iterator<Item = &ASTNode<Struct<Type>>> {
+    pub fn struct_iterator(&self) -> impl Iterator<Item = &ASTNode<Struct<Type>>> {
         self.structs().iter()
+    }
+
+    /// Gets symbols, including non-public ones. It does not differentiate between function- and non-function
+    /// symbols.
+    /// - Note that currently, there are only function symbols
+    ///
+    /// # Return
+    ///
+    /// The requested symbols
+    pub fn symbols(&self) -> impl Iterator<Item = DirectlyAvailableSymbol<'_, Type>> {
+        self.symbols_chosen_public(false)
+    }
+
+    /// Gets public symbols. It does not differentiate between function- and non-function
+    /// symbols.
+    /// - Note that currently, there are only function symbols
+    /// # Return
+    /// The requested symbols
+    pub fn symbols_public(&self) -> impl Iterator<Item = DirectlyAvailableSymbol<'_, Type>> {
+        self.symbols_chosen_public(true)
+    }
+
+    /// Gets the requested symbols. It does not differentiate between function- and non-function
+    /// symbols.
+    /// - Note that currently, there are only function symbols
+    ///
+    /// # Parameter
+    ///
+    /// - `only_public`: If true, only `pub` symbols are requested. Otherwise, all are requested
+    ///
+    /// # Return
+    ///
+    /// The requested symbols
+    fn symbols_chosen_public(&self, only_public: bool) -> impl Iterator<Item = DirectlyAvailableSymbol<'_, Type>> {
+        self.function_symbols(only_public)
+            .map(|function_symbol| DirectlyAvailableSymbol::Function(function_symbol))
+            .chain(self.enum_symbols(only_public)
+                .map(|enum_symbol| DirectlyAvailableSymbol::Enum(enum_symbol)))
+            .chain(self.struct_symbols(only_public)
+                .map(|struct_symbol| DirectlyAvailableSymbol::Struct(struct_symbol)))
+    }
+
+    /// Gets function symbols
+    ///
+    /// # Parameter
+    ///
+    /// - `only_public`: Decides if only public function symbols (`true`)
+    ///   or all function symbols (`false`) should be returned
+    ///
+    /// # Return
+    ///
+    /// An iterator over the function symbols. Note that it may be empty if there are no function
+    /// symbols that meet the provided requirement
+    fn function_symbols(&self, only_public: bool) -> impl Iterator<Item = &FunctionSymbol<Type>> {
+        self.function_iterator()
+            .filter(move |function| !only_public || (*function).visibility() == Visibility::Public)
+            .map(|function| function.declaration())
+    }
+
+    /// Gets struct symbols
+    ///
+    /// # Parameter
+    ///
+    /// - `only_public`: Decides if only public function symbols (`true`)
+    ///   or all function symbols (`false`) should be returned
+    ///
+    /// # Return
+    ///
+    /// An iterator over the struct symbols. Note that it may be empty if there are no function
+    /// symbols that meet the provided requirement
+    fn struct_symbols(&self, only_public: bool) -> impl Iterator<Item = &StructSymbol> {
+        self.struct_iterator()
+            .filter(move |stru| !only_public || (*stru).visibility() == Visibility::Public)
+            .map(|stru| stru.symbol())
+    }
+
+    /// Gets enum symbols
+    ///
+    /// # Parameter
+    ///
+    /// - `only_public`: Decides if only public function symbols (`true`)
+    ///   or all function symbols (`false`) should be returned
+    ///
+    /// # Return
+    ///
+    /// An iterator over the struct symbols. Note that it may be empty if there are no function
+    /// symbols that meet the provided requirement
+    fn enum_symbols(&self, only_public: bool) -> impl Iterator<Item = &EnumSymbol> {
+        self.enum_iterator()
+            .filter(move |en| !only_public || (*en).visibility() == Visibility::Public)
+            .map(|en| en.symbol())
     }
 }
 
-impl<Type: ASTType> SemanticEquality for File<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for File<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self.name() == other.name()
-            && self.imports().semantic_equals(other.imports())
-            && self.functions().semantic_equals(other.functions())
-            && self.enums().semantic_equals(other.enums())
-            && self.structs().semantic_equals(other.structs())
+            && self.imports().semantic_eq(other.imports())
+            && self.functions().semantic_eq(other.functions())
+            && self.enums().semantic_eq(other.enums())
+            && self.structs().semantic_eq(other.structs())
     }
 }
 

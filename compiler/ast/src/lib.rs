@@ -30,7 +30,6 @@ use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
 
-pub mod block;
 pub mod composite;
 pub mod data_type;
 pub mod directory;
@@ -43,65 +42,82 @@ pub mod top_level;
 pub mod traversal;
 pub mod visibility;
 
-/** Comparing semantics only.
-
-More precisely, this checks if two language constructs have the same meaning
-while disregarding identifiers such as ids and positional information.
-The only exception are symbols, where it is required that the same are used.
-*/
-// Its primary intended use case it for tests, but it may find application elsewhere
-pub trait SemanticEquality {
-    /** The equality method. <br>
-    For more information, refer to the trait documentation
-    */
-    fn semantic_equals(&self, other: &Self) -> bool;
+///  Comparing semantics only.
+///
+/// More precisely, this checks if two language constructs have the same meaning
+/// while disregarding identifiers such as ids and positional information.
+/// The only exception are symbols, where it is required that the same are used.
+///
+/// Its primary intended use case it for tests, but it may find application elsewhere
+pub trait SemanticEq {
+    ///  The equality method.
+    /// For more information, refer to the trait documentation
+    fn semantic_eq(&self, other: &Self) -> bool;
 }
 
 // SemanticEquality for common containers of types implementing SemanticEquality
-impl<T: SemanticEquality> SemanticEquality for [T] {
-    fn semantic_equals(&self, other: &Self) -> bool {
+
+impl<T: SemanticEq> SemanticEq for [T] {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self.len() == other.len()
             && self
                 .iter()
                 .zip(other.iter())
                 .all(|(self_statement, other_statement)| {
-                    self_statement.semantic_equals(other_statement)
+                    self_statement.semantic_eq(other_statement)
                 })
     }
 }
 
-impl<T: SemanticEquality> SemanticEquality for Rc<T> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.deref().semantic_equals(other.deref())
-    }
-}
-
-impl SemanticEquality for String {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-
-impl<T: SemanticEquality> SemanticEquality for Option<T> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<T: SemanticEq> SemanticEq for Option<T> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         // Check if both are some and compare then
         // Or both are none
         self.as_ref()
             .zip(other.as_ref())
-            .map(|(a, b)| a.semantic_equals(b))
+            .map(|(a, b)| a.semantic_eq(b))
             .unwrap_or(self.is_none() && other.is_none())
     }
 }
 
-/** An AST
-## Type
-The type decides if it will be untyped or typed
-## Root
-The root-level element is supposed to be the directory containing the source code (e.g.: src)
+// Required for ASTType
+impl SemanticEq for str {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
 
-All imports in this must be valid
-*/
-#[derive(Debug)]
+impl SemanticEq for String {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+impl<T: SemanticEq> SemanticEq for &T {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        (*self).semantic_eq(*other)
+    }
+}
+
+impl<T: SemanticEq> SemanticEq for Rc<T> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.deref().semantic_eq(other.deref())
+    }
+}
+
+/// An AST
+///
+/// An AST consists of many projects, all of which are linked together by dependencies
+///
+/// # Type
+///
+/// The type decides if it will be untyped or typed
+///
+/// # Root
+///
+/// The root-level element is supposed to contain the individual projects
+/// All imports in this must be valid
+#[derive(Debug, PartialEq)]
 pub struct AST<Type: ASTType> {
     // The root directory (e.g.: src)
     inner: ASTNode<Directory<Type>, PathBuf>,
@@ -121,10 +137,9 @@ impl<Type: ASTType> UnresolvedImports<Type> {
 }
 
 impl<Type: ASTType> AST<Type> {
-    /** Creates a new instance of AST
-
-    Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
-    */
+    /// Creates a new instance of AST
+    ///
+    /// Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
     // Lifetime issues prevent the imports from being returned directly
     pub fn new(inner: ASTNode<Directory<Type>, PathBuf>) -> Result<Self, UnresolvedImports<Type>> {
         let ast = Self { inner };
@@ -149,14 +164,13 @@ impl<Type: ASTType> AST<Type> {
         imports
     }
 
-    /** Checks a specifiec import for validity. source_dir is where the import is from
-     */
+    /// Checks a specifiec import for validity. source_dir is where the import is from
     fn check_import(&self, to_check: &Import, source_dir: &Directory<Type>) -> bool {
         let check_origin = match to_check.root() {
-            ImportRoot::CurrentDirectory => source_dir,
-            ImportRoot::ProjectRoot => &self.inner.inner,
+            ImportRoot::CurrentModule => source_dir,
+            ImportRoot::Root => &self.inner.inner,
         };
-        check_origin.get_symbol_for_path(to_check.path()).is_some()
+        check_origin.get_symbols_for_path(to_check.path()).is_some()
     }
 }
 
@@ -168,27 +182,28 @@ impl<Type: ASTType> Deref for AST<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for AST<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.inner.semantic_equals(&other.inner)
+impl<Type: ASTType> SemanticEq for AST<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.inner.semantic_eq(&other.inner)
     }
 }
 
-/** This represents an AST Type and its location. Which type of AST node this is depends on its first
-generic. The second generic decides what is used to store positional information.
-# Equality
-Two different ASTNodes are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This represents an AST Type and its location. Which type of AST node this is depends on its first
+/// generic. The second generic decides what is used to store positional information.
+///
+/// # Equality
+///
+/// Two different ASTNodes are never equal.
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 
-#[derive(Debug, PartialEq)]
-pub struct ASTNode<T: Debug + PartialEq, Position = CodeArea> {
+#[derive(Debug)]
+pub struct ASTNode<T: Debug, Position = CodeArea> {
     id: Id,
     inner: T,
     position: Position,
 }
 
-impl<T: Debug + PartialEq, Position> ASTNode<T, Position> {
+impl<T: Debug, Position> ASTNode<T, Position> {
     pub fn new(inner: T, position: Position) -> Self {
         Self {
             inner,
@@ -202,7 +217,7 @@ impl<T: Debug + PartialEq, Position> ASTNode<T, Position> {
     }
 }
 
-impl<T: Debug + PartialEq, Position> Deref for ASTNode<T, Position> {
+impl<T: Debug, Position> Deref for ASTNode<T, Position> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -210,32 +225,44 @@ impl<T: Debug + PartialEq, Position> Deref for ASTNode<T, Position> {
     }
 }
 
-impl<T: Debug + PartialEq, Position> DerefMut for ASTNode<T, Position> {
+impl<T: Debug, Position> DerefMut for ASTNode<T, Position> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl<T: SemanticEquality + Debug + PartialEq, Position> SemanticEquality for ASTNode<T, Position> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.inner.semantic_equals(&other.inner)
+impl<T: SemanticEq + Debug, Position> SemanticEq for ASTNode<T, Position> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.inner.semantic_eq(&other.inner)
     }
 }
 
-impl<T: Debug + PartialEq> Hash for ASTNode<T> {
+impl<T: Debug> Hash for ASTNode<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
 }
 
-/** This compares two values
-This is useful for returning with the ? operator if values are not equal
-@params
-left, right: The values to compare
-@return
-None if not equal
-Some if equal
-*/
+// More efficient than deriving
+impl<T: Debug + PartialEq, Position> PartialEq for ASTNode<T, Position> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<T: Debug + PartialEq, Position> Eq for ASTNode<T, Position> {}
+
+/// This compares two values
+/// This is useful for returning with the ? operator if values are not equal
+///
+/// # Params
+///
+/// - left, right
+///     - The values to compare
+///
+/// # return
+/// - None if not equal
+/// - Some if equal
 fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
     if left == right {
         return Some(());
@@ -243,21 +270,19 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
     None
 }
 
-/** This decided what type the ast is.
-*/
+///  This decided what type the ast is.
 pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type LiteralType: PartialEq + Debug;
-    type GeneralDataType: PartialEq + Debug + Clone;
-    type FunctionCallSymbol: Debug + PartialEq;
-    type VariableUse: Debug + PartialEq;
+    type GeneralDataType: PartialEq + Debug + Clone + SemanticEq;
+    type FunctionCallSymbol: Debug + PartialEq +SemanticEq;
+    type VariableUse: Debug + PartialEq + Clone + SemanticEq;
     type StructUse: Debug + PartialEq;
     type EnumUse: Debug + PartialEq;
     type EnumVariantUse: Debug + PartialEq;
 }
 
-/** This is an ast type
-ASTs with this type include concrete data types
-*/
+///  This is an ast type
+/// ASTs with this type include concrete data types
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedAST {}
 
@@ -271,9 +296,8 @@ impl ASTType for TypedAST {
     type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
 }
 
-/** This is an ast type
-ASTs with this type carry the data type used in a string and perform no validation on it
-*/
+///  This is an ast type
+/// ASTs with this type carry the data type used in a string and perform no validation on it
 #[derive(Clone, PartialEq, Debug)]
 pub struct UntypedAST {}
 
@@ -289,32 +313,46 @@ impl ASTType for UntypedAST {
 
 #[cfg(test)]
 mod tests {
-    use crate::block::CodeBlock;
     use crate::composite::{Enum, EnumVariant, Struct, StructField};
     use crate::data_type::DataType;
     use crate::directory::Directory;
-    use crate::expression::{
-        BinaryOp, BinaryOpType, Expression, Literal, NewEnum, NewStruct, StructFieldAccess,
-    };
+    use crate::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct, StructFieldAccess};
     use crate::file::File;
-    use crate::statement::{
-        ControlStructure, Loop, LoopType, Match, Return, Statement, VariableAssignment,
-    };
-    use crate::symbol::{
-        DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionCall, FunctionSymbol,
-        StructFieldSymbol, StructSymbol, VariableSymbol,
-    };
-    use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
+    use crate::statement::{CodeBlock, ControlStructure, Loop, LoopType, Match, Return, Statement, VariableAssignment};
+    use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, VariableSymbol};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::traversal::{FunctionContainer, HasSymbols};
     use crate::visibility::Visibility;
-    use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
+    use crate::{AST, ASTNode, SemanticEq, TypedAST, UntypedAST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
     use std::rc::Rc;
+    use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
+
+    #[test]
+    fn prove_identity_vs_semantic_eq() {
+        let node_a = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::S32(5)),
+            sample_codearea()
+        );
+
+        let node_b = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::S32(5)),
+            sample_codearea()
+        );
+
+
+        assert_ne!(node_a, node_b, "PartialEq (==) must fail because IDs are different");
+
+
+        assert!(
+            node_a.semantic_eq(&node_b),
+            "SemanticEquality must succeed because content is identical"
+        );
+    }
 
     #[test]
     fn ast() {
@@ -325,9 +363,11 @@ mod tests {
         );
 
         assert_eq!(
-            Some(DirectlyAvailableSymbol::Variable(&symbol)),
-            statement.get_direct_symbol()
+            vec![symbol.as_ref()],
+            statement.get_direct_symbols()
         );
+
+        assert_eq!(vec![symbol.as_ref()], statement.get_direct_symbols());
 
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
@@ -345,12 +385,12 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
-        let statement_ref = root.index(0);
+        let statement_ref = root.get_child(0).unwrap();
         assert_eq!(
             vec![DirectlyAvailableSymbol::Function(
                 function_ref.inner().declaration()
             )],
-            statement_ref.symbols().collect::<Vec<_>>()
+            statement_ref.symbols().map(|symbol| symbol.1).collect::<Vec<_>>()
         );
     }
 
@@ -410,15 +450,18 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("test").unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
-        let loop_statement = root.index(1);
+        let loop_statement = root.get_child(1).unwrap();
 
         assert_eq!(
             vec![DirectlyAvailableSymbol::Variable(&symbol2)],
             loop_statement.symbols_defined_directly_in()
         );
-        let statement_ref = loop_statement.index(0);
+        let statement_ref = loop_statement.get_child(0).unwrap();
 
-        let actual = statement_ref.symbols().collect::<Vec<_>>();
+        let actual = statement_ref
+            .symbols_available_at()
+            .map(|symbol| symbol.1)
+            .collect::<Vec<_>>();
         let expected = vec![
             DirectlyAvailableSymbol::Variable(&symbol),
             DirectlyAvailableSymbol::Function(function_ref.inner().declaration()),
@@ -429,6 +472,7 @@ mod tests {
         let actual = statement_ref
             .symbols_available_after()
             .unwrap()
+            .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
             DirectlyAvailableSymbol::Variable(&symbol),
@@ -451,9 +495,12 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
-        let return_statement = root.index(3);
+        let return_statement = root.get_child(3).unwrap();
 
-        let actual = return_statement.symbols().collect::<Vec<_>>();
+        let actual = return_statement
+            .symbols_available_at()
+            .map(|symbol| symbol.1)
+            .collect::<Vec<_>>();
         let expected = vec![
             DirectlyAvailableSymbol::Variable(&nth),
             DirectlyAvailableSymbol::Variable(&current),
@@ -489,15 +536,15 @@ mod tests {
         let (nth, current, previous, temp, fibonacci) = create_fibonacci_typed_symbols();
         let ast1 = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
         let ast2 = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
-        assert!(ast1.semantic_equals(&ast2));
-        assert!(ast2.semantic_equals(&ast1));
+        assert!(ast1.semantic_eq(&ast2));
+        assert!(ast2.semantic_eq(&ast1));
         // Sanity check: An AST should be semantically equal to itself
-        assert!(ast1.semantic_equals(&ast1));
-        assert!(ast2.semantic_equals(&ast2));
+        assert!(ast1.semantic_eq(&ast1));
+        assert!(ast2.semantic_eq(&ast2));
 
         let empty = functions_into_ast(Vec::new());
-        assert!(!ast1.semantic_equals(&empty));
-        assert!(!empty.semantic_equals(&ast1));
+        assert!(!ast1.semantic_eq(&empty));
+        assert!(!empty.semantic_eq(&ast1));
     }
 
     fn create_fibonacci_typed(
@@ -852,9 +899,12 @@ mod tests {
         let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
-        let return_statement = root.index(3);
+        let return_statement = root.get_child(3).unwrap();
 
-        let actual = return_statement.symbols().collect::<Vec<_>>();
+        let actual = return_statement
+            .symbols_available_at()
+            .map(|symbol| symbol.1)
+            .collect::<Vec<_>>();
         let expected = vec![
             DirectlyAvailableSymbol::Variable(&nth),
             DirectlyAvailableSymbol::Variable(&current),
@@ -879,6 +929,8 @@ mod tests {
             Some(DataType::S32),
             vec![lhs_var.clone(), rhs_var.clone()],
         ));
+
+        let testproject_symbol = Rc::new(ModuleUsageNameSymbol::new("testproject".to_string()));
         let add_function = ASTNode::new(
             Function::new(
                 add_fn_symbol.clone(),
@@ -931,6 +983,7 @@ mod tests {
             )
             .unwrap(),
         );
+
         let add_file = File::new(
             "add".to_string(),
             Vec::new(),
@@ -996,10 +1049,7 @@ mod tests {
         let main_file = File::new(
             "main".to_string(),
             vec![ASTNode::new(
-                Import::new(
-                    ImportRoot::ProjectRoot,
-                    vec!["add".to_string(), "add".to_string()],
-                ),
+                Import::new(ImportRoot::Root, vec![], testproject_symbol.clone()),
                 CodeArea::new(
                     CodeLocation::new(0, 0),
                     CodeLocation::new(0, 15),
@@ -1029,16 +1079,24 @@ mod tests {
         let fth = dth.file_by_name("main").unwrap();
         assert_eq!(
             vec![
+                DirectlyAvailableSymbol::Function(&main_fn_symbol),
                 DirectlyAvailableSymbol::Function(&add_fn_symbol),
-                DirectlyAvailableSymbol::Function(&main_fn_symbol)
+                DirectlyAvailableSymbol::ModuleUsageName(&testproject_symbol),
+                // Main is supposed to come twice.
+                // First because it is in the same file (without ModuleUsageName)
+                // And then from the import (with ModuleUsageName)
+                DirectlyAvailableSymbol::Function(&main_fn_symbol),
             ],
-            fth.symbols().collect::<Vec<_>>()
+            fth.symbols().map(|symbol| symbol.1).collect::<Vec<_>>()
         );
         assert_eq!(0, dth.len_subdirectories());
         assert_eq!(2, dth.len_files());
         assert_eq!(0, dth.subdirectories_iterator().count());
         assert_eq!(2, dth.files_iterator().count());
-        assert_ne!(dth.index_file(0).inner(), dth.index_file(1).inner());
+        assert_ne!(
+            dth.index_file(0).unwrap().inner(),
+            dth.index_file(1).unwrap().inner()
+        );
         assert_eq!(2, dth.inner().files().len())
     }
 
@@ -1048,7 +1106,11 @@ mod tests {
             File::<TypedAST>::new(
                 "main".to_string(),
                 vec![ASTNode::new(
-                    Import::new(ImportRoot::ProjectRoot, vec!["nonexistent".to_string()]),
+                    Import::new(
+                        ImportRoot::Root,
+                        vec!["nonexistent".to_string()],
+                        Rc::new(ModuleUsageNameSymbol::new("testproject".to_string())),
+                    ),
                     CodeArea::new(
                         CodeLocation::new(0, 0),
                         CodeLocation::new(0, 10),
@@ -1077,7 +1139,7 @@ mod tests {
         let warning_msg_inner_symbol =
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
         let warning_msg_symbol =
-            Rc::new(StructSymbol::new("Warning".to_string(), Visibility::Public));
+            Rc::new(StructSymbol::new("Warning".to_string()));
 
         let warning_msg_new_inner_param =
             Rc::new(VariableSymbol::new("inner".to_string(), DataType::Char));
@@ -1101,7 +1163,6 @@ mod tests {
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
         let error_msg_symbol = Rc::new(StructSymbol::new(
             "Error".to_string(),
-            Visibility::Private,
         ));
 
         let error_msg_new_inner_param =
@@ -1130,7 +1191,7 @@ mod tests {
             "Error".to_string(),
             vec![DataType::Struct(error_msg_symbol.clone())],
         ));
-        let msg_symbol = Rc::new(EnumSymbol::new("Message".to_string(), Visibility::Public));
+        let msg_symbol = Rc::new(EnumSymbol::new("Message".to_string()));
 
         let main_fn_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
         let main_fn_warning_symbol = Rc::new(VariableSymbol::new(
@@ -1152,7 +1213,8 @@ mod tests {
                                         File::new(
                                             "message".to_string(),
                                             vec![ASTNode::new(
-                                                Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()]),
+                                                Import::new(ImportRoot::Root, vec!["warning".to_string()],
+                                                            Rc::new(ModuleUsageNameSymbol::new("warning".to_string()))),
                                                 CodeArea::new(
                                                     CodeLocation::new(40, 0),
                                                     CodeLocation::new(50, 0),
@@ -1185,7 +1247,8 @@ mod tests {
                                                                     CodeFile::new(PathBuf::from("message/message.waso"))
                                                                 ).unwrap()
                                                             )
-                                                        ]
+                                                        ],
+                                                        Visibility::Public
                                                     ),
                                                     CodeArea::new(
                                                         CodeLocation::new(50, 0),
@@ -1283,18 +1346,19 @@ mod tests {
                                                                 ).unwrap()
                                                             )
                                                         ],
-                                                            vec![
-                                                                ASTNode::new(
-                                                                    StructField::new(
-                                                                        error_msg_inner_symbol.clone()
-                                                                    ),
-                                                                    CodeArea::new(
-                                                                        CodeLocation::new(110, 0),
-                                                                        CodeLocation::new(111, 0),
-                                                                        CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                    ).unwrap()
-                                                                )
-                                                            ]
+                                                        vec![
+                                                            ASTNode::new(
+                                                                StructField::new(
+                                                                    error_msg_inner_symbol.clone()
+                                                                ),
+                                                                CodeArea::new(
+                                                                    CodeLocation::new(110, 0),
+                                                                    CodeLocation::new(111, 0),
+                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
+                                                                ).unwrap()
+                                                            )
+                                                        ],
+                                                        Visibility::Private
                                                     ),
                                                     CodeArea::new(
                                                         CodeLocation::new(100, 0),
@@ -1421,7 +1485,8 @@ mod tests {
                                                                     CodeFile::new(PathBuf::from("warning/warning.waso"))
                                                                 ).unwrap()
                                                             )
-                                                        ]
+                                                        ],
+                                                        Visibility::Public
                                                     ),
                                                     CodeArea::new(
                                                         CodeLocation::new(100, 0),
@@ -1443,33 +1508,21 @@ mod tests {
                             "main".to_string(),
                             vec![
                                 ASTNode::new(
-                                        Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "new".to_string()]),
-                                        CodeArea::new(
-                                            CodeLocation::new(10, 0),
-                                            CodeLocation::new(20, 0),
-                                            CodeFile::new(PathBuf::from("main.waso".to_string()))
-                                        ).unwrap()),
-                                ASTNode::new(
-                                    Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string(), "get_inner".to_string()]),
+                                    Import::new(ImportRoot::Root, vec!["warning".to_string()],
+                                    Rc::new(ModuleUsageNameSymbol::new("warning".to_string()))),
                                     CodeArea::new(
+                                        CodeLocation::new(10, 0),
                                         CodeLocation::new(20, 0),
-                                        CodeLocation::new(30, 0),
                                         CodeFile::new(PathBuf::from("main.waso".to_string()))
                                     ).unwrap()),
                                 ASTNode::new(
-                                    Import::new(ImportRoot::ProjectRoot, vec!["warning".to_string(), "warning".to_string(), "Warning".to_string()]),
+                                    Import::new(ImportRoot::Root, vec!["message".to_string()],
+                                                Rc::new(ModuleUsageNameSymbol::new("warning".to_string()))),
                                     CodeArea::new(
-                                        CodeLocation::new(30, 0),
                                         CodeLocation::new(40, 0),
-                                    CodeFile::new(PathBuf::from("main.waso".to_string()))
-                                    ).unwrap()),
-                                    ASTNode::new(
-                                        Import::new(ImportRoot::ProjectRoot, vec!["message".to_string(), "message".to_string(), "Message".to_string()]),
-                                        CodeArea::new(
-                                            CodeLocation::new(40, 0),
-                                            CodeLocation::new(50, 0),
-                                            CodeFile::new(PathBuf::from("main.waso".to_string()))
-                                        ).unwrap())
+                                        CodeLocation::new(50, 0),
+                                        CodeFile::new(PathBuf::from("main.waso".to_string()))
+                                    ).unwrap())
                             ],
                             vec![ASTNode::new(
                                 Function::new(
@@ -1478,123 +1531,121 @@ mod tests {
                                         Statement::Codeblock(
                                             CodeBlock::new(
                                                 vec![
-                                                       ASTNode::new(
-                                                           Statement::ControlStructure(Box::new(
-                                                           ControlStructure::Match(
-                                                               Match::<TypedAST>::new(
-                                                                   msg_symbol.clone(),
-                                                                   msg_warning_msg_symbol.clone(),
-                                                                   ASTNode::new(
-                                                                       Expression::NewEnum(
-                                                                           Box::new(NewEnum::<TypedAST>::new(
-                                                                               msg_symbol.clone(),
-                                                                               msg_warning_msg_symbol.clone(),
-                                                                               vec![
-                                                                                   ASTNode::new(
-                                                                                       Expression::FunctionCall(
-                                                                                           FunctionCall::<TypedAST>::new(
-                                                                                               warning_msg_new_symbol.clone(),
-                                                                                               vec![
-                                                                                                   ASTNode::new(
-                                                                                                       Expression::Literal(
-                                                                                                           Literal::Char('e' as u32)
-                                                                                                       ),
-                                                                                                       CodeArea::new(
-                                                                                                           CodeLocation::new(110,20),
-                                                                                                           CodeLocation::new(110, 25),
-                                                                                                           CodeFile::new(PathBuf::from("main.waso"))).unwrap()
-                                                                                                   )
-                                                                                               ]
-                                                                                           ).unwrap()
-                                                                                       ),
-                                                                                       CodeArea::new(
-                                                                                           CodeLocation::new(110,15),
-                                                                                           CodeLocation::new(110, 25),
-                                                                                           CodeFile::new(PathBuf::from("main.waso"))).unwrap()
-                                                                                   )
-                                                                               ]
-                                                                           ).unwrap())
-                                                                       ),
-                                                                       CodeArea::new(
-                                                                           CodeLocation::new(110,10),
-                                                                           CodeLocation::new(110, 30),
-                                                                           CodeFile::new(PathBuf::from("main.waso"))).unwrap()),
-                                                                   vec![
-                                                                       main_fn_warning_symbol.clone()
-                                                                   ],
-                                                                   ASTNode::new(
-                                                                       Statement::Expression(
-                                                                           ASTNode::new(
-                                                                               Expression::FunctionCall(
-                                                                                   FunctionCall::<TypedAST>::new(
-                                                                                       warning_msg_get_inner_symbol.clone(),
-                                                                                       vec![
-                                                                                           ASTNode::new(
-                                                                                               Expression::Variable(main_fn_warning_symbol.clone()),
-                                                                                               CodeArea::new(
-                                                                                                   CodeLocation::new(111,10),
-                                                                                                   CodeLocation::new(111, 20),
-                                                                                                   CodeFile::new(PathBuf::from("main.waso"))).unwrap()
-                                                                                           )
-                                                                                       ]
-                                                                                   ).unwrap()
-                                                                               ),
-                                                                               CodeArea::new(
-                                                                                   CodeLocation::new(111,0),
-                                                                                   CodeLocation::new(119, 1),
-                                                                                   CodeFile::new(PathBuf::from("main.waso"))).unwrap()
-                                                                           )
-                                                                       ),
-                                                                       CodeArea::new(
-                                                                           CodeLocation::new(111,0),
-                                                                           CodeLocation::new(119, 1),
-                                                                           CodeFile::new(PathBuf::from("main.waso"))).unwrap()
-                                                                   ),
-                                                               ).unwrap()
-                                                           )
-                                                           )),
-                                                           CodeArea::new(
-                                                               CodeLocation::new(110,0),
-                                                               CodeLocation::new(120, 1),
-                                                               CodeFile::new(PathBuf::from("main.waso"))).unwrap()
-                                                   )
+                                                    ASTNode::new(
+                                                        Statement::ControlStructure(Box::new(
+                                                            ControlStructure::Match(
+                                                                Match::<TypedAST>::new(
+                                                                    msg_symbol.clone(),
+                                                                    msg_warning_msg_symbol.clone(),
+                                                                    ASTNode::new(
+                                                                        Expression::NewEnum(
+                                                                            Box::new(NewEnum::<TypedAST>::new(
+                                                                                msg_symbol.clone(),
+                                                                                msg_warning_msg_symbol.clone(),
+                                                                                vec![
+                                                                                    ASTNode::new(
+                                                                                        Expression::FunctionCall(
+                                                                                            FunctionCall::<TypedAST>::new(
+                                                                                                warning_msg_new_symbol.clone(),
+                                                                                                vec![
+                                                                                                    ASTNode::new(
+                                                                                                        Expression::Literal(
+                                                                                                            Literal::Char('e' as u32)
+                                                                                                        ),
+                                                                                                        CodeArea::new(
+                                                                                                            CodeLocation::new(110, 20),
+                                                                                                            CodeLocation::new(110, 25),
+                                                                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                                    )
+                                                                                                ]
+                                                                                            ).unwrap()
+                                                                                        ),
+                                                                                        CodeArea::new(
+                                                                                            CodeLocation::new(110, 15),
+                                                                                            CodeLocation::new(110, 25),
+                                                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                    )
+                                                                                ]
+                                                                            ).unwrap())
+                                                                        ),
+                                                                        CodeArea::new(
+                                                                            CodeLocation::new(110, 10),
+                                                                            CodeLocation::new(110, 30),
+                                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()),
+                                                                    vec![
+                                                                        main_fn_warning_symbol.clone()
+                                                                    ],
+                                                                    ASTNode::new(
+                                                                        Statement::Expression(
+                                                                            ASTNode::new(
+                                                                                Expression::FunctionCall(
+                                                                                    FunctionCall::<TypedAST>::new(
+                                                                                        warning_msg_get_inner_symbol.clone(),
+                                                                                        vec![
+                                                                                            ASTNode::new(
+                                                                                                Expression::Variable(main_fn_warning_symbol.clone()),
+                                                                                                CodeArea::new(
+                                                                                                    CodeLocation::new(111, 10),
+                                                                                                    CodeLocation::new(111, 20),
+                                                                                                    CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                            )
+                                                                                        ]
+                                                                                    ).unwrap()
+                                                                                ),
+                                                                                CodeArea::new(
+                                                                                    CodeLocation::new(111, 0),
+                                                                                    CodeLocation::new(119, 1),
+                                                                                    CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                            )
+                                                                        ),
+                                                                        CodeArea::new(
+                                                                            CodeLocation::new(111, 0),
+                                                                            CodeLocation::new(119, 1),
+                                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                    ),
+                                                                ).unwrap()
+                                                            )
+                                                        )),
+                                                        CodeArea::new(
+                                                            CodeLocation::new(110, 0),
+                                                            CodeLocation::new(120, 1),
+                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                    )
                                                 ]
                                             )
                                         ),
                                         CodeArea::new(
-                                            CodeLocation::new(110,0),
+                                            CodeLocation::new(110, 0),
                                             CodeLocation::new(190, 1),
                                             CodeFile::new(PathBuf::from("main.waso"))).unwrap()
                                     ),
                                     Visibility::Public
                                 ),
                                 CodeArea::new(
-                                    CodeLocation::new(100,0),
+                                    CodeLocation::new(100, 0),
                                     CodeLocation::new(200, 1),
                                     CodeFile::new(PathBuf::from("main.waso"))).unwrap()
                             )],
                             vec![],
                             vec![]),
-                        PathBuf::from("main.waso"))]),
+                                     PathBuf::from("main.waso"))]),
                 PathBuf::new()
             )
         ).unwrap();
 
-        assert!(ast.semantic_equals(&ast));
+        assert!(ast.semantic_eq(&ast));
 
         let root = DirectoryTraversalHelper::new_from_ast(&ast);
         let main = root.file_by_name("main").unwrap();
         let main_func = main.function_by_name("main").unwrap();
         let root_statement = main_func.ref_to_implementation();
-        let match_statement = root_statement.index(0);
-        let inner_function_call = match_statement.index(0);
+        let match_statement = root_statement.get_child(0).unwrap();
+        let inner_function_call = match_statement.get_child(0).unwrap();
 
-        let symbols = inner_function_call.symbols().collect::<Vec<_>>();
+        let symbols = inner_function_call.symbols().map(|symbol| symbol.1).collect::<Vec<_>>();
         assert_eq!(symbols.len(), 6);
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&main_fn_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&main_fn_warning_symbol)));
-        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&warning_msg_new_symbol)));
-        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&warning_msg_get_inner_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Enum(&msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));
 
@@ -1603,15 +1654,73 @@ mod tests {
         let error_msg_struct = msg_file.struct_by_name("Error").unwrap();
         let new_error_function = error_msg_struct.function_by_name("new").unwrap();
         let root_statement = new_error_function.ref_to_implementation();
-        let symbols = root_statement.symbols().collect::<Vec<_>>();
+        let symbols = root_statement.symbols().map(|symbol| symbol.1).collect::<Vec<_>>();
 
-        assert_eq!(symbols.len(), 6);
+        assert_eq!(symbols.len(), 7);
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&error_msg_new_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&error_msg_get_inner_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&error_msg_new_inner_param)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&error_msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Enum(&msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));
+    }
+
+    fn create_function_call_untyped() {
+        let name = "test".to_string();
+        let arg = ASTNode::new(
+            Expression::<UntypedAST>::Literal("10".to_string()),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
+        assert_eq!("test", call.function());
+        assert_eq!(1, call.args().len());
+    }
+
+    #[test]
+    fn create_function_call_typed_wrong_args() {
+        let symbol = Rc::new(FunctionSymbol::new(
+            "test".to_string(),
+            None,
+            vec![Rc::new(VariableSymbol::new(
+                "test1".to_string(),
+                DataType::Bool,
+            ))],
+        ));
+        let arg = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::S32(10)),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call);
+
+        let call_empty = FunctionCall::<TypedAST>::new(symbol, Vec::new());
+        assert_eq!(None, call_empty)
+    }
+
+    #[test]
+    fn create_function_call_typed() {
+        let symbol = Rc::new(FunctionSymbol::new(
+            "test".to_string(),
+            None,
+            vec![Rc::new(VariableSymbol::new(
+                "test1".to_string(),
+                DataType::Bool,
+            ))],
+        ));
+        let arg = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::Bool(true)),
+            sample_codearea(),
+        );
+        let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
+        assert_eq!(None, call.as_ref().unwrap().function().return_type());
+        assert_eq!("test", call.as_ref().unwrap().function().name());
+
+        let arg2 = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::Bool(true)),
+            sample_codearea(),
+        );
+        let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
+        assert!(call.semantic_eq(&call2));
     }
 }
 

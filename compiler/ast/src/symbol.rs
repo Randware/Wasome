@@ -1,28 +1,64 @@
-use crate::data_type::Typed;
-use crate::expression::Expression;
-use crate::id::Id;
-use crate::visibility::Visibility;
-use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST};
 use std::hash::{Hash, Hasher};
+use crate::data_type::{DataType, Typed};
+use crate::id::Id;
+use crate::{ASTType, SemanticEq, TypedAST};
 use std::rc::Rc;
+use crate::visibility::Visibility;
 
-/**  Any type that has symbols available for use
-*/
+/// Has symbols available to use
+///
+/// # Composition of the provided data
+///
+/// The provided data consists of two parts:
+/// 1. The module usage name
+///    Specifies in what module name or alias given by the import the symbol is.
+///    For example, here "math" is the prefix:
+///
+///    math.floor(10.5)
+///
+///    This is none if no prefix is required. It is used for the module name when the symbol was imported.
+///
+/// 2. The symbol
+///    This is simply the symbol that is available.
+///
+/// # Equality
+///
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
+/// PartialEq behavior instead
 pub trait SymbolTable<'a, Type: ASTType>:
-    Iterator<Item = DirectlyAvailableSymbol<'a, Type>>
+    Iterator<Item = (Option<&'a ModuleUsageNameSymbol>, DirectlyAvailableSymbol<'a, Type>)>
 {
 }
 
-/** This groups symbols that are directly available (= without having to access another symbol first) together
-
-Examples of non-DirectlyAvailableSymbols include EnumVariantSymbolss and StructFieldSymbols
-*/
-#[derive(Debug, PartialEq)]
+/// A reference to a directly accessible symbol symbol
+///
+/// Examples of non-DirectlyAvailableSymbols include EnumVariantSymbolss and StructFieldSymbols
+///
+/// The data is only owned to allow for efficient creation
+/// of instanced of this without giving up type safety
+/// when storing concrete symbols (e.g.: VariableSymbols)
+#[derive(Debug)]
 pub enum DirectlyAvailableSymbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
     Enum(&'a EnumSymbol),
     Struct(&'a StructSymbol),
+    ModuleUsageName(&'a ModuleUsageNameSymbol)
+}
+
+impl<'a, Type: ASTType> DirectlyAvailableSymbol<'a, Type> {
+    /// Gets the name of a symbol. This name is not directly stored in the enum but in the variant.
+    /// # Return
+    /// The name
+    pub fn name(&self) -> &str {
+        match self {
+            DirectlyAvailableSymbol::Function(func) => func.name(),
+            DirectlyAvailableSymbol::Variable(var) => var.name(),
+            DirectlyAvailableSymbol::Enum(en) => en.name(),
+            DirectlyAvailableSymbol::Struct(st) => st.name(),
+            DirectlyAvailableSymbol::ModuleUsageName(mun) => mun.name(),
+        }
+    }
 }
 
 // We want to implement traits without all parts implementing them as well.
@@ -34,6 +70,8 @@ impl<Type: ASTType> Clone for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Variable(var) => DirectlyAvailableSymbol::Variable(var),
             DirectlyAvailableSymbol::Enum(en) => DirectlyAvailableSymbol::Enum(en),
             DirectlyAvailableSymbol::Struct(st) => DirectlyAvailableSymbol::Struct(st),
+            DirectlyAvailableSymbol::ModuleUsageName(mun) =>  DirectlyAvailableSymbol::ModuleUsageName(mun),
+
         }
     }
 }
@@ -45,16 +83,48 @@ impl<Type: ASTType> Hash for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Variable(var) => var.hash(state),
             DirectlyAvailableSymbol::Enum(en) => en.hash(state),
             DirectlyAvailableSymbol::Struct(st) => st.hash(state),
+            DirectlyAvailableSymbol::ModuleUsageName(mun) => mun.hash(state),
+
+        }
+    }
+}
+
+impl<Type: ASTType> SemanticEq for DirectlyAvailableSymbol<'_, Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        use DirectlyAvailableSymbol as S;
+        match (self, other) {
+            (S::Function(lhs), S::Function(rhs)) => lhs.semantic_eq(rhs),
+            (S::Variable(lhs), S::Variable(rhs)) => lhs.semantic_eq(rhs),
+            (S::Enum(lhs), S::Enum(rhs)) => lhs.semantic_eq(rhs),
+            (S::Struct(lhs), S::Struct(rhs)) => lhs.semantic_eq(rhs),
+            (S::ModuleUsageName(lhs), S::ModuleUsageName(rhs)) => lhs.semantic_eq(rhs),
+            _ => false,
+        }
+    }
+}
+
+impl<Type: ASTType> PartialEq for DirectlyAvailableSymbol<'_, Type> {
+    fn eq(&self, other: &Self) -> bool {
+        use DirectlyAvailableSymbol as S;
+        match (self, other) {
+            (S::Function(lhs), S::Function(rhs)) => lhs == rhs,
+            (S::Variable(lhs), S::Variable(rhs)) => lhs == rhs,
+            (S::Enum(lhs), S::Enum(rhs)) => lhs == rhs,
+            (S::Struct(lhs), S::Struct(rhs)) => lhs == rhs,
+            (S::ModuleUsageName(lhs), S::ModuleUsageName(rhs)) => lhs == rhs,
+            _ => false,
         }
     }
 }
 
 impl<Type: ASTType> Eq for DirectlyAvailableSymbol<'_, Type> {}
 
-/** A function symbol
-# Equality
-Two different FunctionSymbols are never equal
-*/
+/// A function symbol
+///
+/// # Equality
+///
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
+/// PartialEq behavior instead
 #[derive(Debug)]
 pub struct FunctionSymbol<Type: ASTType> {
     id: Id,
@@ -62,63 +132,6 @@ pub struct FunctionSymbol<Type: ASTType> {
     // None = no return type/void
     return_type: Option<Type::GeneralDataType>,
     params: Vec<Rc<VariableSymbol<Type>>>,
-}
-
-impl<Type: ASTType> Hash for FunctionSymbol<Type> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
-    }
-}
-
-impl<Type: ASTType> PartialEq<Self> for FunctionSymbol<Type> {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl<Type: ASTType> Eq for FunctionSymbol<Type> {}
-
-/** A variable symbol
-# Equality
-Two different VariableSymbols are never equal
-*/
-#[derive(Debug)]
-pub struct VariableSymbol<Type: ASTType> {
-    id: Id,
-    name: String,
-    data_type: Type::GeneralDataType,
-}
-
-impl<Type: ASTType> Hash for VariableSymbol<Type> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
-    }
-}
-
-impl<Type: ASTType> PartialEq<Self> for VariableSymbol<Type> {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl<Type: ASTType> Eq for VariableSymbol<Type> {}
-
-impl<Type: ASTType> VariableSymbol<Type> {
-    pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
-        Self {
-            id: Id::new(),
-            name,
-            data_type,
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn data_type(&self) -> &Type::GeneralDataType {
-        &self.data_type
-    }
 }
 
 impl<Type: ASTType> FunctionSymbol<Type> {
@@ -148,6 +161,128 @@ impl<Type: ASTType> FunctionSymbol<Type> {
     }
 }
 
+
+impl<Type: ASTType> Hash for FunctionSymbol<Type> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl<Type: ASTType> PartialEq<Self> for FunctionSymbol<Type> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<Type: ASTType> Eq for FunctionSymbol<Type> {}
+
+impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+            && self.return_type().semantic_eq(&other.return_type())
+            && self.params().semantic_eq(self.params())
+    }
+}
+
+/// A variable symbol
+///
+/// # Equality
+///
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
+/// PartialEq behavior instead
+#[derive(Debug)]
+pub struct VariableSymbol<Type: ASTType> {
+    id: Id,
+    name: String,
+    data_type: Type::GeneralDataType,
+}
+
+impl<Type: ASTType> VariableSymbol<Type> {
+    pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
+        Self {
+            id: Id::new(),
+            name,
+            data_type,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn data_type(&self) -> &Type::GeneralDataType {
+        &self.data_type
+    }
+}
+
+impl Typed for VariableSymbol<TypedAST> {
+    fn data_type(&self) -> DataType {
+        self.data_type.clone()
+    }
+}
+
+impl<Type: ASTType> SemanticEq for VariableSymbol<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+            && self.data_type().semantic_eq(other.data_type())
+    }
+}
+
+impl<Type: ASTType> Hash for VariableSymbol<Type> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
+impl<Type: ASTType> PartialEq<Self> for VariableSymbol<Type> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl<Type: ASTType> Eq for VariableSymbol<Type> {}
+
+/// A module usage name symbol
+///
+/// It stores the usage name of a module, that is required to access imported symbols from this module.
+/// For example, in the following snippet, `trigonometry` is a module usage name
+/// `trigonometry.sin_degrees(20.0)`
+///
+/// # Equality
+///
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
+/// PartialEq behavior instead
+#[derive(Debug, Eq, PartialEq)]
+pub struct ModuleUsageNameSymbol {
+    id: Id,
+    name: String,
+}
+
+impl ModuleUsageNameSymbol {
+    pub fn new(name: String) -> Self {
+        Self {
+            id: Id::new(),
+            name,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl SemanticEq for ModuleUsageNameSymbol {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+    }
+}
+
+impl Hash for ModuleUsageNameSymbol {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state)
+    }
+}
+
 /** The symbol of an enum
 */
 #[derive(Debug)]
@@ -156,15 +291,13 @@ pub struct EnumSymbol
 {
     id: Id,
     name: String,
-    visibility: Visibility,
 }
 
 impl EnumSymbol {
-    pub fn new(name: String, visibility: Visibility) -> Self {
+    pub fn new(name: String) -> Self {
         Self {
             id: Id::new(),
             name,
-            visibility,
         }
     }
 
@@ -174,10 +307,6 @@ impl EnumSymbol {
 
     pub fn id(&self) -> &Id {
         &self.id
-    }
-
-    pub fn visibility(&self) -> Visibility {
-        self.visibility
     }
 }
 
@@ -195,21 +324,25 @@ impl PartialEq<Self> for EnumSymbol {
 
 impl Eq for EnumSymbol {}
 
+impl SemanticEq for EnumSymbol {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+    }
+}
+
 /** A symbol for a struct
 */
 #[derive(Debug)]
 pub struct StructSymbol {
     id: Id,
-    name: String,
-    visibility: Visibility,
+    name: String
 }
 
 impl StructSymbol {
-    pub fn new(name: String, visibility: Visibility) -> Self {
+    pub fn new(name: String) -> Self {
         Self {
             id: Id::new(),
-            name,
-            visibility,
+            name
         }
     }
 
@@ -219,10 +352,6 @@ impl StructSymbol {
 
     pub fn id(&self) -> &Id {
         &self.id
-    }
-
-    pub fn visibility(&self) -> Visibility {
-        self.visibility
     }
 }
 
@@ -239,6 +368,12 @@ impl PartialEq<Self> for StructSymbol {
 }
 
 impl Eq for StructSymbol {}
+
+impl SemanticEq for StructSymbol {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+    }
+}
 
 /** The symbol of an enum
 */
@@ -285,6 +420,13 @@ impl<Type: ASTType> PartialEq<Self> for EnumVariantSymbol<Type> {
 
 impl<Type: ASTType> Eq for EnumVariantSymbol<Type> {}
 
+impl<Type: ASTType> SemanticEq for EnumVariantSymbol<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+            && self.fields().semantic_eq(other.fields())
+    }
+}
+
 /** The symbol of an enum
 */
 #[derive(Debug)]
@@ -330,69 +472,21 @@ impl<Type: ASTType> PartialEq<Self> for StructFieldSymbol<Type> {
 
 impl<Type: ASTType> Eq for StructFieldSymbol<Type> {}
 
-/** A function call with params
-*/
-#[derive(Debug, PartialEq)]
-pub struct FunctionCall<Type: ASTType> {
-    function: Type::FunctionCallSymbol,
-    args: Vec<ASTNode<Expression<Type>>>,
-}
-
-impl<Type: ASTType> FunctionCall<Type> {
-    pub fn function(&self) -> &Type::FunctionCallSymbol {
-        &self.function
-    }
-
-    pub fn args(&self) -> &Vec<ASTNode<Expression<Type>>> {
-        &self.args
-    }
-}
-
-impl<Type: ASTType> SemanticEquality for FunctionCall<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.function == other.function && self.args.semantic_equals(&other.args)
-    }
-}
-
-impl FunctionCall<TypedAST> {
-    /** Creates a new function call
-    Checks if the provided and expected params are the same number and have the same data types
-    Returns None if these checks failed
-    Some(new instance) otherwise
-    */
-    pub fn new(
-        function: Rc<FunctionSymbol<TypedAST>>,
-        args: Vec<ASTNode<Expression<TypedAST>>>,
-    ) -> Option<Self> {
-        if function.params().len() != args.len()
-            || !function
-                .params()
-                .iter()
-                .zip(args.iter())
-                .all(|(expected, provided)| *expected.data_type() == provided.data_type())
-        {
-            return None;
-        }
-        Some(Self { function, args })
-    }
-}
-
-impl FunctionCall<UntypedAST> {
-    /** Creates a new function call
-     */
-    pub fn new(function: String, args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
-        Self { function, args }
+impl<Type: ASTType> SemanticEq for StructFieldSymbol<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+            && self.data_type().semantic_eq(other.data_type())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::data_type::DataType;
-    use crate::expression::{Expression, Literal};
-    use crate::symbol::{FunctionCall, FunctionSymbol, VariableSymbol};
-    use crate::test_shared::sample_codearea;
-    use crate::{ASTNode, SemanticEquality, TypedAST, UntypedAST};
+    use crate::expression::{Expression, FunctionCall, Literal};
     use std::rc::Rc;
+    use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST};
+    use crate::symbol::{FunctionSymbol, VariableSymbol};
+    use crate::test_shared::sample_codearea;
 
     #[test]
     fn create_function_call_untyped() {
@@ -450,6 +544,6 @@ mod tests {
             sample_codearea(),
         );
         let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
-        assert!(call.semantic_equals(&call2));
+        assert!(call.semantic_eq(&call2));
     }
 }

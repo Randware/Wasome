@@ -3,7 +3,7 @@ use crate::symbol::{
 };
 use crate::top_level::Function;
 use crate::visibility::{Visibility, Visible};
-use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::{ASTNode, ASTType, SemanticEq};
 use std::rc::Rc;
 
 /** An enum
@@ -12,11 +12,12 @@ use std::rc::Rc;
 pub struct Enum<Type: ASTType> {
     symbol: Rc<EnumSymbol>,
     variants: Vec<ASTNode<EnumVariant<Type>>>,
+    visibility: Visibility,
 }
 
 impl<Type: ASTType> Enum<Type> {
-    pub fn new(symbol: Rc<EnumSymbol>, variants: Vec<ASTNode<EnumVariant<Type>>>) -> Self {
-        Self { symbol, variants }
+    pub fn new(symbol: Rc<EnumSymbol>, variants: Vec<ASTNode<EnumVariant<Type>>>, visibility: Visibility) -> Self {
+        Self { symbol, variants, visibility }
     }
 
     pub fn symbol(&self) -> &EnumSymbol {
@@ -29,6 +30,10 @@ impl<Type: ASTType> Enum<Type> {
 
     pub fn variants(&self) -> &[ASTNode<EnumVariant<Type>>] {
         &self.variants
+    }
+
+    pub fn visibility(&self) -> Visibility {
+        self.visibility
     }
 
     /** Gets the struct with the specified name
@@ -46,10 +51,10 @@ impl<Type: ASTType> Enum<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Enum<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for Enum<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self.symbol() == other.symbol() &&
-            self.variants().semantic_equals(other.variants())
+            self.variants().semantic_eq(other.variants())
     }
 }
 
@@ -76,8 +81,8 @@ impl<Type: ASTType> EnumVariant<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for EnumVariant<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for EnumVariant<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         let symbol = self.inner();
         let other_symbol = other.inner();
         symbol.name() == other_symbol.name()
@@ -97,6 +102,7 @@ pub struct Struct<Type: ASTType> {
     symbol: Rc<StructSymbol>,
     functions: Vec<ASTNode<Function<Type>>>,
     fields: Vec<ASTNode<StructField<Type>>>,
+    visibility: Visibility,
 }
 
 impl<Type: ASTType> Struct<Type> {
@@ -104,11 +110,13 @@ impl<Type: ASTType> Struct<Type> {
         symbol: Rc<StructSymbol>,
         functions: Vec<ASTNode<Function<Type>>>,
         fields: Vec<ASTNode<StructField<Type>>>,
+        visibility: Visibility
     ) -> Self {
         Self {
             symbol,
             functions,
             fields,
+            visibility
         }
     }
 
@@ -126,6 +134,10 @@ impl<Type: ASTType> Struct<Type> {
 
     pub fn fields(&self) -> &[ASTNode<StructField<Type>>] {
         &self.fields
+    }
+
+    pub fn visibility(&self) -> Visibility {
+        self.visibility
     }
 
     /** Gets the function with the specified name
@@ -149,12 +161,12 @@ impl<Type: ASTType> Struct<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Struct<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for Struct<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self.symbol == other.symbol
-            && self.functions().semantic_equals(other.functions())
-            && self.functions.semantic_equals(other.functions())
-            && self.fields().semantic_equals(other.fields())
+            && self.functions().semantic_eq(other.functions())
+            && self.functions.semantic_eq(other.functions())
+            && self.fields().semantic_eq(other.fields())
     }
 }
 
@@ -179,8 +191,8 @@ impl<Type: ASTType> StructField<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for StructField<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for StructField<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self.inner.name() == other.inner.name()
             && self.inner().data_type() == other.inner().data_type()
     }

@@ -6,16 +6,15 @@ use crate::{AST, ASTNode, ASTType};
 use std::ops::Deref;
 use std::path::PathBuf;
 
-/** This struct helps with traversing directories
-It keeps a reference to a directory and its root (also a directory).
-
-### Lifetimes
-
-| Lifetime     | Purpose      |
-| ------------- | ------------- |
-| 'a | How long the traversal helper may life |
-| 'b | How long the underlying data may life |
-*/
+///  This struct helps with traversing directories
+/// It keeps a reference to a directory and its root (also a directory).
+///
+/// # Lifetimes
+///
+/// | Lifetime     | Purpose      |
+/// | ------------- | ------------- |
+/// | 'a | How long the traversal helper may life |
+/// | 'b | How long the underlying data may life |
 #[derive(Debug)]
 pub struct DirectoryTraversalHelper<'a, 'b, Type: ASTType> {
     inner: &'b ASTNode<Directory<Type>, PathBuf>,
@@ -23,8 +22,7 @@ pub struct DirectoryTraversalHelper<'a, 'b, Type: ASTType> {
 }
 
 impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
-    /** Creates a new DirectoryTraversalHelper that is the child of another
-     */
+    /// Creates a new DirectoryTraversalHelper that is the child of another
     fn new_child(
         inner: &'b ASTNode<Directory<Type>, PathBuf>,
         parent: &'a DirectoryTraversalHelper<'a, 'b, Type>,
@@ -35,8 +33,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
         }
     }
 
-    /** Creates a new DirectoryTraversalHelper that is the root (has no parent)
-     */
+    /// Creates a new DirectoryTraversalHelper that is the root (has no parent)
     pub fn new_root(inner: &'b ASTNode<Directory<Type>, PathBuf>) -> Self {
         Self {
             inner,
@@ -44,33 +41,37 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
         }
     }
 
-    /** Creates a new DirectoryTraversalHelper from an ast.
-    The result will be a root
-    */
+    /// Creates a new DirectoryTraversalHelper from an ast.
+    /// The result will be a root
     pub fn new_from_ast(ast: &'b AST<Type>) -> Self {
         Self::new_root(ast.deref())
     }
 
-    /** Gets the inner directory
-     */
+    /// Gets the inner directory
     pub fn inner(&self) -> &'b ASTNode<Directory<Type>, PathBuf> {
         self.inner
     }
-    /** Gets the length of the subdirectories
-     */
+    /// Gets the length of the subdirectories
     pub fn len_subdirectories(&self) -> usize {
         self.inner.subdirectories().len()
     }
-    /** Gets the subdirectory at a specific index
-    ### Panics
-    Panics if ```index > self.len_subdirectories()```
-    */
-    pub fn index_subdirectory(&self, index: usize) -> DirectoryTraversalHelper<'_, 'b, Type> {
-        DirectoryTraversalHelper::new_child(&self.inner.subdirectories()[index], self)
+    /// Gets the subdirectory at a specific index
+    ///
+    /// # Return
+    ///
+    /// - `None` if `index >= self.len_subdirectories()`
+    /// - `Some(<Subdir>)` otherwise
+    pub fn index_subdirectory(
+        &self,
+        index: usize,
+    ) -> Option<DirectoryTraversalHelper<'_, 'b, Type>> {
+        Some(DirectoryTraversalHelper::new_child(
+            self.inner.subdirectories().get(index)?,
+            self,
+        ))
     }
-    /** Gets the subdirectory with the specified name.
-    Returns None if it doesn't exist
-     */
+    /// Gets the subdirectory with the specified name.
+    /// Returns None if it doesn't exist
     pub fn subdirectory_by_name(
         &self,
         name: &str,
@@ -79,8 +80,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .subdirectory_by_name(name)
             .map(|file| DirectoryTraversalHelper::new_child(file, self))
     }
-    /** Gets an iterator over all subdirectories
-     */
+    /// Gets an iterator over all subdirectories
     pub fn subdirectories_iterator<'c>(
         &'c self,
     ) -> impl Iterator<Item = DirectoryTraversalHelper<'c, 'b, Type>> + 'c {
@@ -88,28 +88,30 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .subdirectories_iterator()
             .map(move |subdirectory| DirectoryTraversalHelper::new_child(subdirectory, self))
     }
-    /** Gets the number of contained files
-     */
+    /// Gets the number of contained files
     pub fn len_files(&self) -> usize {
         self.inner.files().len()
     }
-    /** Gets the file at a specific index
-    ### Panics
-    Panics if `index > self.len_files()`
-    */
-    pub fn index_file(&self, index: usize) -> FileTraversalHelper<'_, 'b, Type> {
-        FileTraversalHelper::new(&self.inner.files()[index], self)
+    /// Gets the file at a specific index
+    ///
+    /// # Return
+    ///
+    /// - `None` if `index >= self.len_files()`
+    /// - `Some(<Subdir>)` otherwise
+    pub fn index_file(&self, index: usize) -> Option<FileTraversalHelper<'_, 'b, Type>> {
+        Some(FileTraversalHelper::new(
+            self.inner.files().get(index)?,
+            self,
+        ))
     }
-    /** Gets the file with the specified name
-    Returns None if it doesn't exist
-    */
+    /// Gets the file with the specified name
+    /// Returns None if it doesn't exist
     pub fn file_by_name(&self, name: &str) -> Option<FileTraversalHelper<'_, 'b, Type>> {
         self.inner
             .file_by_name(name)
             .map(|file| FileTraversalHelper::new(file, self))
     }
-    /** Gets an iterator over all files
-     */
+    /// Gets an iterator over all files
     pub fn files_iterator<'c>(
         &'c self,
     ) -> impl Iterator<Item = FileTraversalHelper<'c, 'b, Type>> + 'c {
@@ -117,22 +119,25 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .files_iterator()
             .map(|file| FileTraversalHelper::new(file, self))
     }
-    /** Gets the symbol imported by a specific import
-    Returns None if it doesn't exist or is not visible
-    */
+
+    /// Gets the symbol imported by a specific import
+    /// Returns None if it doesn't exist or is not visible
     pub(crate) fn resolve_import(
         &self,
         to_resolve: &Import,
-    ) -> Option<DirectlyAvailableSymbol<'b, Type>> {
+    ) -> Option<impl Iterator<Item = DirectlyAvailableSymbol<'b, Type>>> {
         let root = match to_resolve.root() {
-            ImportRoot::CurrentDirectory => self,
-            ImportRoot::ProjectRoot => self.get_root(),
+            ImportRoot::CurrentModule => self,
+            ImportRoot::Root => self.get_root(),
         };
-        root.get_symbol_for_path(to_resolve.path())
+        root.get_symbols_for_path(to_resolve.path())
     }
 
-    fn get_symbol_for_path(&self, path: &[String]) -> Option<DirectlyAvailableSymbol<'b, Type>> {
-        self.inner().get_symbol_for_path(path)
+    fn get_symbols_for_path(
+        &self,
+        path: &[String],
+    ) -> Option<impl Iterator<Item = DirectlyAvailableSymbol<'b, Type>>> {
+        self.inner().get_symbols_for_path(path)
     }
 
     fn get_root(&self) -> &DirectoryTraversalHelper<'a, 'b, Type> {

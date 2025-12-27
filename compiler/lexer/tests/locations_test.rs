@@ -51,9 +51,7 @@ fn test_location() {
         },
     ];
 
-    let tokens: Vec<Token> = lex(input)
-        .filter_map(|result| result.ok()) // keep only Ok tokens
-        .collect();
+    let tokens: Vec<Token> = lex(input).filter_map(|result| result.ok()).collect();
 
     assert_eq!(tokens, expected_tokens);
 }

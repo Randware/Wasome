@@ -1,8 +1,8 @@
 use crate::symbol::{EnumSymbol, StructSymbol};
 use std::rc::Rc;
+use crate::SemanticEq;
 
-/** This represents the data types specified in section one of the lang spec
-*/
+/// A data type
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
     Char,
@@ -21,10 +21,22 @@ pub enum DataType {
     Enum(Rc<EnumSymbol>),
 }
 
-/** This represents some wasome concept with a data type
-*/
+/// A syntax element in wasome with a data type.
+///
+/// This trait only is ever implemented for parts of the typed AST
+///
+/// Examples include expressions and operators
 pub trait Typed {
-    /** This method gets the type
-     */
+    /// Gets the data type
     fn data_type(&self) -> DataType;
+}
+
+impl SemanticEq for DataType {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (DataType::Struct(self_struct), DataType::Struct(other_struct)) => self_struct.semantic_eq(other_struct),
+            (DataType::Enum(self_enum), DataType::Enum(other_enum)) => self_enum.semantic_eq(other_enum),
+            _ => self == other,
+        }
+    }
 }
