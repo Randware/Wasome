@@ -84,7 +84,7 @@ impl ResolutionCache {
                     // even able to print
                     let _ = writeln!(
                         writer,
-                        "Warning: Could not resolve path for <FileID {:?}>",
+                        "Warning: Could not resolve path for <FileID {:?}>, filepaths can't be displayed",
                         id
                     );
 
@@ -99,7 +99,7 @@ impl ResolutionCache {
                     // even able to print
                     let _ = writeln!(
                         writer,
-                        "Warning: Could not read content for <FileID {:?}>",
+                        "Warning: Could not read content for <FileID {:?}>, snippets can't be displayed",
                         id
                     );
 
