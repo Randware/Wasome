@@ -1,6 +1,6 @@
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
-use crate::{ASTType, TypedAST};
+use crate::{ASTType, SemanticEq, TypedAST};
 use std::rc::Rc;
 
 /// Has symbols available to use
@@ -18,6 +18,11 @@ use std::rc::Rc;
 ///
 /// 2. The symbol
 ///    This is simply the symbol that is available.
+///
+/// # Equality
+///
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
+/// PartialEq behavior instead
 pub trait SymbolTable<'a, Type: ASTType>:
     Iterator<Item = (Option<&'a ModuleUsageNameSymbol>, Symbol<'a, Type>)>
 {
@@ -43,7 +48,19 @@ impl<'a, Type: ASTType> Symbol<'a, Type> {
         match self {
             Symbol::Function(func) => func.name(),
             Symbol::Variable(var) => var.name(),
-            &Symbol::ModuleUsageName(mun) => mun.name(),
+            Symbol::ModuleUsageName(mun) => mun.name(),
+        }
+    }
+}
+
+impl<Type: ASTType> SemanticEq for Symbol<'_, Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        use Symbol as S;
+        match (self, other) {
+            (S::Function(lhs), S::Function(rhs)) => lhs.semantic_eq(rhs),
+            (S::Variable(lhs), S::Variable(rhs)) => lhs.semantic_eq(rhs),
+            (S::ModuleUsageName(lhs), S::ModuleUsageName(rhs)) => lhs.semantic_eq(rhs),
+            _ => false,
         }
     }
 }
@@ -56,10 +73,8 @@ impl<'a, Type: ASTType> Symbol<'a, Type> {
 ///
 /// # Equality
 ///
-/// Two different ModuleUsageNameSymbols are never equal
-/// - Note that semantic equality is the same as regular equality
-///     - Semantic equality checks if two ast parts have the same semantic meaning. Two different symbols
-///       on their own have different semantic meanings even if their names are equal
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
+/// PartialEq behavior instead
 #[derive(Debug, Eq, PartialEq)]
 pub struct ModuleUsageNameSymbol {
     id: Id,
@@ -79,14 +94,18 @@ impl ModuleUsageNameSymbol {
     }
 }
 
+impl SemanticEq for ModuleUsageNameSymbol {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+    }
+}
+
 /// A function symbol
 ///
 /// # Equality
 ///
-/// Two different FunctionSymbols are never equal
-/// - Note that semantic equality is the same as regular equality
-///     - Semantic equality checks if two ast parts have the same semantic meaning. Two different symbols
-///       on their own have different semantic meanings even if their names are equal
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
+/// PartialEq behavior instead
 #[derive(Debug, Eq, PartialEq)]
 pub struct FunctionSymbol<Type: ASTType> {
     id: Id,
@@ -96,14 +115,47 @@ pub struct FunctionSymbol<Type: ASTType> {
     params: Vec<Rc<VariableSymbol<Type>>>,
 }
 
+impl<Type: ASTType> FunctionSymbol<Type> {
+    pub fn new(
+        name: String,
+        return_type: Option<Type::GeneralDataType>,
+        params: Vec<Rc<VariableSymbol<Type>>>,
+    ) -> Self {
+        Self {
+            id: Id::new(),
+            name,
+            return_type,
+            params,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn params(&self) -> &[Rc<VariableSymbol<Type>>] {
+        &self.params
+    }
+
+    pub fn return_type(&self) -> Option<&Type::GeneralDataType> {
+        self.return_type.as_ref()
+    }
+}
+
+impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+            && self.return_type().semantic_eq(&other.return_type())
+            && self.params().semantic_eq(self.params())
+    }
+}
+
 /// A variable symbol
 ///
 /// # Equality
 ///
-/// Two different VariableSymbols are never equal
-/// - Note that semantic equality is the same as regular equality
-///     - Semantic equality checks if two ast parts have the same semantic meaning. Two different symbols
-///       on their own have different semantic meanings even if their names are equal
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
+/// PartialEq behavior instead
 #[derive(Debug, Eq, PartialEq)]
 pub struct VariableSymbol<Type: ASTType> {
     id: Id,
@@ -135,29 +187,9 @@ impl Typed for VariableSymbol<TypedAST> {
     }
 }
 
-impl<Type: ASTType> FunctionSymbol<Type> {
-    pub fn new(
-        name: String,
-        return_type: Option<Type::GeneralDataType>,
-        params: Vec<Rc<VariableSymbol<Type>>>,
-    ) -> Self {
-        Self {
-            id: Id::new(),
-            name,
-            return_type,
-            params,
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn params(&self) -> &[Rc<VariableSymbol<Type>>] {
-        &self.params
-    }
-
-    pub fn return_type(&self) -> Option<&Type::GeneralDataType> {
-        self.return_type.as_ref()
+impl<Type: ASTType> SemanticEq for VariableSymbol<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+            && self.data_type().semantic_eq(other.data_type())
     }
 }

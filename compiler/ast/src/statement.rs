@@ -1,7 +1,7 @@
 use crate::data_type::{DataType, Typed};
 use crate::expression::{Expression, FunctionCall};
 use crate::symbol::{Symbol, VariableSymbol};
-use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
+use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
@@ -11,7 +11,7 @@ use std::rc::Rc;
 /// # Equality
 ///
 /// Two different Statements are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
@@ -29,25 +29,25 @@ pub enum Statement<Type: ASTType> {
     Break,
 }
 
-impl<Type: ASTType> SemanticEquality for Statement<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for Statement<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         use Statement as St;
         match (self, other) {
             (St::VariableAssignment(inner), St::VariableAssignment(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             (St::VariableDeclaration(inner), St::VariableDeclaration(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             (St::Expression(inner), St::Expression(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
-            (St::Return(inner), St::Return(other_inner)) => inner.semantic_equals(other_inner),
+            (St::Return(inner), St::Return(other_inner)) => inner.semantic_eq(other_inner),
             (St::ControlStructure(inner), St::ControlStructure(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             (St::Codeblock(inner), St::Codeblock(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             // All cases where equality == semantic equality
             _ => self == other,
@@ -105,30 +105,37 @@ impl<Type: ASTType> Index<usize> for Statement<Type> {
 /// # Equality
 ///
 /// Two different VariableAssignement are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct VariableDeclaration<Type: ASTType> {
     variable: Rc<VariableSymbol<Type>>,
     value: ASTNode<Expression<Type>>,
 }
 
-impl<Type: ASTType> SemanticEquality for VariableDeclaration<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.variable == other.variable && self.value.semantic_equals(&other.value)
+
+impl<Type: ASTType> SemanticEq for VariableDeclaration<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.variable == other.variable && self.value.semantic_eq(&other.value)
     }
 }
 
 impl VariableDeclaration<TypedAST> {
-    /** Tries to create a new instance
-          returns None if the type of the variable symbol and the return type of the expression doesn't
-          match
-    */
+    /// Tries to create a new instance
+    /// returns None if the type of the variable symbol and the return type of the expression doesn't
+    /// match
     pub fn new(
         variable: Rc<VariableSymbol<TypedAST>>,
         value: ASTNode<Expression<TypedAST>>,
     ) -> Option<Self> {
         eq_return_option(*variable.data_type(), value.data_type())?;
         Some(Self { variable, value })
+    }
+}
+
+impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.variable().semantic_eq(other.variable())
+            && self.value.semantic_eq(&other.value)
     }
 }
 
@@ -148,8 +155,7 @@ impl<Type: ASTType> VariableDeclaration<Type> {
         &self.variable
     }
 
-    /** Gets the variable symbol by cloning the underlying RC
-     */
+    /// Gets the variable symbol by cloning the underlying RC
     pub fn variable_owned(&self) -> Rc<VariableSymbol<Type>> {
         self.variable.clone()
     }
@@ -197,32 +203,26 @@ impl<Type: ASTType> VariableAssignment<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for VariableAssignment<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.variable == other.variable && self.value.semantic_equals(&other.value)
-    }
-}
-
 /// This represents a control structure as defined in chapters 8 and 13 of the lang spec
 ///
 /// # Equality
 ///
 /// Two different ControlStructures are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
     Loop(Loop<Type>),
 }
 
-impl<Type: ASTType> SemanticEquality for ControlStructure<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for ControlStructure<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         match (self, other) {
             (ControlStructure::Conditional(inner), ControlStructure::Conditional(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             (ControlStructure::Loop(inner), ControlStructure::Loop(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             _ => false,
         }
@@ -256,7 +256,7 @@ impl<Type: ASTType> ControlStructure<Type> {
 /// # Equality
 ///
 /// Two different Conditionals are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Conditional<Type: ASTType> {
     condition: ASTNode<Expression<Type>>,
@@ -315,14 +315,14 @@ impl<Type: ASTType> Conditional<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Conditional<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.condition.semantic_equals(&other.condition)
-            && self.then_statement.semantic_equals(&other.then_statement)
+impl<Type: ASTType> SemanticEq for Conditional<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.condition.semantic_eq(&other.condition)
+            && self.then_statement.semantic_eq(&other.then_statement)
             // Check if both are some and compare then
             // Or both are none
             && self.else_statement.as_ref().zip(other.else_statement.as_ref())
-            .map(|(a,b)| a.semantic_equals(b))
+            .map(|(a,b)| a.semantic_eq(b))
             .unwrap_or(self.else_statement.is_none() && other.else_statement.is_none())
     }
 }
@@ -331,7 +331,7 @@ impl<Type: ASTType> SemanticEquality for Conditional<Type> {
 ///
 /// # Equality
 /// Two different Loops are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Loop<Type: ASTType> {
     to_loop_on: ASTNode<Statement<Type>>,
@@ -388,10 +388,10 @@ impl<Type: ASTType> Loop<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Loop<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.to_loop_on.semantic_equals(&other.to_loop_on)
-            && self.loop_type.semantic_equals(&other.loop_type)
+impl<Type: ASTType> SemanticEq for Loop<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.to_loop_on.semantic_eq(&other.to_loop_on)
+            && self.loop_type.semantic_eq(&other.loop_type)
     }
 }
 
@@ -442,12 +442,12 @@ impl<Type: ASTType> LoopType<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for LoopType<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for LoopType<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         match (self, other) {
             (LoopType::Infinite, LoopType::Infinite) => true,
             (LoopType::While(inner), LoopType::While(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             (
                 LoopType::For {
@@ -461,9 +461,9 @@ impl<Type: ASTType> SemanticEquality for LoopType<Type> {
                     after_each: other_after_each,
                 },
             ) => {
-                start.semantic_equals(other_start)
-                    && cond.semantic_equals(other_cond)
-                    && after_each.semantic_equals(other_after_each)
+                start.semantic_eq(other_start)
+                    && cond.semantic_eq(other_cond)
+                    && after_each.semantic_eq(other_after_each)
             }
             _ => false,
         }
@@ -474,7 +474,7 @@ impl<Type: ASTType> SemanticEquality for LoopType<Type> {
 /// This is a wrapper around Expression with the wrapped one being the one's result that will be returned
 /// # Equality
 /// Two different Returns are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Return<Type: ASTType> {
     to_return: Option<ASTNode<Expression<Type>>>,
@@ -490,9 +490,9 @@ impl<Type: ASTType> Return<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Return<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.to_return.semantic_equals(&other.to_return)
+impl<Type: ASTType> SemanticEq for Return<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.to_return.semantic_eq(&other.to_return)
     }
 }
 
@@ -526,9 +526,9 @@ impl<Type: ASTType> Deref for CodeBlock<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for CodeBlock<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.contents.semantic_equals(&other.contents)
+impl<Type: ASTType> SemanticEq for CodeBlock<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.contents.semantic_eq(&other.contents)
     }
 }
 
@@ -566,25 +566,25 @@ mod tests {
         assert!(
             for_loop
                 .child_statement_at(0)
-                .semantic_equals(&create_literal_statement(Literal::S32(1)))
+                .semantic_eq(&create_literal_statement(Literal::S32(1)))
         );
         assert!(
             for_loop
                 .child_statement_at(1)
-                .semantic_equals(&create_literal_statement(Literal::S32(3)))
+                .semantic_eq(&create_literal_statement(Literal::S32(3)))
         );
 
         assert!(
             for_loop
                 .child_statement_at(2)
-                .semantic_equals(&create_literal_statement(Literal::S32(2)))
+                .semantic_eq(&create_literal_statement(Literal::S32(2)))
         );
     }
 
     #[test]
     fn break_statement_semantic_equality_should_be_true() {
         let break_statement: Statement<TypedAST> = Statement::Break;
-        assert!(break_statement.semantic_equals(&break_statement))
+        assert!(break_statement.semantic_eq(&break_statement))
     }
 
     fn create_literal_expr(literal: Literal) -> ASTNode<Expression<TypedAST>> {

@@ -57,7 +57,7 @@ fn import_parser<'src>()
         .then(
             token_parser(TokenType::ArgumentSeparator)
                 .ignore_then(path)
-                .then_ignore(token_parser(TokenType::Division))
+                .then_ignore(token_parser(TokenType::Slash))
                 .then(token_parser(TokenType::As).ignore_then(ident).or_not()),
         )
         .map(|(import, ((mut path, path_end_pos), usage_name))| {

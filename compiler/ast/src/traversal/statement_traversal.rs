@@ -36,7 +36,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
             root,
         }
     }
-
+    
     pub fn child_len(&self) -> usize {
         self.inner.amount_children()
     }
@@ -44,7 +44,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     pub fn root_helper(&self) -> &'a FunctionTraversalHelper<'a, 'b, Type> {
         self.root
     }
-
+    
     pub fn inner(&self) -> &'b ASTNode<Statement<Type>> {
         self.inner
     }

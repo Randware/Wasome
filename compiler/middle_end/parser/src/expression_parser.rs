@@ -104,7 +104,7 @@ pub(crate) fn expression_parser<'src>()
             unary,
             &[
                 (TokenType::Multiplication, BinaryOpType::Multiplication),
-                (TokenType::Division, BinaryOpType::Division),
+                (TokenType::Slash, BinaryOpType::Division),
                 (TokenType::Modulo, BinaryOpType::Modulo),
             ],
         )
@@ -245,7 +245,7 @@ mod tests {
     use ast::expression::{
         BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
     };
-    use ast::{SemanticEquality, UntypedAST};
+    use ast::{SemanticEq, UntypedAST};
     use chumsky::Parser;
     use lexer::TokenType;
 
@@ -288,7 +288,7 @@ mod tests {
                 )))),
             ],
         )));
-        assert!(parsed.semantic_equals(&expected));
+        assert!(parsed.semantic_eq(&expected));
     }
 
     #[test]
@@ -332,7 +332,7 @@ mod tests {
                 )))),
             ],
         )));
-        assert!(parsed.semantic_equals(&expected));
+        assert!(parsed.semantic_eq(&expected));
     }
 
     #[test]
@@ -342,7 +342,7 @@ mod tests {
         let parser = expression_parser();
 
         let expected = wrap_in_ast_node(Expression::Variable("test".to_string()));
-        assert!(expected.semantic_equals(&parser.parse(&to_parse).unwrap()));
+        assert!(expected.semantic_eq(&parser.parse(&to_parse).unwrap()));
     }
 
     #[test]
