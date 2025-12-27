@@ -39,7 +39,7 @@ impl<'a, Type: ASTType> FunctionTraversalHelper<'a, Type> {
 
     /** Indexes the implementation with index
      */
-    pub(crate) fn index_implementation<'b>(
+    pub fn index_implementation<'b>(
         &'b self,
         index: &StatementLocation,
     ) -> &'b Statement<Type> {

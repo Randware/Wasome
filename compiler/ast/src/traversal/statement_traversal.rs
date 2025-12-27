@@ -31,6 +31,10 @@ impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
     pub fn root_helper(&self) -> &'a FunctionTraversalHelper<'a, Type> {
         self.root
     }
+
+    pub fn location(&self) -> Option<&StatementLocation<'a>> {
+        self.location.as_ref()
+    }
 }
 
 impl<'a, Type: ASTType> StatementTraversalHelper<'a, Type> {
@@ -225,7 +229,7 @@ impl<'a, Type: ASTType> SymbolTable<'a, Type> for DefaultSymbolTable<'a, Type> {
 // Linked list representing the path from the root to the current statement
 // The first step is at the end of the list
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) struct StatementLocation<'a> {
+pub struct StatementLocation<'a> {
     index: usize,
     prev: Box<Option<&'a StatementLocation<'a>>>,
 }

@@ -57,9 +57,11 @@ pub(crate) fn analyze_statement(
         Statement::VoidFunctionCall(inner) => {
             analyze_void_function_call(inner, function_symbol_mapper)
         }
-        Statement::Break => todo!(),
+        Statement::Break => analyze_break(to_analyze),
     }
 }
+
+
 
 /// Analyzes an untyped `VariableAssignment` statement and converts it into a typed statement.
 ///
@@ -401,6 +403,38 @@ fn analyze_void_function_call(
         return None;
     }
     Some(Statement::VoidFunctionCall(typed_call))
+}
+
+/// Analyzes a `Break` statement.
+///
+/// Validates that the break is used inside a loop context by traversing the AST ancestry
+/// via the StatementLocation chain.
+fn analyze_break(
+    to_analyze: StatementTraversalHelper<UntypedAST>,
+) -> Option<Statement<TypedAST>> {
+    let root = to_analyze.root_helper();
+
+    let mut current_loc_opt = to_analyze.location();
+
+    while let Some(current_loc) = current_loc_opt {
+        if let Some(parent_loc) = current_loc.prev() {
+            let parent_node = root.index_implementation(parent_loc);
+
+
+            let statement = parent_node;
+
+            if let Statement::ControlStructure(cs_box) = statement {
+                if matches!(cs_box.as_ref(), ControlStructure::Loop(_)) {
+                    return Some(Statement::Break);
+                }
+            }
+
+            current_loc_opt = Some(parent_loc);
+        } else {
+            return None;
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -809,5 +843,61 @@ mod tests {
             analyzed_stmt.is_none(),
             "Expected analysis to fail because 'add' returns S32, but was used as a Void-Statement."
         );
+    }
+
+    /** Tests the successful semantic analysis of a Break statement situated inside a loop.
+        * Ensures that the break is recognized as valid because it has a surrounding loop context.
+     */
+    #[test]
+    fn analyze_break_ok_inside_loop() {
+        let mut file_mapper = FileSymbolMapper::new();
+        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+
+        let break_stmt = Statement::Break;
+        let break_node = ASTNode::new(break_stmt, sample_codearea());
+
+
+        let loop_body_inner = CodeBlock::new(vec![break_node]);
+        let loop_body_stmt = Statement::Codeblock(loop_body_inner);
+        let loop_body_node = ASTNode::new(loop_body_stmt, sample_codearea());
+
+        let condition_node = ASTNode::new(
+            Expression::Literal("true".to_string()),
+            sample_codearea()
+        );
+
+        let loop_struct = Loop::new(loop_body_node, LoopType::While(condition_node));
+        let loop_stmt = Statement::ControlStructure(Box::new(ControlStructure::Loop(loop_struct)));
+        let loop_node = ASTNode::new(loop_stmt, sample_codearea());
+
+        let func_body = CodeBlock::new(vec![loop_node]);
+        let func_stmt = Statement::Codeblock(func_body);
+        let func_node = ASTNode::new(func_stmt, sample_codearea());
+
+        let func_symbol = Rc::new(FunctionSymbol::new(
+            "test_break_loop".to_string(),
+            None,
+            Vec::new()
+        ));
+        let func = Function::new(func_symbol, func_node);
+
+        let ast = AST::new(vec![ASTNode::new(
+            TopLevelElement::Function(func),
+            sample_codearea(),
+        )]);
+
+        let func_ref = ast.functions().next().unwrap();
+        let root_helper = FunctionTraversalHelper::new(func_ref, &ast);
+        let helper = root_helper.ref_to_implementation();
+
+        let loop_helper = helper.index(0);
+
+        let analyzed = analyze_statement(loop_helper, &mut mapper);
+
+        assert!(
+            analyzed.is_some(),
+            "Expected loop containing break to analyze successfully"
+        );
+
     }
 }
