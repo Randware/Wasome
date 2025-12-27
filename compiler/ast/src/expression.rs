@@ -41,15 +41,11 @@ impl<Type: ASTType> SemanticEq for Expression<Type> {
             (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (Exp::Variable(inner), Exp::Variable(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (Exp::Variable(inner), Exp::Variable(other_inner)) => inner.semantic_eq(other_inner),
             // For Literals, there are no inner structs with ids
             (Exp::Literal(_), Exp::Literal(_)) => self == other,
             (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_eq(other_inner),
-            (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => inner.semantic_eq(other_inner),
             _ => false,
         }
     }
@@ -242,7 +238,7 @@ impl<Type: ASTType> Typecast<Type> {
     pub fn target(&self) -> &Type::GeneralDataType {
         &self.target
     }
-    
+
     /// Creates a new Typecast
     pub fn new(target: Type::GeneralDataType) -> Self {
         Self { target }

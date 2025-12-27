@@ -190,7 +190,7 @@ impl<Type: ASTType> SemanticEq for AST<Type> {
 /// generic. The second generic decides what is used to store positional information.
 /// # Equality
 /// Two different ASTNodes are never equal.
-/// 
+///
 /// Use semantic_equals from [`SemanticEq`] to check semantics only
 
 #[derive(Debug)]
@@ -325,17 +325,18 @@ mod tests {
     fn prove_identity_vs_semantic_eq() {
         let node_a = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(5)),
-            sample_codearea()
+            sample_codearea(),
         );
 
         let node_b = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(5)),
-            sample_codearea()
+            sample_codearea(),
         );
 
-
-        assert_ne!(node_a, node_b, "PartialEq (==) must fail because IDs are different");
-
+        assert_ne!(
+            node_a, node_b,
+            "PartialEq (==) must fail because IDs are different"
+        );
 
         assert!(
             node_a.semantic_eq(&node_b),

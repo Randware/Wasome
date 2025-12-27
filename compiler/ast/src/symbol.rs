@@ -189,7 +189,6 @@ impl Typed for VariableSymbol<TypedAST> {
 
 impl<Type: ASTType> SemanticEq for VariableSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name())
-            && self.data_type().semantic_eq(other.data_type())
+        self.name().semantic_eq(other.name()) && self.data_type().semantic_eq(other.data_type())
     }
 }

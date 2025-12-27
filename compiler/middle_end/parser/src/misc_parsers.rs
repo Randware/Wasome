@@ -82,3 +82,29 @@ pub(crate) fn token_parser<'a>(
         }
     })
 }
+
+/// Parses a single string
+pub(crate) fn string_parser<'a>()
+-> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], PosInfoWrapper<String, CodeArea>> + Clone
+{
+    custom(move |tokens| {
+        let next: PosInfoWrapper<Token, CodeFile> = tokens.next().ok_or(EmptyErr::default())?;
+        let (next_token, next_pos_info) = (next.inner, next.pos_info);
+        if let TokenType::String(inner) = next_token.kind {
+            Ok(PosInfoWrapper::new(
+                inner,
+                CodeArea::new(
+                    CodeLocation::new(next_token.line, next_token.span.start),
+                    CodeLocation::new(next_token.line, next_token.span.end),
+                    next_pos_info,
+                )
+                // new only returns None if start > end
+                // If this is the case, then there is a bug
+                // So the error is unrecoverable
+                .unwrap(),
+            ))
+        } else {
+            Err(EmptyErr::default())
+        }
+    })
+}

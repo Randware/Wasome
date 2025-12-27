@@ -39,16 +39,12 @@ impl<Type: ASTType> SemanticEq for Statement<Type> {
             (St::VariableDeclaration(inner), St::VariableDeclaration(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::Expression(inner), St::Expression(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (St::Expression(inner), St::Expression(other_inner)) => inner.semantic_eq(other_inner),
             (St::Return(inner), St::Return(other_inner)) => inner.semantic_eq(other_inner),
             (St::ControlStructure(inner), St::ControlStructure(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::Codeblock(inner), St::Codeblock(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (St::Codeblock(inner), St::Codeblock(other_inner)) => inner.semantic_eq(other_inner),
             // All cases where equality == semantic equality
             _ => self == other,
         }
@@ -112,7 +108,6 @@ pub struct VariableDeclaration<Type: ASTType> {
     value: ASTNode<Expression<Type>>,
 }
 
-
 impl<Type: ASTType> SemanticEq for VariableDeclaration<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.variable == other.variable && self.value.semantic_eq(&other.value)
@@ -134,8 +129,7 @@ impl VariableDeclaration<TypedAST> {
 
 impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.variable().semantic_eq(other.variable())
-            && self.value.semantic_eq(&other.value)
+        self.variable().semantic_eq(other.variable()) && self.value.semantic_eq(&other.value)
     }
 }
 

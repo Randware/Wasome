@@ -72,11 +72,11 @@ pub enum TokenType {
     Multiplication,
     #[token("%")]
     Modulo,
-    
+
     // '/' is a bit extra, since we will be using it for both Math and Filepaths.
     #[token("/")]
     Slash,
-    
+
     // Logic Operators
     #[token("<")]
     LessThan,
@@ -136,7 +136,7 @@ pub enum TokenType {
     New,
     #[token("import")]
     Import,
-    
+
     // Symbols
     #[token("->")]
     Return,
