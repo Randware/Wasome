@@ -1,4 +1,4 @@
-use lexer::{lex, Token, TokenType};
+use lexer::{Token, TokenType, lex};
 
 #[test]
 fn test_comment() {

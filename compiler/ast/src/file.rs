@@ -1,7 +1,7 @@
 use crate::symbol::{FunctionSymbol, Symbol};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
-use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::{ASTNode, ASTType, SemanticEq};
 
 /// A file containing code
 ///
@@ -133,10 +133,10 @@ impl<Type: ASTType> File<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for File<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for File<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self.name() == other.name()
-            && self.imports().semantic_equals(other.imports())
-            && self.functions().semantic_equals(other.functions())
+            && self.imports().semantic_eq(other.imports())
+            && self.functions().semantic_eq(other.functions())
     }
 }
