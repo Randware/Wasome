@@ -1,7 +1,7 @@
 use crate::file_symbol_mapper::FileSymbolMapper;
+use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
-use ast::TypedAST;
 use std::collections::HashMap;
 use std::rc::Rc;
 

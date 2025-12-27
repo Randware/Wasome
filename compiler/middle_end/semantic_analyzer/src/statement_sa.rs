@@ -61,8 +61,6 @@ pub(crate) fn analyze_statement(
     }
 }
 
-
-
 /// Analyzes an untyped `VariableAssignment` statement and converts it into a typed statement.
 ///
 /// This function resolves the target variable, analyzes the assigned expression value,
@@ -227,8 +225,7 @@ fn analyze_conditional(
 
     let untyped_condition = untyped_conditional_ref.condition();
     let typed_condition_expr = analyze_expression(untyped_condition, function_symbol_mapper)?;
-    let typed_condition =
-        ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
+    let typed_condition = ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
 
     if typed_condition.data_type() != DataType::Bool {
         return None;
@@ -409,9 +406,7 @@ fn analyze_void_function_call(
 ///
 /// Validates that the break is used inside a loop context by traversing the AST ancestry
 /// via the StatementLocation chain.
-fn analyze_break(
-    to_analyze: StatementTraversalHelper<UntypedAST>,
-) -> Option<Statement<TypedAST>> {
+fn analyze_break(to_analyze: StatementTraversalHelper<UntypedAST>) -> Option<Statement<TypedAST>> {
     let root = to_analyze.root_helper();
 
     let mut current_loc_opt = to_analyze.location();
@@ -419,7 +414,6 @@ fn analyze_break(
     while let Some(current_loc) = current_loc_opt {
         if let Some(parent_loc) = current_loc.prev() {
             let parent_node = root.index_implementation(parent_loc);
-
 
             let statement = parent_node;
 
@@ -780,7 +774,7 @@ mod tests {
     }
 
     /** Tests the successful semantic analysis of a VoidFunctionCall.
-        * Ensures that a function declared with return_type=None is correctly analyzed as a statement.
+     * Ensures that a function declared with return_type=None is correctly analyzed as a statement.
      */
     #[test]
     fn analyze_void_function_call_ok() {
@@ -789,19 +783,18 @@ mod tests {
         let func_name = "log_message".to_string();
 
         let param = Rc::new(VariableSymbol::new("msg".to_string(), DataType::S32));
-        let func_symbol = Rc::new(
-            FunctionSymbol::<TypedAST>::new(func_name.clone(), None, vec![param])
-        );
+        let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            func_name.clone(),
+            None,
+            vec![param],
+        ));
 
         mapper
             .get_file_mapper()
             .add_function_to_file(func_symbol.clone())
             .expect("Failed to add mock function.");
 
-        let arg = ASTNode::new(
-            Expression::Literal("5".to_string()),
-            sample_codearea(),
-        );
+        let arg = ASTNode::new(Expression::Literal("5".to_string()), sample_codearea());
         let untyped_call = FunctionCall::<UntypedAST>::new(func_name, vec![arg]);
 
         let analyzed_stmt = analyze_void_function_call(&untyped_call, &mut mapper);
@@ -819,7 +812,7 @@ mod tests {
     }
 
     /** Tests the failure case where a function returning a value (S32) is used as a VoidStatement.
-        * This ensures the semantic check inside analyze_void_function_call is working.
+     * This ensures the semantic check inside analyze_void_function_call is working.
      */
     #[test]
     fn analyze_void_function_call_must_be_void_fail() {
@@ -827,9 +820,11 @@ mod tests {
         let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
         let func_name = "add".to_string();
 
-        let func_symbol = Rc::new(
-            FunctionSymbol::<TypedAST>::new(func_name.clone(), Some(DataType::S32), Vec::new())
-        );
+        let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            func_name.clone(),
+            Some(DataType::S32),
+            Vec::new(),
+        ));
 
         mapper
             .get_file_mapper()
@@ -846,7 +841,7 @@ mod tests {
     }
 
     /** Tests the successful semantic analysis of a Break statement situated inside a loop.
-        * Ensures that the break is recognized as valid because it has a surrounding loop context.
+     * Ensures that the break is recognized as valid because it has a surrounding loop context.
      */
     #[test]
     fn analyze_break_ok_inside_loop() {
@@ -856,15 +851,12 @@ mod tests {
         let break_stmt = Statement::Break;
         let break_node = ASTNode::new(break_stmt, sample_codearea());
 
-
         let loop_body_inner = CodeBlock::new(vec![break_node]);
         let loop_body_stmt = Statement::Codeblock(loop_body_inner);
         let loop_body_node = ASTNode::new(loop_body_stmt, sample_codearea());
 
-        let condition_node = ASTNode::new(
-            Expression::Literal("true".to_string()),
-            sample_codearea()
-        );
+        let condition_node =
+            ASTNode::new(Expression::Literal("true".to_string()), sample_codearea());
 
         let loop_struct = Loop::new(loop_body_node, LoopType::While(condition_node));
         let loop_stmt = Statement::ControlStructure(Box::new(ControlStructure::Loop(loop_struct)));
@@ -877,7 +869,7 @@ mod tests {
         let func_symbol = Rc::new(FunctionSymbol::new(
             "test_break_loop".to_string(),
             None,
-            Vec::new()
+            Vec::new(),
         ));
         let func = Function::new(func_symbol, func_node);
 
@@ -898,6 +890,5 @@ mod tests {
             analyzed.is_some(),
             "Expected loop containing break to analyze successfully"
         );
-
     }
 }

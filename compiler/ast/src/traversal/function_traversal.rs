@@ -39,10 +39,7 @@ impl<'a, Type: ASTType> FunctionTraversalHelper<'a, Type> {
 
     /** Indexes the implementation with index
      */
-    pub fn index_implementation<'b>(
-        &'b self,
-        index: &StatementLocation,
-    ) -> &'b Statement<Type> {
+    pub fn index_implementation<'b>(&'b self, index: &StatementLocation) -> &'b Statement<Type> {
         let mut current_statement = self.implementation();
         let starting_index_size = index.len();
         let mut current_index_size = starting_index_size;

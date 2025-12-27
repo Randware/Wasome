@@ -177,7 +177,8 @@ fn analyze_binary_op(
     to_analyze: &Box<BinaryOp<UntypedAST>>,
     symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<BinaryOp<TypedAST>>> {
-    let (op_type, left_expr, right_expr) = (to_analyze.op_type(), to_analyze.left(), to_analyze.right());
+    let (op_type, left_expr, right_expr) =
+        (to_analyze.op_type(), to_analyze.left(), to_analyze.right());
 
     let converted_left = analyze_expression(left_expr, symbol_mapper)?;
     let converted_right = analyze_expression(right_expr, symbol_mapper)?;
@@ -204,17 +205,17 @@ pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {
         CodeLocation::new(0, 10),
         CodeFile::new(PathBuf::from("test/test")),
     )
-        .unwrap()
+    .unwrap()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::file_symbol_mapper::FileSymbolMapper;
+    use ast::UntypedAST;
     use ast::data_type::{DataType, Typed};
     use ast::expression::Expression;
     use ast::expression::Literal;
-    use ast::UntypedAST;
 
     /// Tests the `analyze_literal` helper function to ensure it correctly identifies and parses
     /// various literal types (boolean, char, floating-point, and integer) from string input, and returns None for invalid input.

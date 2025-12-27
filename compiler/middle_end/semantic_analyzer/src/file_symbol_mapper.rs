@@ -1,5 +1,5 @@
-use ast::symbol::FunctionSymbol;
 use ast::TypedAST;
+use ast::symbol::FunctionSymbol;
 use std::collections::HashMap;
 use std::rc::Rc;
 
