@@ -320,6 +320,28 @@ mod tests {
     use std::rc::Rc;
 
     #[test]
+    fn prove_identity_vs_semantic_eq() {
+        let node_a = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::S32(5)),
+            sample_codearea()
+        );
+
+        let node_b = ASTNode::new(
+            Expression::<TypedAST>::Literal(Literal::S32(5)),
+            sample_codearea()
+        );
+
+
+        assert_ne!(node_a, node_b, "PartialEq (==) must fail because IDs are different");
+
+
+        assert!(
+            node_a.semantic_eq(&node_b),
+            "SemanticEquality must succeed because content is identical"
+        );
+    }
+
+    #[test]
     fn ast() {
         let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
         let statement = ASTNode::new(
