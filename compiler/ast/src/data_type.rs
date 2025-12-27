@@ -1,4 +1,4 @@
-use crate::SemanticEquality;
+use crate::SemanticEq;
 
 /// A data type
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Eq)]
@@ -27,8 +27,8 @@ pub trait Typed {
     fn data_type(&self) -> DataType;
 }
 
-impl SemanticEquality for DataType {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl SemanticEq for DataType {
+    fn semantic_eq(&self, other: &Self) -> bool {
         // DataType has no Id
         self == other
     }

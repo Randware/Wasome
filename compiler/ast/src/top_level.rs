@@ -1,7 +1,7 @@
 use crate::statement::Statement;
 use crate::symbol::{FunctionSymbol, ModuleUsageNameSymbol};
 use crate::visibility::{Visibility, Visible};
-use crate::{ASTNode, ASTType, SemanticEquality};
+use crate::{ASTNode, ASTType, SemanticEq};
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -44,10 +44,10 @@ impl<Type: ASTType> Function<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Function<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.declaration().semantic_equals(other.declaration())
-            && self.implementation.semantic_equals(&other.implementation)
+impl<Type: ASTType> SemanticEq for Function<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.declaration().semantic_eq(other.declaration())
+            && self.implementation.semantic_eq(&other.implementation)
     }
 }
 
@@ -102,8 +102,8 @@ impl Import {
     }
 }
 
-impl SemanticEquality for Import {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl SemanticEq for Import {
+    fn semantic_eq(&self, other: &Self) -> bool {
         // Semantic equality is equal to regular equality
         self == other
     }

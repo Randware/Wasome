@@ -47,59 +47,59 @@ pub mod visibility;
 /// The only exception are symbols, where it is required that the same are used.
 ///
 /// Its primary intended use case it for tests, but it may find application elsewhere
-pub trait SemanticEquality {
+pub trait SemanticEq {
     ///  The equality method.
     /// For more information, refer to the trait documentation
-    fn semantic_equals(&self, other: &Self) -> bool;
+    fn semantic_eq(&self, other: &Self) -> bool;
 }
 
 // SemanticEquality for common containers of types implementing SemanticEquality
 
-impl<T: SemanticEquality> SemanticEquality for [T] {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<T: SemanticEq> SemanticEq for [T] {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self.len() == other.len()
             && self
                 .iter()
                 .zip(other.iter())
                 .all(|(self_statement, other_statement)| {
-                    self_statement.semantic_equals(other_statement)
+                    self_statement.semantic_eq(other_statement)
                 })
     }
 }
 
-impl<T: SemanticEquality> SemanticEquality for Option<T> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<T: SemanticEq> SemanticEq for Option<T> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         // Check if both are some and compare then
         // Or both are none
         self.as_ref()
             .zip(other.as_ref())
-            .map(|(a, b)| a.semantic_equals(b))
+            .map(|(a, b)| a.semantic_eq(b))
             .unwrap_or(self.is_none() && other.is_none())
     }
 }
 
 // Required for ASTType
-impl SemanticEquality for str {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl SemanticEq for str {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
 
-impl SemanticEquality for String {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl SemanticEq for String {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self == other
     }
 }
 
-impl<T: SemanticEquality> SemanticEquality for &T {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        (*self).semantic_equals(*other)
+impl<T: SemanticEq> SemanticEq for &T {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        (*self).semantic_eq(*other)
     }
 }
 
-impl<T: SemanticEquality> SemanticEquality for Rc<T> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.deref().semantic_equals(other.deref())
+impl<T: SemanticEq> SemanticEq for Rc<T> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.deref().semantic_eq(other.deref())
     }
 }
 
@@ -180,9 +180,9 @@ impl<Type: ASTType> Deref for AST<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for AST<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.inner.semantic_equals(&other.inner)
+impl<Type: ASTType> SemanticEq for AST<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.inner.semantic_eq(&other.inner)
     }
 }
 
@@ -190,7 +190,7 @@ impl<Type: ASTType> SemanticEquality for AST<Type> {
 /// generic. The second generic decides what is used to store positional information.
 /// # Equality
 /// Two different ASTNodes are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 
 #[derive(Debug)]
 pub struct ASTNode<T: Debug, Position = CodeArea> {
@@ -227,9 +227,9 @@ impl<T: Debug, Position> DerefMut for ASTNode<T, Position> {
     }
 }
 
-impl<T: SemanticEquality + Debug, Position> SemanticEquality for ASTNode<T, Position> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.inner.semantic_equals(&other.inner)
+impl<T: SemanticEq + Debug, Position> SemanticEq for ASTNode<T, Position> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.inner.semantic_eq(&other.inner)
     }
 }
 
@@ -269,9 +269,9 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
 ///  This decided what type the ast is.
 pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type LiteralType: PartialEq + Debug;
-    type GeneralDataType: Eq + PartialEq + Debug + Clone + SemanticEquality;
-    type FunctionCallSymbol: Debug + PartialEq + SemanticEquality;
-    type VariableUse: Debug + PartialEq + Clone + SemanticEquality;
+    type GeneralDataType: Eq + PartialEq + Debug + Clone + SemanticEq;
+    type FunctionCallSymbol: Debug + PartialEq + SemanticEq;
+    type VariableUse: Debug + PartialEq + Clone + SemanticEq;
 }
 
 ///  This is an ast type
@@ -313,7 +313,7 @@ mod tests {
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::visibility::Visibility;
-    use crate::{AST, ASTNode, SemanticEquality, TypedAST, UntypedAST};
+    use crate::{AST, ASTNode, SemanticEq, TypedAST, UntypedAST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
@@ -497,15 +497,15 @@ mod tests {
         let (nth, current, previous, temp, fibonacci) = create_fibonacci_typed_symbols();
         let ast1 = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
         let ast2 = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
-        assert!(ast1.semantic_equals(&ast2));
-        assert!(ast2.semantic_equals(&ast1));
+        assert!(ast1.semantic_eq(&ast2));
+        assert!(ast2.semantic_eq(&ast1));
         // Sanity check: An AST should be semantically equal to itself
-        assert!(ast1.semantic_equals(&ast1));
-        assert!(ast2.semantic_equals(&ast2));
+        assert!(ast1.semantic_eq(&ast1));
+        assert!(ast2.semantic_eq(&ast2));
 
         let empty = functions_into_ast(Vec::new());
-        assert!(!ast1.semantic_equals(&empty));
-        assert!(!empty.semantic_equals(&ast1));
+        assert!(!ast1.semantic_eq(&empty));
+        assert!(!empty.semantic_eq(&ast1));
     }
 
     fn create_fibonacci_typed(
@@ -1136,7 +1136,7 @@ mod tests {
             sample_codearea(),
         );
         let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
-        assert!(call.semantic_equals(&call2));
+        assert!(call.semantic_eq(&call2));
     }
 }
 

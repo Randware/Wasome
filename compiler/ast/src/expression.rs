@@ -1,6 +1,6 @@
 use crate::data_type::{DataType, Typed};
 use crate::symbol::FunctionSymbol;
-use crate::{ASTNode, ASTType, SemanticEquality, TypedAST, UntypedAST, eq_return_option};
+use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
 use std::rc::Rc;
 
 /// This represents an expression as per section 2 of the lang spec
@@ -8,7 +8,7 @@ use std::rc::Rc;
 /// # Equality
 ///
 /// Two different Expressions are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum Expression<Type: ASTType> {
     /// This is only valid if there is a return value and not void
@@ -34,21 +34,21 @@ impl Typed for Expression<TypedAST> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Expression<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for Expression<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         use Expression as Exp;
         match (self, other) {
             (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             (Exp::Variable(inner), Exp::Variable(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             // For Literals, there are no inner structs with ids
             (Exp::Literal(_), Exp::Literal(_)) => self == other,
-            (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_equals(other_inner),
+            (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_eq(other_inner),
             (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => {
-                inner.semantic_equals(other_inner)
+                inner.semantic_eq(other_inner)
             }
             _ => false,
         }
@@ -91,7 +91,7 @@ impl Literal {
 /// # Equality
 ///
 /// Two different UnaryOps are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct UnaryOp<Type: ASTType> {
     // The type of the expression
@@ -125,9 +125,9 @@ impl UnaryOp<TypedAST> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for UnaryOp<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.op_type == other.op_type && self.input.semantic_equals(&other.input)
+impl<Type: ASTType> SemanticEq for UnaryOp<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.op_type == other.op_type && self.input.semantic_eq(&other.input)
     }
 }
 
@@ -265,7 +265,7 @@ impl Typecast<TypedAST> {
 /// # Equality
 ///
 /// Two different BinaryOps are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct BinaryOp<Type: ASTType> {
     // The type of the expression
@@ -276,11 +276,11 @@ pub struct BinaryOp<Type: ASTType> {
     right: ASTNode<Expression<Type>>,
 }
 
-impl<Type: ASTType> SemanticEquality for BinaryOp<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for BinaryOp<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         self.op_type == other.op_type
-            && self.left.semantic_equals(&other.left)
-            && self.right.semantic_equals(&other.right)
+            && self.left.semantic_eq(&other.left)
+            && self.right.semantic_eq(&other.right)
     }
 }
 
@@ -502,9 +502,9 @@ impl<Type: ASTType> FunctionCall<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for FunctionCall<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.function().semantic_equals(other.function()) && self.args.semantic_equals(&other.args)
+impl<Type: ASTType> SemanticEq for FunctionCall<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.function().semantic_eq(other.function()) && self.args.semantic_eq(&other.args)
     }
 }
 
@@ -888,7 +888,7 @@ mod tests {
         // Two expressions have different ids and are not equal
         let expression_1 = generate_sample_expression();
         let expression_2 = generate_sample_expression();
-        assert!(expression_1.semantic_equals(&expression_2))
+        assert!(expression_1.semantic_eq(&expression_2))
     }
 
     fn generate_sample_expression() -> Expression<TypedAST> {
@@ -970,7 +970,7 @@ mod tests {
             sample_codearea(),
         );
         let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
-        assert!(call.semantic_equals(&call2));
+        assert!(call.semantic_eq(&call2));
     }
 
     #[test]

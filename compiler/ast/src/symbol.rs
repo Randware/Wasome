@@ -1,6 +1,6 @@
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
-use crate::{ASTType, SemanticEquality, TypedAST};
+use crate::{ASTType, SemanticEq, TypedAST};
 use std::rc::Rc;
 
 /// Has symbols available to use
@@ -21,7 +21,7 @@ use std::rc::Rc;
 ///
 /// # Equality
 ///
-/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEquality`] for the usual
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
 pub trait SymbolTable<'a, Type: ASTType>:
     Iterator<Item = (Option<&'a ModuleUsageNameSymbol>, Symbol<'a, Type>)>
@@ -53,13 +53,13 @@ impl<'a, Type: ASTType> Symbol<'a, Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for Symbol<'_, Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
+impl<Type: ASTType> SemanticEq for Symbol<'_, Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
         use Symbol as S;
         match (self, other) {
-            (S::Function(lhs), S::Function(rhs)) => lhs.semantic_equals(rhs),
-            (S::Variable(lhs), S::Variable(rhs)) => lhs.semantic_equals(rhs),
-            (S::ModuleUsageName(lhs), S::ModuleUsageName(rhs)) => lhs.semantic_equals(rhs),
+            (S::Function(lhs), S::Function(rhs)) => lhs.semantic_eq(rhs),
+            (S::Variable(lhs), S::Variable(rhs)) => lhs.semantic_eq(rhs),
+            (S::ModuleUsageName(lhs), S::ModuleUsageName(rhs)) => lhs.semantic_eq(rhs),
             _ => false,
         }
     }
@@ -73,7 +73,7 @@ impl<Type: ASTType> SemanticEquality for Symbol<'_, Type> {
 ///
 /// # Equality
 ///
-/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEquality`] for the usual
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
 #[derive(Debug, Eq, PartialEq)]
 pub struct ModuleUsageNameSymbol {
@@ -94,9 +94,9 @@ impl ModuleUsageNameSymbol {
     }
 }
 
-impl SemanticEquality for ModuleUsageNameSymbol {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.name().semantic_equals(other.name())
+impl SemanticEq for ModuleUsageNameSymbol {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
     }
 }
 
@@ -104,7 +104,7 @@ impl SemanticEquality for ModuleUsageNameSymbol {
 ///
 /// # Equality
 ///
-/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEquality`] for the usual
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
 #[derive(Debug, Eq, PartialEq)]
 pub struct FunctionSymbol<Type: ASTType> {
@@ -142,11 +142,11 @@ impl<Type: ASTType> FunctionSymbol<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for FunctionSymbol<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.name().semantic_equals(other.name())
-            && self.return_type().semantic_equals(&other.return_type())
-            && self.params().semantic_equals(self.params())
+impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+            && self.return_type().semantic_eq(&other.return_type())
+            && self.params().semantic_eq(self.params())
     }
 }
 
@@ -154,7 +154,7 @@ impl<Type: ASTType> SemanticEquality for FunctionSymbol<Type> {
 ///
 /// # Equality
 ///
-/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEquality`] for the usual
+/// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
 #[derive(Debug, Eq, PartialEq)]
 pub struct VariableSymbol<Type: ASTType> {
@@ -187,9 +187,9 @@ impl Typed for VariableSymbol<TypedAST> {
     }
 }
 
-impl<Type: ASTType> SemanticEquality for VariableSymbol<Type> {
-    fn semantic_equals(&self, other: &Self) -> bool {
-        self.name().semantic_equals(other.name())
-            && self.data_type().semantic_equals(other.data_type())
+impl<Type: ASTType> SemanticEq for VariableSymbol<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name().semantic_eq(other.name())
+            && self.data_type().semantic_eq(other.data_type())
     }
 }
