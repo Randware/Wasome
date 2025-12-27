@@ -2,11 +2,9 @@ mod diagnostic;
 mod renderer;
 mod source;
 
+#[cfg(test)]
 mod tests {
-    use crate::{
-        diagnostic::{Diagnostic, Level, Snippet},
-        renderer::Renderer,
-    };
+    use crate::diagnostic::{Diagnostic, Level, Snippet};
 
     #[test]
     fn test() {
@@ -21,9 +19,16 @@ mod tests {
             //         .annotate_many([0..2, 24..25], "Related context")
             //         .build(),
             // )
-            // .help("Try adding a number, e.g. '1 + 2'")
+            // .snippet(
+            //     Snippet::builder()
+            //         .file(2)
+            //         .annotate(24..25, "Expression expected here")
+            //         .annotate_many([0..2, 24..25], "Related context")
+            //         .build(),
+            // )
+            .help("Try adding a number, e.g. '1 + 2'")
             .build();
 
-        Renderer::print(&error).unwrap();
+        error.print().unwrap()
     }
 }

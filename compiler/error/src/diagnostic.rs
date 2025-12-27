@@ -1,6 +1,11 @@
 use bon::Builder;
 use source::types::FileID;
-use std::ops::Range;
+use std::{fmt::Display, io, ops::Range};
+
+use crate::{
+    renderer::Renderer,
+    source::{NoSource, SourceLookup},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
@@ -31,6 +36,18 @@ impl<S: diagnostic_builder::State> DiagnosticBuilder<S> {
     pub fn snippet(mut self, snippet: Snippet) -> Self {
         self.snippets.push(snippet);
         self
+    }
+}
+
+impl Diagnostic {
+    /// Renders the diagnostic without any code snippets to stdout/stderr
+    pub fn print(&self) -> io::Result<()> {
+        self.print_snippets(&NoSource)
+    }
+
+    /// Renders the diagnostic, including source code snippets to stdout/stderr
+    pub fn print_snippets(&self, source: &impl SourceLookup) -> io::Result<()> {
+        Renderer::render(self, source)
     }
 }
 
