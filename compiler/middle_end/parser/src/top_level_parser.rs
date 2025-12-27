@@ -2,14 +2,13 @@ use crate::misc_parsers::{datatype_parser, identifier_parser, statement_separato
 use crate::statement_parser::statement_parser;
 use crate::top_level_parser::import_parser::import_parser;
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol, VariableSymbol};
-use ast::top_level::{Function, Import, ImportRoot};
+use ast::symbol::{FunctionSymbol, VariableSymbol};
+use ast::top_level::{Function, Import};
 use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::{Token, TokenType};
 use shared::code_file::CodeFile;
-use shared::code_reference::CodeArea;
 use std::rc::Rc;
 
 /// Parses all Top-Level elements in a file
@@ -35,19 +34,19 @@ mod import_parser {
     use crate::PosInfoWrapper;
     use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
     use ast::symbol::ModuleUsageNameSymbol;
-    use ast::top_level::{Function, Import, ImportRoot};
-    use ast::{ASTNode, UntypedAST};
+    use ast::top_level::{Import, ImportRoot};
+    use ast::ASTNode;
     use chumsky::IterParser;
     use chumsky::Parser;
-    use chumsky::container::OrderedSeq;
+    
     use chumsky::error::EmptyErr;
-    use chumsky::prelude::{choice, just, todo};
-    use chumsky::primitive::Just;
+    use chumsky::prelude::{choice, just};
+    
     use chumsky::regex::regex;
     use lexer::{Token, TokenType};
     use shared::code_file::CodeFile;
     use shared::code_reference::CodeArea;
-    use std::mem::transmute;
+    
     use std::rc::Rc;
 
     /// Parses a single import
@@ -126,7 +125,7 @@ mod import_parser {
     /// - The path
     ///
     /// otherwise
-    fn parse_import_path<'a>(path: &'a str) -> Option<(ImportRoot, Vec<String>)> {
+    fn parse_import_path(path: &str) -> Option<(ImportRoot, Vec<String>)> {
         // Performance
         // While creating a new parser for each import is slower than caching, there is no good (safe) alternative
         // And it is very fast regardless (under 50µs per import)
@@ -142,7 +141,8 @@ mod import_parser {
             .map(|elem: &str| elem.to_owned())
             .separated_by(just('/'));
 
-        let full_path = choice((
+        
+        choice((
             current_module
                 .ignore_then(path_elements.clone().collect::<Vec<_>>())
                 .map(|path| (ImportRoot::CurrentModule, path)),
@@ -151,8 +151,7 @@ mod import_parser {
                 .at_least(1)
                 .collect::<Vec<_>>()
                 .map(|path| (ImportRoot::Root, path)),
-        ));
-        full_path
+        ))
     }
 
     #[cfg(test)]
