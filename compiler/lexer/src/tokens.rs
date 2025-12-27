@@ -55,7 +55,7 @@ pub enum TokenType {
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
     #[regex(r#""(\\.|[^\\"])*""#, |lex| lex.slice().to_string())]
-    Quote(String),
+    String(String),
     #[regex(r"\d+\.\d+", |lex| lex.slice().parse().map_err(LexError::Float))]
     Decimal(f64),
     #[regex(r"\d+", |lex| lex.slice().parse().map_err(LexError::Int))]

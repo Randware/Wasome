@@ -18,7 +18,7 @@ fn test_import() {
             span: 4..10
         },
         Token {
-            kind: TokenType::Quote(r#""math/pi""#.to_string()),
+            kind: TokenType::String(r#""math/pi""#.to_string()),
             line: 1,
             span: 11..20
         },
