@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 chumsky = { version = "1.0.0-alpha.8", features = ["regex"] }
+tempfile = "3"
 ast = { path = "../../ast"}
 lexer = { path = "../../lexer"}
 shared = { path = "../../shared"}

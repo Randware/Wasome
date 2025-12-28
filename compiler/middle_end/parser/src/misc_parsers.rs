@@ -43,6 +43,13 @@ pub(crate) fn statement_separator<'a>()
         .ignored()
 }
 
+/// Either parses a statementSeparator or nothing
+pub(crate) fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ()> + Clone {
+    token_parser(TokenType::StatementSeparator)
+        .or_not()
+        .ignored()
+}
+
 /// Parses a single token
 pub(crate) fn token_parser<'a>(
     token: TokenType,

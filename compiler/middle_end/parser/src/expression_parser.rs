@@ -26,6 +26,7 @@ pub(crate) fn expression_parser<'src>()
                             }
                         }
                         TokenType::Integer(inner) => inner.to_string(),
+                        TokenType::CharLiteral(inner) => inner.to_string(),
                         _ => return Err(EmptyErr::default()),
                     }),
                     pos,
@@ -67,11 +68,10 @@ pub(crate) fn expression_parser<'src>()
                 token_parser(TokenType::CloseParen),
             ));
 
-        let typecast = atom
-            .clone()
-            .then_ignore(token_parser(TokenType::As))
-            .then(datatype_parser())
-            .map(|(expr, new_type)| {
+        let typecast = atom.clone()
+            .foldl(token_parser(TokenType::As).ignored()
+                       .then(datatype_parser())
+                       .repeated(), |expr, (_, new_type)| {
                 let new_pos = combine_code_areas_succeeding(expr.position(), &new_type.pos_info);
                 ASTNode::new(
                     Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
@@ -113,7 +113,7 @@ pub(crate) fn expression_parser<'src>()
             sum,
             &[
                 (TokenType::RShift, BinaryOpType::RightShift),
-                (TokenType::LShift, BinaryOpType::RightShift),
+                (TokenType::LShift, BinaryOpType::LeftShift),
             ],
         )
         .boxed();

@@ -146,7 +146,7 @@ impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.name().semantic_eq(other.name())
             && self.return_type().semantic_eq(&other.return_type())
-            && self.params().semantic_eq(self.params())
+            && self.params().semantic_eq(other.params())
     }
 }
 

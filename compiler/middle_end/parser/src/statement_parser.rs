@@ -1,5 +1,5 @@
 use crate::expression_parser::expression_parser;
-use crate::misc_parsers::{datatype_parser, identifier_parser, statement_separator, token_parser};
+use crate::misc_parsers::{datatype_parser, identifier_parser, maybe_statement_separator, statement_separator, token_parser};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
@@ -53,7 +53,7 @@ pub(crate) fn statement_parser<'src>()
                         Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
                         val,
                     ),
-                    combine_code_areas_succeeding(&name.pos_info, &data_type.pos_info),
+                    combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
                 )
             });
 
@@ -74,7 +74,7 @@ pub(crate) fn statement_parser<'src>()
         let conditional = token_parser(TokenType::If)
             .then(expression.clone().delimited_by(
                 token_parser(TokenType::OpenParen),
-                token_parser(TokenType::CloseScope),
+                token_parser(TokenType::CloseParen),
             ))
             .then_ignore(maybe_statement_separator())
             .then(statement.clone())
@@ -177,12 +177,6 @@ pub(crate) fn statement_parser<'src>()
     })
 }
 
-/// Either parses a statementSeparator or nothing
-fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ()> + Clone {
-    token_parser(TokenType::StatementSeparator)
-        .or_not()
-        .ignored()
-}
 #[cfg(test)]
 mod tests {
     use crate::statement_parser::statement_parser;
