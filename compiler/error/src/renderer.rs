@@ -57,7 +57,7 @@ impl Renderable for Diagnostic {
     }
 
     fn config(&self) -> Config {
-        Config::default()
+        Config::default().with_underlines(true)
     }
 }
 
@@ -65,53 +65,6 @@ impl Renderable for Diagnostic {
 struct CachedSource {
     path: String,
     content: String,
-}
-
-struct ResolutionCache {
-    data: HashMap<FileID, CachedSource>,
-}
-
-impl ResolutionCache {
-    fn new(snippets: &[Snippet], source_lookup: &dyn SourceLookup, writer: &mut dyn Write) -> Self {
-        let unique_ids: HashSet<FileID> = snippets.iter().map(|s| s.file).collect();
-        let mut data = HashMap::with_capacity(unique_ids.len());
-
-        for id in unique_ids {
-            let path = match source_lookup.get_path(id) {
-                Some(p) => p.to_string_lossy().to_string(),
-                None => {
-                    // We ignore the Result here, since we can't really do anything, if we are not
-                    // even able to print
-                    let _ = writeln!(
-                        writer,
-                        "Warning: Could not resolve path for <FileID {:?}>, filepaths can't be displayed",
-                        id
-                    );
-
-                    format!("<FileID {:?}>", id)
-                }
-            };
-
-            let content = match source_lookup.get_content(id) {
-                Some(c) => c.to_string(),
-                None => {
-                    // We ignore the Result here, since we can't really do anything, if we are not
-                    // even able to print
-                    let _ = writeln!(
-                        writer,
-                        "Warning: Could not read content for <FileID {:?}>, snippets can't be displayed",
-                        id
-                    );
-
-                    String::new()
-                }
-            };
-
-            data.insert(id, CachedSource { path, content });
-        }
-
-        Self { data }
-    }
 }
 
 pub struct Renderer<'a> {
@@ -136,7 +89,25 @@ impl<'a> Renderer<'a> {
     fn print(&self) -> io::Result<()> {
         let mut writer = self.diagnostic.output();
 
-        let cache = ResolutionCache::new(&self.diagnostic.snippets, self.source, &mut writer);
+        let mut cache: HashMap<FileID, CachedSource> = HashMap::new();
+        let unique: HashSet<_> = self.diagnostic.snippets.iter().map(|s| s.file).collect();
+
+        for id in unique {
+            let path = self
+                .source
+                .get_path(id)
+                .expect(format!("Fatal: FileID {:?} missing from sourcemap", id).as_str())
+                .to_string_lossy()
+                .to_string();
+
+            let content = self
+                .source
+                .get_content(id)
+                .expect(format!("Fatal: FileID {:?} missing from sourcemap", id).as_str())
+                .to_string();
+
+            cache.insert(id, CachedSource { path, content });
+        }
 
         let (primary_path, primary_range) = self.primary_span(&cache);
 
@@ -155,32 +126,38 @@ impl<'a> Renderer<'a> {
             builder = builder.with_help(help);
         }
 
+        let mut colors = ColorGenerator::new();
+
         for snippet in &self.diagnostic.snippets {
-            // Unwrapping is safe here, since the snippets for all diagnostics are guaranteed to be
-            // loaded
-            let path = &cache.data.get(&snippet.file).unwrap().path;
+            let path = &cache.get(&snippet.file).unwrap().path;
 
-            for annotation in &snippet.annotations {
-                let mut colors = ColorGenerator::new();
+            for (ai, annotation) in snippet.annotations.iter().enumerate() {
+                let annotation_color = colors.next();
+                let last_index = annotation.ranges.len().saturating_sub(1);
 
-                for range in &annotation.ranges {
-                    let label = Label::new((path.clone(), range.clone()))
-                        .with_message(&annotation.message)
-                        .with_color(colors.next());
+                for (ri, range) in annotation.ranges.iter().enumerate() {
+                    let mut label =
+                        Label::new((path.clone(), range.clone())).with_color(annotation_color);
+
+                    if ri == last_index {
+                        label = label.with_message(&annotation.message)
+                    }
 
                     builder = builder.with_label(label);
                 }
             }
         }
-
-        let sources = cache.data.into_values().map(|c| (c.path, c.content));
+        let sources = cache.into_values().map(|c| (c.path, c.content));
 
         builder
             .finish()
             .write(ariadne::sources(sources), &mut writer)
     }
 
-    fn primary_span(&self, cache: &ResolutionCache) -> (String, std::ops::Range<usize>) {
+    fn primary_span(
+        &self,
+        cache: &HashMap<FileID, CachedSource>,
+    ) -> (String, std::ops::Range<usize>) {
         let fallback = (String::new(), 0..0);
 
         self.diagnostic
@@ -198,7 +175,7 @@ impl<'a> Renderer<'a> {
 
                 // Unwrapping is safe here, since the snippets for all diagnostics are guaranteed to be
                 // loaded
-                let path = &cache.data.get(&snippet.file).unwrap().path;
+                let path = &cache.get(&snippet.file).unwrap().path;
 
                 Some((path.clone(), merged.start.0 as usize..merged.end.0 as usize))
             })

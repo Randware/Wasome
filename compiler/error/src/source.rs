@@ -1,15 +1,13 @@
 use std::path::PathBuf;
 
-use source::{SourceMap, types::FileID};
+use source::{SourceMap, loader::FileLoader, types::FileID};
 
-/// Interface for looking up source content and paths.
-/// Decouples the Renderer from the specific storage mechanism.
 pub trait SourceLookup {
     fn get_content(&self, id: FileID) -> Option<&str>;
     fn get_path(&self, id: FileID) -> Option<&PathBuf>;
 }
 
-impl SourceLookup for SourceMap {
+impl<T: FileLoader> SourceLookup for SourceMap<T> {
     fn get_content(&self, id: FileID) -> Option<&str> {
         self.get_file(&id).map(|f| f.content())
     }
@@ -19,8 +17,6 @@ impl SourceLookup for SourceMap {
     }
 }
 
-/// A "Null Object" implementation for when no source is available
-/// (e.g. CLI errors, file read errors, or testing without a map).
 pub struct NoSource;
 
 impl SourceLookup for NoSource {

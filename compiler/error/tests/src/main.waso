@@ -1,0 +1,11 @@
+fn add_one(i32 num) {
+  -> num + 1
+}
+
+fn main() {
+  i64 num <- 10
+
+  add_one(num)
+
+  u32 <- 20
+}
