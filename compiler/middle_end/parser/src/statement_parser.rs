@@ -17,7 +17,7 @@ use std::rc::Rc;
 /// This is only used to prevent type annotation issues without specifying the entire type
 fn narrow<
     'src,
-    T: Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>> + Clone,
+    T: Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Statement<UntypedAST>>> + Clone,
 >(
     input: T,
 ) -> T {
@@ -26,7 +26,7 @@ fn narrow<
 
 /// Parses a single statement
 pub(crate) fn statement_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Statement<UntypedAST>>> {
+-> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Statement<UntypedAST>>> {
     recursive(|statement| {
         let statement = narrow(statement);
         let data_type = datatype_parser();
@@ -180,7 +180,7 @@ pub(crate) fn statement_parser<'src>()
 
 /// Either parses a statementSeparator or nothing
 fn maybe_statement_separator<'a>()
--> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ()> + Clone {
+-> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ()> + Clone {
     token_parser(TokenType::StatementSeparator)
         .or_not()
         .ignored()

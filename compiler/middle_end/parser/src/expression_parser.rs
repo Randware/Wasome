@@ -11,32 +11,24 @@ use shared::code_reference::{CodeArea, CodeLocation};
 
 /// Parses an expression
 pub(crate) fn expression_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>> + Clone
+-> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone
 {
     recursive(|expr| {
         let literal =
-            custom::<_, &[PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>, _>(
+            custom::<_, &[PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>, _>(
                 |token| {
                     {
                         let next_token = token.next().ok_or(EmptyErr::default())?;
                         let (tok, pos) = (next_token.inner, next_token.pos_info);
                         Ok(ASTNode::new(
                             Expression::Literal(
-                                match tok.kind {
+                                match tok {
                                     TokenType::Decimal(inner) => inner.to_string(),
                                     TokenType::Integer(inner) => inner.to_string(),
                                     _ => return Err(EmptyErr::default()),
                                 },
-                                // new only returns None if start > end
-                                // If this is the case, then there is a bug
-                                // So the error is unrecoverable
                             ),
-                            CodeArea::new(
-                                CodeLocation::new(tok.line, tok.span.start),
-                                CodeLocation::new(tok.line, tok.span.end),
-                                pos,
-                            )
-                            .unwrap(),
+                            pos,
                         ))
                     }
                 },
@@ -164,10 +156,10 @@ pub(crate) fn expression_parser<'src>()
 ///
 /// **ops**: The tokens to parse and what to parse them to
 fn binary_operator_parser<'a>(
-    input: impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>>
+    input: impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>>
     + Clone,
     ops: &[(TokenType, BinaryOpType)],
-) -> impl Parser<'a, &'a [PosInfoWrapper<Token, CodeFile>], ASTNode<Expression<UntypedAST>>> + Clone
+) -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone
 {
     input.clone().foldl(
         choice(

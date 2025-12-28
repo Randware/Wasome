@@ -14,7 +14,7 @@ use std::rc::Rc;
 /// Parses all Top-Level elements in a file
 pub(crate) fn top_level_parser<'src>() -> impl Parser<
     'src,
-    &'src [PosInfoWrapper<Token, CodeFile>],
+    &'src [PosInfoWrapper<TokenType>],
     (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
 > {
     let imports = import_parser()
@@ -51,7 +51,7 @@ mod import_parser {
 
     /// Parses a single import
     pub(super) fn import_parser<'src>()
-    -> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Import>> {
+    -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>> {
         let ident = identifier_parser();
         let path = string_parser();
         token_parser(TokenType::Import)
@@ -263,7 +263,7 @@ mod import_parser {
 
 /// Parses a single function
 fn function_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<Token, CodeFile>], ASTNode<Function<UntypedAST>>> {
+-> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Function<UntypedAST>>> {
     let statement = statement_parser();
     let data_type = datatype_parser();
     let ident = identifier_parser();
