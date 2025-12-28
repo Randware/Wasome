@@ -2,7 +2,7 @@ use crate::top_level_parser::top_level_parser;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
 use chumsky::Parser;
-use lexer::{Token, lex, TokenType};
+use lexer::{Token, TokenType, lex};
 use shared::code_file::CodeFile;
 use shared::code_reference::{CodeArea, CodeLocation};
 use source::SourceFile;
@@ -72,15 +72,22 @@ fn parse_tokens(to_parse: Vec<Token>, file: String) -> Option<File<UntypedAST>> 
         .map(|(imports, functions)| File::new(file, imports, functions))
 }
 
-fn prepare_tokens(
-    raw_tokens: Vec<Token>,
-    file: String,
-) -> Vec<PosInfoWrapper<TokenType>> {
+fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<TokenType>> {
     let code_file = CodeFile::new(PathBuf::from(file));
     raw_tokens
         .into_iter()
         // End will never be before start
-        .map(|token| PosInfoWrapper::new(token.kind, CodeArea::new(CodeLocation::new(token.line, token.span.start), CodeLocation::new(token.line, token.span.end), code_file.clone()).unwrap()))
+        .map(|token| {
+            PosInfoWrapper::new(
+                token.kind,
+                CodeArea::new(
+                    CodeLocation::new(token.line, token.span.start),
+                    CodeLocation::new(token.line, token.span.end),
+                    code_file.clone(),
+                )
+                .unwrap(),
+            )
+        })
         .collect()
 }
 
@@ -234,7 +241,12 @@ pub(crate) mod test_shared {
     pub(crate) fn wrap_token(to_convert: TokenType) -> PosInfoWrapper<TokenType> {
         PosInfoWrapper::new(
             to_convert,
-            CodeArea::new(CodeLocation::new(0,0), CodeLocation::new(0,0), CodeFile::new(PathBuf::from("test/test"))).unwrap(),
+            CodeArea::new(
+                CodeLocation::new(0, 0),
+                CodeLocation::new(0, 0),
+                CodeFile::new(PathBuf::from("test/test")),
+            )
+            .unwrap(),
         )
     }
 

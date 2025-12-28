@@ -1,8 +1,6 @@
 use crate::PosInfoWrapper;
 use chumsky::prelude::*;
-use lexer::{Token, TokenType};
-use shared::code_file::CodeFile;
-use shared::code_reference::{CodeArea, CodeLocation};
+use lexer::TokenType;
 
 /// Parses data types
 pub(crate) fn datatype_parser<'src>()
@@ -30,10 +28,7 @@ pub(crate) fn identifier_parser<'a>()
         let token: PosInfoWrapper<TokenType> = token.next().ok_or(EmptyErr::default())?;
         let (next_token, next_pos_info) = (token.inner, token.pos_info);
         match next_token {
-            TokenType::Identifier(inner) => Ok(PosInfoWrapper::new(
-                inner,
-                next_pos_info,
-            )),
+            TokenType::Identifier(inner) => Ok(PosInfoWrapper::new(inner, next_pos_info)),
             _ => Err(EmptyErr::default()),
         }
     })
@@ -51,16 +46,12 @@ pub(crate) fn statement_separator<'a>()
 /// Parses a single token
 pub(crate) fn token_parser<'a>(
     token: TokenType,
-) -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], PosInfoWrapper<TokenType>> + Clone
-{
+) -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], PosInfoWrapper<TokenType>> + Clone {
     custom(move |tokens| {
         let next: PosInfoWrapper<TokenType> = tokens.next().ok_or(EmptyErr::default())?;
         let (next_token, next_pos_info) = (next.inner, next.pos_info);
         if token == next_token {
-            Ok(PosInfoWrapper::new(
-                next_token,
-                next_pos_info,
-            ))
+            Ok(PosInfoWrapper::new(next_token, next_pos_info))
         } else {
             Err(EmptyErr::default())
         }
@@ -69,15 +60,12 @@ pub(crate) fn token_parser<'a>(
 
 /// Parses a single string
 pub(crate) fn string_parser<'a>()
--> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], PosInfoWrapper<String>> + Clone
-{
+-> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], PosInfoWrapper<String>> + Clone {
     custom(move |tokens| {
         let next: PosInfoWrapper<TokenType> = tokens.next().ok_or(EmptyErr::default())?;
         let (next_token, next_pos_info) = (next.inner, next.pos_info);
         if let TokenType::String(inner) = next_token {
-            Ok(PosInfoWrapper::new(
-                inner,
-                next_pos_info))
+            Ok(PosInfoWrapper::new(inner, next_pos_info))
         } else {
             Err(EmptyErr::default())
         }

@@ -5,34 +5,33 @@ use ast::expression::{
 };
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
-use lexer::{Token, TokenType};
-use shared::code_file::CodeFile;
+use lexer::TokenType;
 use shared::code_reference::{CodeArea, CodeLocation};
 
 /// Parses an expression
 pub(crate) fn expression_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone
-{
+-> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone {
     recursive(|expr| {
-        let literal =
-            custom::<_, &[PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>, _>(
-                |token| {
-                    {
-                        let next_token = token.next().ok_or(EmptyErr::default())?;
-                        let (tok, pos) = (next_token.inner, next_token.pos_info);
-                        Ok(ASTNode::new(
-                            Expression::Literal(
-                                match tok {
-                                    TokenType::Decimal(inner) => inner.to_string(),
-                                    TokenType::Integer(inner) => inner.to_string(),
-                                    _ => return Err(EmptyErr::default()),
-                                },
-                            ),
-                            pos,
-                        ))
-                    }
-                },
-            );
+        let literal = custom::<_, &[PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>, _>(
+            |token| {
+                let next_token = token.next().ok_or(EmptyErr::default())?;
+                let (tok, pos) = (next_token.inner, next_token.pos_info);
+                Ok(ASTNode::new(
+                    Expression::Literal(match tok {
+                        TokenType::Decimal(inner) => {
+                            if inner.fract() == 0.0 {
+                                format!("{:.1}", inner)
+                            } else {
+                                inner.to_string()
+                            }
+                        }
+                        TokenType::Integer(inner) => inner.to_string(),
+                        _ => return Err(EmptyErr::default()),
+                    }),
+                    pos,
+                ))
+            },
+        );
 
         let ident = identifier_parser();
 
@@ -156,11 +155,9 @@ pub(crate) fn expression_parser<'src>()
 ///
 /// **ops**: The tokens to parse and what to parse them to
 fn binary_operator_parser<'a>(
-    input: impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>>
-    + Clone,
+    input: impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone,
     ops: &[(TokenType, BinaryOpType)],
-) -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone
-{
+) -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone {
     input.clone().foldl(
         choice(
             ops.iter()
@@ -274,8 +271,8 @@ mod tests {
                     wrap_in_ast_node(Expression::Variable("test2".to_string())),
                     wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                         BinaryOpType::Multiplication,
-                        wrap_in_ast_node(Expression::Literal("5".to_string())),
-                        wrap_in_ast_node(Expression::Literal("10".to_string())),
+                        wrap_in_ast_node(Expression::Literal("5.0".to_string())),
+                        wrap_in_ast_node(Expression::Literal("10.0".to_string())),
                     )))),
                 )))),
             ],
@@ -318,8 +315,8 @@ mod tests {
                     wrap_in_ast_node(Expression::Variable("test2".to_string())),
                     wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                         BinaryOpType::Multiplication,
-                        wrap_in_ast_node(Expression::Literal("5".to_string())),
-                        wrap_in_ast_node(Expression::Literal("10".to_string())),
+                        wrap_in_ast_node(Expression::Literal("5.0".to_string())),
+                        wrap_in_ast_node(Expression::Literal("10.0".to_string())),
                     )))),
                 )))),
             ],

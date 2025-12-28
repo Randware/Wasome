@@ -7,8 +7,7 @@ use ast::top_level::{Function, Import};
 use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
-use lexer::{Token, TokenType};
-use shared::code_file::CodeFile;
+use lexer::TokenType;
 use std::rc::Rc;
 
 /// Parses all Top-Level elements in a file
@@ -33,20 +32,20 @@ pub(crate) fn top_level_parser<'src>() -> impl Parser<
 mod import_parser {
     use crate::PosInfoWrapper;
     use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
+    use ast::ASTNode;
     use ast::symbol::ModuleUsageNameSymbol;
     use ast::top_level::{Import, ImportRoot};
-    use ast::ASTNode;
     use chumsky::IterParser;
     use chumsky::Parser;
-    
+
     use chumsky::error::EmptyErr;
     use chumsky::prelude::{choice, just};
-    
+
     use chumsky::regex::regex;
-    use lexer::{Token, TokenType};
-    use shared::code_file::CodeFile;
-    use shared::code_reference::CodeArea;
+    use lexer::TokenType;
     
+    use shared::code_reference::CodeArea;
+
     use std::rc::Rc;
 
     /// Parses a single import
@@ -56,7 +55,7 @@ mod import_parser {
         let path = string_parser();
         token_parser(TokenType::Import)
             .then(path.then(token_parser(TokenType::As).ignore_then(ident).or_not()))
-            .try_map(|(import, (path, usage_name)), span| {
+            .try_map(|(import, (path, usage_name)), _span| {
                 let path_end_pos = path.pos_info;
                 let path = path.inner;
                 let start = import.pos_info.start().clone();
@@ -141,7 +140,6 @@ mod import_parser {
             .map(|elem: &str| elem.to_owned())
             .separated_by(just('/'));
 
-        
         choice((
             current_module
                 .ignore_then(path_elements.clone().collect::<Vec<_>>())
@@ -319,10 +317,19 @@ fn function_parser<'src>()
 }
 #[cfg(test)]
 mod tests {
-    use crate::test_shared::wrap_token;
+    use crate::test_shared::{wrap_in_ast_node, wrap_token};
     use crate::top_level_parser::top_level_parser;
+    use ast::expression::{
+        BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
+    };
+    use ast::statement::{CodeBlock, Statement, VariableDeclaration};
+    use ast::symbol::{FunctionSymbol, VariableSymbol};
+    use ast::top_level::Function;
+    use ast::visibility::Visibility;
+    use ast::{SemanticEq, UntypedAST};
     use chumsky::Parser;
     use lexer::TokenType;
+    use std::rc::Rc;
     #[test]
     fn parse() {
         let to_parse = [
@@ -356,11 +363,44 @@ mod tests {
 
         let parsed = parser.parse(&to_parse).unwrap();
 
-        let expected_func_name = "func";
-        let func_name = {
-            let function = parsed.1.first().unwrap();
-            function.declaration().name()
-        };
-        assert_eq!(expected_func_name, func_name);
+        let var_symbol = Rc::new(VariableSymbol::new("var".to_string(), "bool".to_string()));
+        let func_symbol = Rc::new(FunctionSymbol::new("func".to_string(), None, vec![]));
+
+        let expected = wrap_in_ast_node(Function::new(
+            func_symbol,
+            wrap_in_ast_node(Statement::Codeblock(CodeBlock::new(vec![
+                wrap_in_ast_node(Statement::VariableDeclaration(VariableDeclaration::<
+                    UntypedAST,
+                >::new(
+                    var_symbol,
+                    wrap_in_ast_node(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+                        "test".to_string(),
+                        vec![
+                            wrap_in_ast_node(Expression::UnaryOp(Box::new(
+                                UnaryOp::<UntypedAST>::new(
+                                    UnaryOpType::Typecast(Typecast::new("f32".to_string())),
+                                    wrap_in_ast_node(Expression::Literal("5".to_string())),
+                                ),
+                            ))),
+                            wrap_in_ast_node(Expression::BinaryOp(Box::new(
+                                BinaryOp::<UntypedAST>::new(
+                                    BinaryOpType::NotEquals,
+                                    wrap_in_ast_node(Expression::Variable("test2".to_string())),
+                                    wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<
+                                        UntypedAST,
+                                    >::new(
+                                        BinaryOpType::Multiplication,
+                                        wrap_in_ast_node(Expression::Literal("5.0".to_string())),
+                                        wrap_in_ast_node(Expression::Literal("10.0".to_string())),
+                                    )))),
+                                ),
+                            ))),
+                        ],
+                    ))),
+                ))),
+            ]))),
+            Visibility::Private,
+        ));
+        assert!(expected.semantic_eq(&parsed.1[0]));
     }
 }

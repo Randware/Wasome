@@ -8,8 +8,7 @@ use ast::statement::{
 use ast::symbol::VariableSymbol;
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
-use lexer::{Token, TokenType};
-use shared::code_file::CodeFile;
+use lexer::TokenType;
 use std::rc::Rc;
 
 /// Ensures that T implements a specific trait
@@ -179,8 +178,7 @@ pub(crate) fn statement_parser<'src>()
 }
 
 /// Either parses a statementSeparator or nothing
-fn maybe_statement_separator<'a>()
--> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ()> + Clone {
+fn maybe_statement_separator<'a>() -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ()> + Clone {
     token_parser(TokenType::StatementSeparator)
         .or_not()
         .ignored()
@@ -188,11 +186,17 @@ fn maybe_statement_separator<'a>()
 #[cfg(test)]
 mod tests {
     use crate::statement_parser::statement_parser;
-    use crate::test_shared::wrap_token;
-    use ast::statement::Statement;
+    use crate::test_shared::{wrap_in_ast_node, wrap_token};
+    use ast::expression::{
+        BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
+    };
+    use ast::statement::{Statement, VariableDeclaration};
+    use ast::symbol::VariableSymbol;
+    use ast::{ASTNode, SemanticEq, TypedAST, UntypedAST};
     use chumsky::Parser;
     use lexer::TokenType;
     use std::ops::Deref;
+    use std::rc::Rc;
 
     #[test]
     fn parse() {
@@ -219,13 +223,32 @@ mod tests {
 
         let parsed = parser.parse(&to_parse).unwrap();
 
-        let expected_var_name = "var";
-        let var_name = {
-            let Statement::VariableDeclaration(variable) = parsed.deref() else {
-                panic!("We should not be here")
-            };
-            variable.variable().name()
-        };
-        assert_eq!(expected_var_name, var_name);
+        let symbol = Rc::new(VariableSymbol::new("var".to_string(), "bool".to_string()));
+        let expected = wrap_in_ast_node(Statement::VariableDeclaration(VariableDeclaration::<
+            UntypedAST,
+        >::new(
+            symbol,
+            wrap_in_ast_node(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+                "test".to_string(),
+                vec![
+                    wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                        UnaryOpType::Typecast(Typecast::new("f32".to_string())),
+                        wrap_in_ast_node(Expression::Literal("5".to_string())),
+                    )))),
+                    wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                        BinaryOpType::NotEquals,
+                        wrap_in_ast_node(Expression::Variable("test2".to_string())),
+                        wrap_in_ast_node(Expression::BinaryOp(Box::new(
+                            BinaryOp::<UntypedAST>::new(
+                                BinaryOpType::Multiplication,
+                                wrap_in_ast_node(Expression::Literal("5.0".to_string())),
+                                wrap_in_ast_node(Expression::Literal("10.0".to_string())),
+                            ),
+                        ))),
+                    )))),
+                ],
+            ))),
+        )));
+        assert!(parsed.semantic_eq(&expected));
     }
 }

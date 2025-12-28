@@ -32,7 +32,7 @@ pub enum Statement<Type: ASTType> {
 impl<Type: ASTType> SemanticEq for Statement<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         use Statement as St;
-        match (self, other) {
+        let x = match (self, other) {
             (St::VariableAssignment(inner), St::VariableAssignment(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
@@ -47,7 +47,8 @@ impl<Type: ASTType> SemanticEq for Statement<Type> {
             (St::Codeblock(inner), St::Codeblock(other_inner)) => inner.semantic_eq(other_inner),
             // All cases where equality == semantic equality
             _ => self == other,
-        }
+        };
+        x
     }
 }
 
@@ -110,7 +111,7 @@ pub struct VariableDeclaration<Type: ASTType> {
 
 impl<Type: ASTType> SemanticEq for VariableDeclaration<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.variable == other.variable && self.value.semantic_eq(&other.value)
+        self.variable().semantic_eq(other.variable()) && self.value.semantic_eq(&other.value)
     }
 }
 
