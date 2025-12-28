@@ -435,7 +435,7 @@ fn analyze_break(to_analyze: StatementTraversalHelper<UntypedAST>) -> Option<Sta
 mod tests {
     use super::*;
     use crate::expression_sa::sample_codearea;
-    use crate::file_symbol_mapper::FileSymbolMapper;
+    use crate::file_symbol_mapper::{FileContext, FileSymbolMapper, GlobalFunctionMap};
     use ast::data_type::DataType;
     use ast::expression::{Expression, Literal};
     use ast::statement::Return;
@@ -443,15 +443,40 @@ mod tests {
     use ast::top_level::{Function, TopLevelElement};
     use ast::traversal::function_traversal::FunctionTraversalHelper;
     use ast::{AST, UntypedAST};
+    use std::collections::HashMap;
     use std::rc::Rc;
+
+    struct MockFileContext {
+        path: String,
+    }
+    impl FileContext for MockFileContext {
+        fn get_canonical_path(&self) -> &str {
+            &self.path
+        }
+        fn resolve_import(&self, _: &str) -> Option<String> {
+            None
+        }
+    }
+
+    fn create_test_mapper<'a>(
+        global_map: &'a GlobalFunctionMap,
+        context: &'a MockFileContext,
+    ) -> FileSymbolMapper<'a> {
+        FileSymbolMapper::new(global_map, context)
+    }
 
     /** Tests the successful semantic analysis of a return statement without an expression,
      * ensuring it is correctly typed as void.
      */
     #[test]
     fn analyze_return_ok_matching_void() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let ret: Return<UntypedAST> = Return::new(None);
         let analyzed = analyze_return(&ret, &mut mapper);
@@ -472,8 +497,13 @@ mod tests {
     #[test]
     fn analyze_return_ok_matching_types() {
         let expected_type = DataType::S32;
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         mapper.set_current_function_return_type(Some(expected_type));
 
@@ -509,8 +539,13 @@ mod tests {
      */
     #[test]
     fn analyze_control_structure_conditional_ok() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let stmt_to_test = {
             let condition_expr = Expression::Literal(String::from("true"));
@@ -562,8 +597,13 @@ mod tests {
      */
     #[test]
     fn analyze_control_structure_loop_ok() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let stmt_to_test = {
             let condition_expr = Expression::Literal(String::from("true"));
@@ -617,8 +657,13 @@ mod tests {
      */
     #[test]
     fn analyze_codeblock_ok() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         mapper.set_current_function_return_type(None);
 
@@ -667,8 +712,13 @@ mod tests {
      */
     #[test]
     fn analyze_variable_declaration_basic_ok() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let untyped_literal_expr = Expression::Literal("5".to_string());
         let untyped_literal_node = ASTNode::new(untyped_literal_expr, sample_codearea());
@@ -715,8 +765,14 @@ mod tests {
      */
     #[test]
     fn analyze_variable_assignment_basic_ok() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
+
         let var_type = DataType::S32;
 
         let x_symbol = Rc::new(VariableSymbol::new("x".to_string(), var_type));
@@ -778,21 +834,23 @@ mod tests {
      */
     #[test]
     fn analyze_void_function_call_ok() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
         let func_name = "log_message".to_string();
-
         let param = Rc::new(VariableSymbol::new("msg".to_string(), DataType::S32));
+
         let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
             func_name.clone(),
             None,
             vec![param],
         ));
 
-        mapper
-            .get_file_mapper()
-            .add_function_to_file(func_symbol.clone())
-            .expect("Failed to add mock function.");
+        let mut global_map = GlobalFunctionMap::new();
+        global_map.insert("test::log_message".to_string(), func_symbol);
+
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let arg = ASTNode::new(Expression::Literal("5".to_string()), sample_codearea());
         let untyped_call = FunctionCall::<UntypedAST>::new(func_name, vec![arg]);
@@ -816,8 +874,7 @@ mod tests {
      */
     #[test]
     fn analyze_void_function_call_must_be_void_fail() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        // 1. Definition der Funktion: add() -> S32
         let func_name = "add".to_string();
 
         let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
@@ -826,14 +883,19 @@ mod tests {
             Vec::new(),
         ));
 
-        mapper
-            .get_file_mapper()
-            .add_function_to_file(func_symbol)
-            .expect("Failed to add mock function.");
+        let mut global_map = GlobalFunctionMap::new();
+        global_map.insert("test::add".to_string(), func_symbol);
+
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let untyped_call = FunctionCall::<UntypedAST>::new(func_name, Vec::new());
 
         let analyzed_stmt = analyze_void_function_call(&untyped_call, &mut mapper);
+
         assert!(
             analyzed_stmt.is_none(),
             "Expected analysis to fail because 'add' returns S32, but was used as a Void-Statement."
@@ -845,8 +907,13 @@ mod tests {
      */
     #[test]
     fn analyze_break_ok_inside_loop() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let break_stmt = Statement::Break;
         let break_node = ASTNode::new(break_stmt, sample_codearea());

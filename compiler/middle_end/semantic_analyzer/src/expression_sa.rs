@@ -211,11 +211,31 @@ pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::file_symbol_mapper::FileSymbolMapper;
+    use crate::file_symbol_mapper::{FileContext, FileSymbolMapper, GlobalFunctionMap};
     use ast::UntypedAST;
     use ast::data_type::{DataType, Typed};
     use ast::expression::Expression;
     use ast::expression::Literal;
+    use std::collections::HashMap;
+
+    struct MockFileContext {
+        path: String,
+    }
+    impl FileContext for MockFileContext {
+        fn get_canonical_path(&self) -> &str {
+            &self.path
+        }
+        fn resolve_import(&self, _: &str) -> Option<String> {
+            None
+        }
+    }
+
+    fn create_test_mapper<'a>(
+        global_map: &'a GlobalFunctionMap,
+        context: &'a MockFileContext,
+    ) -> FileSymbolMapper<'a> {
+        FileSymbolMapper::new(global_map, context)
+    }
 
     /// Tests the `analyze_literal` helper function to ensure it correctly identifies and parses
     /// various literal types (boolean, char, floating-point, and integer) from string input, and returns None for invalid input.
@@ -235,8 +255,13 @@ mod tests {
     fn analyze_expression_literal_converts_to_typed_literal() {
         let input: Expression<UntypedAST> = Expression::Literal(String::from("42"));
 
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let output = analyze_expression(&input, &mut mapper).expect("should convert literal");
 
@@ -259,8 +284,13 @@ mod tests {
 
         let untyped = UnaryOp::<UntypedAST>::new(UnaryOpType::Negative, inner_node);
 
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let result =
             analyze_unary_op(&Box::new(untyped), &mut mapper).expect("should analyze unary op");
@@ -280,8 +310,14 @@ mod tests {
         let right_node = ASTNode::new(Expression::Literal(String::from("5")), sample_codearea());
 
         let untyped = BinaryOp::<UntypedAST>::new(BinaryOpType::Addition, left_node, right_node);
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let result =
             analyze_binary_op(&Box::new(untyped), &mut mapper).expect("should analyze binary op");
@@ -299,8 +335,13 @@ mod tests {
     /// and that the resulting typed expression contains the correct symbol and `DataType` (S32).
     #[test]
     fn analyze_expression_variable_use_ok() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
         let expected_type = DataType::S32;
 
         let x_symbol = Rc::new(VariableSymbol::new("x".to_string(), expected_type));
@@ -336,12 +377,10 @@ mod tests {
     /// the arguments (S32 literals) are recursively analyzed and typed, and the argument types match the expected parameters.
     #[test]
     fn analyze_function_call_ok() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
-        let return_type = DataType::S32;
         let func_name = "add".to_string();
-
+        let return_type = DataType::S32;
         let param_type = DataType::S32;
+
         let param_a = Rc::new(VariableSymbol::new("a".to_string(), param_type));
         let param_b = Rc::new(VariableSymbol::new("b".to_string(), param_type));
         let func_params = vec![param_a, param_b];
@@ -352,10 +391,16 @@ mod tests {
             func_params,
         ));
 
-        mapper
-            .get_file_mapper()
-            .add_function_to_file(func_symbol.clone())
-            .expect("Failed to add mock function.");
+        let mut global_map = GlobalFunctionMap::new();
+        let canonical_id = format!("test::{}", func_name);
+        global_map.insert(canonical_id, func_symbol.clone());
+
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let arg1 = ASTNode::new(Expression::Literal("1".to_string()), sample_codearea());
         let arg2 = ASTNode::new(Expression::Literal("2".to_string()), sample_codearea());
@@ -373,7 +418,7 @@ mod tests {
         assert_eq!(
             *typed_call.function(),
             func_symbol,
-            "Resolved function symbol must match."
+            "Resolved function symbol must match the one in the global map."
         );
         assert_eq!(typed_call.args().len(), 2, "Expected 2 arguments.");
         assert_eq!(typed_call.args()[0].data_type(), DataType::S32);
@@ -384,27 +429,31 @@ mod tests {
     /// The call is 'add(true, 2)' where 'add' expects (S32, S32). This test ensures the semantic check fails.
     #[test]
     fn analyze_function_call_arg_type_mismatch() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
         let func_name = "add".to_string();
-
         let param_type = DataType::S32;
+
         let param_a = Rc::new(VariableSymbol::new("a".to_string(), param_type));
         let param_b = Rc::new(VariableSymbol::new("b".to_string(), param_type));
         let func_params = vec![param_a, param_b];
+
         let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
             func_name.clone(),
             Some(DataType::S32),
             func_params,
         ));
 
-        mapper
-            .get_file_mapper()
-            .add_function_to_file(func_symbol)
-            .expect("Failed to add mock function.");
+        let mut global_map = GlobalFunctionMap::new();
+        global_map.insert("test::add".to_string(), func_symbol);
+
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let arg1_fail = ASTNode::new(Expression::Literal("true".to_string()), sample_codearea());
         let arg2_ok = ASTNode::new(Expression::Literal("2".to_string()), sample_codearea());
+
         let untyped_call = FunctionCall::<UntypedAST>::new(func_name, vec![arg1_fail, arg2_ok]);
 
         let analyzed_call = analyze_function_call(&untyped_call, &mut mapper);

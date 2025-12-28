@@ -12,7 +12,7 @@ pub struct Scope {
 pub struct FunctionSymbolMapper<'a> {
     scope_stack: Vec<Scope>,
     current_function_return_type: Option<DataType>,
-    file_mapper: &'a mut FileSymbolMapper,
+    file_mapper: &'a FileSymbolMapper<'a>,
 }
 
 impl<'a> FunctionSymbolMapper<'a> {
@@ -25,7 +25,7 @@ impl<'a> FunctionSymbolMapper<'a> {
     ///
     /// # Returns
     /// * A new `FunctionSymbolMapper` with initialized fields and an active base scope.
-    pub fn new(file_mapper: &'a mut FileSymbolMapper) -> Self {
+    pub fn new(file_mapper: &'a FileSymbolMapper<'a>) -> Self {
         let mut mapper = Self {
             scope_stack: Vec::new(),
             current_function_return_type: None,
@@ -80,7 +80,7 @@ impl<'a> FunctionSymbolMapper<'a> {
     /// * `Some(Rc<FunctionSymbol<TypedAST>>)` if found.
     /// * `None` otherwise.
     pub fn lookup_function(&self, name: &str) -> Option<Rc<FunctionSymbol<TypedAST>>> {
-        self.file_mapper.lookup_function(name)
+        self.file_mapper.lookup_function_rc(name)
     }
 
     /// Adds a variable symbol to the current scope.
@@ -145,7 +145,7 @@ impl<'a> FunctionSymbolMapper<'a> {
         self.current_function_return_type
     }
 
-    pub fn get_file_mapper(&mut self) -> &mut FileSymbolMapper {
+    pub fn get_file_mapper(&self) -> &FileSymbolMapper<'a> {
         self.file_mapper
     }
 }
@@ -154,12 +154,38 @@ impl<'a> FunctionSymbolMapper<'a> {
 mod tests {
     use super::FunctionSymbolMapper;
     use crate::file_symbol_mapper::FileSymbolMapper;
+    use crate::file_symbol_mapper::{FileContext, GlobalFunctionMap};
     use ast::data_type::DataType;
+    use std::collections::HashMap;
+
+    struct MockFileContext {
+        path: String,
+    }
+    impl FileContext for MockFileContext {
+        fn get_canonical_path(&self) -> &str {
+            &self.path
+        }
+        fn resolve_import(&self, _: &str) -> Option<String> {
+            None
+        }
+    }
+
+    fn create_test_mapper<'a>(
+        global_map: &'a GlobalFunctionMap,
+        context: &'a MockFileContext,
+    ) -> FileSymbolMapper<'a> {
+        FileSymbolMapper::new(global_map, context)
+    }
 
     #[test]
     fn new_has_no_return_type() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mapper = FunctionSymbolMapper::new(&file_mapper);
 
         assert!(
             mapper.get_current_function_return_type().is_none(),
@@ -169,8 +195,13 @@ mod tests {
 
     #[test]
     fn set_and_get_current_function_return_type() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         mapper.set_current_function_return_type(Some(DataType::S32));
         assert_eq!(
@@ -188,8 +219,13 @@ mod tests {
 
     #[test]
     fn enter_and_exit_scope_do_not_panic_and_keep_lookups_none() {
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         mapper.enter_scope();
         assert!(
@@ -204,8 +240,13 @@ mod tests {
         use ast::symbol::VariableSymbol;
         use std::rc::Rc;
 
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let v1 = Rc::new(VariableSymbol::new(String::from("a"), DataType::S32));
         let v2 = Rc::new(VariableSymbol::new(String::from("b"), DataType::S64));
@@ -231,8 +272,13 @@ mod tests {
         use ast::symbol::VariableSymbol;
         use std::rc::Rc;
 
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let v1 = Rc::new(VariableSymbol::new(String::from("x"), DataType::S32));
         let v2 = Rc::new(VariableSymbol::new(String::from("x"), DataType::S64));
@@ -252,8 +298,13 @@ mod tests {
         use ast::symbol::VariableSymbol;
         use std::rc::Rc;
 
-        let mut file_mapper = FileSymbolMapper::new();
-        let mut mapper = FunctionSymbolMapper::new(&mut file_mapper);
+        let global_map = HashMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+
+        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let outer = Rc::new(VariableSymbol::new(String::from("s"), DataType::S32));
         mapper.add_variable(outer).expect("Add outer variable");

@@ -52,7 +52,8 @@ fn analyze_function(
     file_mapper: &mut FileSymbolMapper,
 ) -> Option<Function<TypedAST>> {
     let func_name = untyped_function.declaration().name();
-    let typed_declaration: Rc<FunctionSymbol<TypedAST>> = file_mapper.lookup_function(func_name)?;
+    let typed_declaration: Rc<FunctionSymbol<TypedAST>> =
+        file_mapper.lookup_function_rc(func_name)?;
 
     let mut func_mapper = FunctionSymbolMapper::new(file_mapper);
     func_mapper.set_current_function_return_type(typed_declaration.return_type().cloned());
