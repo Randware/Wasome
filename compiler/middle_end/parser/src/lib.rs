@@ -135,6 +135,8 @@ fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<To
     let code_file = CodeFile::new(PathBuf::from(file));
     raw_tokens
         .into_iter()
+        // Remove all comments
+        .filter(|token| if let TokenType::Comment(_) = token.kind { false } else { true })
         // End will never be before start
         .map(|token| {
             PosInfoWrapper::new(

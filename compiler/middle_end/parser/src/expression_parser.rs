@@ -1,4 +1,4 @@
-use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser};
+use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, token_parser};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
@@ -36,7 +36,7 @@ pub(crate) fn expression_parser<'src>()
 
         let ident = identifier_parser();
 
-        let call = ident
+        let call = cross_module_capable_identifier_parser()
             .clone()
             .then(
                 expr.clone()

@@ -1,5 +1,5 @@
 use crate::expression_parser::expression_parser;
-use crate::misc_parsers::{datatype_parser, identifier_parser, maybe_statement_separator, statement_separator, token_parser};
+use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, maybe_statement_separator, statement_separator, token_parser};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
@@ -10,6 +10,7 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
 use std::rc::Rc;
+use ast::expression::{Expression, FunctionCall};
 
 /// Ensures that T implements a specific trait
 ///
@@ -32,6 +33,30 @@ pub(crate) fn statement_parser<'src>()
         let ident = identifier_parser();
 
         let expression = expression_parser();
+
+        let call = cross_module_capable_identifier_parser()
+            .clone()
+            .then(
+                expression.clone()
+                    .separated_by(token_parser(TokenType::ArgumentSeparator))
+                    .collect::<Vec<ASTNode<Expression<UntypedAST>>>>()
+                    .delimited_by(
+                        token_parser(TokenType::OpenParen),
+                        token_parser(TokenType::CloseParen),
+                    ),
+            )
+            .map(|(name, args)| {
+                let pos = combine_code_areas_succeeding(
+                    &name.pos_info,
+                    args.last()
+                        .map(|to_map| to_map.position())
+                        .unwrap_or(name.pos_info()),
+                );
+                PosInfoWrapper::new(
+                    FunctionCall::<UntypedAST>::new(name.inner, args),
+                    pos,
+                )
+            });
 
         let variable_assignment = ident
             .clone()
@@ -172,7 +197,7 @@ pub(crate) fn statement_parser<'src>()
                 let pos = expr.position().clone();
                 PosInfoWrapper::new(Statement::Expression(expr), pos)
             }),
-        ))
+            call.map(|var_assign| var_assign.map(Statement::VoidFunctionCall))))
         .map(|statement| statement.into_ast_node())
     })
 }

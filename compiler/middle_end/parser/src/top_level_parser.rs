@@ -24,14 +24,19 @@ pub(crate) fn top_level_parser<'src>(file_information: &'src FileInformation) ->
 > {
     let imports = import_parser(file_information)
         .separated_by(statement_separator())
+        .allow_leading()
+        .allow_trailing()
         .collect::<Vec<_>>();
 
     let functions = function_parser()
         .separated_by(statement_separator())
+        .allow_leading()
+        .allow_trailing()
         .collect::<Vec<_>>();
 
+    maybe_statement_separator().then(
     imports
-        .then(functions)
+        .then(functions)).map(|(_, data)| data)
 }
 
 mod import_parser {
@@ -67,7 +72,6 @@ mod import_parser {
         let path = string_parser();
         token_parser(TokenType::Import)
             .then(path.then(token_parser(TokenType::As).ignore_then(ident).or_not()))
-            .then_ignore(maybe_statement_separator())
             .try_map(|(import, (path, usage_name)), _span| {
                 let path_end_pos = path.pos_info;
                 let path = path.inner;
@@ -134,10 +138,13 @@ mod import_parser {
     ///
     /// otherwise
     fn parse_import_path(path: &str) -> Option<(ImportRoot, Vec<String>)> {
+        if path.len() < 2 { return None }
         // Performance
         // While creating a new parser for each import is slower than caching, there is no good (safe) alternative
         // And it is very fast regardless (under 50µs per import)
-        import_path_parser().parse(path).into_output()
+
+        // This will never panic as the slice is always valid due to out check above
+        import_path_parser().parse(&path[1..path.len()-1]).into_output()
     }
 
     /// Creates a parser for [`parse_import_path`]
@@ -304,7 +311,6 @@ fn function_parser<'src>()
                 .or_not(),
         )
         .then(statement)
-        .then_ignore(maybe_statement_separator())
         .map(
             |(((visibility, (name, params)), return_type), implementation)| {
                 let pos = combine_code_areas_succeeding(&name.pos_info, implementation.position());

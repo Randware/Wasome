@@ -1,4 +1,4 @@
-use crate::PosInfoWrapper;
+use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use chumsky::prelude::*;
 use lexer::TokenType;
 
@@ -32,6 +32,30 @@ pub(crate) fn identifier_parser<'a>()
             _ => Err(EmptyErr::default()),
         }
     })
+}
+
+/// Parses cross-module-capable identifiers
+///
+/// A cross-module identifier consists of the following format:
+///
+/// `<Identifier>.<Identifier>`
+///
+/// They are used when the identified element was imported.
+///
+/// This can be either a cross-module identifier or a regular one.
+///
+pub(crate) fn cross_module_capable_identifier_parser<'a>()
+    -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], PosInfoWrapper<String>> + Clone {
+    identifier_parser().then(token_parser(TokenType::Dot).then(identifier_parser()).or_not())
+        .map(|(lhs, rhs)|
+            {
+                match rhs {
+                    None => lhs,
+                    Some(inner) => {
+                        PosInfoWrapper::new(format!("{}.{}", lhs.inner, inner.1.inner), combine_code_areas_succeeding(&lhs.pos_info, &inner.1.pos_info))
+                    }
+                }
+            })
 }
 
 /// Parses one or multiple statement separators

@@ -9,8 +9,8 @@ use std::rc::Rc;
 use ast::{ASTNode, UntypedAST, SemanticEq};
 use ast::expression::{Expression, BinaryOp, BinaryOpType, UnaryOp, UnaryOpType, Typecast};
 use ast::statement::{Statement, VariableDeclaration, VariableAssignment, ControlStructure, Loop, LoopType, Return, CodeBlock, Conditional};
-use ast::symbol::{FunctionSymbol, VariableSymbol};
-use ast::top_level::Function;
+use ast::top_level::{Function, Import, ImportRoot};
+use ast::symbol::{FunctionSymbol, VariableSymbol, ModuleUsageNameSymbol};
 use ast::visibility::Visibility;
 use shared::code_reference::{CodeArea, CodeLocation};
 use shared::code_file::CodeFile;
@@ -30,6 +30,8 @@ const FIBONACCI: &'static str = include_str!("fibonacci.waso");
 const MAX: &'static str = include_str!("max.waso");
 const SUM_N: &'static str = include_str!("sum_n.waso");
 const IS_EVEN: &'static str = include_str!("is_even.waso");
+const MODULAR_ADD: &'static str = include_str!("modular_arithmetic/modular_add.waso");
+const MODULAR_MUL: &'static str = include_str!("modular_arithmetic/modular_mul.waso");
 
 // Helper functions for AST construction
 fn dummy_codearea() -> CodeArea {
@@ -318,4 +320,73 @@ fn setup_source_map(content: &'static str) -> (SourceMap, FileID) {
         .load_file("main.waso")
         .expect("Failed to load existing file");
     (sm, id)
+}
+
+#[test]
+fn test_parse_modular_arithmetic() {
+    // Test modular_add.waso
+    {
+        let (sm, id) = setup_source_map(MODULAR_ADD);
+        let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+        let parsed = parse(to_parse).expect("Parsing failed");
+
+        let a_symbol = Rc::new(VariableSymbol::new("a".to_string(), "u32".to_string()));
+        let b_symbol = Rc::new(VariableSymbol::new("b".to_string(), "u32".to_string()));
+        let m_symbol = Rc::new(VariableSymbol::new("m".to_string(), "u32".to_string()));
+        let mod_add_symbol = Rc::new(FunctionSymbol::new("modular_add".to_string(), Some("u32".to_string()), vec![a_symbol, b_symbol, m_symbol]));
+
+        let body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+            wrap(Statement::Return(Return::new(Some(
+                wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    BinaryOpType::Modulo,
+                    wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                        BinaryOpType::Addition,
+                        wrap(Expression::Variable("a".to_string())),
+                        wrap(Expression::Variable("b".to_string()))
+                    )))),
+                    wrap(Expression::Variable("m".to_string()))
+                ))))
+            ))))
+        ])));
+
+        let function = wrap(Function::new(mod_add_symbol, body, Visibility::Private));
+        let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![function]);
+        assert!(parsed.semantic_eq(&expected));
+    }
+
+    // Test modular_mul.waso
+    {
+        let (sm, id) = setup_source_map(MODULAR_MUL);
+        let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+        let parsed = parse(to_parse).expect("Parsing failed");
+
+        let test_symbol = Rc::new(ModuleUsageNameSymbol::new("test".to_string()));
+        let import = wrap(Import::new(ImportRoot::CurrentModule, Vec::new(), test_symbol));
+
+        let a_symbol = Rc::new(VariableSymbol::new("a".to_string(), "u32".to_string()));
+        let b_symbol = Rc::new(VariableSymbol::new("b".to_string(), "u32".to_string()));
+        let m_symbol = Rc::new(VariableSymbol::new("m".to_string(), "u32".to_string()));
+        let mod_mul_symbol = Rc::new(FunctionSymbol::new("modular_mul".to_string(), Some("u32".to_string()), vec![a_symbol, b_symbol, m_symbol]));
+
+        let call = wrap(Expression::FunctionCall(ast::expression::FunctionCall::<UntypedAST>::new(
+            "test.modular_add".to_string(),
+            vec![
+                wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    BinaryOpType::Multiplication,
+                    wrap(Expression::Variable("a".to_string())),
+                    wrap(Expression::Variable("b".to_string()))
+                )))),
+                wrap(Expression::Literal("0".to_string())),
+                wrap(Expression::Variable("m".to_string()))
+            ]
+        )));
+
+        let body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+            wrap(Statement::Return(Return::new(Some(call))))
+        ])));
+
+        let function = wrap(Function::new(mod_mul_symbol, body, Visibility::Private));
+        let expected = ast::file::File::new("main".to_string(), vec![import], vec![function]);
+        assert!(parsed.semantic_eq(&expected));
+    }
 }
