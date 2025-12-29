@@ -62,6 +62,10 @@ pub enum TokenType {
     Integer(i64),
     #[regex(r"'(\\.|[^\\'])'", char_callback)]
     CharLiteral(char),
+    #[token("true")]
+    True,
+    #[token("false")]
+    False,
 
     // Math Operators
     #[token("+")]
