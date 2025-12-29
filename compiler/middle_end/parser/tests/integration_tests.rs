@@ -326,7 +326,7 @@ fn test_parse_sum_n() {
     assert!(parsed.semantic_eq(&expected));
 }
 
-// #[test] // TODO: Wait for lexer
+#[test]
 fn test_parse_is_even() {
     let (sm, id) = setup_source_map(IS_EVEN);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
