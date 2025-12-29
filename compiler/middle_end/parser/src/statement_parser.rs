@@ -192,11 +192,11 @@ pub(crate) fn statement_parser<'src>()
             }),
             code_block.map(|code_block| code_block.map(Statement::Codeblock)),
             return_statement.map(|return_statement| return_statement.map(Statement::Return)),
+            call.map(|func| func.map(Statement::VoidFunctionCall)),
             expression.map(|expr| -> PosInfoWrapper<Statement<UntypedAST>> {
                 let pos = expr.position().clone();
                 PosInfoWrapper::new(Statement::Expression(expr), pos)
             }),
-            call.map(|var_assign| var_assign.map(Statement::VoidFunctionCall)),
         ))
         .map(|statement| statement.into_ast_node())
     })
