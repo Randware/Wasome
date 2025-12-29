@@ -104,10 +104,6 @@ impl<Type: ASTType> UnaryOp<Type> {
     pub fn op_type(&self) -> &UnaryOpType<Type> {
         &self.op_type
     }
-
-    pub fn destructure(&self) -> (&UnaryOpType<Type>, &Expression<Type>) {
-        (&self.op_type, &self.input)
-    }
 }
 
 impl UnaryOp<TypedAST> {
@@ -309,10 +305,6 @@ impl<Type: ASTType> BinaryOp<Type> {
 
     pub fn op_type(&self) -> &BinaryOpType {
         &self.op_type
-    }
-
-    pub fn destructure(&self) -> (BinaryOpType, &Expression<Type>, &Expression<Type>) {
-        (self.op_type, &self.left, &self.right)
     }
 }
 
