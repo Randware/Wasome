@@ -134,8 +134,7 @@ impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
 }
 
 impl VariableDeclaration<UntypedAST> {
-    /** Creates a new instance
-     */
+    /// Creates a new instance
     pub fn new(
         variable: Rc<VariableSymbol<UntypedAST>>,
         value: ASTNode<Expression<UntypedAST>>,
@@ -159,8 +158,7 @@ impl<Type: ASTType> VariableDeclaration<Type> {
     }
 }
 
-/** This represents an assignment to a variable.
-*/
+/// This represents an assignment to a variable.
 #[derive(Debug, PartialEq)]
 pub struct VariableAssignment<Type: ASTType> {
     variable: Type::VariableUse,
