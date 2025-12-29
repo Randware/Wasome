@@ -6,6 +6,9 @@ Identified by line and char.
 Both line and char are zero-based
 */
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[deprecated(
+    note = "Superseded by the `source` crate. The new implementation handles path canonicalization correctly and should be preferred."
+)]
 pub struct CodeLocation {
     line: usize,
     char: usize,
@@ -52,7 +55,11 @@ impl Ord for CodeLocation {
 The start is inclusive
 The line of the end is inclusive, the char exclusive
 */
+
 #[derive(Debug, PartialEq, Eq, Clone)]
+#[deprecated(
+    note = "Superseded by the `source` crate. The new implementation handles path canonicalization correctly and should be preferred."
+)]
 pub struct CodeArea {
     start: CodeLocation,
     end: CodeLocation,

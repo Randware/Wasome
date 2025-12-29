@@ -1,7 +1,7 @@
 use crate::function_symbol_mapper::FunctionSymbolMapper;
 use crate::mics_sa::analyze_data_type;
-use ast::expression::{BinaryOp, Expression, Literal, Typecast, UnaryOp, UnaryOpType};
-use ast::symbol::{FunctionCall, FunctionSymbol, VariableSymbol};
+use ast::expression::{BinaryOp, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType};
+use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 

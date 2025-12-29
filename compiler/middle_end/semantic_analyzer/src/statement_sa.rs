@@ -1,16 +1,14 @@
+use std::ops::Deref;
 use crate::expression_sa::{analyze_expression, analyze_function_call};
 use crate::function_symbol_mapper::FunctionSymbolMapper;
 use crate::mics_sa::analyze_data_type;
-use ast::block::CodeBlock;
 use ast::data_type::{DataType, Typed};
-use ast::statement::{
-    Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
-    VariableDeclaration,
-};
-use ast::symbol::{FunctionCall, VariableSymbol};
+use ast::statement::{CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
+use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
+use ast::expression::FunctionCall;
 
 /// Analyzes a statement referenced by a traversal helper and converts it into a typed statement node.
 ///
@@ -25,7 +23,7 @@ pub(crate) fn analyze_statement(
     to_analyze: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Statement<TypedAST>> {
-    match &**to_analyze.get_inner() {
+    match &**to_analyze.inner() {
         Statement::VariableAssignment(inner) => {
             let assigned_variable = analyze_variable_assignment(inner, function_symbol_mapper)?;
             Some(Statement::VariableAssignment(assigned_variable))
@@ -184,7 +182,7 @@ fn analyze_control_structure(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<ControlStructure<TypedAST>> {
-    let inner_control_structure = match &**to_analyze_helper.get_inner() {
+    let inner_control_structure = match &**to_analyze_helper.inner() {
         Statement::ControlStructure(cs) => cs,
         _ => return None, //"Expected a ControlStructure statement.",
     };
@@ -213,7 +211,7 @@ fn analyze_conditional(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Conditional<TypedAST>> {
-    let inner_box_ref = match &**to_analyze_helper.get_inner() {
+    let inner_box_ref = match &**to_analyze_helper.inner() {
         Statement::ControlStructure(b) => b,
         _ => return None,
     };
@@ -232,16 +230,18 @@ fn analyze_conditional(
     }
 
     function_symbol_mapper.enter_scope();
-    let then_helper = to_analyze_helper.index(0);
-    let then_position = then_helper.get_inner().position().clone();
+    // This can never panic as a if-statement always has a first child (the then-block)
+    let then_helper = to_analyze_helper.get_child(0).unwrap();
+    let then_position = then_helper.inner().position().clone();
     let typed_then_statement = analyze_statement(then_helper, function_symbol_mapper)?;
     let typed_then_node = ASTNode::new(typed_then_statement, then_position);
     function_symbol_mapper.exit_scope();
 
     let typed_else_statement = if untyped_conditional_ref.else_statement().is_some() {
         function_symbol_mapper.enter_scope();
-        let else_helper = to_analyze_helper.index(1);
-        let else_position = else_helper.get_inner().position().clone();
+        // This can never panic as we ensured that the second child is there
+        let else_helper = to_analyze_helper.get_child(1).unwrap();
+        let else_position = else_helper.inner().position().clone();
         let typed_block = analyze_statement(else_helper, function_symbol_mapper)?;
         let typed_block_node = ASTNode::new(typed_block, else_position);
         function_symbol_mapper.exit_scope();
@@ -270,7 +270,7 @@ fn analyze_loop(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Loop<TypedAST>> {
-    let inner_box_ref = match &**to_analyze_helper.get_inner() {
+    let inner_box_ref = match &**to_analyze_helper.inner() {
         Statement::ControlStructure(b) => b,
         _ => return None,
     };
@@ -300,8 +300,9 @@ fn analyze_loop(
             cond,
             after_each,
         } => {
-            let start_helper = to_analyze_helper.index(0);
-            let start_position = start_helper.get_inner().position().clone();
+            // This can never panic as a for-loop always has a before-statement
+            let start_helper = to_analyze_helper.get_child(0).unwrap();
+            let start_position = start_helper.inner().position().clone();
             let typed_start_stmt = analyze_statement(start_helper, function_symbol_mapper)?;
             let typed_start_node = ASTNode::new(typed_start_stmt, start_position);
 
@@ -312,8 +313,9 @@ fn analyze_loop(
                 return None;
             }
 
-            let after_each_helper = to_analyze_helper.index(1);
-            let after_each_position = after_each_helper.get_inner().position().clone();
+            // This can never panic as a for-loop always has a before-statement
+            let after_each_helper = to_analyze_helper.get_child(1).unwrap();
+            let after_each_position = after_each_helper.inner().position().clone();
             let typed_after_each_stmt =
                 analyze_statement(after_each_helper, function_symbol_mapper)?;
             let typed_after_each_node = ASTNode::new(typed_after_each_stmt, after_each_position);
@@ -327,8 +329,10 @@ fn analyze_loop(
     };
 
     let to_loop_on_index = untyped_loop_ref.loop_type().len();
-    let to_loop_on_helper = to_analyze_helper.index(to_loop_on_index);
-    let loop_body_position = to_loop_on_helper.get_inner().position().clone();
+    // This can never panic as a for-loop always has a body
+    // Keep in mind that to_loop_on_index does **not** include the body
+    let to_loop_on_helper = to_analyze_helper.get_child(to_loop_on_index).unwrap();
+    let loop_body_position = to_loop_on_helper.inner().position().clone();
     let typed_to_loop_on_stmt = analyze_statement(to_loop_on_helper, function_symbol_mapper)?;
     let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, loop_body_position);
 
@@ -353,12 +357,13 @@ fn analyze_codeblock(
     function_symbol_mapper.enter_scope();
 
     let mut typed_statements: Vec<ASTNode<Statement<TypedAST>>> = Vec::new();
-    let statement_count = to_analyze_helper.child_len();
+    let statement_count = to_analyze_helper.amount_children();
 
     for i in 0..statement_count {
-        let child_helper = to_analyze_helper.index(i);
+        // This can never panic as is always lower than the amount of children
+        let child_helper = to_analyze_helper.get_child(i).unwrap();
 
-        let position = child_helper.get_inner().position().clone();
+        let position = child_helper.inner().position().clone();
 
         if let Some(typed_statement) = analyze_statement(child_helper, function_symbol_mapper) {
             let node = ASTNode::new(typed_statement, position);
@@ -409,24 +414,16 @@ fn analyze_void_function_call(
 fn analyze_break(to_analyze: StatementTraversalHelper<UntypedAST>) -> Option<Statement<TypedAST>> {
     let root = to_analyze.root_helper();
 
-    let mut current_loc_opt = to_analyze.location();
+    let mut current_loc_opt = Some(to_analyze.location());
 
     while let Some(current_loc) = current_loc_opt {
-        if let Some(parent_loc) = current_loc.prev() {
-            let parent_node = root.index_implementation(parent_loc);
-
-            let statement = parent_node;
-
-            if let Statement::ControlStructure(cs_box) = statement {
-                if matches!(cs_box.as_ref(), ControlStructure::Loop(_)) {
-                    return Some(Statement::Break);
-                }
+        // The box maked combining this impossible
+        if let Statement::ControlStructure(crtl) = current_loc.referenced_statement() {
+            if let ControlStructure::Loop(l) = crtl.as_ref() {
+                return Some(Statement::Break);
             }
-
-            current_loc_opt = Some(parent_loc);
-        } else {
-            return None;
         }
+        current_loc_opt = current_loc.parent_statement();
     }
     None
 }
@@ -440,11 +437,15 @@ mod tests {
     use ast::expression::{Expression, Literal};
     use ast::statement::Return;
     use ast::symbol::FunctionSymbol;
-    use ast::top_level::{Function, TopLevelElement};
+    use ast::top_level::Function;
     use ast::traversal::function_traversal::FunctionTraversalHelper;
     use ast::{AST, UntypedAST};
     use std::collections::HashMap;
     use std::rc::Rc;
+    use ast::traversal::directory_traversal::DirectoryTraversalHelper;
+    use ast::traversal::file_traversal::FileTraversalHelper;
+    use ast::visibility::Visibility;
+    use crate::test_shared::functions_into_ast;
 
     struct MockFileContext {
         path: String,
@@ -570,13 +571,13 @@ mod tests {
             None,
             Vec::new(),
         ));
-        let func = Function::new(func_symbol, stmt_to_test_node);
-        let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(func),
-            sample_codearea(),
-        )]);
-
-        let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+        let func = Function::new(func_symbol, stmt_to_test_node, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
+        
+        
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let func_ref = file_ref.index_function(0);
         let helper = func_ref.ref_to_implementation();
 
         let analyzed = analyze_control_structure(helper, &mut mapper);
@@ -628,13 +629,13 @@ mod tests {
             None,
             Vec::new(),
         ));
-        let func = Function::new(func_symbol, stmt_to_test_node);
-        let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(func),
-            sample_codearea(),
-        )]);
+        let func = Function::new(func_symbol, stmt_to_test_node, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
-        let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let func_ref = file_ref.index_function(0);
         let helper = func_ref.ref_to_implementation();
 
         let analyzed = analyze_control_structure(helper, &mut mapper);
@@ -685,13 +686,13 @@ mod tests {
             Vec::new(),
         ));
 
-        let func = Function::new(func_symbol, stmt_to_test);
-        let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(func),
-            sample_codearea(),
-        )]);
+        let func = Function::new(func_symbol, stmt_to_test, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
-        let func_ref = FunctionTraversalHelper::new(ast.functions().next().unwrap(), &ast);
+
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let func_ref = file_ref.index_function(0);
         let helper = func_ref.ref_to_implementation();
 
         let analyzed = analyze_codeblock(helper, &mut mapper);
@@ -738,18 +739,17 @@ mod tests {
         let implementation_block_stmt = Statement::Codeblock(implementation_block_inner);
 
         let implementation_block_node = ASTNode::new(implementation_block_stmt, sample_codearea());
-        let func = Function::new(func_symbol, implementation_block_node);
+        let func = Function::new(func_symbol, implementation_block_node, Visibility::Private);
 
-        let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(func),
-            sample_codearea(),
-        )]);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
-        let func_ref = ast.functions().next().unwrap();
-        let root_helper = FunctionTraversalHelper::new(func_ref, &ast);
+
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let root_helper = file_ref.index_function(0);
         let helper = root_helper.ref_to_implementation();
 
-        let decl_helper = helper.index(0);
+        let decl_helper = helper.get_child(0).unwrap();
 
         let analyzed_stmt = analyze_statement(decl_helper, &mut mapper);
 
@@ -792,16 +792,16 @@ mod tests {
         let implementation_block_inner = CodeBlock::new(vec![stmt_to_analyze_node]);
         let implementation_block_stmt = Statement::Codeblock(implementation_block_inner);
         let implementation_block_node = ASTNode::new(implementation_block_stmt, sample_codearea());
-        let func = Function::new(func_symbol, implementation_block_node);
-        let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(func),
-            sample_codearea(),
-        )]);
-        let func_ref = ast.functions().next().unwrap();
-        let root_helper = FunctionTraversalHelper::new(func_ref, &ast);
+        let func = Function::new(func_symbol, implementation_block_node, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
+
+
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let root_helper = file_ref.index_function(0);
         let helper = root_helper.ref_to_implementation();
 
-        let assign_helper = helper.index(0);
+        let assign_helper = helper.get_child(0).unwrap();
 
         let analyzed_stmt = analyze_statement(assign_helper, &mut mapper);
 
@@ -938,18 +938,17 @@ mod tests {
             None,
             Vec::new(),
         ));
-        let func = Function::new(func_symbol, func_node);
+        let func = Function::new(func_symbol, func_node, Visibility::Private);
 
-        let ast = AST::new(vec![ASTNode::new(
-            TopLevelElement::Function(func),
-            sample_codearea(),
-        )]);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
-        let func_ref = ast.functions().next().unwrap();
-        let root_helper = FunctionTraversalHelper::new(func_ref, &ast);
+
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let root_helper = file_ref.index_function(0);
         let helper = root_helper.ref_to_implementation();
 
-        let loop_helper = helper.index(0);
+        let loop_helper = helper.get_child(0).unwrap();
 
         let analyzed = analyze_statement(loop_helper, &mut mapper);
 

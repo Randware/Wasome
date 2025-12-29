@@ -1,11 +1,11 @@
 use crate::file_symbol_mapper::GlobalFunctionMap;
 use crate::mics_sa::analyze_data_type;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
-use ast::top_level::TopLevelElement;
 use ast::{AST, TypedAST, UntypedAST};
 use std::rc::Rc;
 
-/// Collects all function symbols from a list of parsed modules.
+// The new ast makes the current implementation non-functional
+/*/// Collects all function symbols from a list of parsed modules.
 ///
 /// # Parameters
 /// * `modules` - An iterator yielding pairs of `(Canonical Module Path, The AST)`.
@@ -42,7 +42,7 @@ where
     }
 
     Ok(map)
-}
+}*/
 
 /// Converts an untyped function symbol (strings) into a typed symbol (enums).
 fn convert_function_symbol(
@@ -90,13 +90,13 @@ mod tests {
     use super::*;
     use ast::data_type::DataType;
     use ast::{ASTNode, AST};
-    use ast::top_level::TopLevelElement;
     use crate::expression_sa::sample_codearea;
 
     /// Creates a dummy AST containing a single function declaration with an empty body.
     /// This is sufficient for testing Stage 2, as it only reads the function signature.
     fn create_dummy_ast(func_name: &str, ret_type: Option<&str>) -> AST<UntypedAST> {
-        let func_symbol = Rc::new(FunctionSymbol::new(
+        todo!()
+        /*let func_symbol = Rc::new(FunctionSymbol::new(
             func_name.to_string(),
             ret_type.map(|s| s.to_string()),
             Vec::new(),
@@ -115,7 +115,7 @@ mod tests {
 
         AST::new(vec![
             ASTNode::new(TopLevelElement::Function(func), sample_codearea())
-        ])
+        ])*/
     }
 
     /// Tests the "happy path" where functions from different modules are collected successfully.
@@ -129,7 +129,8 @@ mod tests {
     /// - The return types are correctly converted from strings to `DataType` enums.
     #[test]
     fn collect_symbols_from_multiple_modules() {
-        let ast_math = create_dummy_ast("add", Some("s32"));
+        todo!()
+        /*let ast_math = create_dummy_ast("add", Some("s32"));
         let ast_main = create_dummy_ast("start", None);
 
         let modules = vec![
@@ -148,7 +149,7 @@ mod tests {
 
         assert!(map.contains_key("app::main::start"));
         let start_func = map.get("app::main::start").unwrap();
-        assert!(start_func.return_type().is_none());
+        assert!(start_func.return_type().is_none());*/
     }
 
     /// Tests that the collector correctly identifies and rejects duplicate function definitions.
@@ -161,7 +162,8 @@ mod tests {
     /// - The collector returns an `Err` because "pkg::file::dup" would be overwritten.
     #[test]
     fn collect_symbols_detects_duplicates() {
-        let ast1 = create_dummy_ast("dup", None);
+        todo!()
+        /*let ast1 = create_dummy_ast("dup", None);
         let ast2 = create_dummy_ast("dup", Some("s32"));
 
         let modules = vec![
@@ -174,6 +176,6 @@ mod tests {
         assert!(result.is_err(), "Should fail due to duplicate symbol definition");
         let err = result.unwrap_err();
         assert!(err.contains("Duplicate function definition"));
-        assert!(err.contains("pkg::file::dup"));
+        assert!(err.contains("pkg::file::dup"));*/
     }
 }

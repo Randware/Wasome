@@ -2,12 +2,15 @@ use crate::file_symbol_mapper::FileSymbolMapper;
 use crate::function_symbol_mapper::FunctionSymbolMapper;
 use crate::statement_sa::analyze_statement;
 use ast::symbol::FunctionSymbol;
-use ast::top_level::{Function, TopLevelElement};
+use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
+use ast::visibility::Visible;
 
+// I think that this is now obsolete
+/**
 /// Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
 ///
 /// This process ensures semantic correctness for the element's implementation body.
@@ -31,7 +34,7 @@ pub(crate) fn analyze_top_level(
                 .map(TopLevelElement::Function)
         }
     }
-}
+}*/
 
 /// Analyzes the implementation (body) of an untyped function.
 ///
@@ -74,6 +77,7 @@ fn analyze_function(
     Some(Function::new(
         typed_declaration.clone(),
         implementation_node,
+        untyped_function.visibility()
     ))
 }
 
