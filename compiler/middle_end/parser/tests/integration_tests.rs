@@ -32,6 +32,7 @@ const SUM_N: &'static str = include_str!("sum_n.waso");
 const IS_EVEN: &'static str = include_str!("is_even.waso");
 const MODULAR_ADD: &'static str = include_str!("modular_arithmetic/modular_add.waso");
 const MODULAR_MUL: &'static str = include_str!("modular_arithmetic/modular_mul.waso");
+const MISC_FEATURES: &'static str = include_str!("misc.waso");
 
 // Helper functions for AST construction
 fn dummy_codearea() -> CodeArea {
@@ -389,4 +390,118 @@ fn test_parse_modular_arithmetic() {
         let expected = ast::file::File::new("main".to_string(), vec![import], vec![function]);
         assert!(parsed.semantic_eq(&expected));
     }
+}
+
+#[test]
+fn test_misc_features() {
+    let (sm, id) = setup_source_map(MISC_FEATURES);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing failed");
+
+    // 1. public_func
+    let pub_func = wrap(Function::new(
+        Rc::new(FunctionSymbol::new("public_func".to_string(), None, vec![])),
+        wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
+        Visibility::Public,
+    ));
+
+    // 2. bitwise
+    let a = Rc::new(VariableSymbol::new("a".to_string(), "u32".to_string()));
+    let b = Rc::new(VariableSymbol::new("b".to_string(), "u32".to_string()));
+    let bitwise_func = wrap(Function::new(
+        Rc::new(FunctionSymbol::new("bitwise".to_string(), Some("u32".to_string()), vec![a.clone(), b.clone()])),
+        wrap(Statement::Codeblock(CodeBlock::new(vec![
+            wrap(Statement::Return(Return::new(Some(
+                wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    BinaryOpType::BitwiseOr,
+                    wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                        BinaryOpType::BitwiseAnd,
+                        wrap(Expression::Variable("a".to_string())),
+                        wrap(Expression::Variable("b".to_string()))
+                    )))),
+                    wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                        BinaryOpType::RightShift,
+                        wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                            BinaryOpType::LeftShift,
+                            wrap(Expression::Variable("a".to_string())),
+                            wrap(Expression::Literal("1".to_string()))
+                        )))),
+                        wrap(Expression::Literal("1".to_string()))
+                    ))))
+                ))))
+            ))))
+        ]))),
+        Visibility::Private,
+    ));
+
+    // 3. infinite
+    let infinite_func = wrap(Function::new(
+        Rc::new(FunctionSymbol::new("infinite".to_string(), None, vec![])),
+        wrap(Statement::Codeblock(CodeBlock::new(vec![
+            wrap(Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
+                wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
+                LoopType::Infinite
+            )))))
+        ]))),
+        Visibility::Private,
+    ));
+
+    // 4. chars
+    let chars_func = wrap(Function::new(
+        Rc::new(FunctionSymbol::new("chars".to_string(), Some("char".to_string()), vec![])),
+        wrap(Statement::Codeblock(CodeBlock::new(vec![
+            wrap(Statement::Return(Return::new(Some(
+                wrap(Expression::Literal("c".to_string()))
+            ))))
+        ]))),
+        Visibility::Private,
+    ));
+
+    // 5. unary
+    let bool_a = Rc::new(VariableSymbol::new("a".to_string(), "bool".to_string()));
+    let unary_func = wrap(Function::new(
+        Rc::new(FunctionSymbol::new("unary".to_string(), Some("bool".to_string()), vec![bool_a.clone()])),
+        wrap(Statement::Codeblock(CodeBlock::new(vec![
+            wrap(Statement::Return(Return::new(Some(
+                wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                    UnaryOpType::Not,
+                    wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                        UnaryOpType::Not,
+                        wrap(Expression::Variable("a".to_string()))
+                    ))))
+                ))))
+            ))))
+        ]))),
+        Visibility::Private,
+    ));
+
+    // 6. precedence
+    let u32_a = Rc::new(VariableSymbol::new("a".to_string(), "u32".to_string()));
+    let u32_b = Rc::new(VariableSymbol::new("b".to_string(), "u32".to_string()));
+    let u32_c = Rc::new(VariableSymbol::new("c".to_string(), "u32".to_string()));
+    let precedence_func = wrap(Function::new(
+        Rc::new(FunctionSymbol::new("precedence".to_string(), Some("u32".to_string()), vec![u32_a.clone(), u32_b.clone(), u32_c.clone()])),
+        wrap(Statement::Codeblock(CodeBlock::new(vec![
+            wrap(Statement::Return(Return::new(Some(
+                wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                    BinaryOpType::Addition,
+                    wrap(Expression::Variable("a".to_string())),
+                    wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                        BinaryOpType::Multiplication,
+                        wrap(Expression::Variable("b".to_string())),
+                        wrap(Expression::Variable("c".to_string()))
+                    ))))
+                ))))
+            ))))
+        ]))),
+        Visibility::Private,
+    ));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![pub_func, bitwise_func, infinite_func, chars_func, unary_func, precedence_func]
+    );
+
+    assert!(parsed.semantic_eq(&expected));
 }

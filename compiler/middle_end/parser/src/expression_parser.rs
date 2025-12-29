@@ -145,7 +145,15 @@ pub(crate) fn expression_parser<'src>()
 
         let and = binary_operator_parser(bitor, &[(TokenType::And, BinaryOpType::And)]);
 
-        binary_operator_parser(and, &[(TokenType::Or, BinaryOpType::Or)]).boxed()
+        let or = binary_operator_parser(and, &[(TokenType::Or, BinaryOpType::Or)]).boxed();
+
+        binary_operator_parser(
+            or,
+            &[
+                (TokenType::LShift, BinaryOpType::LeftShift),
+                (TokenType::RShift, BinaryOpType::RightShift),
+            ],
+        )
     })
 }
 

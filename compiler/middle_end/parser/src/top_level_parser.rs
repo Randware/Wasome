@@ -138,7 +138,7 @@ mod import_parser {
     ///
     /// otherwise
     fn parse_import_path(path: &str) -> Option<(ImportRoot, Vec<String>)> {
-        if path.len() < 2 { return None }
+        if path.len() < 2 || !path.starts_with("\"") || !path.ends_with("\"") { return None }
         // Performance
         // While creating a new parser for each import is slower than caching, there is no good (safe) alternative
         // And it is very fast regardless (under 50µs per import)
@@ -175,7 +175,7 @@ mod import_parser {
 
         #[test]
         fn parse_valid_import_path_should_be_ok_current_module() {
-            let path = "./model/employee";
+            let path = "\"./model/employee\"";
 
             let parsed = parse_import_path(path).unwrap();
 
@@ -185,7 +185,7 @@ mod import_parser {
 
         #[test]
         fn parse_valid_import_path_should_be_ok_just_current_module() {
-            let path = "./";
+            let path = "\"./\"";
 
             let parsed = parse_import_path(path).unwrap();
 
@@ -195,7 +195,7 @@ mod import_parser {
 
         #[test]
         fn parse_valid_import_path_should_be_ok_underscore_numbers() {
-            let path = "./model/employee_123";
+            let path = "\"./model/employee_123\"";
 
             let parsed = parse_import_path(path).unwrap();
 
@@ -208,7 +208,7 @@ mod import_parser {
 
         #[test]
         fn parse_valid_import_path_should_be_ok_hyphen_numbers() {
-            let path = "./model/employee-123";
+            let path = "\"./model/employee-123\"";
 
             let parsed = parse_import_path(path).unwrap();
 
@@ -221,7 +221,7 @@ mod import_parser {
 
         #[test]
         fn parse_invalid_import_path_should_be_error_trailing_slash() {
-            let path = "./model/employee-123/";
+            let path = "\"./model/employee-123/\"";
 
             let parsed = parse_import_path(path);
 
@@ -230,7 +230,7 @@ mod import_parser {
 
         #[test]
         fn parse_invalid_import_path_should_be_error_empty() {
-            let path = "";
+            let path = "\"\"";
 
             let parsed = parse_import_path(path);
 
@@ -239,7 +239,7 @@ mod import_parser {
 
         #[test]
         fn parse_invalid_import_path_should_be_error_invalid_chars() {
-            let path = "./§14";
+            let path = "\"./§14\"";
 
             let parsed = parse_import_path(path);
 
@@ -248,7 +248,7 @@ mod import_parser {
 
         #[test]
         fn parse_invalid_import_path_should_be_error_starting_with_underscore() {
-            let path = "./_123";
+            let path = "\"./_123\"";
 
             let parsed = parse_import_path(path);
 
@@ -257,7 +257,7 @@ mod import_parser {
 
         #[test]
         fn parse_invalid_import_path_should_be_error_ending_with_underscore() {
-            let path = "./123_";
+            let path = "\"./123_\"";
 
             let parsed = parse_import_path(path);
 
@@ -266,7 +266,16 @@ mod import_parser {
 
         #[test]
         fn parse_invalid_import_path_should_be_error_path_traversal_attack() {
-            let path = "./../../../../../etc/shadow";
+            let path = "\"./../../../../../etc/shadow\"";
+
+            let parsed = parse_import_path(path);
+
+            assert!(parsed.is_none());
+        }
+
+        #[test]
+        fn parse_invalid_import_path_should_be_error_no_quotes() {
+            let path = "math/trigonimetry";
 
             let parsed = parse_import_path(path);
 
