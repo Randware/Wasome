@@ -43,17 +43,20 @@ fn wrap<T: Debug>(inner: T) -> ASTNode<T> {
 
 // --- INTEGRATION TESTS ---
 
-// Putting the test programs into a separate directory is not possible
-// due to winshit insisting on using backslashes while all reasonable OSes without mountains
-// and mountains of decade old tech debt work with forward slashes
+// Putting the test programs into separate directories is not possible
+// due to winshit insisting on using backslashes while all at least somewhat modern, reasonable
+// and properly thought-out OSes, that are not controlled by a company actively making it
+// worse and worse every single day by investing every last bit of their vast development resources
+// into ads, data-collection and other anti-user features instead of actually improving the product,
+// without mountains and mountains of decade old tech debt work with forward slashes
 const FIBONACCI: &'static str = include_str!("fibonacci.waso");
 const MAX: &'static str = include_str!("max.waso");
 const SUM_N: &'static str = include_str!("sum_n.waso");
 const IS_EVEN: &'static str = include_str!("is_even.waso");
 const MODULAR_ADD: &'static str =
-    include_str!("modular_arithmetic/modular_add.waso");
+    include_str!("modular_add.waso");
 const MODULAR_MUL: &'static str =
-    include_str!("modular_arithmetic/modular_mul.waso");
+    include_str!("modular_mul.waso");
 const MISC_FEATURES: &'static str = include_str!("misc.waso");
 const UNARY_CAST: &'static str = include_str!("unary_cast.waso");
 const MISSING_IMPORT_SEPARATOR: &'static str =
