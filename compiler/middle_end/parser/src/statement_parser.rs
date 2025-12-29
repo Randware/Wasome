@@ -1,6 +1,10 @@
 use crate::expression_parser::expression_parser;
-use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, maybe_statement_separator, statement_separator, token_parser};
+use crate::misc_parsers::{
+    cross_module_capable_identifier_parser, datatype_parser, identifier_parser,
+    maybe_statement_separator, statement_separator, token_parser,
+};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
+use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
     VariableAssignment, VariableDeclaration,
@@ -10,7 +14,6 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
 use std::rc::Rc;
-use ast::expression::{Expression, FunctionCall};
 
 /// Ensures that T implements a specific trait
 ///
@@ -37,7 +40,8 @@ pub(crate) fn statement_parser<'src>()
         let call = cross_module_capable_identifier_parser()
             .clone()
             .then(
-                expression.clone()
+                expression
+                    .clone()
                     .separated_by(token_parser(TokenType::ArgumentSeparator))
                     .collect::<Vec<ASTNode<Expression<UntypedAST>>>>()
                     .delimited_by(
@@ -52,10 +56,7 @@ pub(crate) fn statement_parser<'src>()
                         .map(|to_map| to_map.position())
                         .unwrap_or(name.pos_info()),
                 );
-                PosInfoWrapper::new(
-                    FunctionCall::<UntypedAST>::new(name.inner, args),
-                    pos,
-                )
+                PosInfoWrapper::new(FunctionCall::<UntypedAST>::new(name.inner, args), pos)
             });
 
         let variable_assignment = ident
@@ -124,16 +125,7 @@ pub(crate) fn statement_parser<'src>()
 
         let loop_body = maybe_statement_separator().ignore_then(statement.clone());
         let loop_statement = token_parser(TokenType::Loop)
-            .then_ignore(token_parser(TokenType::OpenParen))
             .then(choice((
-                token_parser(TokenType::CloseParen)
-                    .ignore_then(loop_body.clone())
-                    .map(|body| (body, LoopType::Infinite)),
-                expression
-                    .clone()
-                    .then_ignore(token_parser(TokenType::CloseParen))
-                    .then(loop_body.clone())
-                    .map(|(cond, body)| (body, LoopType::While(cond))),
                 statement
                     .clone()
                     .then_ignore(token_parser(TokenType::Semicolon))
@@ -143,20 +135,28 @@ pub(crate) fn statement_parser<'src>()
                             .then_ignore(token_parser(TokenType::Semicolon)),
                     )
                     .then(statement.clone())
-                    .then_ignore(token_parser(TokenType::CloseParen))
-                    .then(loop_body.clone())
-                    .map(|(((init, cond), after_each), body)| {
-                        (
-                            body,
+                    .delimited_by(
+                        token_parser(TokenType::OpenParen),
+                        token_parser(TokenType::CloseParen),
+                    )
+                    .map(|((init, cond), after_each)|
                             LoopType::For {
                                 start: init,
                                 cond,
                                 after_each,
-                            },
-                        )
                     }),
+                expression
+                    .clone()
+                    .delimited_by(
+                        token_parser(TokenType::OpenParen),
+                        token_parser(TokenType::CloseParen),
+                    )
+                    .map(|cond| LoopType::While(cond)),
+                // The infinite loop has to be at the bottom to not "steal" from the other types
+                empty().map(|_| LoopType::Infinite),
             )))
-            .map(|(loop_keyword, (body, loop_type))| {
+            .then(loop_body.clone())
+            .map(|((loop_keyword, loop_type), body)| {
                 let pos = combine_code_areas_succeeding(&loop_keyword.pos_info, body.position());
                 PosInfoWrapper::new(Loop::new(body, loop_type), pos)
             });
@@ -197,7 +197,8 @@ pub(crate) fn statement_parser<'src>()
                 let pos = expr.position().clone();
                 PosInfoWrapper::new(Statement::Expression(expr), pos)
             }),
-            call.map(|var_assign| var_assign.map(Statement::VoidFunctionCall))))
+            call.map(|var_assign| var_assign.map(Statement::VoidFunctionCall)),
+        ))
         .map(|statement| statement.into_ast_node())
     })
 }

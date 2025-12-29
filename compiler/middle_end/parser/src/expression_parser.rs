@@ -1,4 +1,6 @@
-use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, token_parser};
+use crate::misc_parsers::{
+    cross_module_capable_identifier_parser, datatype_parser, identifier_parser, token_parser,
+};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
@@ -68,10 +70,12 @@ pub(crate) fn expression_parser<'src>()
                 token_parser(TokenType::CloseParen),
             ));
 
-        let typecast = atom.clone()
-            .foldl(token_parser(TokenType::As).ignored()
-                       .then(datatype_parser())
-                       .repeated(), |expr, (_, new_type)| {
+        let typecast = atom.clone().foldl(
+            token_parser(TokenType::As)
+                .ignored()
+                .then(datatype_parser())
+                .repeated(),
+            |expr, (_, new_type)| {
                 let new_pos = combine_code_areas_succeeding(expr.position(), &new_type.pos_info);
                 ASTNode::new(
                     Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
@@ -80,7 +84,8 @@ pub(crate) fn expression_parser<'src>()
                     ))),
                     new_pos,
                 )
-            });
+            },
+        );
 
         let unary_op = choice((
             token_parser(TokenType::Subtraction).map(|token| {

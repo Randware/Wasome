@@ -1,7 +1,10 @@
-use crate::misc_parsers::{datatype_parser, identifier_parser, maybe_statement_separator, statement_separator, token_parser};
+use crate::misc_parsers::{
+    datatype_parser, identifier_parser, maybe_statement_separator, statement_separator,
+    token_parser,
+};
 use crate::statement_parser::statement_parser;
 use crate::top_level_parser::import_parser::import_parser;
-use crate::{PosInfoWrapper, combine_code_areas_succeeding, FileInformation};
+use crate::{FileInformation, PosInfoWrapper, combine_code_areas_succeeding};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::{Function, Import};
 use ast::visibility::Visibility;
@@ -17,7 +20,9 @@ use std::rc::Rc;
 /// # Parameter
 ///
 /// - **file_information**: Information about the to be parsed.
-pub(crate) fn top_level_parser<'src>(file_information: &'src FileInformation) -> impl Parser<
+pub(crate) fn top_level_parser<'src>(
+    file_information: &'src FileInformation,
+) -> impl Parser<
     'src,
     &'src [PosInfoWrapper<TokenType>],
     (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
@@ -34,14 +39,16 @@ pub(crate) fn top_level_parser<'src>(file_information: &'src FileInformation) ->
         .allow_trailing()
         .collect::<Vec<_>>();
 
-    maybe_statement_separator().then(
-    imports
-        .then(functions)).map(|(_, data)| data)
+    maybe_statement_separator()
+        .then(imports.then(functions))
+        .map(|(_, data)| data)
 }
 
 mod import_parser {
+    use crate::misc_parsers::{
+        identifier_parser, maybe_statement_separator, string_parser, token_parser,
+    };
     use crate::{FileInformation, PosInfoWrapper};
-    use crate::misc_parsers::{identifier_parser, maybe_statement_separator, string_parser, token_parser};
     use ast::ASTNode;
     use ast::symbol::ModuleUsageNameSymbol;
     use ast::top_level::{Import, ImportRoot};
@@ -53,7 +60,7 @@ mod import_parser {
 
     use chumsky::regex::regex;
     use lexer::TokenType;
-    
+
     use shared::code_reference::CodeArea;
 
     use std::rc::Rc;
@@ -66,8 +73,9 @@ mod import_parser {
     ///
     /// - **file_information**: Information about the file to be parsed. This is currently only used
     /// in order to resolve import paths correctly
-    pub(super) fn import_parser<'src>(file_information: &'src FileInformation)
-    -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>> {
+    pub(super) fn import_parser<'src>(
+        file_information: &'src FileInformation,
+    ) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>> {
         let ident = identifier_parser();
         let path = string_parser();
         token_parser(TokenType::Import)
@@ -84,9 +92,9 @@ mod import_parser {
                     .clone();
 
                 let path = parse_import_path(&path).ok_or(EmptyErr::default())?;
-                let use_as = usage_name.map(|inner| inner.inner).unwrap_or_else(|| {
-                    file_information.module_name().to_owned()
-                });
+                let use_as = usage_name
+                    .map(|inner| inner.inner)
+                    .unwrap_or_else(|| file_information.module_name().to_owned());
 
                 // The pos info of a later token can never be before that of an earlier token
                 // Therefore, this can never panic
@@ -138,13 +146,17 @@ mod import_parser {
     ///
     /// otherwise
     fn parse_import_path(path: &str) -> Option<(ImportRoot, Vec<String>)> {
-        if path.len() < 2 || !path.starts_with("\"") || !path.ends_with("\"") { return None }
+        if path.len() < 2 || !path.starts_with("\"") || !path.ends_with("\"") {
+            return None;
+        }
         // Performance
         // While creating a new parser for each import is slower than caching, there is no good (safe) alternative
         // And it is very fast regardless (under 50µs per import)
 
         // This will never panic as the slice is always valid due to out check above
-        import_path_parser().parse(&path[1..path.len()-1]).into_output()
+        import_path_parser()
+            .parse(&path[1..path.len() - 1])
+            .into_output()
     }
 
     /// Creates a parser for [`parse_import_path`]

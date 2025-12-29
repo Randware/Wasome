@@ -5,11 +5,11 @@ use chumsky::Parser;
 use lexer::{Token, TokenType, lex};
 use shared::code_file::CodeFile;
 use shared::code_reference::{CodeArea, CodeLocation};
+use source::types::FileID;
 use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::path::PathBuf;
-use source::types::FileID;
 
 mod expression_parser;
 mod misc_parsers;
@@ -27,7 +27,7 @@ pub struct FileInformation<'a> {
     /// The name of the module where the file is located
     module_name: &'a str,
     /// "Contains" the file
-    source_map: &'a SourceMap
+    source_map: &'a SourceMap,
 }
 
 impl<'a> FileInformation<'a> {
@@ -45,7 +45,11 @@ impl<'a> FileInformation<'a> {
     /// **The new instance** otherwise
     pub fn new(file: FileID, module_name: &'a str, source_map: &'a SourceMap) -> Option<Self> {
         source_map.get_file(&file)?;
-        Some(Self { file, module_name, source_map })
+        Some(Self {
+            file,
+            module_name,
+            source_map,
+        })
     }
 
     pub fn file(&self) -> FileID {
@@ -87,7 +91,8 @@ impl<'a> FileInformation<'a> {
     ///
     /// The name without file extension
     fn filename_without_extension(&self) -> Option<&str> {
-        self.file_resolved().path()
+        self.file_resolved()
+            .path()
             .iter()
             .next_back()?
             .to_str()?
@@ -119,7 +124,10 @@ pub fn parse(to_parse: FileInformation<'_>) -> Option<File<UntypedAST>> {
     parse_tokens(tokens, &to_parse)
 }
 
-fn parse_tokens(to_parse: Vec<Token>, file_information: &FileInformation<'_>) -> Option<File<UntypedAST>> {
+fn parse_tokens(
+    to_parse: Vec<Token>,
+    file_information: &FileInformation<'_>,
+) -> Option<File<UntypedAST>> {
     let filename = file_information.filename_without_extension()?.to_owned();
     let to_parse_with_file_info = prepare_tokens(to_parse, filename.clone());
     // It's not a good idea to put this into a static to prevent recreating the parser
@@ -136,7 +144,13 @@ fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<To
     raw_tokens
         .into_iter()
         // Remove all comments
-        .filter(|token| if let TokenType::Comment(_) = token.kind { false } else { true })
+        .filter(|token| {
+            if let TokenType::Comment(_) = token.kind {
+                false
+            } else {
+                true
+            }
+        })
         // End will never be before start
         .map(|token| {
             PosInfoWrapper::new(
