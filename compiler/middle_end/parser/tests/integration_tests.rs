@@ -27,18 +27,6 @@ fn setup_file(name: &str, content: &str) -> (TempDir, PathBuf) {
     (dir, file_path)
 }
 
-// --- INTEGRATION TESTS ---
-
-const FIBONACCI: &'static str = include_str!("fibonacci.waso");
-const MAX: &'static str = include_str!("max.waso");
-const SUM_N: &'static str = include_str!("sum_n.waso");
-const IS_EVEN: &'static str = include_str!("is_even.waso");
-const MODULAR_ADD: &'static str = include_str!("modular_arithmetic/modular_add.waso");
-const MODULAR_MUL: &'static str = include_str!("modular_arithmetic/modular_mul.waso");
-const MISC_FEATURES: &'static str = include_str!("misc.waso");
-const UNARY_CAST: &'static str = include_str!("unary_cast.waso");
-const MISSING_IMPORT_SEPARATOR: &'static str = include_str!("missing_import_separator.waso");
-
 // Helper functions for AST construction
 fn dummy_codearea() -> CodeArea {
     CodeArea::new(
@@ -46,12 +34,24 @@ fn dummy_codearea() -> CodeArea {
         CodeLocation::new(0, 0),
         CodeFile::new(PathBuf::from("")),
     )
-    .unwrap()
+        .unwrap()
 }
 
 fn wrap<T: Debug>(inner: T) -> ASTNode<T> {
     ASTNode::new(inner, dummy_codearea())
 }
+
+// --- INTEGRATION TESTS ---
+
+const FIBONACCI: &'static str = include_str!("test_programms/fibonacci.waso");
+const MAX: &'static str = include_str!("test_programms/max.waso");
+const SUM_N: &'static str = include_str!("test_programms/sum_n.waso");
+const IS_EVEN: &'static str = include_str!("test_programms/is_even.waso");
+const MODULAR_ADD: &'static str = include_str!("test_programms/modular_arithmetic/modular_add.waso");
+const MODULAR_MUL: &'static str = include_str!("test_programms/modular_arithmetic/modular_mul.waso");
+const MISC_FEATURES: &'static str = include_str!("test_programms/misc.waso");
+const UNARY_CAST: &'static str = include_str!("test_programms/unary_cast.waso");
+const MISSING_IMPORT_SEPARATOR: &'static str = include_str!("test_programms/missing_import_separator.waso");
 
 #[test]
 fn test_parse_simple_programm() {
