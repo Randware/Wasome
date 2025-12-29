@@ -1,6 +1,7 @@
 mod expression_sa;
 mod file_symbol_mapper;
 mod function_symbol_mapper;
+mod global_system_collector;
 mod mics_sa;
 mod statement_sa;
 mod top_level_sa;
