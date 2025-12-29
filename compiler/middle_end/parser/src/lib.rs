@@ -225,88 +225,10 @@ impl<T: PartialEq + Debug + Clone, Pos: PartialEq + Debug + Clone> Clone
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test_shared::prepare_token;
-    use lexer::TokenType;
-    /*#[test]
-    fn parse_full() {
-        let tokens = [
-            TokenType::Function,
-            TokenType::Identifier("fibonacci".to_string()),
-            TokenType::OpenParen,
-            TokenType::S32,
-            TokenType::Identifier("nth".to_string()),
-            TokenType::CloseParen,
-            TokenType::Return,
-            TokenType::S32,
-            TokenType::OpenScope,
-            TokenType::StatementSeparator,
-            TokenType::S32,
-            TokenType::Identifier("current".to_string()),
-            TokenType::Assign,
-            TokenType::Integer(1),
-            TokenType::StatementSeparator,
-            TokenType::S32,
-            TokenType::Identifier("previous".to_string()),
-            TokenType::Assign,
-            TokenType::Integer(0),
-            TokenType::StatementSeparator,
-            TokenType::Loop,
-            TokenType::OpenParen,
-            TokenType::Identifier("nth".to_string()),
-            TokenType::GreaterThan,
-            TokenType::Integer(1),
-            TokenType::CloseParen,
-            TokenType::OpenScope,
-            TokenType::StatementSeparator,
-            TokenType::S32,
-            TokenType::Identifier("temp".to_string()),
-            TokenType::Assign,
-            TokenType::Identifier("current".to_string()),
-            TokenType::StatementSeparator,
-            TokenType::Identifier("current".to_string()),
-            TokenType::Assign,
-            TokenType::Identifier("current".to_string()),
-            TokenType::Addition,
-            TokenType::Identifier("previous".to_string()),
-            TokenType::StatementSeparator,
-            TokenType::Identifier("previous".to_string()),
-            TokenType::Assign,
-            TokenType::Identifier("temp".to_string()),
-            TokenType::StatementSeparator,
-            TokenType::Identifier("nth".to_string()),
-            TokenType::Assign,
-            TokenType::Identifier("nth".to_string()),
-            TokenType::Subtraction,
-            TokenType::Integer(1),
-            TokenType::StatementSeparator,
-            TokenType::CloseScope,
-            TokenType::StatementSeparator,
-            TokenType::Return,
-            TokenType::Identifier("current".to_string()),
-            TokenType::StatementSeparator,
-            TokenType::CloseScope,
-        ]
-        .map(prepare_token)
-        .to_vec();
-
-        let actual = parse_tokens(tokens, "test".to_string()).unwrap();
-
-        let expected_func_name = "fibonacci";
-        let func_name = {
-            let function = actual.functions()[0].deref();
-            function.declaration().name()
-        };
-        assert_eq!(expected_func_name, func_name);
-    }*/
-}
-
-#[cfg(test)]
 pub(crate) mod test_shared {
     use crate::PosInfoWrapper;
     use ast::ASTNode;
-    use lexer::{Token, TokenType};
+    use lexer::TokenType;
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::fmt::Debug;
@@ -322,14 +244,6 @@ pub(crate) mod test_shared {
             )
             .unwrap(),
         )
-    }
-
-    pub(crate) fn prepare_token(to_convert: TokenType) -> Token {
-        Token {
-            kind: to_convert,
-            line: 0,
-            span: Default::default(),
-        }
     }
 
     pub(crate) fn wrap_in_ast_node<T: PartialEq + Debug>(to_wrap: T) -> ASTNode<T> {

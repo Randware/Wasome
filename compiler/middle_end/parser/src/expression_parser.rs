@@ -94,7 +94,7 @@ pub(crate) fn expression_parser<'src>()
             token_parser(TokenType::Not)
                 .map(|token| unary_op_mapper(UnaryOpType::Not, token.pos_info.start().clone())),
         ));
-        let unary = choice((typecast, unary_op.repeated().foldr(atom, |op, rhs| op(rhs))));
+        let unary = unary_op.repeated().foldr(typecast, |op, rhs| op(rhs));
 
         let product = binary_operator_parser(
             unary,
@@ -150,15 +150,7 @@ pub(crate) fn expression_parser<'src>()
 
         let and = binary_operator_parser(bitor, &[(TokenType::And, BinaryOpType::And)]);
 
-        let or = binary_operator_parser(and, &[(TokenType::Or, BinaryOpType::Or)]).boxed();
-
-        binary_operator_parser(
-            or,
-            &[
-                (TokenType::LShift, BinaryOpType::LeftShift),
-                (TokenType::RShift, BinaryOpType::RightShift),
-            ],
-        )
+        binary_operator_parser(and, &[(TokenType::Or, BinaryOpType::Or)]).boxed()
     })
 }
 

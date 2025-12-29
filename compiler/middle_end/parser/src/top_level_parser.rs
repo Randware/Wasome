@@ -27,15 +27,14 @@ pub(crate) fn top_level_parser<'src>(
     &'src [PosInfoWrapper<TokenType>],
     (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
 > {
-    let imports = import_parser(file_information)
-        .separated_by(statement_separator())
-        .allow_leading()
-        .allow_trailing()
+    let imports = maybe_statement_separator()
+        .ignore_then(import_parser(file_information)
+        .then_ignore(statement_separator()))
+        .repeated()
         .collect::<Vec<_>>();
 
     let functions = function_parser()
         .separated_by(statement_separator())
-        .allow_leading()
         .allow_trailing()
         .collect::<Vec<_>>();
 
@@ -46,7 +45,7 @@ pub(crate) fn top_level_parser<'src>(
 
 mod import_parser {
     use crate::misc_parsers::{
-        identifier_parser, maybe_statement_separator, string_parser, token_parser,
+        identifier_parser, string_parser, token_parser,
     };
     use crate::{FileInformation, PosInfoWrapper};
     use ast::ASTNode;
@@ -351,93 +350,4 @@ fn function_parser<'src>()
                 )
             },
         )
-}
-#[cfg(test)]
-mod tests {
-    use crate::test_shared::{wrap_in_ast_node, wrap_token};
-    use crate::top_level_parser::top_level_parser;
-    use ast::expression::{
-        BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
-    };
-    use ast::statement::{CodeBlock, Statement, VariableDeclaration};
-    use ast::symbol::{FunctionSymbol, VariableSymbol};
-    use ast::top_level::Function;
-    use ast::visibility::Visibility;
-    use ast::{SemanticEq, UntypedAST};
-    use chumsky::Parser;
-    use lexer::TokenType;
-    use std::rc::Rc;
-    /*#[test]
-    fn parse() {
-        let to_parse = [
-            TokenType::Function,
-            TokenType::Identifier("func".to_string()),
-            TokenType::OpenParen,
-            TokenType::CloseParen,
-            TokenType::OpenScope,
-            TokenType::StatementSeparator,
-            TokenType::Bool,
-            TokenType::Identifier("var".to_string()),
-            TokenType::Assign,
-            TokenType::Identifier("test".to_string()),
-            TokenType::OpenParen,
-            TokenType::Integer(5),
-            TokenType::As,
-            TokenType::F32,
-            TokenType::ArgumentSeparator,
-            TokenType::Identifier("test2".to_string()),
-            TokenType::NotEqual,
-            TokenType::Decimal(5.0),
-            TokenType::Multiplication,
-            TokenType::Decimal(10.0),
-            TokenType::CloseParen,
-            TokenType::StatementSeparator,
-            TokenType::CloseScope,
-        ]
-        .map(wrap_token);
-
-        let parser = top_level_parser();
-
-        let parsed = parser.parse(&to_parse).unwrap();
-
-        let var_symbol = Rc::new(VariableSymbol::new("var".to_string(), "bool".to_string()));
-        let func_symbol = Rc::new(FunctionSymbol::new("func".to_string(), None, vec![]));
-
-        let expected = wrap_in_ast_node(Function::new(
-            func_symbol,
-            wrap_in_ast_node(Statement::Codeblock(CodeBlock::new(vec![
-                wrap_in_ast_node(Statement::VariableDeclaration(VariableDeclaration::<
-                    UntypedAST,
-                >::new(
-                    var_symbol,
-                    wrap_in_ast_node(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
-                        "test".to_string(),
-                        vec![
-                            wrap_in_ast_node(Expression::UnaryOp(Box::new(
-                                UnaryOp::<UntypedAST>::new(
-                                    UnaryOpType::Typecast(Typecast::new("f32".to_string())),
-                                    wrap_in_ast_node(Expression::Literal("5".to_string())),
-                                ),
-                            ))),
-                            wrap_in_ast_node(Expression::BinaryOp(Box::new(
-                                BinaryOp::<UntypedAST>::new(
-                                    BinaryOpType::NotEquals,
-                                    wrap_in_ast_node(Expression::Variable("test2".to_string())),
-                                    wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<
-                                        UntypedAST,
-                                    >::new(
-                                        BinaryOpType::Multiplication,
-                                        wrap_in_ast_node(Expression::Literal("5.0".to_string())),
-                                        wrap_in_ast_node(Expression::Literal("10.0".to_string())),
-                                    )))),
-                                ),
-                            ))),
-                        ],
-                    ))),
-                ))),
-            ]))),
-            Visibility::Private,
-        ));
-        assert!(expected.semantic_eq(&parsed.1[0]));
-    }*/
 }

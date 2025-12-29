@@ -36,6 +36,8 @@ const IS_EVEN: &'static str = include_str!("is_even.waso");
 const MODULAR_ADD: &'static str = include_str!("modular_arithmetic/modular_add.waso");
 const MODULAR_MUL: &'static str = include_str!("modular_arithmetic/modular_mul.waso");
 const MISC_FEATURES: &'static str = include_str!("misc.waso");
+const UNARY_CAST: &'static str = include_str!("unary_cast.waso");
+const MISSING_IMPORT_SEPARATOR: &'static str = include_str!("missing_import_separator.waso");
 
 // Helper functions for AST construction
 fn dummy_codearea() -> CodeArea {
@@ -600,4 +602,41 @@ fn test_misc_features() {
     );
 
     assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_unary_on_typecast() {
+    let (sm, id) = setup_source_map(UNARY_CAST);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing failed");
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        Some("f32".to_string()),
+        vec![],
+    ));
+
+    let body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        wrap(Statement::Return(Return::new(Some(
+            wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                UnaryOpType::Negative,
+                wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+                    UnaryOpType::Typecast(Typecast::new("f32".to_string())),
+                    wrap(Expression::Literal("5".to_string())),
+                )))),
+            ))))
+        ))))
+    ])));
+
+    let function = wrap(Function::new(main_symbol, body, Visibility::Private));
+    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![function]);
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_missing_import_separator() {
+    let (sm, id) = setup_source_map(MISSING_IMPORT_SEPARATOR);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse);
+    assert!(parsed.is_none());
 }

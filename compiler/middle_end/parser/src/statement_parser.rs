@@ -151,7 +151,7 @@ pub(crate) fn statement_parser<'src>()
                         token_parser(TokenType::OpenParen),
                         token_parser(TokenType::CloseParen),
                     )
-                    .map(|cond| LoopType::While(cond)),
+                    .map(LoopType::While),
                 // The infinite loop has to be at the bottom to not "steal" from the other types
                 empty().map(|_| LoopType::Infinite),
             )))
@@ -208,14 +208,13 @@ mod tests {
     use crate::statement_parser::statement_parser;
     use crate::test_shared::{wrap_in_ast_node, wrap_token};
     use ast::expression::{
-        BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
+        BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
     };
     use ast::statement::{Statement, VariableDeclaration};
     use ast::symbol::VariableSymbol;
-    use ast::{ASTNode, SemanticEq, TypedAST, UntypedAST};
+    use ast::{SemanticEq, UntypedAST};
     use chumsky::Parser;
     use lexer::TokenType;
-    use std::ops::Deref;
     use std::rc::Rc;
 
     #[test]
