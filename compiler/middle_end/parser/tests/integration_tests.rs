@@ -43,18 +43,21 @@ fn wrap<T: Debug>(inner: T) -> ASTNode<T> {
 
 // --- INTEGRATION TESTS ---
 
-const FIBONACCI: &'static str = include_str!("test_programms/fibonacci.waso");
-const MAX: &'static str = include_str!("test_programms/max.waso");
-const SUM_N: &'static str = include_str!("test_programms/sum_n.waso");
-const IS_EVEN: &'static str = include_str!("test_programms/is_even.waso");
+// Putting the test programs into a separate directory is not possible
+// due to winshit insisting on using backslashes while all reasonable OSes without mountains
+// and mountains of decade old tech debt work with forward slashes
+const FIBONACCI: &'static str = include_str!("fibonacci.waso");
+const MAX: &'static str = include_str!("max.waso");
+const SUM_N: &'static str = include_str!("sum_n.waso");
+const IS_EVEN: &'static str = include_str!("is_even.waso");
 const MODULAR_ADD: &'static str =
-    include_str!("test_programms/modular_arithmetic/modular_add.waso");
+    include_str!("modular_arithmetic/modular_add.waso");
 const MODULAR_MUL: &'static str =
-    include_str!("test_programms/modular_arithmetic/modular_mul.waso");
-const MISC_FEATURES: &'static str = include_str!("test_programms/misc.waso");
-const UNARY_CAST: &'static str = include_str!("test_programms/unary_cast.waso");
+    include_str!("modular_arithmetic/modular_mul.waso");
+const MISC_FEATURES: &'static str = include_str!("misc.waso");
+const UNARY_CAST: &'static str = include_str!("unary_cast.waso");
 const MISSING_IMPORT_SEPARATOR: &'static str =
-    include_str!("test_programms/missing_import_separator.waso");
+    include_str!("missing_import_separator.waso");
 
 #[test]
 fn test_parse_simple_programm() {
