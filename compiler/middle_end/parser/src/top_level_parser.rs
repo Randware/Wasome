@@ -28,8 +28,7 @@ pub(crate) fn top_level_parser<'src>(
     (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
 > {
     let imports = maybe_statement_separator()
-        .ignore_then(import_parser(file_information)
-        .then_ignore(statement_separator()))
+        .ignore_then(import_parser(file_information).then_ignore(statement_separator()))
         .repeated()
         .collect::<Vec<_>>();
 
@@ -44,9 +43,7 @@ pub(crate) fn top_level_parser<'src>(
 }
 
 mod import_parser {
-    use crate::misc_parsers::{
-        identifier_parser, string_parser, token_parser,
-    };
+    use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
     use crate::{FileInformation, PosInfoWrapper};
     use ast::ASTNode;
     use ast::symbol::ModuleUsageNameSymbol;

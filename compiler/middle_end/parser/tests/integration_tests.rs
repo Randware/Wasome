@@ -34,7 +34,7 @@ fn dummy_codearea() -> CodeArea {
         CodeLocation::new(0, 0),
         CodeFile::new(PathBuf::from("")),
     )
-        .unwrap()
+    .unwrap()
 }
 
 fn wrap<T: Debug>(inner: T) -> ASTNode<T> {
@@ -47,11 +47,14 @@ const FIBONACCI: &'static str = include_str!("test_programms/fibonacci.waso");
 const MAX: &'static str = include_str!("test_programms/max.waso");
 const SUM_N: &'static str = include_str!("test_programms/sum_n.waso");
 const IS_EVEN: &'static str = include_str!("test_programms/is_even.waso");
-const MODULAR_ADD: &'static str = include_str!("test_programms/modular_arithmetic/modular_add.waso");
-const MODULAR_MUL: &'static str = include_str!("test_programms/modular_arithmetic/modular_mul.waso");
+const MODULAR_ADD: &'static str =
+    include_str!("test_programms/modular_arithmetic/modular_add.waso");
+const MODULAR_MUL: &'static str =
+    include_str!("test_programms/modular_arithmetic/modular_mul.waso");
 const MISC_FEATURES: &'static str = include_str!("test_programms/misc.waso");
 const UNARY_CAST: &'static str = include_str!("test_programms/unary_cast.waso");
-const MISSING_IMPORT_SEPARATOR: &'static str = include_str!("test_programms/missing_import_separator.waso");
+const MISSING_IMPORT_SEPARATOR: &'static str =
+    include_str!("test_programms/missing_import_separator.waso");
 
 #[test]
 fn test_parse_simple_programm() {
@@ -616,17 +619,17 @@ fn test_unary_on_typecast() {
         vec![],
     ));
 
-    let body = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        wrap(Statement::Return(Return::new(Some(
-            wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
+    let body = wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        Statement::Return(Return::new(Some(wrap(Expression::UnaryOp(Box::new(
+            UnaryOp::<UntypedAST>::new(
                 UnaryOpType::Negative,
                 wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
                     UnaryOpType::Typecast(Typecast::new("f32".to_string())),
                     wrap(Expression::Literal("5".to_string())),
                 )))),
-            ))))
-        ))))
-    ])));
+            ),
+        )))))),
+    )])));
 
     let function = wrap(Function::new(main_symbol, body, Visibility::Private));
     let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![function]);

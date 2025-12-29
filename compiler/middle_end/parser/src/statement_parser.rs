@@ -139,11 +139,10 @@ pub(crate) fn statement_parser<'src>()
                         token_parser(TokenType::OpenParen),
                         token_parser(TokenType::CloseParen),
                     )
-                    .map(|((init, cond), after_each)|
-                            LoopType::For {
-                                start: init,
-                                cond,
-                                after_each,
+                    .map(|((init, cond), after_each)| LoopType::For {
+                        start: init,
+                        cond,
+                        after_each,
                     }),
                 expression
                     .clone()
