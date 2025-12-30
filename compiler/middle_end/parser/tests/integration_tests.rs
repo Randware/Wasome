@@ -1,4 +1,4 @@
-/*use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
+use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
     VariableAssignment, VariableDeclaration,
@@ -43,24 +43,18 @@ fn wrap<T: Debug>(inner: T) -> ASTNode<T> {
 
 // --- INTEGRATION TESTS ---
 
-// Putting the test programs into separate directories is not possible
-// due to winshit insisting on using backslashes while all at least somewhat modern, reasonable
-// and properly thought-out OSes, that are not controlled by a company actively making it
-// worse and worse every single day by investing every last bit of their vast development resources
-// into ads, data-collection and other anti-user features instead of actually improving the product,
-// without mountains and mountains of decade old tech debt work with forward slashes
-const FIBONACCI: &'static str = include_str!("fibonacci.waso");
-const MAX: &'static str = include_str!("max.waso");
-const SUM_N: &'static str = include_str!("sum_n.waso");
-const IS_EVEN: &'static str = include_str!("is_even.waso");
+const FIBONACCI: &'static str = include_str!("test_programms/fibonacci.waso");
+const MAX: &'static str = include_str!("test_programms/max.waso");
+const SUM_N: &'static str = include_str!("test_programms/sum_n.waso");
+const IS_EVEN: &'static str = include_str!("test_programms/is_even.waso");
 const MODULAR_ADD: &'static str =
-    include_str!("modular_add.waso");
+    include_str!("test_programms/modular_arithmetic/modular_add.waso");
 const MODULAR_MUL: &'static str =
-    include_str!("modular_mul.waso");
-const MISC_FEATURES: &'static str = include_str!("misc.waso");
-const UNARY_CAST: &'static str = include_str!("unary_cast.waso");
+    include_str!("test_programms/modular_arithmetic/modular_mul.waso");
+const MISC_FEATURES: &'static str = include_str!("test_programms/misc.waso");
+const UNARY_CAST: &'static str = include_str!("test_programms/unary_cast.waso");
 const MISSING_IMPORT_SEPARATOR: &'static str =
-    include_str!("missing_import_separator.waso");
+    include_str!("test_programms/missing_import_separator.waso");
 
 #[test]
 fn test_parse_simple_programm() {
@@ -648,4 +642,4 @@ fn test_missing_import_separator() {
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse);
     assert!(parsed.is_none());
-}*/
+}
