@@ -150,9 +150,7 @@ impl<Type: ASTType> Directory<Type> {
 impl<Type: ASTType> SemanticEq for Directory<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.name() == other.name()
-            && self
-                .subdirectories()
-                .semantic_eq(other.subdirectories())
+            && self.subdirectories().semantic_eq(other.subdirectories())
             && self.files().semantic_eq(other.files())
     }
 }

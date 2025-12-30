@@ -41,15 +41,11 @@ impl<Type: ASTType> SemanticEq for Expression<Type> {
             (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (Exp::Variable(inner), Exp::Variable(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (Exp::Variable(inner), Exp::Variable(other_inner)) => inner.semantic_eq(other_inner),
             // For Literals, there are no inner structs with ids
             (Exp::Literal(_), Exp::Literal(_)) => self == other,
             (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_eq(other_inner),
-            (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => inner.semantic_eq(other_inner),
             _ => false,
         }
     }
@@ -64,7 +60,7 @@ pub enum Literal {
     Bool(bool),
     /// A UTF-8 character
     Char(u32),
-    F32(f32),
+    //F32(f32),
     F64(f64),
 }
 
@@ -75,7 +71,7 @@ impl Literal {
             Literal::S32(_) => DT::S32,
             Literal::Bool(_) => DT::Bool,
             Literal::Char(_) => DT::Char,
-            Literal::F32(_) => DT::F32,
+            //Literal::F32(_) => DT::F32,
             Literal::F64(_) => DT::F64,
         }
     }
@@ -98,6 +94,16 @@ pub struct UnaryOp<Type: ASTType> {
     op_type: UnaryOpType<Type>,
     // The expression to "process"
     input: ASTNode<Expression<Type>>,
+}
+
+impl<Type: ASTType> UnaryOp<Type> {
+    pub fn input(&self) -> &Expression<Type> {
+        &self.input
+    }
+
+    pub fn op_type(&self) -> &UnaryOpType<Type> {
+        &self.op_type
+    }
 }
 
 impl UnaryOp<TypedAST> {
@@ -225,6 +231,10 @@ pub struct Typecast<Type: ASTType> {
 }
 
 impl<Type: ASTType> Typecast<Type> {
+    pub fn target(&self) -> &Type::GeneralDataType {
+        &self.target
+    }
+
     /// Creates a new Typecast
     pub fn new(target: Type::GeneralDataType) -> Self {
         Self { target }
@@ -281,6 +291,20 @@ impl<Type: ASTType> SemanticEq for BinaryOp<Type> {
         self.op_type == other.op_type
             && self.left.semantic_eq(&other.left)
             && self.right.semantic_eq(&other.right)
+    }
+}
+
+impl<Type: ASTType> BinaryOp<Type> {
+    pub fn left(&self) -> &Expression<Type> {
+        &self.left
+    }
+
+    pub fn right(&self) -> &Expression<Type> {
+        &self.right
+    }
+
+    pub fn op_type(&self) -> &BinaryOpType {
+        &self.op_type
     }
 }
 
@@ -345,7 +369,7 @@ impl Typed for BinaryOp<TypedAST> {
     }
 }
 
-/// This is the type of an unary operator
+/// This is the type of an binary operator
 ///
 /// It only provides the operator type and not the operands
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -844,8 +868,8 @@ mod tests {
 
     #[test]
     fn literal() {
-        let literal_f32 = Literal::F32(5.0);
-        assert_eq!(DataType::F32, literal_f32.data_type());
+        let literal_f64 = Literal::F64(5.0);
+        assert_eq!(DataType::F64, literal_f64.data_type());
 
         let literal_char = Literal::Char('a' as u32);
         assert_eq!(DataType::Char, literal_char.data_type());
@@ -872,7 +896,7 @@ mod tests {
     #[test]
     fn expression() {
         let expression = generate_sample_expression();
-        assert_eq!(DataType::S32, expression.data_type());
+        assert_eq!(DataType::S64, expression.data_type());
     }
 
     #[test]
@@ -895,13 +919,22 @@ mod tests {
         Expression::BinaryOp(Box::new(
             BinaryOp::<TypedAST>::new(
                 BinaryOpType::Addition,
-                ASTNode::new(Expression::Literal(Literal::S32(5)), sample_codearea()),
                 ASTNode::new(
                     Expression::UnaryOp(Box::new(
                         UnaryOp::<TypedAST>::new(
-                            UnaryOpType::Typecast(Typecast::new(DataType::S32)),
+                            UnaryOpType::Typecast(Typecast::new(DataType::S64)),
+                            ASTNode::new(Expression::Literal(Literal::S32(5)), sample_codearea()),
+                        )
+                        .unwrap(),
+                    )),
+                    sample_codearea(),
+                ),
+                ASTNode::new(
+                    Expression::UnaryOp(Box::new(
+                        UnaryOp::<TypedAST>::new(
+                            UnaryOpType::Typecast(Typecast::new(DataType::S64)),
                             ASTNode::new(
-                                Expression::Literal(Literal::F32(10.3)),
+                                Expression::Literal(Literal::F64(10.3)),
                                 sample_codearea(),
                             ),
                         )

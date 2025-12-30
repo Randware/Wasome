@@ -92,8 +92,7 @@ fn test_all_datatypes() {
     // Comparing
     for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
         assert_eq!(
-            got,
-            want,
+            got, want,
             "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
             i, got, want
         );
@@ -132,8 +131,7 @@ fn test_all_datatypes_no_spaces() {
     // Comparing
     for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
         assert_eq!(
-            got,
-            want,
+            got, want,
             "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
             i, got, want
         );

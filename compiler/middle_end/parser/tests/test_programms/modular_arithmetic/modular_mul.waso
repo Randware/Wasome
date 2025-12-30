@@ -1,0 +1,6 @@
+import "./" as test
+
+// Multiplies two numbers modulo m
+fn modular_mul(u32 a, u32 b, u32 m) -> u32 {
+    -> test.modular_add(a * b, 0, m)
+}

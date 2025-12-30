@@ -1,0 +1,7 @@
+fn max(s32 a, s32 b) -> s32 {
+    if (a > b) {
+        -> a
+    } else {
+        -> b
+    }
+}
