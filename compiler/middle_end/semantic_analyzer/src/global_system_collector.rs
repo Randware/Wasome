@@ -1,50 +1,77 @@
-use crate::file_symbol_mapper::GlobalFunctionMap;
 use crate::mics_sa::analyze_data_type;
+use ast::directory::Directory;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::{AST, TypedAST, UntypedAST};
+use std::collections::HashMap;
 use std::rc::Rc;
 
-// The new ast makes the current implementation non-functional
-/*/// Collects all function symbols from a list of parsed modules.
+/// The global symbol map.
+///
+/// It maps an `UntypedAST` symbol (used as the key) to its corresponding `TypedAST` symbol (the value).
+/// We use the symbol itself as the key. Thanks to our custom `Hash` implementation (which only hashes the ID),
+/// this is very efficient.
+pub type GlobalSymbolMap = HashMap<FunctionSymbol<UntypedAST>, Rc<FunctionSymbol<TypedAST>>>;
+
+/// Entry Point: Collects all global symbols from the AST.
+///
+/// This function initiates the traversal starting from the root directory of the AST.
+/// It collects all function signatures, converts them to their typed counterparts,
+/// and stores them in a global map for later retrieval during semantic analysis.
 ///
 /// # Parameters
-/// * `modules` - An iterator yielding pairs of `(Canonical Module Path, The AST)`.
-///               Example tuple: ("std::math", &AST<UntypedAST>)
+/// * `ast` - The entire Untyped Abstract Syntax Tree.
 ///
 /// # Returns
-/// * `Ok(GlobalFunctionMap)` containing all discoverable functions.
-/// * `Err(String)` on duplicate definitions or invalid types.
-pub fn collect_global_symbols<'a, I>(modules: I) -> Result<GlobalFunctionMap, String>
-where
-    I: IntoIterator<Item = (String, &'a AST<UntypedAST>)>,
-{
-    let mut map = GlobalFunctionMap::new();
+/// * `Ok(GlobalSymbolMap)` - The populated map of symbols.
+/// * `Err(String)` - If a semantic error occurs during type conversion (e.g., unknown types).
+pub fn collect_global_symbols(ast: &AST<UntypedAST>) -> Result<GlobalSymbolMap, String> {
+    let mut map = GlobalSymbolMap::new();
+    collect_from_directory(ast, &mut map)?;
+    Ok(map)
+}
 
-    for (module_path, ast) in modules {
-        for node in ast.iter() {
-            if let TopLevelElement::Function(func) = &**node {
-                let untyped_symbol = func.declaration();
+/// Recursive helper function that traverses directories and files.
+///
+/// It iterates through all files in the current directory to register their functions
+/// and then recursively calls itself for all subdirectories.
+///
+/// # Parameters
+/// * `dir` - The current directory to traverse.
+/// * `map` - The mutable reference to the global symbol map being populated.
+fn collect_from_directory(
+    dir: &Directory<UntypedAST>,
+    map: &mut GlobalSymbolMap,
+) -> Result<(), String> {
+    for file in dir.files_iterator() {
+        for function in file.functions() {
+            let untyped_symbol = function.declaration();
 
-                let typed_symbol = convert_function_symbol(untyped_symbol)?;
+            let key = untyped_symbol.clone();
 
-                let canonical_id = format!("{}::{}", module_path, typed_symbol.name());
+            let typed_symbol = convert_function_symbol(untyped_symbol)?;
 
-                if map.contains_key(&canonical_id) {
-                    return Err(format!(
-                        "Semantic Error: Duplicate function definition '{}'.",
-                        canonical_id
-                    ));
-                }
-
-                map.insert(canonical_id, typed_symbol);
-            }
+            map.insert(key, typed_symbol);
         }
     }
 
-    Ok(map)
-}*/
+    for subdir in dir.subdirectories_iterator() {
+        collect_from_directory(subdir, map)?;
+    }
 
-/// Converts an untyped function symbol (strings) into a typed symbol (enums).
+    Ok(())
+}
+
+/// Converts an untyped function symbol (with String types) into a typed symbol (with Enum types).
+///
+/// This function validates that the types used in the return type and parameters actually exist
+/// and converts them from their string representation to `DataType`.
+///
+/// # Parameters
+/// * `untyped` - The untyped function symbol from the parser.
+///
+/// # Returns
+/// * `Ok(Rc<FunctionSymbol<TypedAST>>)` - The newly created typed symbol wrapped in an Rc.
+/// * `Err(String)` - If a type name cannot be resolved.
 fn convert_function_symbol(
     untyped: &FunctionSymbol<UntypedAST>,
 ) -> Result<Rc<FunctionSymbol<TypedAST>>, String> {
@@ -88,94 +115,119 @@ fn convert_function_symbol(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::data_type::DataType;
-    use ast::{ASTNode, AST};
     use crate::expression_sa::sample_codearea;
+    use ast::data_type::DataType;
+    use ast::directory::Directory;
+    use ast::file::File;
+    use ast::statement::{CodeBlock, Statement};
+    use ast::top_level::Function;
+    use ast::visibility::Visibility;
+    use ast::{AST, ASTNode};
+    use std::path::PathBuf;
 
-    /// Creates a dummy AST containing a single function declaration with an empty body.
-    /// This is sufficient for testing Stage 2, as it only reads the function signature.
-    fn create_dummy_ast(func_name: &str, ret_type: Option<&str>) -> AST<UntypedAST> {
-        todo!()
-        /*let func_symbol = Rc::new(FunctionSymbol::new(
-            func_name.to_string(),
+    /// Creates an untyped function node and its corresponding symbol.
+    ///
+    /// Returns:
+    /// - The `FunctionSymbol` (to use as a key for lookup verification).
+    /// - The `ASTNode<Function>` (to build the AST).
+    fn create_untyped_func(
+        name: &str,
+        ret_type: Option<&str>,
+        params: Vec<(&str, &str)>,
+    ) -> (
+        Rc<FunctionSymbol<UntypedAST>>,
+        ASTNode<Function<UntypedAST>>,
+    ) {
+        let mut built_params = Vec::new();
+        for (p_name, p_type) in params {
+            built_params.push(Rc::new(VariableSymbol::new(
+                p_name.to_string(),
+                p_type.to_string(),
+            )));
+        }
+
+        let symbol = Rc::new(FunctionSymbol::new(
+            name.to_string(),
             ret_type.map(|s| s.to_string()),
-            Vec::new(),
+            built_params,
         ));
 
-        use ast::statement::Statement;
-        use ast::block::CodeBlock;
-        use ast::top_level::Function;
-
-        let impl_block = ASTNode::new(
+        let implementation = ASTNode::new(
             Statement::Codeblock(CodeBlock::new(Vec::new())),
-            sample_codearea()
+            sample_codearea(),
         );
 
-        let func = Function::new(func_symbol, impl_block);
+        let func_node = ASTNode::new(
+            Function::new(symbol.clone(), implementation, Visibility::Public),
+            sample_codearea(),
+        );
 
-        AST::new(vec![
-            ASTNode::new(TopLevelElement::Function(func), sample_codearea())
-        ])*/
+        (symbol, func_node)
     }
 
-    /// Tests the "happy path" where functions from different modules are collected successfully.
-    ///
-    /// Scenario:
-    /// - Module "std::math" defines function "add".
-    /// - Module "app::main" defines function "start".
-    ///
-    /// Expected Result:
-    /// - The returned map contains keys "std::math::add" and "app::main::start".
-    /// - The return types are correctly converted from strings to `DataType` enums.
+    /// Wraps a list of functions into a valid minimal AST structure.
+    /// Creates a structure like: src/ (Directory) -> main.wa (File) -> [functions]
+    fn create_simple_ast(functions: Vec<ASTNode<Function<UntypedAST>>>) -> AST<UntypedAST> {
+        let file = ASTNode::new(
+            File::new("main.wa".to_string(), Vec::new(), functions),
+            PathBuf::from("src/main.wa"),
+        );
+
+        let dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::from("src"),
+        );
+
+        AST::new(dir).expect("Failed to create AST from dummy nodes")
+    }
+
     #[test]
-    fn collect_symbols_from_multiple_modules() {
-        todo!()
-        /*let ast_math = create_dummy_ast("add", Some("s32"));
-        let ast_main = create_dummy_ast("start", None);
+    fn collect_symbols_successfully() {
+        let (sym_add, node_add) =
+            create_untyped_func("add", Some("s32"), vec![("a", "s32"), ("b", "s32")]);
 
-        let modules = vec![
-            ("std::math".to_string(), &ast_math),
-            ("app::main".to_string(), &ast_main),
-        ];
+        let (sym_start, node_start) = create_untyped_func("start", None, vec![]);
 
-        let result = collect_global_symbols(modules);
+        let ast = create_simple_ast(vec![node_add, node_start]);
 
-        assert!(result.is_ok(), "Should successfully collect symbols from valid modules");
+        let result = collect_global_symbols(&ast);
+
+        assert!(result.is_ok(), "Symbol collection should succeed");
         let map = result.unwrap();
 
-        assert!(map.contains_key("std::math::add"));
-        let add_func = map.get("std::math::add").unwrap();
-        assert_eq!(add_func.return_type(), Some(&DataType::S32));
+        assert!(
+            map.contains_key(&sym_add),
+            "Map should contain 'add' symbol"
+        );
+        let typed_add = map.get(&sym_add).unwrap();
 
-        assert!(map.contains_key("app::main::start"));
-        let start_func = map.get("app::main::start").unwrap();
-        assert!(start_func.return_type().is_none());*/
+        assert_eq!(typed_add.name(), "add");
+        assert_eq!(typed_add.return_type(), Some(&DataType::S32));
+        assert_eq!(typed_add.params().len(), 2);
+        assert_eq!(*typed_add.params()[0].data_type(), DataType::S32);
+
+        assert!(
+            map.contains_key(&sym_start),
+            "Map should contain 'start' symbol"
+        );
+        let typed_start = map.get(&sym_start).unwrap();
+        assert_eq!(typed_start.return_type(), None);
     }
 
-    /// Tests that the collector correctly identifies and rejects duplicate function definitions.
-    ///
-    /// Scenario:
-    /// - Two different ASTs are provided for the *same* module path ("pkg::file").
-    /// - Both define a function named "dup".
-    ///
-    /// Expected Result:
-    /// - The collector returns an `Err` because "pkg::file::dup" would be overwritten.
     #[test]
-    fn collect_symbols_detects_duplicates() {
-        todo!()
-        /*let ast1 = create_dummy_ast("dup", None);
-        let ast2 = create_dummy_ast("dup", Some("s32"));
+    fn collect_symbols_fails_on_invalid_type() {
+        let (_, node_bad) = create_untyped_func("bad", Some("non_existent_type"), vec![]);
 
-        let modules = vec![
-            ("pkg::file".to_string(), &ast1),
-            ("pkg::file".to_string(), &ast2), 
-        ];
+        let ast = create_simple_ast(vec![node_bad]);
 
-        let result = collect_global_symbols(modules);
+        let result = collect_global_symbols(&ast);
 
-        assert!(result.is_err(), "Should fail due to duplicate symbol definition");
+        assert!(
+            result.is_err(),
+            "Collection should fail due to invalid type"
+        );
         let err = result.unwrap_err();
-        assert!(err.contains("Duplicate function definition"));
-        assert!(err.contains("pkg::file::dup"));*/
+        assert!(err.contains("Unknown return type"));
+        assert!(err.contains("non_existent_type"));
     }
 }

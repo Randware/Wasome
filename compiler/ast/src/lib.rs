@@ -276,7 +276,7 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
 
 ///  This is an ast type
 /// ASTs with this type include concrete data types
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TypedAST {}
 
 impl ASTType for TypedAST {
@@ -288,7 +288,7 @@ impl ASTType for TypedAST {
 
 ///  This is an ast type
 /// ASTs with this type carry the data type used in a string and perform no validation on it
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct UntypedAST {}
 
 impl ASTType for UntypedAST {
