@@ -181,6 +181,9 @@ mod tests {
         AST::new(dir).expect("Failed to create AST from dummy nodes")
     }
 
+    /// Tests the "happy path" where valid functions are successfully collected.
+    /// It verifies that the collector correctly converts untyped strings (e.g., "s32")
+    /// into their corresponding typed enums (e.g., DataType::S32) and stores them in the map.
     #[test]
     fn collect_symbols_successfully() {
         let (sym_add, node_add) =
@@ -214,6 +217,9 @@ mod tests {
         assert_eq!(typed_start.return_type(), None);
     }
 
+    /// Tests that the collector properly validates data types during collection.
+    /// It ensures that if a function signature uses a non-existent type (e.g., "non_existent_type"),
+    /// the collector returns an error instead of creating an invalid symbol.
     #[test]
     fn collect_symbols_fails_on_invalid_type() {
         let (_, node_bad) = create_untyped_func("bad", Some("non_existent_type"), vec![]);

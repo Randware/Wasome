@@ -1,16 +1,17 @@
 use crate::file_symbol_mapper::FileSymbolMapper;
 use crate::function_symbol_mapper::FunctionSymbolMapper;
+use crate::global_system_collector::GlobalSymbolMap;
 use crate::statement_sa::analyze_statement;
 use ast::symbol::FunctionSymbol;
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
+use ast::visibility::Visible;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
-use ast::visibility::Visible;
 
 // I think that this is now obsolete
-/**
+/*
 /// Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
 ///
 /// This process ensures semantic correctness for the element's implementation body.
@@ -39,24 +40,25 @@ pub(crate) fn analyze_top_level(
 /// Analyzes the implementation (body) of an untyped function.
 ///
 /// Initializes the function's local scope, registers parameters, and validates all contained statements and expressions.
-/// Requires the function's signature to be present in the file symbol table prior to execution.
+/// Requires the function's signature to be present in the global symbol map prior to execution.
 ///
 /// # Parameters
 /// * `untyped_function` - Function element with the body to analyze (`&Function<UntypedAST>`).
 /// * `root_helper` - Traversal context for the function's body (`&FunctionTraversalHelper<UntypedAST>`).
-/// * `file_mapper` - Global symbol table for declaration lookup and context (`&mut FileSymbolMapper`).
+/// * `file_mapper` - Needed to initialize the `FunctionSymbolMapper` (local scope manager).
+/// * `global_map` - Global symbol table for resolving function signatures and analyzing statements.
 ///
 /// # Returns
 /// * `Some(Function<TypedAST>)` if the body is semantically correct.
-/// * `None` if analysis fails (e.g., type or scope errors).
+/// * `None` if analysis fails (e.g., type or scope errors, or symbol missing in global map).
 fn analyze_function(
     untyped_function: &Function<UntypedAST>,
     root_helper: &FunctionTraversalHelper<UntypedAST>,
     file_mapper: &mut FileSymbolMapper,
+    global_map: &GlobalSymbolMap,
 ) -> Option<Function<TypedAST>> {
-    let func_name = untyped_function.declaration().name();
-    let typed_declaration: Rc<FunctionSymbol<TypedAST>> =
-        file_mapper.lookup_function_rc(func_name)?;
+    let untyped_symbol = untyped_function.declaration();
+    let typed_declaration: Rc<FunctionSymbol<TypedAST>> = global_map.get(untyped_symbol)?.clone();
 
     let mut func_mapper = FunctionSymbolMapper::new(file_mapper);
     func_mapper.set_current_function_return_type(typed_declaration.return_type().cloned());
@@ -68,17 +70,81 @@ fn analyze_function(
     }
 
     let impl_helper = StatementTraversalHelper::new_root(root_helper);
-    let typed_implementation_statement = analyze_statement(impl_helper, &mut func_mapper)?;
+    let typed_implementation_statement =
+        analyze_statement(impl_helper, &mut func_mapper, global_map)?;
 
     let code_area = untyped_function.implementation().position().clone();
-
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
 
     Some(Function::new(
-        typed_declaration.clone(),
+        typed_declaration,
         implementation_node,
-        untyped_function.visibility()
+        untyped_function.visibility(),
     ))
 }
 
-//todo Testing
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::expression_sa::sample_codearea;
+    use crate::file_symbol_mapper::{FileContext, FileSymbolMapper, GlobalFunctionMap};
+    use crate::global_system_collector::GlobalSymbolMap;
+    use crate::test_shared::functions_into_ast;
+    use ast::statement::{CodeBlock, Statement};
+    use ast::symbol::{FunctionSymbol, Symbol};
+    use ast::traversal::directory_traversal::DirectoryTraversalHelper;
+    use ast::visibility::Visibility;
+    use ast::{ASTNode, TypedAST, UntypedAST};
+    use std::rc::Rc;
+
+    struct MockFileContext {
+        path: String,
+    }
+    impl FileContext for MockFileContext {
+        fn get_canonical_path(&self) -> &str {
+            &self.path
+        }
+        fn resolve_import(&self, _: &str) -> Option<String> {
+            None
+        }
+    }
+
+    /// Tests the successful analysis of a simple void function with no parameters.
+    /// It verifies that the function is correctly resolved from the global map and its body is processed.
+    #[test]
+    fn analyze_function_ok() {
+        let func_name = "test".to_string();
+        let func_symbol_untyped_raw = FunctionSymbol::new(func_name.clone(), None, Vec::new());
+        let func_symbol_untyped_rc = Rc::new(func_symbol_untyped_raw.clone());
+
+        let body_block = CodeBlock::new(Vec::new());
+        let body_node = ASTNode::new(Statement::Codeblock(body_block), sample_codearea());
+
+        let func = Function::new(func_symbol_untyped_rc, body_node, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
+
+        let mut global_map = GlobalSymbolMap::new();
+        let func_symbol_typed =
+            Rc::new(FunctionSymbol::<TypedAST>::new(func_name, None, Vec::new()));
+        global_map.insert(func_symbol_untyped_raw, func_symbol_typed.clone());
+
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let old_global_map = GlobalFunctionMap::new();
+        let mut file_mapper = FileSymbolMapper::new(&old_global_map, &context);
+
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let func_ref = file_ref.index_function(0);
+
+        let analyzed_func =
+            analyze_function(func_ref.inner(), &func_ref, &mut file_mapper, &global_map);
+
+        assert!(analyzed_func.is_some(), "Function analysis should succeed");
+
+        let typed_func = analyzed_func.unwrap();
+        assert_eq!(typed_func.declaration().name(), "test");
+        assert!(typed_func.declaration().return_type().is_none());
+    }
+}

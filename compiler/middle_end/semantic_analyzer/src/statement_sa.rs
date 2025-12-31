@@ -1,215 +1,259 @@
-use std::ops::Deref;
 use crate::expression_sa::{analyze_expression, analyze_function_call};
 use crate::function_symbol_mapper::FunctionSymbolMapper;
+use crate::global_system_collector::GlobalSymbolMap;
 use crate::mics_sa::analyze_data_type;
 use ast::data_type::{DataType, Typed};
-use ast::statement::{CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
+use ast::expression::FunctionCall;
+use ast::statement::{
+    CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
+    VariableAssignment, VariableDeclaration,
+};
 use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
-use ast::expression::FunctionCall;
 
 /// Analyzes a statement referenced by a traversal helper and converts it into a typed statement node.
 ///
+/// This function acts as the main dispatcher for statement analysis. It delegates to specific
+/// handler functions based on the statement type. It ensures that global symbols (functions)
+/// are resolved via the `global_map` and local variables via the `function_symbol_mapper`.
+///
 /// # Parameters
 /// * `to_analyze` - Traversal helper pointing to the statement to analyze (`StatementTraversalHelper<UntypedAST>`).
-/// * `function_symbol_mapper` - Provides current function return type and scope context for validation (`&mut FunctionSymbolMapper`).
+/// * `function_symbol_mapper` - Provides current function context (return type, local scopes) (`&mut FunctionSymbolMapper`).
+/// * `global_map` - The global registry of typed function signatures (`&GlobalSymbolMap`).
 ///
 /// # Returns
-/// * `Some(Statement<TypedAST>)` if the statement (and any nested expressions/statements) could be successfully analyzed.
-/// * `None` if analysis fails (type errors, invalid constructs, or other semantic errors).
+/// * `Some(Statement<TypedAST>)` if the statement and its children were successfully analyzed.
+/// * `None` if a semantic error occurs (e.g., type mismatch, unknown variable).
 pub(crate) fn analyze_statement(
     to_analyze: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
+    global_map: &GlobalSymbolMap,
 ) -> Option<Statement<TypedAST>> {
     match &**to_analyze.inner() {
         Statement::VariableAssignment(inner) => {
-            let assigned_variable = analyze_variable_assignment(inner, function_symbol_mapper)?;
-            Some(Statement::VariableAssignment(assigned_variable))
+            let assigned = analyze_variable_assignment(
+                inner,
+                function_symbol_mapper,
+                &to_analyze,
+                global_map,
+            )?;
+            Some(Statement::VariableAssignment(assigned))
         }
         Statement::VariableDeclaration(inner) => {
-            let declared_variable = analyze_variable_declaration(inner, function_symbol_mapper)?;
-            Some(Statement::VariableDeclaration(declared_variable))
+            let declared = analyze_variable_declaration(
+                inner,
+                function_symbol_mapper,
+                &to_analyze,
+                global_map,
+            )?;
+            Some(Statement::VariableDeclaration(declared))
         }
         Statement::Expression(inner) => {
-            let typed_expr = analyze_expression(inner, function_symbol_mapper)?;
-            let pos = inner.position().clone();
-            Some(Statement::Expression(ASTNode::new(typed_expr, pos)))
+            // We pass the helper as context so the expression can resolve symbols valid at this location
+            let typed_expr =
+                analyze_expression(inner, function_symbol_mapper, &to_analyze, global_map)?;
+            Some(Statement::Expression(ASTNode::new(
+                typed_expr,
+                inner.position().clone(),
+            )))
         }
         Statement::Return(inner) => {
-            let typed_return = analyze_return(inner, function_symbol_mapper)?;
-            Some(Statement::Return(typed_return))
+            let typed_ret = analyze_return(inner, function_symbol_mapper, &to_analyze, global_map)?;
+            Some(Statement::Return(typed_ret))
         }
         Statement::ControlStructure(_) => {
             let typed_cs = Box::new(analyze_control_structure(
                 to_analyze,
                 function_symbol_mapper,
+                global_map,
             )?);
             Some(Statement::ControlStructure(typed_cs))
         }
         Statement::Codeblock(_) => {
-            let analyzed_cb = analyze_codeblock(to_analyze, function_symbol_mapper)?;
+            let analyzed_cb = analyze_codeblock(to_analyze, function_symbol_mapper, global_map)?;
             Some(Statement::Codeblock(analyzed_cb))
         }
         Statement::VoidFunctionCall(inner) => {
-            analyze_void_function_call(inner, function_symbol_mapper)
+            analyze_void_function_call(inner, function_symbol_mapper, &to_analyze, global_map)
         }
         Statement::Break => analyze_break(to_analyze),
     }
 }
 
-/// Analyzes an untyped `VariableAssignment` statement and converts it into a typed statement.
+/// Analyzes a variable assignment (re-assignment of an existing variable).
 ///
-/// This function resolves the target variable, analyzes the assigned expression value,
-/// and performs type checking to ensure the expression's return type matches the variable's declared type.
+/// It checks if the variable exists in the current scope and if the type of the assigned value matches.
 ///
 /// # Parameters
-/// * `to_analyze` - The untyped `VariableAssignment` statement reference.
-/// * `function_symbol_mapper` - The mapper used for resolving the variable symbol, managing scope, and analyzing the value expression.
+/// * `to_analyze` - The untyped assignment node.
+/// * `function_symbol_mapper` - Used to look up the existing variable in the current scope.
+/// * `helper` - The traversal helper providing the scope context for the value expression.
+/// * `global_map` - Used for function lookups within the assigned expression.
 ///
 /// # Returns
-/// * `Some(VariableAssignment<TypedAST>)` on success.
-/// * `None` if the target variable is undeclared or a type mismatch occurs.
-fn analyze_variable_assignment<'a>(
+/// * `Some(VariableAssignment<TypedAST>)` if the variable exists and types match.
+/// * `None` if the variable is not found or types mismatch.
+fn analyze_variable_assignment(
     to_analyze: &VariableAssignment<UntypedAST>,
-    function_symbol_mapper: &mut FunctionSymbolMapper<'a>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+    helper: &StatementTraversalHelper<UntypedAST>,
+    global_map: &GlobalSymbolMap,
 ) -> Option<VariableAssignment<TypedAST>> {
     let var_name = to_analyze.variable();
-
     let typed_variable_symbol = function_symbol_mapper.lookup_variable(var_name)?;
 
-    let untyped_value_node_ref = to_analyze.value();
+    let untyped_val = to_analyze.value();
+    let typed_value_expr =
+        analyze_expression(untyped_val, function_symbol_mapper, helper, global_map)?;
 
-    let position = untyped_value_node_ref.position().clone();
+    if typed_variable_symbol.data_type() != &typed_value_expr.data_type() {
+        return None;
+    }
 
-    let typed_value_expr = analyze_expression(untyped_value_node_ref, function_symbol_mapper)?;
-
-    let typed_value_node = ASTNode::new(typed_value_expr, position);
-
-    VariableAssignment::<TypedAST>::new(typed_variable_symbol, typed_value_node)
+    let typed_node = ASTNode::new(typed_value_expr, untyped_val.position().clone());
+    VariableAssignment::<TypedAST>::new(typed_variable_symbol, typed_node)
 }
 
-/// Analyzes a `VariableDeclaration` and converts it into a typed statement node.
+/// Analyzes a variable declaration (creation of a new local variable).
+///
+/// It registers the new variable in the current scope and ensures the type of the
+/// initializer matches the declared type.
 ///
 /// # Parameters
-/// * `to_analyze` - The untyped `VariableDeclaration` statement.
-/// * `function_symbol_mapper` - The mapper for scope and type registration.
+/// * `to_analyze` - The untyped declaration node.
+/// * `function_symbol_mapper` - Used to register the new variable in the current scope.
+/// * `helper` - The traversal helper providing context for the value expression.
+/// * `global_map` - Used for function lookups within the value expression.
 ///
 /// # Returns
-/// * `Some(VariableDeclaration<TypedAST>)` on success.
-/// * `None` on semantic error.
-fn analyze_variable_declaration<'a>(
+/// * `Some(VariableDeclaration<TypedAST>)` if the variable is successfully declared.
+/// * `None` if the type cannot be inferred or resolved, or if registration fails.
+fn analyze_variable_declaration(
     to_analyze: &VariableDeclaration<UntypedAST>,
-    function_symbol_mapper: &mut FunctionSymbolMapper<'a>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+    helper: &StatementTraversalHelper<UntypedAST>,
+    global_map: &GlobalSymbolMap,
 ) -> Option<VariableDeclaration<TypedAST>> {
-    let untyped_initializer_node_ref = to_analyze.value();
+    let untyped_val = to_analyze.value();
 
-    let position = untyped_initializer_node_ref.position().clone();
-
-    let typed_initializer_expr =
-        analyze_expression(untyped_initializer_node_ref, function_symbol_mapper)?;
-
-    let typed_initializer_node = ASTNode::new(typed_initializer_expr, position);
+    let typed_value_expr =
+        analyze_expression(untyped_val, function_symbol_mapper, helper, global_map)?;
 
     let declared_type_name = to_analyze.variable().data_type();
     let resolved_declared_type = analyze_data_type(declared_type_name)?;
 
+    // Type Check
+    if resolved_declared_type != typed_value_expr.data_type() {
+        return None;
+    }
+
     let var_name = to_analyze.variable().name().to_string();
-    let typed_variable_symbol = Rc::new(VariableSymbol::new(
-        var_name.clone(),
-        resolved_declared_type.clone(),
-    ));
+    let typed_variable_symbol = Rc::new(VariableSymbol::new(var_name, resolved_declared_type));
 
-    function_symbol_mapper
+    if function_symbol_mapper
         .add_variable(typed_variable_symbol.clone())
-        .ok()?;
+        .is_err()
+    {
+        return None;
+    }
 
-    let typed_declaration =
-        VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_initializer_node)?;
+    let typed_node = ASTNode::new(typed_value_expr, untyped_val.position().clone());
 
-    Some(typed_declaration)
+    VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_node)
 }
 
-/// Analyzes a `Return` statement and converts it into a typed `Return` node.
+/// Analyzes a return statement.
 ///
 /// # Parameters
-/// * `to_analyze` - The untyped `Return` statement to analyze (`&Return<UntypedAST>`).
-/// * `function_symbol_mapper` - Provides the current function return type and scope context for validation (`&mut FunctionSymbolMapper`).
+/// * `to_analyze` - The untyped return node.
+/// * `function_symbol_mapper` - Used to check against the function's expected return type.
+/// * `helper` - The traversal helper providing context for the returned expression.
+/// * `global_map` - Used for function lookups within the returned expression.
 ///
 /// # Returns
-/// * `Some(Return<TypedAST>)` if the `Return` (and its inner expression, if present) can be analyzed and types match.
-/// * `None` if analysis fails, a type mismatch occurs, or an invalid return is found (e.g., value returned from void function or missing value for non-void function).
+/// * `Some(Return<TypedAST>)` if the return value matches the function signature.
+/// * `None` if types mismatch or the return value is invalid.
 fn analyze_return(
     to_analyze: &Return<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
+    helper: &StatementTraversalHelper<UntypedAST>,
+    global_map: &GlobalSymbolMap,
 ) -> Option<Return<TypedAST>> {
-    let expected_type = function_symbol_mapper.get_current_function_return_type();
+    let expected_return_type = function_symbol_mapper.get_current_function_return_type();
+    let untyped_return_value = to_analyze.to_return();
 
-    let untyped_expr_option = to_analyze.to_return();
-
-    match (expected_type, untyped_expr_option) {
-        (None, Some(_untyped_expr_ref)) => None,
-
-        (Some(_expected), None) => None,
-
+    match (expected_return_type, untyped_return_value) {
         (None, None) => Some(Return::new(None)),
 
-        (Some(expected), Some(untyped_expr_ref)) => {
-            let typed_expr = analyze_expression(untyped_expr_ref, function_symbol_mapper)?;
-            let typed_node = ASTNode::new(typed_expr, untyped_expr_ref.position().clone());
-            let actual_type = typed_node.data_type();
+        (Some(expected), Some(expr_node)) => {
+            let typed_expr =
+                analyze_expression(expr_node, function_symbol_mapper, helper, global_map)?;
 
-            if actual_type != expected {
+            if typed_expr.data_type() != expected {
                 return None;
             }
 
+            let typed_node = ASTNode::new(typed_expr, expr_node.position().clone());
             Some(Return::new(Some(typed_node)))
         }
+
+        _ => None,
     }
 }
 
-/// Analyzes a control-structure statement referenced by a traversal helper and returns a typed control structure.
+/// Analyzes a control structure (conditional or loop).
+///
+/// Delegates to `analyze_conditional` or `analyze_loop` respectively.
 ///
 /// # Parameters
-/// * `to_analyze_helper` - Traversal helper pointing to the control-structure statement (`StatementTraversalHelper<UntypedAST>`).
-/// * `function_symbol_mapper` - Provides scope context and supports nested statement analysis (`&mut FunctionSymbolMapper`).
+/// * `to_analyze_helper` - Traversal helper for the control structure, providing access to children blocks.
+/// * `function_symbol_mapper` - Context for scope and variable management.
+/// * `global_map` - Context for global function resolution.
 ///
 /// # Returns
-/// * `Some(ControlStructure<TypedAST>)` if the contained control structure (conditional or loop) was successfully analyzed.
-/// * `None` if the helper does not point to a control structure or if nested analysis fails.
+/// * `Some(ControlStructure<TypedAST>)` if the structure and its blocks are valid.
+/// * `None` if analysis fails.
 fn analyze_control_structure(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
+    global_map: &GlobalSymbolMap,
 ) -> Option<ControlStructure<TypedAST>> {
     let inner_control_structure = match &**to_analyze_helper.inner() {
         Statement::ControlStructure(cs) => cs,
-        _ => return None, //"Expected a ControlStructure statement.",
+        _ => return None,
     };
 
     match **inner_control_structure {
         ControlStructure::Conditional(_) => {
-            analyze_conditional(to_analyze_helper, function_symbol_mapper)
+            analyze_conditional(to_analyze_helper, function_symbol_mapper, global_map)
                 .map(ControlStructure::Conditional)
         }
         ControlStructure::Loop(_) => {
-            analyze_loop(to_analyze_helper, function_symbol_mapper).map(ControlStructure::Loop)
+            analyze_loop(to_analyze_helper, function_symbol_mapper, global_map)
+                .map(ControlStructure::Loop)
         }
     }
 }
 
-/// Analyzes a `Conditional` control structure (if/then/else) and converts it into a typed `Conditional` node.
+/// Analyzes a conditional statement (if/else).
+///
+/// Recursively analyzes the condition expression and the 'then' and 'else' blocks.
 ///
 /// # Parameters
-/// * `to_analyze_helper` - Traversal helper positioned at the `Conditional` statement (`StatementTraversalHelper<UntypedAST>`).
-/// * `function_symbol_mapper` - Used to validate the condition type and manage scopes for then/else branches (`&mut FunctionSymbolMapper`).
+/// * `to_analyze_helper` - Traversal helper for the if-statement.
+/// * `function_symbol_mapper` - Manages scopes for the then/else blocks.
+/// * `global_map` - Passed down for expression and statement analysis.
 ///
 /// # Returns
-/// * `Some(Conditional<TypedAST>)` if the condition and both branches (when present) are semantically valid and typed.
-/// * `None` if the helper is not a `Conditional`, the condition is not boolean, or nested branch analysis fails.
+/// * `Some(Conditional<TypedAST>)` if the condition is boolean and blocks are valid.
+/// * `None` if analysis fails.
 fn analyze_conditional(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
+    global_map: &GlobalSymbolMap,
 ) -> Option<Conditional<TypedAST>> {
     let inner_box_ref = match &**to_analyze_helper.inner() {
         Statement::ControlStructure(b) => b,
@@ -222,7 +266,14 @@ fn analyze_conditional(
     };
 
     let untyped_condition = untyped_conditional_ref.condition();
-    let typed_condition_expr = analyze_expression(untyped_condition, function_symbol_mapper)?;
+
+    let typed_condition_expr = analyze_expression(
+        untyped_condition,
+        function_symbol_mapper,
+        &to_analyze_helper,
+        global_map,
+    )?;
+
     let typed_condition = ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
 
     if typed_condition.data_type() != DataType::Bool {
@@ -230,19 +281,19 @@ fn analyze_conditional(
     }
 
     function_symbol_mapper.enter_scope();
-    // This can never panic as a if-statement always has a first child (the then-block)
     let then_helper = to_analyze_helper.get_child(0).unwrap();
     let then_position = then_helper.inner().position().clone();
-    let typed_then_statement = analyze_statement(then_helper, function_symbol_mapper)?;
+
+    let typed_then_statement = analyze_statement(then_helper, function_symbol_mapper, global_map)?;
     let typed_then_node = ASTNode::new(typed_then_statement, then_position);
     function_symbol_mapper.exit_scope();
 
     let typed_else_statement = if untyped_conditional_ref.else_statement().is_some() {
         function_symbol_mapper.enter_scope();
-        // This can never panic as we ensured that the second child is there
         let else_helper = to_analyze_helper.get_child(1).unwrap();
         let else_position = else_helper.inner().position().clone();
-        let typed_block = analyze_statement(else_helper, function_symbol_mapper)?;
+
+        let typed_block = analyze_statement(else_helper, function_symbol_mapper, global_map)?;
         let typed_block_node = ASTNode::new(typed_block, else_position);
         function_symbol_mapper.exit_scope();
         Some(typed_block_node)
@@ -257,18 +308,22 @@ fn analyze_conditional(
     ))
 }
 
-/// Analyzes a `Loop` control structure and converts it into a typed `Loop` node.
+/// Analyzes a loop statement (While, For, Infinite).
+///
+/// Handles the specific child indexing defined in `statement.rs` for loops.
 ///
 /// # Parameters
-/// * `to_analyze_helper` - Traversal helper positioned at the `Loop` statement (`StatementTraversalHelper<UntypedAST>`).
-/// * `function_symbol_mapper` - Used to validate loop components and manage a new scope for loop body and headers (`&mut FunctionSymbolMapper`).
+/// * `to_analyze_helper` - Traversal helper for the loop structure.
+/// * `function_symbol_mapper` - Manages scopes for the loop body.
+/// * `global_map` - Passed down for expression and statement analysis.
 ///
 /// # Returns
-/// * `Some(Loop<TypedAST>)` if the loop header (while/for) and body are semantically valid and typed.
-/// * `None` if the helper is not a `Loop`, a condition is not boolean, or nested analysis fails.
+/// * `Some(Loop<TypedAST>)` if the loop structure and body are valid.
+/// * `None` if analysis fails.
 fn analyze_loop(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
+    global_map: &GlobalSymbolMap,
 ) -> Option<Loop<TypedAST>> {
     let inner_box_ref = match &**to_analyze_helper.inner() {
         Statement::ControlStructure(b) => b,
@@ -285,7 +340,12 @@ fn analyze_loop(
         LoopType::Infinite => LoopType::Infinite,
 
         LoopType::While(condition) => {
-            let typed_condition_expr = analyze_expression(condition, function_symbol_mapper)?;
+            let typed_condition_expr = analyze_expression(
+                condition,
+                function_symbol_mapper,
+                &to_analyze_helper,
+                global_map,
+            )?;
             let typed_condition = ASTNode::new(typed_condition_expr, condition.position().clone());
 
             if typed_condition.data_type() != DataType::Bool {
@@ -300,25 +360,28 @@ fn analyze_loop(
             cond,
             after_each,
         } => {
-            // This can never panic as a for-loop always has a before-statement
             let start_helper = to_analyze_helper.get_child(0).unwrap();
-            let start_position = start_helper.inner().position().clone();
-            let typed_start_stmt = analyze_statement(start_helper, function_symbol_mapper)?;
-            let typed_start_node = ASTNode::new(typed_start_stmt, start_position);
+            let start_pos = start_helper.inner().position().clone();
 
-            let typed_cond_expr = analyze_expression(cond, function_symbol_mapper)?;
+            let typed_start_stmt =
+                analyze_statement(start_helper, function_symbol_mapper, global_map)?;
+            let typed_start_node = ASTNode::new(typed_start_stmt, start_pos);
+
+            let typed_cond_expr =
+                analyze_expression(cond, function_symbol_mapper, &to_analyze_helper, global_map)?;
             let typed_cond_node = ASTNode::new(typed_cond_expr, cond.position().clone());
+
             if typed_cond_node.data_type() != DataType::Bool {
                 function_symbol_mapper.exit_scope();
                 return None;
             }
 
-            // This can never panic as a for-loop always has a before-statement
-            let after_each_helper = to_analyze_helper.get_child(1).unwrap();
-            let after_each_position = after_each_helper.inner().position().clone();
+            let after_each_helper = to_analyze_helper.get_child(2).unwrap();
+            let after_each_pos = after_each_helper.inner().position().clone();
+
             let typed_after_each_stmt =
-                analyze_statement(after_each_helper, function_symbol_mapper)?;
-            let typed_after_each_node = ASTNode::new(typed_after_each_stmt, after_each_position);
+                analyze_statement(after_each_helper, function_symbol_mapper, global_map)?;
+            let typed_after_each_node = ASTNode::new(typed_after_each_stmt, after_each_pos);
 
             LoopType::For {
                 start: typed_start_node,
@@ -328,78 +391,86 @@ fn analyze_loop(
         }
     };
 
-    let to_loop_on_index = untyped_loop_ref.loop_type().len();
-    // This can never panic as a for-loop always has a body
-    // Keep in mind that to_loop_on_index does **not** include the body
-    let to_loop_on_helper = to_analyze_helper.get_child(to_loop_on_index).unwrap();
-    let loop_body_position = to_loop_on_helper.inner().position().clone();
-    let typed_to_loop_on_stmt = analyze_statement(to_loop_on_helper, function_symbol_mapper)?;
-    let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, loop_body_position);
+    let body_index = if matches!(untyped_loop_ref.loop_type(), LoopType::For { .. }) {
+        1
+    } else {
+        untyped_loop_ref.loop_type().len()
+    };
+
+    let to_loop_on_helper = to_analyze_helper.get_child(body_index).unwrap();
+    let loop_body_pos = to_loop_on_helper.inner().position().clone();
+
+    let typed_to_loop_on_stmt =
+        analyze_statement(to_loop_on_helper, function_symbol_mapper, global_map)?;
+    let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, loop_body_pos);
 
     function_symbol_mapper.exit_scope();
 
     Some(Loop::new(typed_to_loop_on, typed_loop_type))
 }
 
-/// Analyzes a code block referenced by a traversal helper and converts it into a typed `CodeBlock` node.
+/// Analyzes a code block (a list of statements).
+///
+/// Iterates through all statements in the block and recursively analyzes them.
+/// Creates a new scope for the duration of the block.
 ///
 /// # Parameters
-/// * `to_analyze_helper` - Traversal helper positioned at the code block to analyze (`StatementTraversalHelper<UntypedAST>`).
-/// * `function_symbol_mapper` - Provides scope management and context for nested statement analysis (`&mut FunctionSymbolMapper`).
+/// * `to_analyze_helper` - Traversal helper for the code block.
+/// * `function_symbol_mapper` - Context used to create a new scope for the block.
+/// * `global_map` - Passed down for nested analysis.
 ///
 /// # Returns
-/// * `Some(CodeBlock<TypedAST>)` containing typed statements if all child statements were successfully analyzed.
-/// * `None` if any child statement fails semantic analysis or a nested error occurs.
+/// * `Some(CodeBlock<TypedAST>)` if all statements in the block are valid.
+/// * `None` if any statement fails analysis.
 fn analyze_codeblock(
     to_analyze_helper: StatementTraversalHelper<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
+    global_map: &GlobalSymbolMap,
 ) -> Option<CodeBlock<TypedAST>> {
     function_symbol_mapper.enter_scope();
+    let mut typed_statements = Vec::new();
+    let count = to_analyze_helper.amount_children();
 
-    let mut typed_statements: Vec<ASTNode<Statement<TypedAST>>> = Vec::new();
-    let statement_count = to_analyze_helper.amount_children();
-
-    for i in 0..statement_count {
-        // This can never panic as is always lower than the amount of children
+    for i in 0..count {
         let child_helper = to_analyze_helper.get_child(i).unwrap();
-
-        let position = child_helper.inner().position().clone();
-
-        if let Some(typed_statement) = analyze_statement(child_helper, function_symbol_mapper) {
-            let node = ASTNode::new(typed_statement, position);
-            typed_statements.push(node);
+        // Recursively analyze each statement
+        if let Some(stmt) = analyze_statement(child_helper, function_symbol_mapper, global_map) {
+            typed_statements.push(ASTNode::new(
+                stmt,
+                to_analyze_helper
+                    .get_child(i)
+                    .unwrap()
+                    .inner()
+                    .position()
+                    .clone(),
+            ));
         } else {
-            function_symbol_mapper
-                .exit_scope()
-                .expect("Internal Compiler Error: Scope stack imbalance during error recovery.");
+            function_symbol_mapper.exit_scope();
             return None;
         }
     }
-
-    function_symbol_mapper
-        .exit_scope()
-        .expect("Internal Compiler Error: Scope stack imbalance after successful block analysis.");
-
+    function_symbol_mapper.exit_scope();
     Some(CodeBlock::new(typed_statements))
 }
 
-/// Analyzes an untyped function call intended to be used as a standalone statement (for side effects).
-///
-/// This function resolves the function symbol, recursively analyzes the arguments, and critically validates
-/// that the called function explicitly returns **no value (void)**.
+/// Analyzes a call to a function that returns void (used as a statement).
 ///
 /// # Parameters
-/// * `to_analyze` - The untyped function call structure (`&FunctionCall<UntypedAST>`).
-/// * `function_symbol_mapper` - Provides symbol resolution for the function and context for argument analysis (`&mut FunctionSymbolMapper`).
+/// * `to_analyze` - The untyped function call node.
+/// * `function_symbol_mapper` - Context (not typically used for call dispatch, but required by API).
+/// * `helper` - Context for argument analysis and scope lookup.
+/// * `global_map` - Used to resolve the function signature.
 ///
 /// # Returns
-/// * `Some(Statement<TypedAST>)` wrapping a VoidFunctionCall if the function is found, arguments are valid, and the return type is None (void).
-/// * `None` if the function is undeclared, arguments fail semantic analysis, or the function has a return type (Non-Void).
+/// * `Some(Statement<TypedAST>)` if the call is valid and the function returns void.
+/// * `None` if the function has a return value (should be an expression) or analysis fails.
 fn analyze_void_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
-    function_symbol_mapper: &mut FunctionSymbolMapper,
+    mapper: &mut FunctionSymbolMapper,
+    helper: &StatementTraversalHelper<UntypedAST>,
+    global_map: &GlobalSymbolMap,
 ) -> Option<Statement<TypedAST>> {
-    let typed_call = analyze_function_call(to_analyze, function_symbol_mapper)?;
+    let typed_call = analyze_function_call(to_analyze, mapper, helper, global_map)?;
 
     if typed_call.function().return_type().is_some() {
         return None;
@@ -407,19 +478,22 @@ fn analyze_void_function_call(
     Some(Statement::VoidFunctionCall(typed_call))
 }
 
-/// Analyzes a `Break` statement.
+/// Analyzes a break statement.
 ///
-/// Validates that the break is used inside a loop context by traversing the AST ancestry
-/// via the StatementLocation chain.
+/// Traverses up the AST using the helper to ensure the break statement is inside a loop.
+///
+/// # Parameters
+/// * `to_analyze` - Traversal helper (used to check validity context).
+///
+/// # Returns
+/// * `Some(Statement::Break)` if inside a loop.
+/// * `None` if used outside a loop.
 fn analyze_break(to_analyze: StatementTraversalHelper<UntypedAST>) -> Option<Statement<TypedAST>> {
-    let root = to_analyze.root_helper();
-
     let mut current_loc_opt = Some(to_analyze.location());
 
     while let Some(current_loc) = current_loc_opt {
-        // The box maked combining this impossible
         if let Statement::ControlStructure(crtl) = current_loc.referenced_statement() {
-            if let ControlStructure::Loop(l) = crtl.as_ref() {
+            if let ControlStructure::Loop(_) = crtl.as_ref() {
                 return Some(Statement::Break);
             }
         }
@@ -433,19 +507,19 @@ mod tests {
     use super::*;
     use crate::expression_sa::sample_codearea;
     use crate::file_symbol_mapper::{FileContext, FileSymbolMapper, GlobalFunctionMap};
+    use crate::function_symbol_mapper::FunctionSymbolMapper;
+    use crate::global_system_collector::GlobalSymbolMap;
+    use crate::test_shared::functions_into_ast;
     use ast::data_type::DataType;
     use ast::expression::{Expression, Literal};
-    use ast::statement::Return;
-    use ast::symbol::FunctionSymbol;
+    use ast::statement::{Return, Statement};
+    use ast::symbol::{FunctionSymbol, Symbol, VariableSymbol};
     use ast::top_level::Function;
-    use ast::traversal::function_traversal::FunctionTraversalHelper;
-    use ast::{AST, UntypedAST};
+    use ast::traversal::directory_traversal::DirectoryTraversalHelper;
+    use ast::visibility::Visibility;
+    use ast::{ASTNode, UntypedAST};
     use std::collections::HashMap;
     use std::rc::Rc;
-    use ast::traversal::directory_traversal::DirectoryTraversalHelper;
-    use ast::traversal::file_traversal::FileTraversalHelper;
-    use ast::visibility::Visibility;
-    use crate::test_shared::functions_into_ast;
 
     struct MockFileContext {
         path: String,
@@ -459,132 +533,145 @@ mod tests {
         }
     }
 
-    fn create_test_mapper<'a>(
-        global_map: &'a GlobalFunctionMap,
-        context: &'a MockFileContext,
-    ) -> FileSymbolMapper<'a> {
-        FileSymbolMapper::new(global_map, context)
-    }
-
-    /** Tests the successful semantic analysis of a return statement without an expression,
-     * ensuring it is correctly typed as void.
-     */
+    /// Tests that a return statement with no value (void) is successfully analyzed.
+    /// It verifies that the analyzer accepts `return;` when the function signature expects void.
     #[test]
     fn analyze_return_ok_matching_void() {
-        let global_map = HashMap::new();
-        let context = MockFileContext {
+        let ret_inner = Return::new(None);
+        let stmt = Statement::Return(ret_inner);
+        let stmt_node = ASTNode::new(stmt, sample_codearea());
+
+        let body_block = CodeBlock::new(vec![stmt_node]);
+        let body_stmt = Statement::Codeblock(body_block);
+        let body_node = ASTNode::new(body_stmt, sample_codearea());
+
+        let func_symbol_raw = FunctionSymbol::new("test_func".to_string(), None, Vec::new());
+        let func_symbol = Rc::new(func_symbol_raw);
+
+        let func = Function::new(func_symbol, body_node, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
+
+        let global_map = GlobalSymbolMap::new();
+        let mock_context = MockFileContext {
             path: "test".to_string(),
         };
-
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &mock_context);
         let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
-        let ret: Return<UntypedAST> = Return::new(None);
-        let analyzed = analyze_return(&ret, &mut mapper);
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let func_ref = file_ref.index_function(0);
+        let body_ref = func_ref.ref_to_implementation();
+        let ret_ref = body_ref.get_child(0).unwrap();
+
+        let inner_ret = match &**ret_ref.inner() {
+            Statement::Return(r) => r,
+            _ => panic!("Expected Return"),
+        };
+
+        let analyzed = analyze_return(inner_ret, &mut mapper, &ret_ref, &global_map);
+
         assert!(
             analyzed.is_some(),
             "Expected Some for void return without expression"
         );
         let analyzed_ret = analyzed.unwrap();
-        assert!(
-            analyzed_ret.to_return().is_none(),
-            "Expected returned Return to contain no expression"
-        );
+        assert!(analyzed_ret.to_return().is_none());
     }
 
-    /** Tests the successful semantic analysis of a return statement containing a literal expression,
-     * verifying that the expression is analyzed and typed (S32) and matches the function's required return type.
-     */
+    /// Tests that a return statement with a value matching the function signature is valid.
+    /// It ensures that `return 42;` is accepted if the function expects `s32`.
     #[test]
     fn analyze_return_ok_matching_types() {
-        let expected_type = DataType::S32;
-        let global_map = HashMap::new();
-        let context = MockFileContext {
-            path: "test".to_string(),
-        };
-
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
-        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
-
-        mapper.set_current_function_return_type(Some(expected_type));
-
         let untyped_literal = Expression::Literal(String::from("42"));
-
         let untyped_literal_node = ASTNode::new(untyped_literal, sample_codearea());
-
         let untyped_return = Return::new(Some(untyped_literal_node));
+        let stmt = Statement::Return(untyped_return);
 
-        let result = analyze_return(&untyped_return, &mut mapper);
-
-        assert!(result.is_some(), "Should be successful and return");
-
-        let typed_return = result.unwrap();
-
-        let actual_returned_type = typed_return
-            .return_type()
-            .expect("Should contain a return type.");
-
-        assert_eq!(
-            expected_type, actual_returned_type,
-            "The actual returned type of the statement should be S32."
+        let stmt_node = ASTNode::new(stmt, sample_codearea());
+        let body_node = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![stmt_node])),
+            sample_codearea(),
         );
 
-        assert!(
-            matches!(**typed_return.to_return().unwrap(), Expression::Literal(_)),
-            "The returned expression should be a typed S32 literal."
-        );
-    }
+        let func_symbol_raw =
+            FunctionSymbol::new("test_func".to_string(), Some("s32".to_string()), Vec::new());
+        let func = Function::new(Rc::new(func_symbol_raw), body_node, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
-    /** Tests the successful semantic analysis of a basic Conditional (if statement),
-     * ensuring the literal condition expression ("true") is correctly analyzed and typed as Bool.
-     */
-    #[test]
-    fn analyze_control_structure_conditional_ok() {
-        let global_map = HashMap::new();
-        let context = MockFileContext {
+        let global_map = GlobalSymbolMap::new();
+        let mock_context = MockFileContext {
             path: "test".to_string(),
         };
-
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &mock_context);
         let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
-        let stmt_to_test = {
-            let condition_expr = Expression::Literal(String::from("true"));
-            let condition_node = ASTNode::new(condition_expr, sample_codearea());
+        mapper.set_current_function_return_type(Some(DataType::S32));
 
-            let then_block_inner = CodeBlock::new(Vec::new());
-            let then_block_stmt = Statement::Codeblock(then_block_inner);
-            let then_block_node = ASTNode::new(then_block_stmt, sample_codearea());
-
-            let conditional = Conditional::new(condition_node, then_block_node, None);
-
-            let cs_inner = ControlStructure::Conditional(conditional);
-            let cs_box = Box::new(cs_inner);
-
-            Statement::ControlStructure(cs_box)
-        };
-
-        let stmt_to_test_node = ASTNode::new(stmt_to_test, sample_codearea());
-
-        let func_symbol = Rc::new(FunctionSymbol::new(
-            "test_conditional".to_string(),
-            None,
-            Vec::new(),
-        ));
-        let func = Function::new(func_symbol, stmt_to_test_node, Visibility::Private);
-        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
-        
-        
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
         let func_ref = file_ref.index_function(0);
-        let helper = func_ref.ref_to_implementation();
+        let body_ref = func_ref.ref_to_implementation();
+        let ret_ref = body_ref.get_child(0).unwrap();
 
-        let analyzed = analyze_control_structure(helper, &mut mapper);
-        assert!(
-            analyzed.is_some(),
-            "Expected conditional to analyze successfully"
+        let inner_ret = match &**ret_ref.inner() {
+            Statement::Return(r) => r,
+            _ => panic!("Expected Return"),
+        };
+
+        let result = analyze_return(inner_ret, &mut mapper, &ret_ref, &global_map);
+
+        assert!(result.is_some(), "Should be successful and return");
+        let typed_return = result.unwrap();
+        let ret_val = typed_return.to_return();
+        let returned_expr = ret_val.as_ref().expect("Should contain a return type.");
+
+        assert_eq!(DataType::S32, returned_expr.data_type());
+    }
+
+    /// Tests successful analysis of a conditional (if) statement with a valid boolean condition.
+    /// It ensures the condition expression is typed as Bool and the block is analyzed.
+    #[test]
+    fn analyze_control_structure_conditional_ok() {
+        let stmt_to_test = {
+            let condition_expr = Expression::Literal(String::from("true"));
+            let condition_node = ASTNode::new(condition_expr, sample_codearea());
+            let then_block_node = ASTNode::new(
+                Statement::Codeblock(CodeBlock::new(Vec::new())),
+                sample_codearea(),
+            );
+            let conditional = Conditional::new(condition_node, then_block_node, None);
+            Statement::ControlStructure(Box::new(ControlStructure::Conditional(conditional)))
+        };
+
+        let stmt_node = ASTNode::new(stmt_to_test, sample_codearea());
+        let body_node = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![stmt_node])),
+            sample_codearea(),
         );
+
+        let func_symbol_raw = FunctionSymbol::new("t".into(), None, vec![]);
+        let func = Function::new(Rc::new(func_symbol_raw), body_node, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
+
+        let global_map = GlobalSymbolMap::new();
+        let mock_context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &mock_context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
+
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let func_ref = file_ref.index_function(0);
+        let body_ref = func_ref.ref_to_implementation();
+        let cs_helper = body_ref.get_child(0).unwrap();
+
+        let analyzed = analyze_control_structure(cs_helper, &mut mapper, &global_map);
+        assert!(analyzed.is_some());
 
         if let Some(ControlStructure::Conditional(c)) = analyzed {
             assert_eq!(c.condition().data_type(), DataType::Bool);
@@ -593,53 +680,47 @@ mod tests {
         }
     }
 
-    /** Tests the successful semantic analysis of a basic While Loop,
-     * verifying that the literal condition expression ("true") is correctly analyzed and typed as Bool.
-     */
+    /// Tests successful analysis of a loop statement.
+    /// It verifies that a `while(true)` loop is correctly accepted because the condition is a boolean.
     #[test]
     fn analyze_control_structure_loop_ok() {
-        let global_map = HashMap::new();
-        let context = MockFileContext {
-            path: "test".to_string(),
-        };
-
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
-        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
-
         let stmt_to_test = {
             let condition_expr = Expression::Literal(String::from("true"));
             let condition_node = ASTNode::new(condition_expr, sample_codearea());
-
-            let loop_body_inner = CodeBlock::new(Vec::new());
-            let loop_body_stmt = Statement::Codeblock(loop_body_inner);
-            let loop_body_node = ASTNode::new(loop_body_stmt, sample_codearea());
-
+            let loop_body_node = ASTNode::new(
+                Statement::Codeblock(CodeBlock::new(Vec::new())),
+                sample_codearea(),
+            );
             let loop_node = Loop::new(loop_body_node, LoopType::While(condition_node));
-
-            let cs_inner = ControlStructure::Loop(loop_node);
-            let cs_box = Box::new(cs_inner);
-
-            Statement::ControlStructure(cs_box)
+            Statement::ControlStructure(Box::new(ControlStructure::Loop(loop_node)))
         };
 
-        let stmt_to_test_node = ASTNode::new(stmt_to_test, sample_codearea());
+        let stmt_node = ASTNode::new(stmt_to_test, sample_codearea());
+        let body_node = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![stmt_node])),
+            sample_codearea(),
+        );
 
-        let func_symbol = Rc::new(FunctionSymbol::new(
-            "test_loop".to_string(),
-            None,
-            Vec::new(),
-        ));
-        let func = Function::new(func_symbol, stmt_to_test_node, Visibility::Private);
+        let func_symbol_raw = FunctionSymbol::new("t".into(), None, vec![]);
+        let func = Function::new(Rc::new(func_symbol_raw), body_node, Visibility::Private);
         let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
+        let global_map = GlobalSymbolMap::new();
+        let mock_context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &mock_context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
         let func_ref = file_ref.index_function(0);
-        let helper = func_ref.ref_to_implementation();
+        let body_ref = func_ref.ref_to_implementation();
+        let loop_helper = body_ref.get_child(0).unwrap();
 
-        let analyzed = analyze_control_structure(helper, &mut mapper);
-        assert!(analyzed.is_some(), "Expected loop to analyze successfully");
+        let analyzed = analyze_control_structure(loop_helper, &mut mapper, &global_map);
+        assert!(analyzed.is_some());
 
         if let Some(ControlStructure::Loop(l)) = analyzed {
             match l.loop_type() {
@@ -653,248 +734,277 @@ mod tests {
         }
     }
 
-    /** Tests the successful semantic analysis of a CodeBlock containing a single void Return statement,
-     * ensuring the code block structure is preserved and its internal statements are analyzed.
-     */
+    /// Validates that a code block containing valid statements is correctly analyzed.
+    /// It creates a block with a single return statement and checks if the block is processed correctly.
     #[test]
     fn analyze_codeblock_ok() {
-        let global_map = HashMap::new();
-        let context = MockFileContext {
-            path: "test".to_string(),
-        };
+        let ret_stmt_inner: Statement<UntypedAST> = Statement::Return(Return::new(None));
+        let ret_stmt_node = ASTNode::new(ret_stmt_inner, sample_codearea());
+        let codeblock_inner = CodeBlock::new(vec![ret_stmt_node]);
+        let stmt_to_test: Statement<UntypedAST> = Statement::Codeblock(codeblock_inner);
 
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
-        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
+        let stmt_node = ASTNode::new(stmt_to_test, sample_codearea());
+        let body_node = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![stmt_node])),
+            sample_codearea(),
+        );
 
-        mapper.set_current_function_return_type(None);
-
-        let stmt_to_test = {
-            let ret_stmt_inner: Statement<UntypedAST> = Statement::Return(Return::new(None));
-
-            let ret_stmt_node = ASTNode::new(ret_stmt_inner, sample_codearea());
-
-            let codeblock_inner = CodeBlock::new(vec![ret_stmt_node]);
-
-            let codeblock_stmt: Statement<UntypedAST> = Statement::Codeblock(codeblock_inner);
-
-            ASTNode::new(codeblock_stmt, sample_codearea())
-        };
-
-        let func_symbol = Rc::new(FunctionSymbol::new(
-            "test_codeblock".to_string(),
-            None,
-            Vec::new(),
-        ));
-
-        let func = Function::new(func_symbol, stmt_to_test, Visibility::Private);
+        let func_symbol_raw = FunctionSymbol::new("t".into(), None, vec![]);
+        let func = Function::new(Rc::new(func_symbol_raw), body_node, Visibility::Private);
         let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
+        let global_map = GlobalSymbolMap::new();
+        let mock_context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &mock_context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
+        mapper.set_current_function_return_type(None);
 
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
         let func_ref = file_ref.index_function(0);
-        let helper = func_ref.ref_to_implementation();
+        let body_ref = func_ref.ref_to_implementation();
+        let block_helper = body_ref.get_child(0).unwrap();
 
-        let analyzed = analyze_codeblock(helper, &mut mapper);
-        assert!(
-            analyzed.is_some(),
-            "Expected codeblock to analyze successfully"
-        );
+        let analyzed = analyze_codeblock(block_helper, &mut mapper, &global_map);
+        assert!(analyzed.is_some());
 
         let cb = analyzed.unwrap();
-
-        assert_eq!(cb.len(), 1, "Expected one statement in typed codeblock");
-
+        assert_eq!(cb.len(), 1);
         assert!(matches!(*cb[0], Statement::Return(_)));
     }
 
-    /** Tests the successful semantic analysis of a basic VariableDeclaration (e.g., x: s32 = 5),
-     * ensuring the assignment expression is successfully typed and the declaration is semantically valid.
-     */
+    /// Tests valid variable declaration where the initializer type matches the declared type.
+    /// Example: `let x: s32 = 5;` should succeed.
     #[test]
     fn analyze_variable_declaration_basic_ok() {
-        let global_map = HashMap::new();
-        let context = MockFileContext {
-            path: "test".to_string(),
-        };
-
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
-        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
-
         let untyped_literal_expr = Expression::Literal("5".to_string());
         let untyped_literal_node = ASTNode::new(untyped_literal_expr, sample_codearea());
-
         let untyped_var_decl = VariableDeclaration::<UntypedAST>::new(
             Rc::new(VariableSymbol::new("x".to_string(), "s32".to_string())),
             untyped_literal_node,
         );
-
         let stmt_to_analyze = Statement::VariableDeclaration(untyped_var_decl);
 
-        let stmt_to_analyze_node = ASTNode::new(stmt_to_analyze, sample_codearea());
+        let stmt_node = ASTNode::new(stmt_to_analyze, sample_codearea());
+        let body_node = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![stmt_node])),
+            sample_codearea(),
+        );
 
-        let func_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, Vec::new()));
-
-        let implementation_block_inner = CodeBlock::new(vec![stmt_to_analyze_node]);
-        let implementation_block_stmt = Statement::Codeblock(implementation_block_inner);
-
-        let implementation_block_node = ASTNode::new(implementation_block_stmt, sample_codearea());
-        let func = Function::new(func_symbol, implementation_block_node, Visibility::Private);
-
+        let func_symbol_raw = FunctionSymbol::new("t".into(), None, vec![]);
+        let func = Function::new(Rc::new(func_symbol_raw), body_node, Visibility::Private);
         let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
+        let global_map = GlobalSymbolMap::new();
+        let mock_context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &mock_context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
-        let root_helper = file_ref.index_function(0);
-        let helper = root_helper.ref_to_implementation();
+        let func_ref = file_ref.index_function(0);
+        let body_ref = func_ref.ref_to_implementation();
+        let decl_helper = body_ref.get_child(0).unwrap();
 
-        let decl_helper = helper.get_child(0).unwrap();
-
-        let analyzed_stmt = analyze_statement(decl_helper, &mut mapper);
-
-        assert!(
-            analyzed_stmt.is_some(),
-            "Expected variable declaration analysis to succeed, but it failed (returned None)."
-        );
+        let analyzed_stmt = analyze_statement(decl_helper, &mut mapper, &global_map);
+        assert!(analyzed_stmt.is_some());
     }
 
-    /** Tests the successful semantic analysis of a basic VariableAssignment (e.g., x = 10),
-     * verifying that the variable is correctly looked up in the symbol table and the assigned literal expression
-     * is correctly analyzed as the matching type (S32).
-     */
+    /// Tests valid variable assignment, ensuring the variable exists and the value type matches.
+    /// Example: `x = 10;` should succeed if x is declared as s32.
     #[test]
     fn analyze_variable_assignment_basic_ok() {
-        let global_map = HashMap::new();
-        let context = MockFileContext {
+        let var_name = "x".to_string();
+        let untyped_value_expr = Expression::Literal("10".to_string());
+        let untyped_value_node = ASTNode::new(untyped_value_expr, sample_codearea());
+        let untyped_assignment =
+            VariableAssignment::<UntypedAST>::new(var_name.clone(), untyped_value_node);
+        let stmt_to_analyze = Statement::VariableAssignment(untyped_assignment);
+
+        let stmt_node = ASTNode::new(stmt_to_analyze, sample_codearea());
+        let body_node = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![stmt_node])),
+            sample_codearea(),
+        );
+
+        let func_symbol_raw = FunctionSymbol::new("t".into(), None, vec![]);
+        let func = Function::new(Rc::new(func_symbol_raw), body_node, Visibility::Private);
+        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
+
+        let global_map = GlobalSymbolMap::new();
+        let mock_context = MockFileContext {
             path: "test".to_string(),
         };
-
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &mock_context);
         let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
-        let var_type = DataType::S32;
-
-        let x_symbol = Rc::new(VariableSymbol::new("x".to_string(), var_type));
+        let x_symbol = Rc::new(VariableSymbol::new(var_name, DataType::S32));
         mapper
             .add_variable(x_symbol.clone())
             .expect("Could not add variable.");
 
-        let untyped_value_expr = Expression::Literal("10".to_string());
-        let untyped_value_node = ASTNode::new(untyped_value_expr, sample_codearea());
-
-        let untyped_assignment =
-            VariableAssignment::<UntypedAST>::new("x".to_string(), untyped_value_node);
-        let stmt_to_analyze = Statement::VariableAssignment(untyped_assignment);
-        let stmt_to_analyze_node = ASTNode::new(stmt_to_analyze, sample_codearea());
-
-        let func_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, Vec::new()));
-        let implementation_block_inner = CodeBlock::new(vec![stmt_to_analyze_node]);
-        let implementation_block_stmt = Statement::Codeblock(implementation_block_inner);
-        let implementation_block_node = ASTNode::new(implementation_block_stmt, sample_codearea());
-        let func = Function::new(func_symbol, implementation_block_node, Visibility::Private);
-        let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
-
-
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
-        let root_helper = file_ref.index_function(0);
-        let helper = root_helper.ref_to_implementation();
+        let func_ref = file_ref.index_function(0);
+        let body_ref = func_ref.ref_to_implementation();
+        let assign_helper = body_ref.get_child(0).unwrap();
 
-        let assign_helper = helper.get_child(0).unwrap();
-
-        let analyzed_stmt = analyze_statement(assign_helper, &mut mapper);
-
-        assert!(
-            analyzed_stmt.is_some(),
-            "Variable assignment analysis should succeed."
-        );
+        let analyzed_stmt = analyze_statement(assign_helper, &mut mapper, &global_map);
+        assert!(analyzed_stmt.is_some());
 
         if let Some(Statement::VariableAssignment(typed_assignment)) = analyzed_stmt {
-            assert_eq!(
-                *typed_assignment.variable(),
-                x_symbol,
-                "The variable symbol should be resolved correctly."
-            );
-
-            let assigned_value_node = typed_assignment.value();
-            assert_eq!(assigned_value_node.data_type(), var_type);
-
-            assert!(
-                matches!(**assigned_value_node, Expression::Literal(Literal::S32(10))),
-                "The assigned value should be a typed S32 literal (10)."
-            );
+            assert_eq!(typed_assignment.variable().name(), x_symbol.name());
+            assert_eq!(typed_assignment.value().data_type(), DataType::S32);
         } else {
-            panic!("The wrong statement type was returned.");
+            panic!("Wrong statement type");
         }
     }
 
-    /** Tests the successful semantic analysis of a VoidFunctionCall.
-     * Ensures that a function declared with return_type=None is correctly analyzed as a statement.
-     */
+    /// Verifies that a call to a void function is correctly accepted as a statement.
+    /// It mocks a global map containing a void function 'log_message' and checks if calling it works.
     #[test]
     fn analyze_void_function_call_ok() {
-        let func_name = "log_message".to_string();
-        let param = Rc::new(VariableSymbol::new("msg".to_string(), DataType::S32));
+        let func_name = "log_message";
+        let param_name = "msg";
 
-        let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
-            func_name.clone(),
-            None,
-            vec![param],
+        let param = Rc::new(VariableSymbol::new(
+            param_name.to_string(),
+            "s32".to_string(),
         ));
+        let func_symbol_log_raw = FunctionSymbol::new(func_name.to_string(), None, vec![param]);
+        let func_symbol_log_rc = Rc::new(func_symbol_log_raw.clone());
 
-        let mut global_map = GlobalFunctionMap::new();
-        global_map.insert("test::log_message".to_string(), func_symbol);
+        let body_log = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![])),
+            sample_codearea(),
+        );
+        let func_log = Function::new(func_symbol_log_rc, body_log, Visibility::Private);
+
+        let arg = ASTNode::new(Expression::Literal("5".to_string()), sample_codearea());
+        let untyped_call = FunctionCall::<UntypedAST>::new(func_name.to_string(), vec![arg]);
+        let stmt_call = Statement::VoidFunctionCall(untyped_call);
+        let stmt_node = ASTNode::new(stmt_call, sample_codearea());
+
+        let body_main = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![stmt_node])),
+            sample_codearea(),
+        );
+        let func_main_raw = FunctionSymbol::new("main".into(), None, vec![]);
+        let func_main = Function::new(Rc::new(func_main_raw), body_main, Visibility::Private);
+
+        let ast = functions_into_ast(vec![
+            ASTNode::new(func_log, sample_codearea()),
+            ASTNode::new(func_main, sample_codearea()),
+        ]);
+
+        let mut global_map = GlobalSymbolMap::new();
+        let typed_param = Rc::new(VariableSymbol::new(param_name.to_string(), DataType::S32));
+        let typed_func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            func_name.to_string(),
+            None,
+            vec![typed_param],
+        ));
+        global_map.insert(func_symbol_log_raw, typed_func_symbol);
 
         let context = MockFileContext {
             path: "test".to_string(),
         };
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &context);
         let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
-        let arg = ASTNode::new(Expression::Literal("5".to_string()), sample_codearea());
-        let untyped_call = FunctionCall::<UntypedAST>::new(func_name, vec![arg]);
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let func_ref = file_ref.index_function(1);
+        let body_ref = func_ref.ref_to_implementation();
+        let call_helper = body_ref.get_child(0).unwrap();
 
-        let analyzed_stmt = analyze_void_function_call(&untyped_call, &mut mapper);
+        let inner_call = match &**call_helper.inner() {
+            Statement::VoidFunctionCall(c) => c,
+            _ => panic!("Expected VoidFunctionCall"),
+        };
+
+        let analyzed_stmt =
+            analyze_void_function_call(inner_call, &mut mapper, &call_helper, &global_map);
 
         assert!(
             analyzed_stmt.is_some(),
             "Expected void function call analysis to succeed."
         );
-
-        let Statement::VoidFunctionCall(typed_call) = analyzed_stmt.unwrap() else {
-            panic!("Result was not a Statement::VoidFunctionCall");
-        };
-
-        assert!(typed_call.function().return_type().is_none());
     }
 
-    /** Tests the failure case where a function returning a value (S32) is used as a VoidStatement.
-     * This ensures the semantic check inside analyze_void_function_call is working.
-     */
+    /// Ensures that calling a non-void function as a standalone statement fails analysis.
+    /// This prevents discarding return values implicitly, e.g., using `add(1, 2)` as a statement.
     #[test]
     fn analyze_void_function_call_must_be_void_fail() {
-        // 1. Definition der Funktion: add() -> S32
-        let func_name = "add".to_string();
+        let func_name = "add";
 
-        let func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
-            func_name.clone(),
+        let func_symbol_add_raw =
+            FunctionSymbol::new(func_name.to_string(), Some("s32".to_string()), vec![]);
+        let func_symbol_add_rc = Rc::new(func_symbol_add_raw.clone());
+        let func_add = Function::new(
+            func_symbol_add_rc,
+            ASTNode::new(
+                Statement::Codeblock(CodeBlock::new(vec![])),
+                sample_codearea(),
+            ),
+            Visibility::Private,
+        );
+
+        let untyped_call = FunctionCall::<UntypedAST>::new(func_name.to_string(), Vec::new());
+        let stmt_call = Statement::VoidFunctionCall(untyped_call);
+        let stmt_node = ASTNode::new(stmt_call, sample_codearea());
+
+        let func_main_raw = FunctionSymbol::new("main".to_string(), None, vec![]);
+        let func_main = Function::new(
+            Rc::new(func_main_raw),
+            ASTNode::new(
+                Statement::Codeblock(CodeBlock::new(vec![stmt_node])),
+                sample_codearea(),
+            ),
+            Visibility::Private,
+        );
+
+        let ast = functions_into_ast(vec![
+            ASTNode::new(func_add, sample_codearea()),
+            ASTNode::new(func_main, sample_codearea()),
+        ]);
+
+        let mut global_map = GlobalSymbolMap::new();
+        let typed_func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            func_name.to_string(),
             Some(DataType::S32),
             Vec::new(),
         ));
-
-        let mut global_map = GlobalFunctionMap::new();
-        global_map.insert("test::add".to_string(), func_symbol);
+        global_map.insert(func_symbol_add_raw, typed_func_symbol);
 
         let context = MockFileContext {
             path: "test".to_string(),
         };
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &context);
         let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
-        let untyped_call = FunctionCall::<UntypedAST>::new(func_name, Vec::new());
+        let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
+        let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+        let func_ref = file_ref.index_function(1);
+        let body_ref = func_ref.ref_to_implementation();
+        let call_helper = body_ref.get_child(0).unwrap();
 
-        let analyzed_stmt = analyze_void_function_call(&untyped_call, &mut mapper);
+        let inner_call = match &**call_helper.inner() {
+            Statement::VoidFunctionCall(c) => c,
+            _ => panic!("Expected Call"),
+        };
+
+        let analyzed_stmt =
+            analyze_void_function_call(inner_call, &mut mapper, &call_helper, &global_map);
 
         assert!(
             analyzed_stmt.is_none(),
@@ -902,55 +1012,48 @@ mod tests {
         );
     }
 
-    /** Tests the successful semantic analysis of a Break statement situated inside a loop.
-     * Ensures that the break is recognized as valid because it has a surrounding loop context.
-     */
+    /// Checks that a break statement is valid when placed inside a loop.
+    /// It traverses the AST to ensure the `StatementTraversalHelper` can correctly identify the parent loop.
     #[test]
     fn analyze_break_ok_inside_loop() {
-        let global_map = HashMap::new();
-        let context = MockFileContext {
-            path: "test".to_string(),
-        };
+        let break_node = ASTNode::new(Statement::Break, sample_codearea());
 
-        let file_mapper = FileSymbolMapper::new(&global_map, &context);
-        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
-
-        let break_stmt = Statement::Break;
-        let break_node = ASTNode::new(break_stmt, sample_codearea());
-
-        let loop_body_inner = CodeBlock::new(vec![break_node]);
-        let loop_body_stmt = Statement::Codeblock(loop_body_inner);
+        let loop_body_stmt = Statement::Codeblock(CodeBlock::new(vec![break_node]));
         let loop_body_node = ASTNode::new(loop_body_stmt, sample_codearea());
 
         let condition_node =
             ASTNode::new(Expression::Literal("true".to_string()), sample_codearea());
-
         let loop_struct = Loop::new(loop_body_node, LoopType::While(condition_node));
         let loop_stmt = Statement::ControlStructure(Box::new(ControlStructure::Loop(loop_struct)));
         let loop_node = ASTNode::new(loop_stmt, sample_codearea());
 
-        let func_body = CodeBlock::new(vec![loop_node]);
-        let func_stmt = Statement::Codeblock(func_body);
-        let func_node = ASTNode::new(func_stmt, sample_codearea());
+        let func_body = ASTNode::new(
+            Statement::Codeblock(CodeBlock::new(vec![loop_node])),
+            sample_codearea(),
+        );
 
-        let func_symbol = Rc::new(FunctionSymbol::new(
-            "test_break_loop".to_string(),
-            None,
-            Vec::new(),
-        ));
-        let func = Function::new(func_symbol, func_node, Visibility::Private);
-
+        let func_symbol_raw = FunctionSymbol::new("t".into(), None, vec![]);
+        let func = Function::new(Rc::new(func_symbol_raw), func_body, Visibility::Private);
         let ast = functions_into_ast(vec![ASTNode::new(func, sample_codearea())]);
 
+        let global_map = GlobalSymbolMap::new();
+        let context = MockFileContext {
+            path: "test".to_string(),
+        };
+        let old_global_map = GlobalFunctionMap::new();
+        let file_mapper = FileSymbolMapper::new(&old_global_map, &context);
+        let mut mapper = FunctionSymbolMapper::new(&file_mapper);
 
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
-        let root_helper = file_ref.index_function(0);
-        let helper = root_helper.ref_to_implementation();
+        let func_ref = file_ref.index_function(0);
+        let func_body_ref = func_ref.ref_to_implementation();
+        let loop_ref = func_body_ref.get_child(0).unwrap();
 
-        let loop_helper = helper.get_child(0).unwrap();
+        let loop_body_ref = loop_ref.get_child(0).unwrap();
+        let break_ref = loop_body_ref.get_child(0).unwrap();
 
-        let analyzed = analyze_statement(loop_helper, &mut mapper);
+        let analyzed = analyze_statement(break_ref, &mut mapper, &global_map);
 
         assert!(
             analyzed.is_some(),

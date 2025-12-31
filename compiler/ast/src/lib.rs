@@ -304,7 +304,10 @@ mod tests {
     use crate::directory::Directory;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Literal};
     use crate::file::File;
-    use crate::statement::{CodeBlock, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
+    use crate::statement::{
+        CodeBlock, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
+        VariableDeclaration,
+    };
     use crate::symbol::{FunctionSymbol, ModuleUsageNameSymbol, Symbol, VariableSymbol};
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
@@ -321,17 +324,18 @@ mod tests {
     fn prove_identity_vs_semantic_eq() {
         let node_a = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(5)),
-            sample_codearea()
+            sample_codearea(),
         );
 
         let node_b = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(5)),
-            sample_codearea()
+            sample_codearea(),
         );
 
-
-        assert_ne!(node_a, node_b, "PartialEq (==) must fail because IDs are different");
-
+        assert_ne!(
+            node_a, node_b,
+            "PartialEq (==) must fail because IDs are different"
+        );
 
         assert!(
             node_a.semantic_eq(&node_b),
@@ -467,7 +471,7 @@ mod tests {
     #[test]
     fn fibonacci_typed() {
         // The how manyth fibonacci number we want
-        
+
         let (nth, current, previous, temp, fibonacci) = create_fibonacci_typed_symbols();
         let ast = create_fibonacci_typed(&nth, &current, &previous, &temp, &fibonacci);
 
@@ -1166,7 +1170,7 @@ pub(crate) mod test_shared {
     use crate::directory::Directory;
     use crate::expression::{Expression, Literal};
     use crate::file::File;
-    use crate::statement::{VariableDeclaration};
+    use crate::statement::VariableDeclaration;
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
     use crate::{AST, ASTNode, ASTType, TypedAST};
