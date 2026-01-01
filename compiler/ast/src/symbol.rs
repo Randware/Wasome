@@ -1,6 +1,7 @@
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
 use crate::{ASTType, SemanticEq, TypedAST};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 /// Has symbols available to use
@@ -106,7 +107,7 @@ impl SemanticEq for ModuleUsageNameSymbol {
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct FunctionSymbol<Type: ASTType> {
     id: Id,
     name: String,
@@ -142,6 +143,12 @@ impl<Type: ASTType> FunctionSymbol<Type> {
     }
 }
 
+impl<Type: ASTType> Hash for FunctionSymbol<Type> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
 impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.name().semantic_eq(other.name())
@@ -156,7 +163,7 @@ impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct VariableSymbol<Type: ASTType> {
     id: Id,
     name: String,
@@ -181,6 +188,12 @@ impl<Type: ASTType> VariableSymbol<Type> {
     }
 }
 
+impl<Type: ASTType> Hash for VariableSymbol<Type> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
 impl Typed for VariableSymbol<TypedAST> {
     fn data_type(&self) -> DataType {
         self.data_type
@@ -189,7 +202,6 @@ impl Typed for VariableSymbol<TypedAST> {
 
 impl<Type: ASTType> SemanticEq for VariableSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name())
-            && self.data_type().semantic_eq(other.data_type())
+        self.name().semantic_eq(other.name()) && self.data_type().semantic_eq(other.data_type())
     }
 }

@@ -17,7 +17,7 @@ pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
     VariableAssignment(VariableAssignment<Type>),
     // Creation of new variable
-    VariableDeclaration(VariableAssignment<Type>),
+    VariableDeclaration(VariableDeclaration<Type>),
     Expression(ASTNode<Expression<Type>>),
     Return(Return<Type>),
     ControlStructure(Box<ControlStructure<Type>>),
@@ -107,16 +107,64 @@ impl<Type: ASTType> Index<usize> for Statement<Type> {
 /// Two different VariableAssignement are never equal.
 /// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
-pub struct VariableAssignment<Type: ASTType> {
+pub struct VariableDeclaration<Type: ASTType> {
     variable: Rc<VariableSymbol<Type>>,
     value: ASTNode<Expression<Type>>,
 }
 
-impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
+impl<Type: ASTType> SemanticEq for VariableDeclaration<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.variable().semantic_eq(other.variable())
-            && self.value.semantic_eq(&other.value)
+        self.variable().semantic_eq(other.variable()) && self.value.semantic_eq(&other.value)
     }
+}
+
+impl VariableDeclaration<TypedAST> {
+    /** Tries to create a new instance
+          returns None if the type of the variable symbol and the return type of the expression doesn't
+          match
+    */
+    pub fn new(
+        variable: Rc<VariableSymbol<TypedAST>>,
+        value: ASTNode<Expression<TypedAST>>,
+    ) -> Option<Self> {
+        eq_return_option(*variable.data_type(), value.data_type())?;
+        Some(Self { variable, value })
+    }
+}
+
+impl VariableDeclaration<UntypedAST> {
+    /** Creates a new instance
+     */
+    pub fn new(
+        variable: Rc<VariableSymbol<UntypedAST>>,
+        value: ASTNode<Expression<UntypedAST>>,
+    ) -> Self {
+        Self { variable, value }
+    }
+}
+
+impl<Type: ASTType> VariableDeclaration<Type> {
+    pub fn variable(&self) -> &VariableSymbol<Type> {
+        &self.variable
+    }
+
+    /** Gets the variable symbol by cloning the underlying RC
+     */
+    pub fn variable_owned(&self) -> Rc<VariableSymbol<Type>> {
+        self.variable.clone()
+    }
+
+    pub fn value(&self) -> &ASTNode<Expression<Type>> {
+        &self.value
+    }
+}
+
+/** This represents an assignment to a variable.
+*/
+#[derive(Debug, PartialEq)]
+pub struct VariableAssignment<Type: ASTType> {
+    variable: Type::VariableUse,
+    value: ASTNode<Expression<Type>>,
 }
 
 impl VariableAssignment<TypedAST> {
@@ -135,7 +183,7 @@ impl VariableAssignment<TypedAST> {
 impl VariableAssignment<UntypedAST> {
     /// Creates a new instance
     pub fn new(
-        variable: Rc<VariableSymbol<UntypedAST>>,
+        variable: String,
         value: ASTNode<Expression<UntypedAST>>,
     ) -> Self {
         Self { variable, value }
@@ -143,17 +191,18 @@ impl VariableAssignment<UntypedAST> {
 }
 
 impl<Type: ASTType> VariableAssignment<Type> {
-    pub fn variable(&self) -> &VariableSymbol<Type> {
+    pub fn variable(&self) -> &Type::VariableUse {
         &self.variable
     }
-
-    /// Gets the variable symbol by cloning the underlying RC
-    pub fn variable_owned(&self) -> Rc<VariableSymbol<Type>> {
-        self.variable.clone()
-    }
-
+    
     pub fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
+    }
+}
+
+impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.variable().semantic_eq(other.variable()) && self.value.semantic_eq(&other.value)
     }
 }
 
@@ -367,7 +416,7 @@ impl<Type: ASTType> LoopType<Type> {
     /// Returns the number of child statements
     ///
     /// This is two for a for loop and zero for everything else
-    pub(crate) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         match self {
             LoopType::Infinite => 0,
             LoopType::While(_) => 0,
@@ -498,7 +547,7 @@ mod tests {
     fn variable_assignement() {
         basic_test_variable(Rc::new(VariableSymbol::new(
             "test".to_string(),
-            DataType::F32,
+            DataType::F64,
         )))
         .unwrap();
     }
