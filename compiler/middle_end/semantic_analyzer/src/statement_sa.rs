@@ -625,6 +625,8 @@ mod tests {
 
         assert!(result.is_some(), "Should be successful and return");
         let typed_return = result.unwrap();
+
+        // Fix E0716 by binding the option
         let ret_val = typed_return.to_return();
         let returned_expr = ret_val.as_ref().expect("Should contain a return type.");
 
@@ -878,6 +880,7 @@ mod tests {
             param_name.to_string(),
             "s32".to_string(),
         ));
+
         let func_symbol_log_raw = FunctionSymbol::new(func_name.to_string(), None, vec![param]);
         let func_symbol_log_rc = Rc::new(func_symbol_log_raw.clone());
 
@@ -904,6 +907,7 @@ mod tests {
             ASTNode::new(func_main, sample_codearea()),
         ]);
 
+        // Global Map: Raw Key -> Typed Value
         let mut global_map = GlobalSymbolMap::new();
         let typed_param = Rc::new(VariableSymbol::new(param_name.to_string(), DataType::S32));
         let typed_func_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
@@ -922,6 +926,7 @@ mod tests {
 
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+
         let func_ref = file_ref.index_function(1);
         let body_ref = func_ref.ref_to_implementation();
         let call_helper = body_ref.get_child(0).unwrap();

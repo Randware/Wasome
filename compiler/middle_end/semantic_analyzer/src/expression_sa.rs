@@ -300,6 +300,7 @@ mod tests {
 
         let stmt1 = Statement::Expression(ASTNode::new(input, sample_codearea()));
         let stmt2 = Statement::Expression(ASTNode::new(input2, sample_codearea()));
+
         let body = ASTNode::new(
             Statement::Codeblock(CodeBlock::new(vec![
                 ASTNode::new(stmt1, sample_codearea()),
@@ -326,12 +327,12 @@ mod tests {
         let body_ref = func_ref.ref_to_implementation();
 
         let stmt1_ref = body_ref.get_child(0).unwrap();
+        let stmt2_ref = body_ref.get_child(1).unwrap();
+
         let expr1_ref = match &**stmt1_ref.inner() {
             Statement::Expression(e) => e,
             _ => panic!("Expected expression statement"),
         };
-
-        let stmt2_ref = body_ref.get_child(1).unwrap();
         let expr2_ref = match &**stmt2_ref.inner() {
             Statement::Expression(e) => e,
             _ => panic!("Expected expression statement"),
@@ -372,6 +373,7 @@ mod tests {
         let old_global_map = GlobalFunctionMap::new();
         let file_mapper = FileSymbolMapper::new(&old_global_map, &context);
         let mut mapper = FunctionSymbolMapper::new(&file_mapper);
+
 
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
@@ -424,6 +426,7 @@ mod tests {
         let old_global_map = GlobalFunctionMap::new();
         let file_mapper = FileSymbolMapper::new(&old_global_map, &context);
         let mut mapper = FunctionSymbolMapper::new(&file_mapper);
+
 
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
@@ -479,6 +482,7 @@ mod tests {
             .add_variable(x_symbol.clone())
             .expect("Failed to add variable.");
 
+
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
         let func_ref = file_ref.index_function(0);
@@ -526,6 +530,7 @@ mod tests {
             Some("s32".to_string()),
             vec![param_a, param_b],
         );
+
         let func_symbol_untyped_rc = Rc::new(func_symbol_untyped_raw.clone());
 
         let func_node = ASTNode::new(
@@ -586,6 +591,7 @@ mod tests {
 
         let dir_ref = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_ref = dir_ref.file_by_name("main.waso").unwrap();
+
         let func_ref = file_ref.index_function(1);
         let body_ref = func_ref.ref_to_implementation();
         let stmt_ref = body_ref.get_child(0).unwrap();
