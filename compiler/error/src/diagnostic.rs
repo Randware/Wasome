@@ -1,6 +1,6 @@
 use bon::Builder;
 use source::types::FileID;
-use std::{fmt::Display, io, ops::Range};
+use std::{io, ops::Range};
 
 use crate::{
     renderer::Renderer,

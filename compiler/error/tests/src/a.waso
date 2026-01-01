@@ -1,0 +1,4 @@
+struct Vector2D {
+  i32 x
+  i32 y
+}

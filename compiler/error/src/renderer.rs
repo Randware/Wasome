@@ -1,16 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
-use ariadne::{Color, ColorGenerator, Config, Label, Report, ReportKind};
+use ariadne::{Color, Config, Fmt, Label, Report, ReportKind};
 use source::types::FileID;
 
-use crate::diagnostic::{Diagnostic, Level, Snippet};
+use crate::diagnostic::{Diagnostic, Level};
 use crate::source::SourceLookup;
 
 struct DiagnosticStyling {
     heading: Color,
     message: Color,
-    code: Color,
+    error: Color,
 }
 
 trait Renderable {
@@ -33,18 +33,18 @@ impl Renderable for Diagnostic {
         match self.level {
             Level::Error => DiagnosticStyling {
                 heading: Color::Red,
-                message: Color::White,
-                code: Color::Red,
+                message: Color::BrightWhite,
+                error: Color::Red,
             },
             Level::Warning => DiagnosticStyling {
                 heading: Color::Yellow,
-                message: Color::White,
-                code: Color::Yellow,
+                message: Color::BrightWhite,
+                error: Color::Yellow,
             },
             Level::Info => DiagnosticStyling {
                 heading: Color::Cyan,
-                message: Color::White,
-                code: Color::Cyan,
+                message: Color::BrightWhite,
+                error: Color::Cyan,
             },
         }
     }
@@ -57,7 +57,7 @@ impl Renderable for Diagnostic {
     }
 
     fn config(&self) -> Config {
-        Config::default().with_underlines(true)
+        Config::default()
     }
 }
 
@@ -89,6 +89,51 @@ impl<'a> Renderer<'a> {
     fn print(&self) -> io::Result<()> {
         let mut writer = self.diagnostic.output();
 
+        let cache = self.build_cache();
+
+        let (primary_path, primary_range) = self.primary_span(&cache);
+
+        let styling = self.diagnostic.styling();
+
+        let mut builder = Report::build(
+            ReportKind::Custom(self.diagnostic.heading(), styling.heading),
+            (primary_path, primary_range),
+        )
+        .with_config(self.diagnostic.config())
+        .with_message(
+            &self
+                .diagnostic
+                .message
+                .clone()
+                .fg(self.diagnostic.styling().message),
+        );
+
+        if let Some(code) = &self.diagnostic.code {
+            builder = builder.with_code(code);
+        }
+
+        if let Some(help) = &self.diagnostic.help {
+            builder = builder.with_help(help);
+        }
+
+        for (path, range, message) in self.collect_labels(&cache) {
+            builder = builder.with_label(
+                Label::new((path, range))
+                    .with_color(styling.error)
+                    .with_message(message),
+            );
+        }
+
+        let sources = cache
+            .iter()
+            .map(|(_, c)| (c.path.clone(), c.content.clone()));
+
+        builder
+            .finish()
+            .write(ariadne::sources(sources), &mut writer)
+    }
+
+    fn build_cache(&self) -> HashMap<FileID, CachedSource> {
         let mut cache: HashMap<FileID, CachedSource> = HashMap::new();
         let unique: HashSet<_> = self.diagnostic.snippets.iter().map(|s| s.file).collect();
 
@@ -109,76 +154,48 @@ impl<'a> Renderer<'a> {
             cache.insert(id, CachedSource { path, content });
         }
 
-        let (primary_path, primary_range) = self.primary_span(&cache);
-
-        let mut builder = Report::build(
-            ReportKind::Custom(self.diagnostic.heading(), self.diagnostic.styling().heading),
-            (primary_path, primary_range),
-        )
-        .with_message(&self.diagnostic.message)
-        .with_config(self.diagnostic.config());
-
-        if let Some(code) = &self.diagnostic.code {
-            builder = builder.with_code(code);
-        }
-
-        if let Some(help) = &self.diagnostic.help {
-            builder = builder.with_help(help);
-        }
-
-        let mut colors = ColorGenerator::new();
-
-        for snippet in &self.diagnostic.snippets {
-            let path = &cache.get(&snippet.file).unwrap().path;
-
-            for (ai, annotation) in snippet.annotations.iter().enumerate() {
-                let annotation_color = colors.next();
-                let last_index = annotation.ranges.len().saturating_sub(1);
-
-                for (ri, range) in annotation.ranges.iter().enumerate() {
-                    let mut label =
-                        Label::new((path.clone(), range.clone())).with_color(annotation_color);
-
-                    if ri == last_index {
-                        label = label.with_message(&annotation.message)
-                    }
-
-                    builder = builder.with_label(label);
-                }
-            }
-        }
-        let sources = cache.into_values().map(|c| (c.path, c.content));
-
-        builder
-            .finish()
-            .write(ariadne::sources(sources), &mut writer)
+        cache
     }
 
     fn primary_span(
         &self,
         cache: &HashMap<FileID, CachedSource>,
     ) -> (String, std::ops::Range<usize>) {
-        let fallback = (String::new(), 0..0);
+        if let Some(first_snippet) = self.diagnostic.snippets.first() {
+            if let Some(first_annotation) = first_snippet.annotations.first() {
+                if let Some(first_range) = first_annotation.ranges.first() {
+                    let path = &cache.get(&first_snippet.file).unwrap().path;
 
-        self.diagnostic
-            .snippets
-            .first()
-            .and_then(|snippet| {
-                let mut ranges = snippet
-                    .annotations
-                    .iter()
-                    .flat_map(|a| a.ranges.iter())
-                    .map(|r| snippet.file.span(r.start as u32, r.end as u32));
+                    let span = first_snippet
+                        .file
+                        .span(first_range.start as u32, first_range.end as u32);
 
-                let first = ranges.next()?;
-                let merged = ranges.fold(first, |acc, next| acc.merge(next).unwrap_or(acc));
+                    return (path.clone(), span.start.0 as usize..span.end.0 as usize);
+                }
+            }
+        }
 
-                // Unwrapping is safe here, since the snippets for all diagnostics are guaranteed to be
-                // loaded
-                let path = &cache.get(&snippet.file).unwrap().path;
+        (String::new(), 0..0)
+    }
 
-                Some((path.clone(), merged.start.0 as usize..merged.end.0 as usize))
-            })
-            .unwrap_or(fallback)
+    fn collect_labels(
+        &self,
+        cache: &HashMap<FileID, CachedSource>,
+    ) -> Vec<(String, std::ops::Range<usize>, &str)> {
+        let mut labels = Vec::new();
+
+        for snippet in &self.diagnostic.snippets {
+            let path = &cache.get(&snippet.file).unwrap().path;
+
+            for annotation in &snippet.annotations {
+                for range in &annotation.ranges {
+                    labels.push((path.clone(), range.clone(), annotation.message.as_str()));
+                }
+            }
+        }
+
+        labels.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.start.cmp(&b.1.start)));
+
+        labels
     }
 }
