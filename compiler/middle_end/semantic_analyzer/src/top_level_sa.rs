@@ -51,7 +51,7 @@ pub(crate) fn analyze_top_level(
 /// # Returns
 /// * `Some(Function<TypedAST>)` if the body is semantically correct.
 /// * `None` if analysis fails (e.g., type or scope errors, or symbol missing in global map).
-fn analyze_function(
+pub(crate) fn analyze_function(
     untyped_function: &Function<UntypedAST>,
     root_helper: &FunctionTraversalHelper<UntypedAST>,
     file_mapper: &mut FileSymbolMapper,

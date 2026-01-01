@@ -1,4 +1,6 @@
+mod directory_sa;
 mod expression_sa;
+mod file_sa;
 mod file_symbol_mapper;
 mod function_symbol_mapper;
 mod global_system_collector;
@@ -19,12 +21,12 @@ mod tests {
 
 #[cfg(test)]
 mod test_shared {
-    use std::path::PathBuf;
-    use ast::{ASTNode, ASTType};
+    use super::*;
     use ast::directory::Directory;
     use ast::file::File;
     use ast::top_level::Function;
-    use super::*;
+    use ast::{ASTNode, ASTType};
+    use std::path::PathBuf;
 
     pub(crate) fn functions_into_ast<Type: ASTType>(
         functions: Vec<ASTNode<Function<Type>>>,
@@ -44,6 +46,6 @@ mod test_shared {
             ),
             PathBuf::new(),
         ))
-            .unwrap()
+        .unwrap()
     }
 }
