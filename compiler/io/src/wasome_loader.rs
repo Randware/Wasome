@@ -297,6 +297,10 @@ mod tests {
     }
 
     #[test]
+    // We need platform specific features for this test.
+    // So it won't work on Windows
+    // How sad /s
+    #[cfg(unix)]
     fn test_directory_loader_symlinks() {
         use std::os::unix::fs::symlink;
         let dir = tempdir().unwrap();
