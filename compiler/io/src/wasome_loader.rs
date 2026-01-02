@@ -1,7 +1,7 @@
 use crate::{DirectoryLoader, FileLoader, PathResolver};
 use std::ffi::OsString;
 use std::fs;
-use std::fs::{metadata, read_dir};
+use std::fs::{metadata, read_dir, DirEntry, FileType};
 use std::io::Error;
 use std::path::{Path, PathBuf};
 
@@ -78,31 +78,31 @@ impl DirectoryLoader for WasomeLoader {
     fn list_files<'a, F: AsRef<Path> + 'a>(
         path: F,
     ) -> Result<impl Iterator<Item = OsString> + 'static, Error> {
-        list_all_with_specific_property(path, path_is_file)?
+        list_all_with_specific_property(path, entry_is_file)
     }
 
     fn list_subdirs<'a, F: AsRef<Path> + 'a>(
         path: F,
     ) -> Result<impl Iterator<Item = OsString> + 'static, Error> {
-        list_all_with_specific_property(path, path_is_directory)?
+        list_all_with_specific_property(path, entry_is_directory)
     }
 }
 
-/// Reads the provided directory and returns the names of all elements whose path satisfies a property.
+/// Reads the provided directory and returns the names of all elements whose path satisfies a condition.
 ///
 /// There is no filtering of the contents of the directory (e.g. hidden files).
 ///
 /// # Parameters
 ///
 /// * `directory` - The directory to read from.
-/// * `property` - The property that needs to be satisfied.
+/// * `condition` - The property that needs to be satisfied.
 ///
 ///     **Parameter:**
-///     * The path of the element to check.
+///     * The element to check
 ///
 ///     **Return:**
-///     * `true` - The element satisfies the property.
-///     * `false` - The element does not satisfy the property.
+///     * `true` - The element satisfies the condition.
+///     * `false` - The element does not satisfy the condition.
 ///
 /// # Returns
 ///
@@ -112,51 +112,58 @@ impl DirectoryLoader for WasomeLoader {
 fn list_all_with_specific_property<
     'a,
     F: AsRef<Path> + 'a,
-    Property: Fn(&Path) -> Result<bool, Error>,
+    Condition: FnMut(&DirEntry) -> Result<bool, Error>,
 >(
     directory: F,
-    property: Property,
-) -> Result<Result<impl Iterator<Item = OsString> + 'static, Error>, Error> {
-    Ok(Ok(read_dir(directory)?
+    mut condition: Condition,
+) -> Result<impl Iterator<Item = OsString> + 'static, Error> {
+    Ok(read_dir(directory)?
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
-        .map(|elem| (property(&elem.path()), elem))
+        .map(|elem| (condition(&elem), elem))
         .map(|elem| elem.0.map(|inner| (inner, elem.1)))
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .filter(|elem| elem.0)
         .map(|elem| elem.1)
-        .map(|elem| elem.file_name())))
+        .map(|elem| elem.file_name()))
 }
 
-/// Checks if the provided path points to a file after all symlinks are resolved
+/// Checks if the provided entry is a file after all symlinks are resolved
 ///
 /// # Parameter
 ///
-/// **to_check** - The path
+/// **to_check** - The entry
 ///
 /// # Return
 ///
-/// **Ok(bool)** - Does the path point to a file?
+/// **Ok(bool)** - Is the entry a file?
 /// **Err(Error)** - There was an IO error
-fn path_is_file(to_check: &Path) -> Result<bool, Error> {
-    metadata(to_check).map(|inner| inner.is_file())
+fn entry_is_file(to_check: &DirEntry) -> Result<bool, Error> {
+    dir_entry_has_file_type_condition(to_check, |ft| ft.is_file())
 }
 
-/// Checks if the provided path points to a directory after all symlinks are resolved
+/// Checks if the provided entry is a directory after all symlinks are resolved
 ///
 /// # Parameter
 ///
-/// **to_check** - The path
+/// **to_check** - The entry
 ///
 /// # Return
 ///
-/// **Ok(bool)** - Does the path point to a directory?
+/// **Ok(bool)** - Is the entry a directory?
 /// **Err(Error)** - There was an IO error
-fn path_is_directory(to_check: &Path) -> Result<bool, Error> {
-    metadata(to_check).map(|inner| inner.is_dir())
+fn entry_is_directory(to_check: &DirEntry) -> Result<bool, Error> {
+    dir_entry_has_file_type_condition(to_check, |ft| ft.is_dir())
 }
 
+fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(to_check: &DirEntry, mut condition: Condition) -> Result<bool, Error> {
+    let file_type = to_check.file_type()?;
+    if file_type.is_symlink() {
+        return metadata(to_check.path()).map(|inner| condition(inner.file_type()));
+    }
+    Ok(condition(file_type))
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,5 +299,38 @@ mod tests {
         } else {
              panic!("Should be error");
         }
+    }
+
+    #[test]
+    fn test_directory_loader_symlinks() {
+        use std::os::unix::fs::symlink;
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        // Create targets
+        File::create(root.join("real_file")).unwrap();
+        fs::create_dir(root.join("real_dir")).unwrap();
+
+        // Create symlinks
+        symlink(root.join("real_file"), root.join("link_to_file")).unwrap();
+        symlink(root.join("real_dir"), root.join("link_to_dir")).unwrap();
+
+        // Test list_files (should include real file and symlink to file)
+        let files: Vec<OsString> = WasomeLoader::list_files(root)
+            .expect("Should list files")
+            .collect();
+        assert!(files.contains(&OsString::from("real_file")));
+        assert!(files.contains(&OsString::from("link_to_file")));
+        assert!(!files.contains(&OsString::from("real_dir")));
+        assert!(!files.contains(&OsString::from("link_to_dir")));
+
+        // Test list_subdirs (should include real dir and symlink to dir)
+        let subdirs: Vec<OsString> = WasomeLoader::list_subdirs(root)
+            .expect("Should list subdirs")
+            .collect();
+        assert!(subdirs.contains(&OsString::from("real_dir")));
+        assert!(subdirs.contains(&OsString::from("link_to_dir")));
+        assert!(!subdirs.contains(&OsString::from("real_file")));
+        assert!(!subdirs.contains(&OsString::from("link_to_file")));
     }
 }
