@@ -1,64 +1,18 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
-use ariadne::{Color, Config, Fmt, Label, Report, ReportKind};
+use ariadne::{Config, Label, Report, ReportBuilder, ReportKind};
 use source::types::FileID;
+use yansi::{Color, Paint};
 
-use crate::diagnostic::{Diagnostic, Level};
+use crate::diagnostic::{Diagnostic, Level, Snippet};
 use crate::source::SourceLookup;
 
 struct DiagnosticStyling {
     heading: Color,
     message: Color,
     error: Color,
-}
-
-trait Renderable {
-    fn heading(&self) -> &'static str;
-    fn styling(&self) -> DiagnosticStyling;
-    fn output(&self) -> Box<dyn Write>;
-    fn config(&self) -> Config;
-}
-
-impl Renderable for Diagnostic {
-    fn heading(&self) -> &'static str {
-        match self.level {
-            Level::Error => "Error",
-            Level::Warning => "Warning",
-            Level::Info => "Info",
-        }
-    }
-
-    fn styling(&self) -> DiagnosticStyling {
-        match self.level {
-            Level::Error => DiagnosticStyling {
-                heading: Color::Red,
-                message: Color::BrightWhite,
-                error: Color::Red,
-            },
-            Level::Warning => DiagnosticStyling {
-                heading: Color::Yellow,
-                message: Color::BrightWhite,
-                error: Color::Yellow,
-            },
-            Level::Info => DiagnosticStyling {
-                heading: Color::Cyan,
-                message: Color::BrightWhite,
-                error: Color::Cyan,
-            },
-        }
-    }
-
-    fn output(&self) -> Box<dyn Write> {
-        match self.level {
-            Level::Error => Box::new(io::stderr()),
-            Level::Warning | Level::Info => Box::new(io::stdout()),
-        }
-    }
-
-    fn config(&self) -> Config {
-        Config::default()
-    }
+    help: Color,
 }
 
 #[derive(Clone, Debug)]
@@ -70,6 +24,9 @@ struct CachedSource {
 pub struct Renderer<'a> {
     diagnostic: &'a Diagnostic,
     source: &'a dyn SourceLookup,
+    writer: Box<dyn Write>,
+    styling: DiagnosticStyling,
+    cache: HashMap<FileID, CachedSource>,
 }
 
 impl<'a> Renderer<'a> {
@@ -77,100 +34,171 @@ impl<'a> Renderer<'a> {
         diagnostic: &'a Diagnostic,
         source: &'a impl SourceLookup,
     ) -> io::Result<()> {
-        let renderer = Self::new(diagnostic, source);
+        let mut renderer = Self::new(diagnostic, source);
 
         renderer.print()
     }
 
     fn new(diagnostic: &'a Diagnostic, source: &'a dyn SourceLookup) -> Self {
-        Self { diagnostic, source }
+        let writer = Self::resolve_output(diagnostic.level);
+        let styling = Self::resolve_styling(diagnostic.level);
+        
+        let mut cache = HashMap::new();
+        let unique: HashSet<_> = diagnostic.snippets.iter().map(|s| s.file).collect();
+
+        for id in unique {
+            if let Some(path_buf) = source.get_path(id) {
+                let path = path_buf.to_string_lossy().to_string();
+
+                if let Some(content) = source.get_content(id) {
+                    cache.insert(
+                        id,
+                        CachedSource {
+                            path,
+                            content: content.to_string(),
+                        },
+                    );
+                }
+            }
+        }
+
+        Self { 
+            diagnostic, 
+            source,
+            writer,
+            styling,
+            cache,
+        }
     }
 
-    fn print(&self) -> io::Result<()> {
-        let mut writer = self.diagnostic.output();
+    fn resolve_output(level: Level) -> Box<dyn Write> {
+        match level {
+            Level::Error => Box::new(io::stderr()),
+            Level::Warning | Level::Info => Box::new(io::stdout()),
+        }
+    }
 
-        let cache = self.build_cache();
+    fn resolve_styling(level: Level) -> DiagnosticStyling {
+        match level {
+            Level::Error => DiagnosticStyling {
+                heading: Color::Red,
+                message: Color::BrightWhite,
+                error: Color::Red,
+                help: Color::Green,
+            },
+            Level::Warning => DiagnosticStyling {
+                heading: Color::Yellow,
+                message: Color::BrightWhite,
+                error: Color::Yellow,
+                help: Color::Green,
+            },
+            Level::Info => DiagnosticStyling {
+                heading: Color::Cyan,
+                message: Color::BrightWhite,
+                error: Color::Cyan,
+                help: Color::Green,
+            },
+        }
+    }
 
-        let (primary_path, primary_range) = self.primary_span(&cache);
+    fn print(&mut self) -> io::Result<()> {
+        self.render_header()?;
 
-        let styling = self.diagnostic.styling();
+        for snippet in &self.diagnostic.snippets {
+            let (path, range) = self.primary_span(snippet);
+            let kind = ReportKind::Custom("", self.styling.heading);
+            let builder = Report::build(kind, (path, range)).with_config(Config::default());
 
-        let mut builder = Report::build(
-            ReportKind::Custom(self.diagnostic.heading(), styling.heading),
-            (primary_path, primary_range),
-        )
-        .with_config(self.diagnostic.config())
-        .with_message(
-            &self
-                .diagnostic
-                .message
-                .clone()
-                .fg(self.diagnostic.styling().message),
-        );
+            let report = self.add_labels_to_report(builder, snippet);
 
-        if let Some(code) = &self.diagnostic.code {
-            builder = builder.with_code(code);
+            self.render_report_headless(report)?;
         }
 
         if let Some(help) = &self.diagnostic.help {
-            builder = builder.with_help(help);
+            writeln!(self.writer, "{} {}", " Help ".bg(self.styling.help).bold(), help)?;
         }
 
-        for (path, range, message) in self.collect_labels(&cache) {
+        // Add an empty line between diagnostics for separation
+        writeln!(self.writer)?;
+
+        Ok(())
+    }
+
+    fn render_header(&mut self) -> io::Result<()> {
+        let heading_text = match self.diagnostic.level {
+            Level::Error => "Error",
+            Level::Warning => "Warning",
+            Level::Info => "Info",
+        };
+
+        let heading_str = format!(" {} ", heading_text);
+        let heading = heading_str.bg(self.styling.heading).bold();
+
+        write!(self.writer, "{}", heading)?;
+
+        write!(
+            self.writer,
+            " {}",
+            self.diagnostic.message.clone().fg(self.styling.message)
+        )?;
+
+        if let Some(code) = &self.diagnostic.code {
+            write!(self.writer, " {}", format!("[{}] ", code).fg(self.styling.heading))?;
+        }
+
+        writeln!(self.writer)?;
+
+        Ok(())
+    }
+
+    /// Renders a report but strips the first line (the empty header)
+    fn render_report_headless(
+        &mut self,
+        report: ReportBuilder<(String, std::ops::Range<usize>)>,
+    ) -> io::Result<()> {
+        let mut buffer = Vec::new();
+        let sources = ariadne::sources(self.cache.values().map(|c| (c.path.clone(), c.content.clone())));
+
+        report.finish().write(sources, &mut buffer)?;
+
+        if let Some(newline_pos) = buffer.iter().position(|&b| b == b'\n') {
+            self.writer.write_all(&buffer[newline_pos + 1..])?;
+        } else {
+            self.writer.write_all(&buffer)?;
+        }
+
+        Ok(())
+    }
+
+    fn add_labels_to_report<'b>(
+        &self,
+        mut builder: ReportBuilder<'b, (String, std::ops::Range<usize>)>,
+        snippet: &'b Snippet,
+    ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
+        for (path, range, message) in self.collect_labels(snippet) {
             builder = builder.with_label(
                 Label::new((path, range))
-                    .with_color(styling.error)
+                    .with_color(self.styling.error)
                     .with_message(message),
             );
         }
 
-        let sources = cache
-            .iter()
-            .map(|(_, c)| (c.path.clone(), c.content.clone()));
-
         builder
-            .finish()
-            .write(ariadne::sources(sources), &mut writer)
-    }
-
-    fn build_cache(&self) -> HashMap<FileID, CachedSource> {
-        let mut cache: HashMap<FileID, CachedSource> = HashMap::new();
-        let unique: HashSet<_> = self.diagnostic.snippets.iter().map(|s| s.file).collect();
-
-        for id in unique {
-            let path = self
-                .source
-                .get_path(id)
-                .expect(format!("Fatal: FileID {:?} missing from sourcemap", id).as_str())
-                .to_string_lossy()
-                .to_string();
-
-            let content = self
-                .source
-                .get_content(id)
-                .expect(format!("Fatal: FileID {:?} missing from sourcemap", id).as_str())
-                .to_string();
-
-            cache.insert(id, CachedSource { path, content });
-        }
-
-        cache
     }
 
     fn primary_span(
         &self,
-        cache: &HashMap<FileID, CachedSource>,
+        snippet: &Snippet,
     ) -> (String, std::ops::Range<usize>) {
-        if let Some(first_snippet) = self.diagnostic.snippets.first() {
-            if let Some(first_annotation) = first_snippet.annotations.first() {
-                if let Some(first_range) = first_annotation.ranges.first() {
-                    let path = &cache.get(&first_snippet.file).unwrap().path;
+        if let Some(first_ann) = snippet.annotations.first() {
+            if let Some(range) = first_ann.ranges.first() {
+                if let Some(cached) = self.cache.get(&snippet.file) {
+                    let span = snippet.file.span(range.start as u32, range.end as u32);
 
-                    let span = first_snippet
-                        .file
-                        .span(first_range.start as u32, first_range.end as u32);
-
-                    return (path.clone(), span.start.0 as usize..span.end.0 as usize);
+                    return (
+                        cached.path.clone(),
+                        span.start.0 as usize..span.end.0 as usize,
+                    );
                 }
             }
         }
@@ -178,18 +206,16 @@ impl<'a> Renderer<'a> {
         (String::new(), 0..0)
     }
 
-    fn collect_labels(
+    fn collect_labels<'b>(
         &self,
-        cache: &HashMap<FileID, CachedSource>,
-    ) -> Vec<(String, std::ops::Range<usize>, &str)> {
+        snippet: &'b Snippet,
+    ) -> Vec<(String, std::ops::Range<usize>, &'b str)> {
         let mut labels = Vec::new();
 
-        for snippet in &self.diagnostic.snippets {
-            let path = &cache.get(&snippet.file).unwrap().path;
-
-            for annotation in &snippet.annotations {
-                for range in &annotation.ranges {
-                    labels.push((path.clone(), range.clone(), annotation.message.as_str()));
+        if let Some(cached) = self.cache.get(&snippet.file) {
+            for ann in &snippet.annotations {
+                for range in &ann.ranges {
+                    labels.push((cached.path.clone(), range.clone(), ann.message.as_str()));
                 }
             }
         }

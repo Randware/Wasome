@@ -48,8 +48,13 @@ fn test_annotate_many() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .annotate_many([77..80, 52..55], "'num' declared as 'i64'")
-                .annotate(11..14, "Function expects 'i32'")
+                .annotate_many([77..80, 52..55], "'num' is of type 'i64'")
+                .build(),
+        )
+        .snippet(
+            Snippet::builder()
+                .file(main_id)
+                .annotate(11..14, "Function expects type 'i32'")
                 .build(),
         )
         .help("Change types or cast")
@@ -113,4 +118,28 @@ fn test_multi_file() {
         .build();
 
     error.print_snippets(&sm).unwrap();
+}
+
+#[test]
+fn test_print_snippets_no_snippets() {
+    let sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+
+    let error = Diagnostic::builder()
+        .level(Level::Error)
+        .message("Failed linking with 'stdlib'")
+        .code("E0101")
+        .build();
+
+    error.print_snippets(&sm).unwrap();
+}
+
+#[test]
+fn test_print_no_snippets() {
+    let error = Diagnostic::builder()
+        .level(Level::Error)
+        .message("Failed linking with 'stdlib'")
+        .help("Make sure you have the toolchain installed")
+        .build();
+
+    error.print().unwrap();
 }
