@@ -124,3 +124,14 @@ impl<T: PathResolver + DirectoryLoader> DirectoryIO for T {}
 pub trait FullIO: PathResolver + DirectoryLoader + FileLoader {}
 
 impl<T: PathResolver + DirectoryLoader + FileLoader> FullIO for T {}
+
+#[cfg(test)]
+mod tests {
+    use crate::{FileIO, FullIO};
+
+    // This is only here to check if it compiles
+    #[allow(dead_code)]
+    fn cast(input: impl FullIO) -> impl FileIO {
+        input
+    }
+}
