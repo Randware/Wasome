@@ -114,6 +114,7 @@ dependencies = [
  "ariadne",
  "bon",
  "source",
+ "yansi",
 ]
 
 [[package]]
