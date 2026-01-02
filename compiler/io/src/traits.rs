@@ -15,9 +15,9 @@
 //!   useful, but is a nice-to-have)
 //! * **Sandboxing:** Restricting file access to specific directories.
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 pub use std::{io::Error, path::Path};
-use std::ffi::OsString;
 
 /// Resolve paths.
 ///
@@ -77,7 +77,9 @@ pub trait DirectoryLoader {
     ///
     /// * `Ok(impl Iterator<Item=OsString>)` - An iterator over the filenames (not paths).
     /// * `Err(Error)` - If an IO error occurred.
-    fn list_files<'a,  F: AsRef<Path> + 'a>(path: F) -> Result<impl Iterator<Item=OsString> +'static, Error>;
+    fn list_files<'a, F: AsRef<Path> + 'a>(
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'static, Error>;
 
     /// Lists the subdirectories of a given directory
     ///
@@ -91,7 +93,9 @@ pub trait DirectoryLoader {
     ///
     /// * `Ok(impl Iterator<Item=OsString>)` - An iterator over the names of the subdirectories (not paths).
     /// * `Err(Error)` - If an IO error occurred.
-    fn list_subdirs<'a, F: AsRef<Path> + 'a>(path: F) -> Result<impl Iterator<Item=OsString> + 'static, Error>;
+    fn list_subdirs<'a, F: AsRef<Path> + 'a>(
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'static, Error>;
 }
 
 /// Helper trait that implements both [`PathResolver`] and [`FileLoader`]

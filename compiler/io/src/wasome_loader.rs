@@ -1,9 +1,9 @@
+use crate::{DirectoryLoader, FileLoader, PathResolver};
 use std::ffi::OsString;
 use std::fs;
 use std::fs::{metadata, read_dir};
 use std::io::Error;
 use std::path::{Path, PathBuf};
-use crate::{DirectoryLoader, FileLoader, PathResolver};
 
 /// Default loader for `.waso` files
 pub struct WasomeLoader;
@@ -72,11 +72,15 @@ impl FileLoader for WasomeLoader {
 }
 
 impl DirectoryLoader for WasomeLoader {
-    fn list_files<'a, F: AsRef<Path> + 'a>(path: F) -> Result<impl Iterator<Item=OsString>+ 'static, Error> {
+    fn list_files<'a, F: AsRef<Path> + 'a>(
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'static, Error> {
         list_all_with_specific_property(path, path_is_file)?
     }
 
-    fn list_subdirs<'a, F: AsRef<Path> + 'a>(path: F) -> Result<impl Iterator<Item=OsString> + 'static, Error> {
+    fn list_subdirs<'a, F: AsRef<Path> + 'a>(
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'static, Error> {
         list_all_with_specific_property(path, path_is_directory)?
     }
 }
@@ -106,8 +110,15 @@ impl DirectoryLoader for WasomeLoader {
 ///     Note that the iterator may be empty
 ///
 /// * **Err(Error)** - An IO error occurred
-fn list_all_with_specific_property<'a, F: AsRef<Path> + 'a, Property: Fn(&Path) -> Result<bool, Error>>(directory: F, property: Property) -> Result<Result<impl Iterator<Item=OsString> + 'static, Error>, Error> {
-   Ok(Ok(read_dir(directory)?
+fn list_all_with_specific_property<
+    'a,
+    F: AsRef<Path> + 'a,
+    Property: Fn(&Path) -> Result<bool, Error>,
+>(
+    directory: F,
+    property: Property,
+) -> Result<Result<impl Iterator<Item = OsString> + 'static, Error>, Error> {
+    Ok(Ok(read_dir(directory)?
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .map(|elem| (property(&elem.path()), elem))
