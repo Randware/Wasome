@@ -18,7 +18,6 @@
 use std::path::PathBuf;
 pub use std::{io::Error, path::Path};
 use std::ffi::OsString;
-use std::fs::ReadDir;
 
 /// Resolve paths.
 ///
@@ -93,29 +92,7 @@ pub trait DirectoryLoader {
     /// * `Ok(impl Iterator<Item=OsString>)` - An iterator over the names of the subdirectories (not paths).
     /// * `Err(Error)` - If an IO error occurred.
     fn list_subdirs<'a, F: AsRef<Path> + 'a>(path: F) -> Result<impl Iterator<Item=OsString> + 'static, Error>;
-
-    /*/// Lists all contents of the given directory
-    ///
-    /// This has the same behavior as calling both
-    /// [`list_files`](Self::list_files) and [`list_subdirs`](Self::list_subdirs)
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - The absolute or canonical path to the directory.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok((impl Iterator<Item=OsString>, impl Iterator<Item=OsString>))` - A tupel of iterators
-    ///     over the names (not paths) of files and subdirectories.
-    /// * `Err(Error)` - If an IO error occurred.
-    fn list_contents<'c>(path: impl AsRef<Path> + 'c) -> Result<(impl Iterator<Item=OsString> + 'static, impl Iterator<Item=OsString> + 'static), Error> {
-        let files = narrow(Self::list_files(&path)?);
-        //let dirs = Self::list_subdirs(&path)?;
-        Ok((files, [].into_iter()))
-    }*/
 }
-
-fn narrow<T: Iterator<Item=OsString> + 'static>(t: T) -> T {t}
 
 /// Helper trait that implements both [`PathResolver`] and [`FileLoader`]
 ///

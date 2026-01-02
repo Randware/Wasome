@@ -11,7 +11,7 @@ pub struct WasomeLoader;
 impl PathResolver for WasomeLoader {
     /// Resolves a relative path against a root to create a canonical, absolute path.
     ///
-    /// This implementation uses [`std::fs::canonicalize`] which performs real filesystem
+    /// This implementation uses [`fs::canonicalize`] which performs real filesystem
     /// operations to resolve symbolic links and ensure the path exists.
     ///
     /// # Arguments
@@ -35,7 +35,7 @@ impl PathResolver for WasomeLoader {
 impl FileLoader for WasomeLoader {
     /// Loads the source file content from the provided path
     ///
-    /// The default implementation performs real filesystem I/O using [`std::fs::read_to_string`].
+    /// The default implementation performs real filesystem I/O using [`fs::read_to_string`].
     /// It also performs a safety check to ensure the file size does not exceed the addressing
     /// limit.
     ///
