@@ -5,7 +5,10 @@ use std::fs::{metadata, read_dir};
 use std::io::Error;
 use std::path::{Path, PathBuf};
 
-/// Default loader for `.waso` files
+/// Default loader for `.waso` files.
+///
+/// This implementation provides standard filesystem I/O for resolving paths,
+/// loading file content, and listing directory entries.
 pub struct WasomeLoader;
 
 impl PathResolver for WasomeLoader {
@@ -85,31 +88,27 @@ impl DirectoryLoader for WasomeLoader {
     }
 }
 
-/// Reads the provided directory and returns the names of all elements whose path satisfies property
+/// Reads the provided directory and returns the names of all elements whose path satisfies a property.
 ///
-/// There is no filtering of the contents of the directory (e.g.: Hidden files)
+/// There is no filtering of the contents of the directory (e.g. hidden files).
 ///
 /// # Parameters
 ///
-/// * **directory** - The directory to read from
-/// * **property** - The property that needs to be satisfied
+/// * `directory` - The directory to read from.
+/// * `property` - The property that needs to be satisfied.
 ///
-///     ### Parameter
+///     **Parameter:**
+///     * The path of the element to check.
 ///
-///     * The path of the element to check
+///     **Return:**
+///     * `true` - The element satisfies the property.
+///     * `false` - The element does not satisfy the property.
 ///
-///     ### Return
+/// # Returns
 ///
-///     * **true** - The element satisfies property
-///     * **false** - The element doesn't
-///
-/// # Return
-///
-/// * **Ok(Elements)** - All elements that satisfied property are returned
-///
-///     Note that the iterator may be empty
-///
-/// * **Err(Error)** - An IO error occurred
+/// * `Ok(Elements)` - All elements that satisfied the property are returned.
+///   Note that the iterator may be empty.
+/// * `Err(Error)` - An IO error occurred.
 fn list_all_with_specific_property<
     'a,
     F: AsRef<Path> + 'a,
@@ -211,5 +210,87 @@ mod tests {
 
         // USE THE GETTER! It is public, so use it.
         assert_eq!(&source_file, "Hello World");
+    }
+
+    #[test]
+    fn test_list_files_mixed_content() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        // Create files
+        File::create(root.join("file1.txt")).unwrap();
+        File::create(root.join("file2.rs")).unwrap();
+        // Create directory
+        fs::create_dir(root.join("subdir")).unwrap();
+
+        let files: Vec<OsString> = WasomeLoader::list_files(root)
+            .expect("Should list files")
+            .collect();
+
+        // Check that it contains the files
+        assert!(files.contains(&OsString::from("file1.txt")));
+        assert!(files.contains(&OsString::from("file2.rs")));
+        // Check that it does NOT contain the directory
+        assert!(!files.contains(&OsString::from("subdir")));
+        // Check count
+        assert_eq!(files.len(), 2);
+    }
+
+    #[test]
+    fn test_list_subdirs_mixed_content() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        // Create file
+        File::create(root.join("file.txt")).unwrap();
+        // Create directories
+        fs::create_dir(root.join("sub1")).unwrap();
+        fs::create_dir(root.join("sub2")).unwrap();
+
+        let subdirs: Vec<OsString> = WasomeLoader::list_subdirs(root)
+            .expect("Should list subdirs")
+            .collect();
+
+        // Check that it contains the subdirs
+        assert!(subdirs.contains(&OsString::from("sub1")));
+        assert!(subdirs.contains(&OsString::from("sub2")));
+        // Check that it does NOT contain the file
+        assert!(!subdirs.contains(&OsString::from("file.txt")));
+        // Check count
+        assert_eq!(subdirs.len(), 2);
+    }
+
+    #[test]
+    fn test_directory_loader_empty() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        let files = WasomeLoader::list_files(root).expect("Should succeed");
+        assert_eq!(files.count(), 0);
+
+        let subdirs = WasomeLoader::list_subdirs(root).expect("Should succeed");
+        assert_eq!(subdirs.count(), 0);
+    }
+
+    #[test]
+    fn test_directory_loader_not_found() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().join("non_existent");
+
+        let files_res = WasomeLoader::list_files(&root);
+        assert!(files_res.is_err());
+        if let Err(e) = files_res {
+             assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
+        } else {
+             panic!("Should be error");
+        }
+
+        let subdirs_res = WasomeLoader::list_subdirs(&root);
+        assert!(subdirs_res.is_err());
+        if let Err(e) = subdirs_res {
+             assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
+        } else {
+             panic!("Should be error");
+        }
     }
 }

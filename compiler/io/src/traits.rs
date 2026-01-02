@@ -100,16 +100,16 @@ pub trait DirectoryLoader {
 
 /// Helper trait that implements both [`PathResolver`] and [`FileLoader`]
 ///
-/// It has now functionality on its own and is automatically implemented for all applicable types.
+/// It has no functionality on its own and is automatically implemented for all applicable types.
 ///
 /// It only exists to make trait bounds simpler
 pub trait FileIO: PathResolver + FileLoader {}
 
 impl<T: PathResolver + FileLoader> FileIO for T {}
 
-/// Helper trait that implements both [`PathResolver`] and [`FileLoader`]
+/// Helper trait that implements both [`PathResolver`] and [`DirectoryLoader`]
 ///
-/// It has now functionality on its own and is automatically implemented for all applicable types.
+/// It has no functionality on its own and is automatically implemented for all applicable types.
 ///
 /// It only exists to make trait bounds simpler
 pub trait DirectoryIO: PathResolver + DirectoryLoader {}
@@ -118,7 +118,7 @@ impl<T: PathResolver + DirectoryLoader> DirectoryIO for T {}
 
 /// Helper trait that implements [`PathResolver`], [`DirectoryLoader`] and [`FileLoader`]
 ///
-/// It has now functionality on its own and is automatically implemented for all applicable types.
+/// It has no functionality on its own and is automatically implemented for all applicable types.
 ///
 /// It only exists to make trait bounds simpler
 pub trait FullIO: PathResolver + DirectoryLoader + FileLoader {}
