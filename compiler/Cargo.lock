@@ -62,6 +62,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "io"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -192,6 +199,7 @@ version = "0.1.0"
 name = "source"
 version = "0.1.0"
 dependencies = [
+ "io",
  "tempfile",
 ]
 

@@ -1,4 +1,3 @@
-pub mod loader;
 mod source;
 pub mod types;
 

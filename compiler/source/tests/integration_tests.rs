@@ -1,9 +1,9 @@
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
-use tempfile::{TempDir, tempdir};
-
-use source::{SourceMap, loader::WasomeLoader};
+use tempfile::{tempdir, TempDir};
+use io::WasomeLoader;
+use source::SourceMap;
 
 // --- HELPER FUNCTION ---
 
