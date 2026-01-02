@@ -224,22 +224,19 @@ mod tests {
         let dir = tempdir().unwrap();
         let root = dir.path();
 
-        // Create files
         File::create(root.join("file1.txt")).unwrap();
         File::create(root.join("file2.rs")).unwrap();
-        // Create directory
+
         fs::create_dir(root.join("subdir")).unwrap();
 
         let files: Vec<OsString> = WasomeLoader::list_files(root)
             .expect("Should list files")
             .collect();
 
-        // Check that it contains the files
         assert!(files.contains(&OsString::from("file1.txt")));
         assert!(files.contains(&OsString::from("file2.rs")));
-        // Check that it does NOT contain the directory
         assert!(!files.contains(&OsString::from("subdir")));
-        // Check count
+
         assert_eq!(files.len(), 2);
     }
 
@@ -248,9 +245,8 @@ mod tests {
         let dir = tempdir().unwrap();
         let root = dir.path();
 
-        // Create file
         File::create(root.join("file.txt")).unwrap();
-        // Create directories
+
         fs::create_dir(root.join("sub1")).unwrap();
         fs::create_dir(root.join("sub2")).unwrap();
 
@@ -258,12 +254,11 @@ mod tests {
             .expect("Should list subdirs")
             .collect();
 
-        // Check that it contains the subdirs
+
         assert!(subdirs.contains(&OsString::from("sub1")));
         assert!(subdirs.contains(&OsString::from("sub2")));
-        // Check that it does NOT contain the file
         assert!(!subdirs.contains(&OsString::from("file.txt")));
-        // Check count
+
         assert_eq!(subdirs.len(), 2);
     }
 
@@ -307,30 +302,36 @@ mod tests {
         let dir = tempdir().unwrap();
         let root = dir.path();
 
-        // Create targets
-        File::create(root.join("real_file")).unwrap();
-        fs::create_dir(root.join("real_dir")).unwrap();
+        let real_path = root.join("real");
+        fs::create_dir(real_path.clone()).unwrap();
+        fs::create_dir(real_path.clone().join("real_dir")).unwrap();
 
-        // Create symlinks
-        symlink(root.join("real_file"), root.join("link_to_file")).unwrap();
-        symlink(root.join("real_dir"), root.join("link_to_dir")).unwrap();
+        File::create(real_path.clone().join("real_file")).unwrap();
 
-        // Test list_files (should include real file and symlink to file)
+        symlink(real_path.clone().join("real_file"), root.join("link_to_file")).unwrap();
+        symlink(real_path.clone().join("real_dir"), root.join("link_to_dir")).unwrap();
+
         let files: Vec<OsString> = WasomeLoader::list_files(root)
             .expect("Should list files")
             .collect();
-        assert!(files.contains(&OsString::from("real_file")));
+        assert!(!files.contains(&OsString::from("real_file")));
         assert!(files.contains(&OsString::from("link_to_file")));
         assert!(!files.contains(&OsString::from("real_dir")));
         assert!(!files.contains(&OsString::from("link_to_dir")));
+        assert!(!files.contains(&OsString::from("real")));
 
-        // Test list_subdirs (should include real dir and symlink to dir)
+        assert_eq!(1, files.len());
+
         let subdirs: Vec<OsString> = WasomeLoader::list_subdirs(root)
             .expect("Should list subdirs")
             .collect();
-        assert!(subdirs.contains(&OsString::from("real_dir")));
+        assert!(!subdirs.contains(&OsString::from("real_dir")));
         assert!(subdirs.contains(&OsString::from("link_to_dir")));
         assert!(!subdirs.contains(&OsString::from("real_file")));
         assert!(!subdirs.contains(&OsString::from("link_to_file")));
+        assert!(subdirs.contains(&OsString::from("real")));
+
+        assert_eq!(2, subdirs.len());
+
     }
 }
