@@ -89,6 +89,31 @@ fn test_primary_span() {
 }
 
 #[test]
+fn test_print_with_snippets() {
+    MockLoader::reset();
+
+    MockLoader::load_from_disk("/src/main.waso", "main.waso");
+
+    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let main_id = sm.load_file("main.waso").expect("Failed to load file");
+
+    let error = Diagnostic::builder()
+        .level(Level::Error)
+        .message("Primary Span Test")
+        .code("E8888")
+        .snippet(
+            Snippet::builder()
+                .file(main_id)
+                .annotate(88..89, "Primary")
+                .annotate(52..55, "Secondary")
+                .build(),
+        )
+        .build();
+
+    error.print().unwrap();
+}
+
+#[test]
 fn test_multi_file() {
     MockLoader::reset();
 
