@@ -4,11 +4,8 @@ use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
 };
-
-use crate::{
-    loader::{FileLoader, WasomeLoader},
-    types::{BytePos, FileID, LineInfo, Location, MultiByteChar, Span},
-};
+use io::{FileIO, WasomeLoader};
+use crate::types::{BytePos, FileID, LineInfo, Location, MultiByteChar, Span};
 
 /// The central registry for source files
 ///
@@ -17,7 +14,7 @@ use crate::{
 /// * Deduplicating files to save memory (ensuring files are only loaded once)
 /// * Translating low level [`Span`]s (byte offsets) into human-readable [`Location`]s
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SourceMap<Loader: FileLoader = WasomeLoader> {
+pub struct SourceMap<Loader: FileIO = WasomeLoader> {
     root_path: PathBuf,
     file_cache: HashMap<PathBuf, FileID>,
     files: Vec<SourceFile>,
@@ -25,7 +22,7 @@ pub struct SourceMap<Loader: FileLoader = WasomeLoader> {
     __loader: PhantomData<Loader>,
 }
 
-impl<Loader: FileLoader> SourceMap<Loader> {
+impl<Loader: FileIO> SourceMap<Loader> {
     /// Creates a new and empty [`SourceMap`] that is rooted at the given path
     pub fn new(root_path: PathBuf) -> Self {
         Self {
@@ -57,7 +54,7 @@ impl<Loader: FileLoader> SourceMap<Loader> {
         }
 
         // If not cached, calls the loader
-        let source_file = Loader::load(&path)?;
+        let source_file = Self::get_source_file(&path)?;
 
         // Safety check
         if self.files().len() > u32::MAX as usize {
@@ -76,6 +73,23 @@ impl<Loader: FileLoader> SourceMap<Loader> {
         self.files.push(source_file);
 
         Ok(file_id)
+    }
+
+    /// Internal helper function for [`SourceFile`] loading
+    ///
+    /// It loads the [`SourceFile`] from the provided path with Loader.
+    ///
+    /// # Parameter
+    ///
+    /// * **absolute_path** - The [`SourceFile`] to load
+    ///
+    /// # Return
+    ///
+    /// * **Ok(SourceFile)** - The loading was successful
+    /// + **Err(Error)** - There was an IO error
+    fn get_source_file(absolute_path: &Path) -> Result<SourceFile, Error> {
+        let content_string = Loader::load(absolute_path)?;
+        Ok(SourceFile::new(absolute_path.to_path_buf(), content_string))
     }
 
     /// Retrieves the SourceFile object from a FileID handle
@@ -315,11 +329,10 @@ mod tests {
         path::PathBuf,
         sync::{LazyLock, Mutex},
     };
-
+    use io::{FileLoader, PathResolver};
     use crate::{
-        SourceFile, SourceMap,
-        loader::FileLoader,
-        types::{BytePos, Span},
+        types::{BytePos, Span}, SourceFile,
+        SourceMap,
     };
 
     static MOCK_FS: LazyLock<Mutex<HashMap<PathBuf, String>>> =
@@ -333,16 +346,18 @@ mod tests {
         }
     }
     impl FileLoader for MockLoader {
-        fn load<F: AsRef<std::path::Path>>(path: F) -> Result<SourceFile, std::io::Error> {
+        fn load<F: AsRef<std::path::Path>>(path: F) -> Result<String, std::io::Error> {
             let path = path.as_ref().to_path_buf();
             let fs = MOCK_FS.lock().unwrap();
 
             match fs.get(&path) {
-                Some(content) => Ok(SourceFile::new(path, content.clone())),
+                Some(content) => Ok(content.clone()),
                 None => Err(Error::new(ErrorKind::NotFound, "File not found in mock FS")),
             }
         }
+    }
 
+    impl PathResolver for MockLoader {
         fn resolve<T: AsRef<std::path::Path>, F: AsRef<std::path::Path>>(
             root_path: T,
             relative_path: F,
