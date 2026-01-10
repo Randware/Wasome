@@ -23,7 +23,6 @@ struct CachedSource {
 
 pub struct Renderer<'a> {
     diagnostic: &'a Diagnostic,
-    source: &'a dyn SourceLookup,
     writer: Box<dyn Write>,
     styling: DiagnosticStyling,
     cache: HashMap<FileID, CachedSource>,
@@ -64,7 +63,6 @@ impl<'a> Renderer<'a> {
 
         Self {
             diagnostic,
-            source,
             writer,
             styling,
             cache,
