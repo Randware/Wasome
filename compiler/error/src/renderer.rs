@@ -42,7 +42,7 @@ impl<'a> Renderer<'a> {
     fn new(diagnostic: &'a Diagnostic, source: &'a dyn SourceLookup) -> Self {
         let writer = Self::resolve_output(diagnostic.level);
         let styling = Self::resolve_styling(diagnostic.level);
-        
+
         let mut cache = HashMap::new();
         let unique: HashSet<_> = diagnostic.snippets.iter().map(|s| s.file).collect();
 
@@ -62,8 +62,8 @@ impl<'a> Renderer<'a> {
             }
         }
 
-        Self { 
-            diagnostic, 
+        Self {
+            diagnostic,
             source,
             writer,
             styling,
@@ -101,22 +101,20 @@ impl<'a> Renderer<'a> {
         }
     }
 
+    fn resolve_config(level: Level) -> Config {
+        match level {
+            _ => Config::default(),
+        }
+    }
+
     fn print(&mut self) -> io::Result<()> {
         self.render_header()?;
 
         for snippet in &self.diagnostic.snippets {
-            let (path, range) = self.primary_span(snippet);
-            let kind = ReportKind::Custom("", self.styling.heading);
-            let builder = Report::build(kind, (path, range)).with_config(Config::default());
-
-            let report = self.add_labels_to_report(builder, snippet);
-
-            self.render_report_headless(report)?;
+            self.render_snippet(snippet)?;
         }
 
-        if let Some(help) = &self.diagnostic.help {
-            writeln!(self.writer, "{} {}", " Help ".bg(self.styling.help).bold(), help)?;
-        }
+        self.render_help()?;
 
         // Add an empty line between diagnostics for separation
         writeln!(self.writer)?;
@@ -124,17 +122,44 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
+    fn render_help(&mut self) -> io::Result<()> {
+        if let Some(help) = &self.diagnostic.help {
+            writeln!(
+                self.writer,
+                "{} {}",
+                " Help ".bg(self.styling.help).bold(),
+                help
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
+        let kind = ReportKind::Custom("", self.styling.heading);
+
+        let report = Report::build(kind, (String::new(), 0..0))
+            .with_config(Self::resolve_config(self.diagnostic.level));
+
+        let report = self.label_report(report, snippet);
+
+        let buffer = self.strip_report(report)?;
+
+        self.writer.write_all(&buffer)?;
+
+        Ok(())
+    }
+
     fn render_header(&mut self) -> io::Result<()> {
-        let heading_text = match self.diagnostic.level {
+        let title = match self.diagnostic.level {
             Level::Error => "Error",
             Level::Warning => "Warning",
             Level::Info => "Info",
         };
 
-        let heading_str = format!(" {} ", heading_text);
-        let heading = heading_str.bg(self.styling.heading).bold();
+        let heading = format!(" {} ", title);
 
-        write!(self.writer, "{}", heading)?;
+        write!(self.writer, "{}", heading.bg(self.styling.heading))?;
 
         write!(
             self.writer,
@@ -143,7 +168,11 @@ impl<'a> Renderer<'a> {
         )?;
 
         if let Some(code) = &self.diagnostic.code {
-            write!(self.writer, " {}", format!("[{}] ", code).fg(self.styling.heading))?;
+            write!(
+                self.writer,
+                " {}",
+                format!("[{}] ", code).fg(self.styling.heading)
+            )?;
         }
 
         writeln!(self.writer)?;
@@ -151,65 +180,41 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    /// Renders a report but strips the first line (the empty header)
-    fn render_report_headless(
+    fn strip_report(
         &mut self,
         report: ReportBuilder<(String, std::ops::Range<usize>)>,
-    ) -> io::Result<()> {
-        let mut buffer = Vec::new();
-        let sources = ariadne::sources(self.cache.values().map(|c| (c.path.clone(), c.content.clone())));
+    ) -> io::Result<Vec<u8>> {
+        let mut buffer: Vec<u8> = Vec::new();
+        let sources = ariadne::sources(
+            self.cache
+                .values()
+                .map(|c| (c.path.clone(), c.content.clone())),
+        );
 
         report.finish().write(sources, &mut buffer)?;
 
-        if let Some(newline_pos) = buffer.iter().position(|&b| b == b'\n') {
-            self.writer.write_all(&buffer[newline_pos + 1..])?;
-        } else {
-            self.writer.write_all(&buffer)?;
+        // Remove the first line of the report
+        if let Some(newline_idx) = buffer.iter().position(|&b| b == b'\n') {
+            buffer.drain(0..=newline_idx);
         }
 
-        Ok(())
+        // Remove the primary error position
+        if let Some(colon_idx) = buffer.iter().position(|&b| b == b':') {
+            if let Some(space_offset) = buffer[colon_idx..].iter().position(|&b| b == b' ') {
+                let space_idx = colon_idx + space_offset - 1;
+
+                buffer.drain(colon_idx..=space_idx);
+            }
+        }
+
+        Ok(buffer)
     }
 
-    fn add_labels_to_report<'b>(
+    fn label_report<'b>(
         &self,
         mut builder: ReportBuilder<'b, (String, std::ops::Range<usize>)>,
         snippet: &'b Snippet,
     ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
-        for (path, range, message) in self.collect_labels(snippet) {
-            builder = builder.with_label(
-                Label::new((path, range))
-                    .with_color(self.styling.error)
-                    .with_message(message),
-            );
-        }
-
-        builder
-    }
-
-    fn primary_span(
-        &self,
-        snippet: &Snippet,
-    ) -> (String, std::ops::Range<usize>) {
-        if let Some(first_ann) = snippet.annotations.first() {
-            if let Some(range) = first_ann.ranges.first() {
-                if let Some(cached) = self.cache.get(&snippet.file) {
-                    let span = snippet.file.span(range.start as u32, range.end as u32);
-
-                    return (
-                        cached.path.clone(),
-                        span.start.0 as usize..span.end.0 as usize,
-                    );
-                }
-            }
-        }
-
-        (String::new(), 0..0)
-    }
-
-    fn collect_labels<'b>(
-        &self,
-        snippet: &'b Snippet,
-    ) -> Vec<(String, std::ops::Range<usize>, &'b str)> {
         let mut labels = Vec::new();
 
         if let Some(cached) = self.cache.get(&snippet.file) {
@@ -222,6 +227,14 @@ impl<'a> Renderer<'a> {
 
         labels.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.start.cmp(&b.1.start)));
 
-        labels
+        for (path, range, message) in labels {
+            builder = builder.with_label(
+                Label::new((path, range))
+                    .with_color(self.styling.error)
+                    .with_message(message),
+            );
+        }
+
+        builder
     }
 }

@@ -99,13 +99,12 @@ fn test_print_with_snippets() {
 
     let error = Diagnostic::builder()
         .level(Level::Error)
-        .message("Primary Span Test")
+        .message("Print with snippets")
         .code("E8888")
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .annotate(88..89, "Primary")
-                .annotate(52..55, "Secondary")
+                .annotate(52..55, "Error")
                 .build(),
         )
         .build();
