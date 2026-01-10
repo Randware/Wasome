@@ -17,19 +17,19 @@ pub enum Level {
 #[derive(Builder, Debug, Clone)]
 pub struct Diagnostic {
     #[builder(field)]
-    pub snippets: Vec<Snippet>,
+    pub(crate) snippets: Vec<Snippet>,
 
     #[builder(default = Level::Error)]
-    pub level: Level,
+    pub(crate) level: Level,
 
     #[builder(into)]
-    pub message: String,
+    pub(crate) message: String,
 
     #[builder(into)]
-    pub code: Option<String>,
+    pub(crate) code: Option<String>,
 
     #[builder(into)]
-    pub help: Option<String>,
+    pub(crate) help: Option<String>,
 }
 
 impl<S: diagnostic_builder::State> DiagnosticBuilder<S> {
@@ -54,13 +54,14 @@ impl Diagnostic {
 #[derive(Builder, Debug, Clone)]
 pub struct Snippet {
     #[builder(field)]
-    pub annotations: Vec<Annotation>,
+    pub(crate) annotations: Vec<Annotation>,
 
-    pub file: FileID,
+    pub(crate) file: FileID,
 }
 
+// TODO: Maybe make this a builder, so we can explicitly set primary annotations
 #[derive(Debug, Clone)]
-pub struct Annotation {
+pub(crate) struct Annotation {
     pub ranges: Vec<Range<usize>>,
     pub message: String,
 }

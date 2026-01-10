@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
+use std::ops::Range;
 
-use ariadne::{Config, Label, Report, ReportBuilder, ReportKind};
+use ariadne::{ColorGenerator, Config, Label, Report, ReportBuilder, ReportKind};
 use source::types::FileID;
 use yansi::{Color, Paint};
 
@@ -208,29 +209,27 @@ impl<'a> Renderer<'a> {
         Ok(buffer)
     }
 
+    // TODO: Decide if we should color code grouped annotations
     fn label_report<'b>(
         &self,
         mut builder: ReportBuilder<'b, (String, std::ops::Range<usize>)>,
         snippet: &'b Snippet,
     ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
-        let mut labels = Vec::new();
-
         if let Some(cached) = self.cache.get(&snippet.file) {
             for ann in &snippet.annotations {
-                for range in &ann.ranges {
-                    labels.push((cached.path.clone(), range.clone(), ann.message.as_str()));
+                let mut ranges: Vec<_> = ann.ranges.iter().collect();
+
+                // TODO: Decide whether to sort annotations or not
+                ranges.sort_by_key(|r| r.start);
+
+                for range in ranges {
+                    let label = Label::new((cached.path.clone(), (*range).clone()))
+                        .with_message(&ann.message)
+                        .with_color(self.styling.error);
+
+                    builder.add_label(label);
                 }
             }
-        }
-
-        labels.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.start.cmp(&b.1.start)));
-
-        for (path, range, message) in labels {
-            builder = builder.with_label(
-                Label::new((path, range))
-                    .with_color(self.styling.error)
-                    .with_message(message),
-            );
         }
 
         builder
