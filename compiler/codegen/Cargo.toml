@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 inkwell = { version = "0.7.0", features = ["llvm21-1"] }
+thiserror = "2"
