@@ -62,6 +62,10 @@ pub enum TokenType {
     Integer(i64),
     #[regex(r"'(\\.|[^\\'])'", char_callback)]
     CharLiteral(char),
+    #[token("true")]
+    True,
+    #[token("false")]
+    False,
 
     // Math Operators
     #[token("+")]
@@ -72,11 +76,11 @@ pub enum TokenType {
     Multiplication,
     #[token("%")]
     Modulo,
-    
+
     // '/' is a bit extra, since we will be using it for both Math and Filepaths.
     #[token("/")]
     Slash,
-    
+
     // Logic Operators
     #[token("<")]
     LessThan,
@@ -136,7 +140,7 @@ pub enum TokenType {
     New,
     #[token("import")]
     Import,
-    
+
     // Symbols
     #[token("->")]
     Return,
