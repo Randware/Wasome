@@ -246,3 +246,219 @@ impl DirectoryBuilder {
         self.files.iter().filter(|file| file.name() == name).map(|file| file.deref()).next()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ast::file::File;
+    use ast::ASTNode;
+    use ast::UntypedAST;
+    use std::path::PathBuf;
+
+    fn create_dummy_file(name: &str) -> ASTNode<File<UntypedAST>, PathBuf> {
+        ASTNode::new(
+            File::new(name.to_string(), Vec::new(), Vec::new()),
+            PathBuf::from(name),
+        )
+    }
+
+    #[test]
+    fn test_new() {
+        let builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        assert_eq!(builder.name, "root");
+        assert_eq!(builder.location, PathBuf::from("root"));
+        assert!(builder.subdirectories.is_empty());
+        assert!(builder.files.is_empty());
+    }
+
+    #[test]
+    fn test_add_file_directly() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        let file = create_dummy_file("test");
+
+        // Add successful
+        assert_eq!(builder.add_file_directly(file), Some(()));
+        assert_eq!(builder.files.len(), 1);
+        assert_eq!(builder.files[0].name(), "test");
+
+        // Add duplicate
+        let file_dup = create_dummy_file("test");
+        assert_eq!(builder.add_file_directly(file_dup), None);
+        // Verify collection hasn't changed
+        assert_eq!(builder.files.len(), 1);
+        assert_eq!(builder.files[0].name(), "test");
+    }
+
+    #[test]
+    fn test_add_subdirectory_directly() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        let subdir = DirectoryBuilder::new("sub".to_string(), PathBuf::from("root/sub"));
+
+        // Add successful
+        assert_eq!(builder.add_subdirectory_directly(subdir), Some(()));
+        assert_eq!(builder.subdirectories.len(), 1);
+        assert_eq!(builder.subdirectories[0].name, "sub");
+        assert_eq!(builder.subdirectories[0].location, PathBuf::from("root/sub"));
+
+        // Add duplicate
+        let subdir_dup = DirectoryBuilder::new("sub".to_string(), PathBuf::from("root/sub"));
+        assert_eq!(builder.add_subdirectory_directly(subdir_dup), None);
+        // Verify collection hasn't changed
+        assert_eq!(builder.subdirectories.len(), 1);
+        assert_eq!(builder.subdirectories[0].name, "sub");
+    }
+
+    #[test]
+    fn test_add_file_nested() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+
+        // Add to root (empty path)
+        let f1 = create_dummy_file("f1");
+        assert_eq!(builder.add_file(f1, &[]), Some(()));
+        assert_eq!(builder.files.len(), 1);
+        assert_eq!(builder.files[0].name(), "f1");
+
+        // Add to existing subdir
+        builder.create_subdir("sub".to_string());
+        let f2 = create_dummy_file("f2");
+        assert_eq!(builder.add_file(f2, &["sub".to_string()]), Some(()));
+        
+        let sub = builder.subdir_by_name("sub").unwrap();
+        assert_eq!(sub.files.len(), 1);
+        assert_eq!(sub.files[0].name(), "f2");
+
+        // Add to new nested subdir (should create intermediate)
+        let f3 = create_dummy_file("f3");
+        assert_eq!(builder.add_file(f3, &["sub".to_string(), "nested".to_string()]), Some(()));
+        
+        let sub = builder.subdir_by_name("sub").unwrap();
+        let nested = sub.subdir_by_name("nested").unwrap();
+        assert_eq!(nested.files.len(), 1);
+        assert_eq!(nested.files[0].name(), "f3");
+    }
+
+    #[test]
+    fn test_add_file_duplicate_nested() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        let f1 = create_dummy_file("f1");
+        builder.add_file(f1, &["sub".to_string()]);
+
+        let f1_dup = create_dummy_file("f1");
+        assert_eq!(builder.add_file(f1_dup, &["sub".to_string()]), None);
+        
+        // Verify integrity
+        let sub = builder.subdir_by_name("sub").unwrap();
+        assert_eq!(sub.files.len(), 1);
+        assert_eq!(sub.files[0].name(), "f1");
+    }
+
+    #[test]
+    fn test_subdir_by_path() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+
+        // Root
+        let root_ref = builder.subdir_by_path(&[]);
+        assert_eq!(root_ref.name, "root");
+
+        // Create deep path
+        let deep = builder.subdir_by_path(&["a".to_string(), "b".to_string()]);
+        assert_eq!(deep.name, "b");
+
+        // Verify structure
+        let a = builder.subdir_by_name("a").unwrap();
+        assert_eq!(a.name, "a");
+        let b = a.subdir_by_name("b").unwrap();
+        assert_eq!(b.name, "b");
+    }
+
+    #[test]
+    fn test_subdir_by_path_nonmutating() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        builder.subdir_by_path(&["a".to_string()]);
+
+        assert!(builder.subdir_by_path_nonmutating(&[]).is_some());
+        assert!(builder.subdir_by_path_nonmutating(&["a".to_string()]).is_some());
+        assert!(builder.subdir_by_path_nonmutating(&["b".to_string()]).is_none());
+        assert!(builder.subdir_by_path_nonmutating(&["a".to_string(), "b".to_string()]).is_none());
+    }
+
+    #[test]
+    fn test_file_by_path() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        let f1 = create_dummy_file("f1");
+        builder.add_file(f1, &["a".to_string()]); // puts f1 in a
+
+        // Found
+        let found = builder.file_by_path(&["a".to_string(), "f1".to_string()]);
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().name(), "f1");
+
+        // Not found (wrong name)
+        assert!(builder.file_by_path(&["a".to_string(), "f2".to_string()]).is_none());
+
+        // Not found (wrong path)
+        assert!(builder.file_by_path(&["b".to_string(), "f1".to_string()]).is_none());
+
+        // Invalid path (empty)
+        assert!(builder.file_by_path(&[]).is_none());
+
+        // File in root
+        let f2 = create_dummy_file("f2");
+        builder.add_file_directly(f2);
+        assert!(builder.file_by_path(&["f2".to_string()]).is_some());
+    }
+
+    #[test]
+    fn test_build() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        let f1 = create_dummy_file("f1");
+        builder.add_file(f1, &["sub".to_string()]);
+
+        let dir_node = builder.build();
+        let dir = dir_node.deref();
+
+        assert_eq!(dir.name(), "root");
+        assert_eq!(dir.subdirectories().len(), 1);
+        assert_eq!(dir.files().len(), 0);
+
+        let sub = &dir.subdirectories()[0];
+        assert_eq!(sub.name(), "sub");
+        assert_eq!(sub.files().len(), 1);
+        assert_eq!(sub.files()[0].name(), "f1");
+    }
+
+    #[test]
+    fn test_ensure_subdir_exists() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        builder.ensure_subdir_exists("sub".to_string());
+        
+        assert_eq!(builder.subdirectories.len(), 1);
+        assert_eq!(builder.subdirectories[0].name, "sub");
+
+        // Ensure again
+        builder.ensure_subdir_exists("sub".to_string());
+        assert_eq!(builder.subdirectories.len(), 1);
+        assert_eq!(builder.subdirectories[0].name, "sub");
+    }
+
+    #[test]
+    fn test_create_subdir() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        assert_eq!(builder.create_subdir("sub".to_string()), Some(()));
+        assert_eq!(builder.subdirectories.len(), 1);
+        assert_eq!(builder.subdirectories[0].name, "sub");
+
+        // Create duplicate
+        assert_eq!(builder.create_subdir("sub".to_string()), None);
+        assert_eq!(builder.subdirectories.len(), 1);
+    }
+
+    #[test]
+    fn test_subdir_by_name_mut() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+        builder.create_subdir("sub".to_string());
+
+        assert!(builder.subdir_by_name_mut("sub").is_some());
+        assert!(builder.subdir_by_name_mut("nonexistent").is_none());
+    }
+}
