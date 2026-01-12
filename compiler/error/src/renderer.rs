@@ -114,6 +114,9 @@ impl<'a> Renderer<'a> {
     }
 
     fn print(&mut self) -> io::Result<()> {
+        // Add an empty line before this diagnostic
+        writeln!(self.writer)?;
+
         self.render_header()?;
 
         for snippet in &self.diagnostic.snippets {
@@ -122,7 +125,7 @@ impl<'a> Renderer<'a> {
 
         self.render_help()?;
 
-        // Add an empty line between diagnostics for separation
+        // Add an empty line after this diagnostic
         writeln!(self.writer)?;
 
         Ok(())
