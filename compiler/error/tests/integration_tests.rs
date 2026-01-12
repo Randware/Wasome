@@ -73,7 +73,7 @@ fn test_primary_span() {
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
-        .level(Level::Error)
+        .level(Level::Warning)
         .message("Primary Span Test")
         .code("E8888")
         .snippet(
@@ -98,7 +98,7 @@ fn test_print_with_snippets() {
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
-        .level(Level::Error)
+        .level(Level::Info)
         .message("Print with snippets")
         .code("E8888")
         .snippet(

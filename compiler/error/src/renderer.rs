@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
-use std::ops::Range;
 
-use ariadne::{ColorGenerator, Config, Label, Report, ReportBuilder, ReportKind};
+use ariadne::{Config, Label, Report, ReportBuilder, ReportKind};
 use source::types::FileID;
 use yansi::{Color, Paint};
 
@@ -10,10 +9,12 @@ use crate::diagnostic::{Diagnostic, Level, Snippet};
 use crate::source::SourceLookup;
 
 struct DiagnosticStyling {
-    heading: Color,
-    message: Color,
-    error: Color,
-    help: Color,
+    type_heading: Color,
+    help_heading: Color,
+    diagnostic_message: Color,
+    annotation_message: Color,
+    help_message: Color,
+    snippet_highlight: Color,
 }
 
 #[derive(Clone, Debug)]
@@ -80,22 +81,28 @@ impl<'a> Renderer<'a> {
     fn resolve_styling(level: Level) -> DiagnosticStyling {
         match level {
             Level::Error => DiagnosticStyling {
-                heading: Color::Red,
-                message: Color::BrightWhite,
-                error: Color::Red,
-                help: Color::Green,
+                type_heading: Color::Red,
+                help_heading: Color::Green,
+                diagnostic_message: Color::Primary,
+                annotation_message: Color::Primary,
+                help_message: Color::Primary,
+                snippet_highlight: Color::Red,
             },
             Level::Warning => DiagnosticStyling {
-                heading: Color::Yellow,
-                message: Color::BrightWhite,
-                error: Color::Yellow,
-                help: Color::Green,
+                type_heading: Color::Yellow,
+                help_heading: Color::Green,
+                diagnostic_message: Color::Primary,
+                annotation_message: Color::Primary,
+                help_message: Color::Primary,
+                snippet_highlight: Color::Yellow,
             },
             Level::Info => DiagnosticStyling {
-                heading: Color::Cyan,
-                message: Color::BrightWhite,
-                error: Color::Cyan,
-                help: Color::Green,
+                type_heading: Color::Cyan,
+                help_heading: Color::Green,
+                diagnostic_message: Color::Primary,
+                annotation_message: Color::Primary,
+                help_message: Color::Primary,
+                snippet_highlight: Color::Cyan,
             },
         }
     }
@@ -121,21 +128,45 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    fn render_help(&mut self) -> io::Result<()> {
-        if let Some(help) = &self.diagnostic.help {
-            writeln!(
+    fn render_header(&mut self) -> io::Result<()> {
+        let title = match self.diagnostic.level {
+            Level::Error => "Error",
+            Level::Warning => "Warning",
+            Level::Info => "Info",
+        };
+
+        let heading = format!(" {} ", title);
+
+        write!(
+            self.writer,
+            "{}",
+            heading.fg(self.styling.type_heading).invert().bold()
+        )?;
+
+        write!(
+            self.writer,
+            " {}",
+            self.diagnostic
+                .message
+                .clone()
+                .fg(self.styling.diagnostic_message)
+        )?;
+
+        if let Some(code) = &self.diagnostic.code {
+            write!(
                 self.writer,
-                "{} {}",
-                " Help ".bg(self.styling.help).bold(),
-                help
+                " {}",
+                format!("{}", code).fg(self.styling.type_heading).bold()
             )?;
         }
+
+        writeln!(self.writer)?;
 
         Ok(())
     }
 
     fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
-        let kind = ReportKind::Custom("", self.styling.heading);
+        let kind = ReportKind::Custom("", self.styling.type_heading);
 
         let report = Report::build(kind, (String::new(), 0..0))
             .with_config(Self::resolve_config(self.diagnostic.level));
@@ -149,32 +180,15 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    fn render_header(&mut self) -> io::Result<()> {
-        let title = match self.diagnostic.level {
-            Level::Error => "Error",
-            Level::Warning => "Warning",
-            Level::Info => "Info",
-        };
-
-        let heading = format!(" {} ", title);
-
-        write!(self.writer, "{}", heading.bg(self.styling.heading))?;
-
-        write!(
-            self.writer,
-            " {}",
-            self.diagnostic.message.clone().fg(self.styling.message)
-        )?;
-
-        if let Some(code) = &self.diagnostic.code {
-            write!(
+    fn render_help(&mut self) -> io::Result<()> {
+        if let Some(help) = &self.diagnostic.help {
+            writeln!(
                 self.writer,
-                " {}",
-                format!("[{}] ", code).fg(self.styling.heading)
+                "{} {}",
+                " Help ".fg(self.styling.help_heading).invert().bold(),
+                help.fg(self.styling.help_message)
             )?;
         }
-
-        writeln!(self.writer)?;
 
         Ok(())
     }
@@ -224,8 +238,8 @@ impl<'a> Renderer<'a> {
 
                 for range in ranges {
                     let label = Label::new((cached.path.clone(), (*range).clone()))
-                        .with_message(&ann.message)
-                        .with_color(self.styling.error);
+                        .with_message(&ann.message.fg(self.styling.annotation_message))
+                        .with_color(self.styling.snippet_highlight);
 
                     builder.add_label(label);
                 }
