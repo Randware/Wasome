@@ -75,14 +75,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         import_root: ImportRoot,
         import_path: Vec<String>,
     ) -> Option<()> {
-        let mut path = Vec::new();
-        match import_root {
-            ImportRoot::CurrentModule => container_file_location
-                .iter()
-                .for_each(|elem| path.push(elem.clone())),
-            ImportRoot::Root => (),
-        }
-        import_path.iter().for_each(|elem| path.push(elem.clone()));
+        let path = canonicalize_import_path(container_file_location, import_root, import_path);
 
         let path_buf = path.iter().fold(PathBuf::new(), |mut acc, elem| {
             acc.push(elem);
@@ -106,8 +99,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                     Ok(val) => val,
                     Err(_) => return false,
                 };
-
-                self.add_file_handle_imports(&path, loaded);
+                if self.root.file_by_path(&path).is_none() {
+                    self.add_file_handle_imports(&path, loaded);
+                }
                 true
             })
         {
@@ -116,4 +110,16 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             None
         }
     }
+}
+
+fn canonicalize_import_path(container_file_location: &[String], import_root: ImportRoot, import_path: Vec<String>) -> Vec<String> {
+    let mut path = Vec::new();
+    match import_root {
+        ImportRoot::CurrentModule => container_file_location
+            .iter()
+            .for_each(|elem| path.push(elem.clone())),
+        ImportRoot::Root => (),
+    }
+    import_path.iter().for_each(|elem| path.push(elem.clone()));
+    path
 }

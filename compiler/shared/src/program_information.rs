@@ -1,9 +1,16 @@
 use std::path::{Path, PathBuf};
 
+/// Information about a program being compiled
 pub struct ProgramInformation {
+    /// The name of the program
     name: String,
+    /// The path of the program root
     path: PathBuf,
+    /// All dependencies
     dependencies: Vec<Dependency>,
+    /// The main file
+    ///
+    /// Relative to the program root
     main_file: PathBuf
 }
 
@@ -29,7 +36,10 @@ impl ProgramInformation {
         &self.main_file
     }
 }
+
+/// A dependency
 pub struct Dependency {
+    /// The name of the dependency
     name: String,
     /// Relative to the program path
     path: PathBuf
