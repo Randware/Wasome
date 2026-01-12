@@ -1,9 +1,8 @@
+use std::ops::Deref;
 use ast::directory::Directory;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
-use std::iter::Filter;
 use std::path::PathBuf;
-use std::slice::Iter;
 
 #[derive(Debug)]
 pub(crate) struct DirectoryBuilder {
@@ -32,15 +31,23 @@ impl DirectoryBuilder {
     }
 
     pub fn add_file(&mut self, to_add: ASTNode<File<UntypedAST>, PathBuf>, path: &[String]) {
+        self.subdir_by_path(path).add_file_directly(to_add)
+    }
+
+    pub fn subdir_by_path(&mut self, path: &[String]) -> &mut DirectoryBuilder {
         match path.first() {
-            None => self.add_file_directly(to_add),
+            None => self,
             Some(dir_name) => {
                 self.ensure_subdir_exists(dir_name.to_owned());
                 self.subdir_by_name_mut(dir_name)
                     .unwrap()
-                    .add_file(to_add, &path[1..])
+                    .subdir_by_path(&path[1..])
             }
         }
+    }
+    
+    pub fn file_by_path(&mut self, path: &[String]) -> Option<&File<UntypedAST>> {
+        self.subdir_by_path(&path[0..path.len()-1]).file_by_name(path.last()?)
     }
 
     pub fn build(self) -> ASTNode<Directory<UntypedAST>, PathBuf> {
@@ -83,5 +90,9 @@ impl DirectoryBuilder {
         let mut subdir_path = self.location.clone();
         subdir_path.push(&name);
         self.subdirectories.push(Self::new(name, subdir_path))
+    }
+    
+    fn file_by_name(&self, name: &str) -> Option<&File<UntypedAST>> {
+        self.files.iter().filter(|file| file.name() == name).map(|file| file.deref()).next()
     }
 }

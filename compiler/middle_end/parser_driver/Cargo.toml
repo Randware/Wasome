@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 shared = { path = "../../shared"}
 ast = { path = "../../ast"}
+source = { path = "../../source"}
+parser = { path = "../parser"}
+io = { path = "../../io"}

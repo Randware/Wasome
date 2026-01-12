@@ -111,7 +111,7 @@ impl SemanticEq for Import {
 }
 
 /// The place from where the provided path in an import originates
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ImportRoot {
     /// In the current module, comparable with ./
     CurrentModule,

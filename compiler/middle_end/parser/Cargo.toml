@@ -9,6 +9,7 @@ ast = { path = "../../ast"}
 lexer = { path = "../../lexer"}
 shared = { path = "../../shared"}
 source = { path = "../../source"}
+io = { path = "../../io"}
 
 [dev-dependencies]
 tempfile = "3"
