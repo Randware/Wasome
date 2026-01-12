@@ -75,7 +75,7 @@ fn test_primary_span() {
     let error = Diagnostic::builder()
         .level(Level::Warning)
         .message("Primary Span Test")
-        .code("E8888")
+        .code("W8080")
         .snippet(
             Snippet::builder()
                 .file(main_id)
@@ -100,7 +100,7 @@ fn test_print_with_snippets() {
     let error = Diagnostic::builder()
         .level(Level::Info)
         .message("Print with snippets")
-        .code("E8888")
+        .code("I2357")
         .snippet(
             Snippet::builder()
                 .file(main_id)
