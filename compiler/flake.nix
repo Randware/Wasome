@@ -37,10 +37,15 @@
 
         # sys deps matching dockerfile (zlib, zstd, etc)
         buildInputs = with pkgs; [
-          stdenv.cc.cc.lib
+    stdenv.cc.cc.lib
           zlib
           zstd
           openssl
+          
+          libffi  
+          libxml2 
+          ncurses 
+
           llvmPkg.libllvm
           llvmPkg.llvm
           llvmPkg.clang
