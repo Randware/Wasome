@@ -11,13 +11,14 @@ use inkwell::{
     },
 };
 
-use crate::temp::Cli;
+use crate::{temp::Cli, types::CodegenTypes};
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
     module: Module<'ctx>,
     machine: TargetMachine,
+    types: CodegenTypes<'ctx>,
 }
 
 impl<'ctx> LLVMContext<'ctx> {
@@ -39,12 +40,18 @@ impl<'ctx> LLVMContext<'ctx> {
                 CodeModel::Default,
             )
             .unwrap();
+        let layout = machine.get_target_data().get_data_layout();
+
+        module.set_triple(&triple);
+        module.set_data_layout(&layout);
+        let types = CodegenTypes::new(context, &layout);
 
         Self {
             context,
             builder,
             module,
             machine,
+            types,
         }
     }
 
