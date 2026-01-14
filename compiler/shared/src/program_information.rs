@@ -1,23 +1,28 @@
 use std::path::{Path, PathBuf};
 
 /// Information about a program being compiled
+#[derive(Debug)]
 pub struct ProgramInformation {
     /// The name of the program
     name: String,
     /// The path of the program root
     path: PathBuf,
-    /// All dependencies
-    dependencies: Vec<Dependency>,
+    /// All projects
+    ///
+    /// Including the main project and dependencies
+    projects: Vec<Project>,
+    /// The project of the main file
+    main_project: String,
     /// The main file
     ///
-    /// Relative to the program root
+    /// Relative to the project root
     main_file: PathBuf
 }
 
 impl ProgramInformation {
-    pub fn new(name: String, path: PathBuf, dependencies: Vec<Dependency>,
-               main_file: PathBuf) -> Self {
-        Self { name, path, dependencies, main_file }
+    pub fn new(name: String, path: PathBuf, dependencies: Vec<Project>,
+               main_project: String, main_file: PathBuf) -> Self {
+        Self { name, path, projects: dependencies, main_project, main_file }
     }
 
     pub fn name(&self) -> &str {
@@ -28,24 +33,31 @@ impl ProgramInformation {
         &self.path
     }
 
-    pub fn dependencies(&self) -> &Vec<Dependency> {
-        &self.dependencies
+    pub fn projects(&self) -> &[Project] {
+        &self.projects
     }
 
     pub fn main_file(&self) -> &Path {
         &self.main_file
     }
+
+    pub fn main_project(&self) -> &str {
+        &self.main_project
+    }
 }
 
-/// A dependency
-pub struct Dependency {
-    /// The name of the dependency
+/// A project
+///
+/// Both dependencies and the main project are represented by this
+#[derive(Debug)]
+pub struct Project {
+    /// The name of the project
     name: String,
     /// Relative to the program path
     path: PathBuf
 }
 
-impl Dependency {
+impl Project {
     pub fn new(name: String, path: PathBuf) -> Self {
         Self { name, path }
     }

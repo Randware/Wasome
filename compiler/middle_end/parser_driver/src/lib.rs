@@ -1,5 +1,6 @@
 mod ast_builder;
 mod directory_builder;
+mod module_path;
 
 use ast::{AST, UntypedAST};
 use io::FullIO;

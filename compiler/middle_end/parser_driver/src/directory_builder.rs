@@ -4,7 +4,7 @@ use ast::file::File;
 use ast::{ASTNode, UntypedAST};
 use std::path::PathBuf;
 
-/// Builds a directory
+/// Builds an untyped directory
 #[derive(Debug)]
 pub(crate) struct DirectoryBuilder {
     /// The location of the directory

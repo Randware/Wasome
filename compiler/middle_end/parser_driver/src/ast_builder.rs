@@ -1,34 +1,53 @@
 use crate::directory_builder::DirectoryBuilder;
-use ast::top_level::ImportRoot;
 use ast::{AST, ASTNode, UntypedAST};
 use io::FullIO;
 use parser::{FileInformation, parse};
 use shared::program_information::ProgramInformation;
 use source::SourceMap;
 use source::types::FileID;
-use std::path::PathBuf;
+use ast::file::File;
+use crate::module_path::{ModulePath, ModulePathProjectRelative};
 
+/// All valid wasome file extensions
 const WASOME_FILE_ENDINGS: &'static [&'static str] = &[".waso", ".✨"];
+
+/// Builds an entire untyped AST
 #[derive(Debug)]
 pub(crate) struct ASTBuilder<'a, Loader: FullIO> {
     root: DirectoryBuilder,
     load_from: &'a mut SourceMap<Loader>,
+    program_information: &'a ProgramInformation
 }
 
 impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
-    pub fn new(from: &ProgramInformation, load_from: &'a mut SourceMap<Loader>) -> Option<Self> {
+    /// Creates a new ASTBuilder
+    ///
+    /// The resulting ASTBuilder will be ready to be [`Self::build`]t
+    /// # Parameters
+    ///
+    /// - **from** - Information about the program being compiled
+    /// - **load_from** - Where the data should be loaded from
+    ///
+    /// # Return
+    ///
+    /// - **None** - If there was an error during building
+    /// - **Some(Self)** - Otherwise
+    pub fn new(from: &'a ProgramInformation, load_from: &'a mut SourceMap<Loader>) -> Option<Self> {
         let mut to_ret = Self {
             root: DirectoryBuilder::new(from.name().to_owned(), from.path().to_owned()),
             load_from,
+            program_information: from
         };
-        let main_file_location = from
+        let mut main_file_location = from
             .main_file()
             .iter()
             .map(|file_name| file_name.to_os_string().into_string().ok())
             .collect::<Option<Vec<_>>>()?;
+        main_file_location.pop();
+        let main_file_location = ModulePath::new(ModulePathProjectRelative::new(main_file_location), from.main_project().to_owned());
         let main_file_id = to_ret.load_from.load_file(from.path()).ok()?;
         to_ret.add_file_handle_imports(
-            &main_file_location[..main_file_location.len() - 1],
+            &main_file_location,
             main_file_id,
         )?;
         Some(to_ret)
@@ -40,47 +59,46 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         AST::new(self.root.build()).unwrap()
     }
 
-    fn add_file_handle_imports(&mut self, file_location: &[String], to_add: FileID) -> Option<()> {
-        let imports_information = self.add_file(file_location, to_add)?;
+    fn add_file_handle_imports(&mut self, file_location: &ModulePath, to_add: FileID) -> Option<()> {
+        let imports_information = self.handle_file(file_location, to_add)?;
         imports_information
             .into_iter()
-            .map(|(root, path)| self.add_import(file_location, root, path))
+            .map(|path| self.add_import(path))
             .fold(Some(()), |a, b| a.zip(b).map(|_| ()))
     }
 
-    fn add_file(&mut self, file_location: &[String], to_add: FileID) -> Option<Vec<(ImportRoot, Vec<String>)>> {
-        let file_information = FileInformation::new(to_add, file_location.last()?, self.load_from)?;
-        let parsed = parse(file_information)?;
-        let imports_information = parsed
-            .imports()
-            .iter()
-            .map(|import| (import.root().clone(), import.path().clone()))
-            .collect::<Vec<_>>();
+    fn handle_file(&mut self, file_location: &ModulePath, to_add: FileID) -> Option<Vec<ModulePath>> {
+        let parsed = self.load_file(&file_location, to_add)?;
+        let imports_information = ModulePath::from_file(&parsed, &file_location);
+        self.add_file(file_location, parsed);
+        Some(imports_information)
+    }
+
+    fn add_file(&mut self, file_location: &ModulePath, file: File<UntypedAST>) -> Option<()> {
+        let mut file_path = file_location.build_path_buf(self.program_information.projects())?;
+        file_path.push(file.name().to_owned());
         self.root.add_file(
             ASTNode::new(
-                parsed,
-                file_location.iter().fold(PathBuf::new(), |mut acc, elem| {
-                    acc.push(elem);
-                    acc
-                }),
+                file,
+                file_path,
             ),
-            file_location,
+            &file_location.elements(),
         );
-        Some(imports_information)
+        Some(())
+    }
+
+    fn load_file(&mut self, file_location: &ModulePath, to_add: FileID) -> Option<File<UntypedAST>> {
+        let last = file_location.elements().pop()?;
+        let file_information = FileInformation::new(to_add, &last, self.load_from)?;
+        let parsed = parse(file_information)?;
+        Some(parsed)
     }
 
     fn add_import(
         &mut self,
-        container_file_location: &[String],
-        import_root: ImportRoot,
-        import_path: Vec<String>,
+        path: ModulePath
     ) -> Option<()> {
-        let path = canonicalize_import_path(container_file_location, import_root, import_path);
-
-        let path_buf = path.iter().fold(PathBuf::new(), |mut acc, elem| {
-            acc.push(elem);
-            acc
-        });
+        let path_buf = path.build_path_buf(self.program_information.projects())?;
 
         let files = Loader::list_files(&path_buf).ok()?;
         if files
@@ -99,7 +117,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                     Ok(val) => val,
                     Err(_) => return false,
                 };
-                if self.root.file_by_path(&path).is_none() {
+                if self.root.file_by_path(&path.elements()).is_none() {
                     self.add_file_handle_imports(&path, loaded);
                 }
                 true
@@ -110,16 +128,4 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             None
         }
     }
-}
-
-fn canonicalize_import_path(container_file_location: &[String], import_root: ImportRoot, import_path: Vec<String>) -> Vec<String> {
-    let mut path = Vec::new();
-    match import_root {
-        ImportRoot::CurrentModule => container_file_location
-            .iter()
-            .for_each(|elem| path.push(elem.clone())),
-        ImportRoot::Root => (),
-    }
-    import_path.iter().for_each(|elem| path.push(elem.clone()));
-    path
 }
