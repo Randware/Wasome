@@ -135,8 +135,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     }
 
     fn does_file_exist(&mut self, path: &ModulePath, filename: &str) -> bool {
-        self.root.subdir_by_path_nonmutating(&path.elements())
-            .is_some_and(|module| module.file_by_name(filename).is_some())
+        self.root.file_by_path_name(&path.elements(), filename).is_some()
     }
 
     fn list_wasome_files_in_dir(dir: &PathBuf) -> Option<impl Iterator<Item=String>> {

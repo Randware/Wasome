@@ -153,24 +153,19 @@ impl DirectoryBuilder {
         }
     }
 
-    /// Gets the file specified by a path
+    /// Gets the file specified by a path and a filename
     /// 
     /// # Parameter
     ///
     /// - **path** - The path to lookup.
-    ///     - Empty paths are not allowed as they can never reference a file
-    ///     - Unlike other paths, this includes the filename as its last element
+    /// - **filename** - The name of the file
     ///
     /// # Return
     ///
-    /// - **None** - The file does not exist. This includes empty paths
+    /// - **None** - The file does not exist.
     /// - **Some(file)** - The file was found
-    pub fn file_by_path(&self, path: &[String]) -> Option<&File<UntypedAST>> {
-        if path.len() == 0 {
-            return None;
-        }
-        // Unwrap will never panic as the length was checked to be at least 1
-        self.subdir_by_path_nonmutating(&path[0..path.len()-1])?.file_by_name(path.last().unwrap())
+    pub fn file_by_path_name(&self, path: &[String], filename: &str) -> Option<&File<UntypedAST>> {
+        self.subdir_by_path_nonmutating(&path)?.file_by_name(filename)
     }
 
     /// Turns self into a [`Directory`]
@@ -186,6 +181,20 @@ impl DirectoryBuilder {
             ),
             self.location,
         )
+    }
+
+    /// Gets the file specified by name
+    ///
+    /// # Parameter
+    ///
+    /// - **name** - The name if the file to lookup.
+    ///
+    /// # Return
+    ///
+    /// - **None** - The file does not exist
+    /// - **Some(file)** - The file was found
+    pub fn file_by_name(&self, name: &str) -> Option<&File<UntypedAST>> {
+        self.files.iter().filter(|file| file.name() == name).map(|file| file.deref()).next()
     }
 
     /// Ensures that a subdir with a specific name exists
@@ -231,20 +240,6 @@ impl DirectoryBuilder {
         let mut subdir_path = self.location.clone();
         subdir_path.push(&name);
         self.add_subdirectory_directly(Self::new(name, subdir_path))
-    }
-
-    /// Gets the file specified by name
-    ///
-    /// # Parameter
-    ///
-    /// - **name** - The name if the file to lookup.
-    ///
-    /// # Return
-    ///
-    /// - **None** - The file does not exist
-    /// - **Some(file)** - The file was found
-    pub fn file_by_name(&self, name: &str) -> Option<&File<UntypedAST>> {
-        self.files.iter().filter(|file| file.name() == name).map(|file| file.deref()).next()
     }
 }
 
@@ -390,23 +385,20 @@ mod tests {
         builder.add_file(f1, &["a".to_string()]); // puts f1 in a
 
         // Found
-        let found = builder.file_by_path(&["a".to_string(), "f1".to_string()]);
+        let found = builder.file_by_path_name(&["a".to_string()], "f1");
         assert!(found.is_some());
         assert_eq!(found.unwrap().name(), "f1");
 
         // Not found (wrong name)
-        assert!(builder.file_by_path(&["a".to_string(), "f2".to_string()]).is_none());
+        assert!(builder.file_by_path_name(&["a".to_string()], "f2").is_none());
 
         // Not found (wrong path)
-        assert!(builder.file_by_path(&["b".to_string(), "f1".to_string()]).is_none());
-
-        // Invalid path (empty)
-        assert!(builder.file_by_path(&[]).is_none());
+        assert!(builder.file_by_path_name(&["b".to_string()], "f1").is_none());
 
         // File in root
         let f2 = create_dummy_file("f2");
         builder.add_file_directly(f2);
-        assert!(builder.file_by_path(&["f2".to_string()]).is_some());
+        assert!(builder.file_by_path_name(&[],"f2").is_some());
     }
 
     #[test]
