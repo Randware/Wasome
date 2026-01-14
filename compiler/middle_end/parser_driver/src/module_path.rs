@@ -1,8 +1,8 @@
 use ast::UntypedAST;
 use ast::file::File;
 use ast::top_level::ImportRoot;
-use std::path::PathBuf;
 use shared::program_information::Project;
+use std::path::PathBuf;
 
 /// Represents the fully qualified path to a module
 ///
@@ -23,7 +23,10 @@ impl ModulePath {
     /// - **relative_to_project** - The path within the project
     /// - **project** - The name of the project
     pub fn new(relative_to_project: ModulePathProjectRelative, project: String) -> Self {
-        Self { relative_to_project, project }
+        Self {
+            relative_to_project,
+            project,
+        }
     }
 
     /// Creates a `ModulePath` from import information
@@ -60,7 +63,8 @@ impl ModulePath {
             &container_file_location.relative_to_project,
             import_root,
             import_path,
-        ).unwrap();
+        )
+        .unwrap();
         Some(Self {
             relative_to_project: ModulePathProjectRelative::new(path),
             project,
@@ -88,7 +92,8 @@ impl ModulePath {
                     file_module,
                     import.root().clone(),
                     import.path().clone(),
-                ).unwrap()
+                )
+                .unwrap()
             })
             .collect::<Vec<_>>()
     }
@@ -111,10 +116,17 @@ impl ModulePath {
     ///
     /// All errors are represented by a return of `None`
     pub fn build_path_buf(&self, projects: &[Project]) -> Option<PathBuf> {
-        Some(projects.iter().find(|project| project.name() == &self.project)?.path().iter()
-            .chain(self.relative_to_project.build_path_buf().iter()).collect::<PathBuf>())
+        Some(
+            projects
+                .iter()
+                .find(|project| project.name() == &self.project)?
+                .path()
+                .iter()
+                .chain(self.relative_to_project.build_path_buf().iter())
+                .collect::<PathBuf>(),
+        )
     }
-    
+
     /// Returns the path components as a list of strings
     ///
     /// The first element is the project name
@@ -124,9 +136,11 @@ impl ModulePath {
     /// **Vec<String>** - The components of the path
     pub fn elements(&self) -> Vec<String> {
         let inner_elements = self.relative_to_project.elements();
-        let mut elements = Vec::with_capacity(inner_elements.len()+1);
+        let mut elements = Vec::with_capacity(inner_elements.len() + 1);
         elements.push(self.project.to_owned());
-        inner_elements.iter().for_each(|elem| elements.push(elem.to_owned()));
+        inner_elements
+            .iter()
+            .for_each(|elem| elements.push(elem.to_owned()));
         elements
     }
 }
@@ -222,7 +236,7 @@ mod tests {
     fn test_new() {
         let relative = ModulePathProjectRelative::new(vec!["foo".to_string(), "bar".to_string()]);
         let module_path = ModulePath::new(relative, "MyProject".to_string());
-        
+
         assert_eq!(module_path.project, "MyProject");
         assert_eq!(module_path.relative_to_project.elements(), &["foo", "bar"]);
     }
@@ -231,7 +245,7 @@ mod tests {
     fn test_elements() {
         let relative = ModulePathProjectRelative::new(vec!["a".to_string(), "b".to_string()]);
         let module_path = ModulePath::new(relative, "Proj".to_string());
-        
+
         let elements = module_path.elements();
         assert_eq!(elements, vec!["Proj", "a", "b"]);
     }
@@ -240,32 +254,31 @@ mod tests {
     fn test_from_import_information_current_module() {
         let container_relative = ModulePathProjectRelative::new(vec!["src".to_string()]);
         let container = ModulePath::new(container_relative, "CurrentProj".to_string());
-        
+
         let import_path = vec!["utils".to_string(), "helper".to_string()];
-        
-        let result = ModulePath::from_import_information(
-            &container,
-            ImportRoot::CurrentModule,
-            import_path
-        ).expect("Should successfully create path");
-        
+
+        let result =
+            ModulePath::from_import_information(&container, ImportRoot::CurrentModule, import_path)
+                .expect("Should successfully create path");
+
         assert_eq!(result.project, "CurrentProj");
-        assert_eq!(result.relative_to_project.elements(), &["src", "utils", "helper"]);
+        assert_eq!(
+            result.relative_to_project.elements(),
+            &["src", "utils", "helper"]
+        );
     }
 
     #[test]
     fn test_from_import_information_current_module_empty_import() {
         let container_relative = ModulePathProjectRelative::new(vec!["src".to_string()]);
         let container = ModulePath::new(container_relative, "CurrentProj".to_string());
-        
+
         let import_path: Vec<String> = vec![];
-        
-        let result = ModulePath::from_import_information(
-            &container,
-            ImportRoot::CurrentModule,
-            import_path
-        ).expect("Should successfully create path");
-        
+
+        let result =
+            ModulePath::from_import_information(&container, ImportRoot::CurrentModule, import_path)
+                .expect("Should successfully create path");
+
         assert_eq!(result.project, "CurrentProj");
         assert_eq!(result.relative_to_project.elements(), &["src"]);
     }
@@ -274,15 +287,16 @@ mod tests {
     fn test_from_import_information_root() {
         let container_relative = ModulePathProjectRelative::new(vec!["src".to_string()]);
         let container = ModulePath::new(container_relative, "CurrentProj".to_string());
-        
-        let import_path = vec!["OtherProj".to_string(), "lib".to_string(), "math".to_string()];
-        
-        let result = ModulePath::from_import_information(
-            &container,
-            ImportRoot::Root,
-            import_path
-        ).expect("Should successfully create path");
-        
+
+        let import_path = vec![
+            "OtherProj".to_string(),
+            "lib".to_string(),
+            "math".to_string(),
+        ];
+
+        let result = ModulePath::from_import_information(&container, ImportRoot::Root, import_path)
+            .expect("Should successfully create path");
+
         assert_eq!(result.project, "OtherProj");
         // "OtherProj" is stripped from relative path
         assert_eq!(result.relative_to_project.elements(), &["lib", "math"]);
@@ -292,15 +306,12 @@ mod tests {
     fn test_from_import_information_root_project_only() {
         let container_relative = ModulePathProjectRelative::new(vec!["src".to_string()]);
         let container = ModulePath::new(container_relative, "CurrentProj".to_string());
-        
+
         let import_path = vec!["OtherProj".to_string()];
-        
-        let result = ModulePath::from_import_information(
-            &container,
-            ImportRoot::Root,
-            import_path
-        ).expect("Should successfully create path");
-        
+
+        let result = ModulePath::from_import_information(&container, ImportRoot::Root, import_path)
+            .expect("Should successfully create path");
+
         assert_eq!(result.project, "OtherProj");
         assert!(result.relative_to_project.elements().is_empty());
     }
@@ -309,15 +320,11 @@ mod tests {
     fn test_from_import_information_root_empty_fails() {
         let container_relative = ModulePathProjectRelative::new(vec!["src".to_string()]);
         let container = ModulePath::new(container_relative, "CurrentProj".to_string());
-        
+
         let import_path: Vec<String> = vec![];
-        
-        let result = ModulePath::from_import_information(
-            &container,
-            ImportRoot::Root,
-            import_path
-        );
-        
+
+        let result = ModulePath::from_import_information(&container, ImportRoot::Root, import_path);
+
         assert!(result.is_none());
     }
 
@@ -325,17 +332,20 @@ mod tests {
     fn test_build_path_buf() {
         let proj_a_path = PathBuf::from("/path/to/A");
         let proj_b_path = PathBuf::from("/path/to/B");
-        
+
         let projects = vec![
             Project::new("ProjectA".to_string(), proj_a_path.clone()),
             Project::new("ProjectB".to_string(), proj_b_path.clone()),
         ];
-        
+
         // Case 1: Existing project, with relative path
-        let relative_a = ModulePathProjectRelative::new(vec!["src".to_string(), "main".to_string()]);
+        let relative_a =
+            ModulePathProjectRelative::new(vec!["src".to_string(), "main".to_string()]);
         let module_a = ModulePath::new(relative_a, "ProjectA".to_string());
-        
-        let path_a = module_a.build_path_buf(&projects).expect("Should find path");
+
+        let path_a = module_a
+            .build_path_buf(&projects)
+            .expect("Should find path");
         // /path/to/A/src/main
         let expected_a = proj_a_path.join("src").join("main");
         assert_eq!(path_a, expected_a);
@@ -343,25 +353,27 @@ mod tests {
         // Case 2: Existing project, empty relative path
         let relative_b = ModulePathProjectRelative::new(vec![]);
         let module_b = ModulePath::new(relative_b, "ProjectB".to_string());
-        
-        let path_b = module_b.build_path_buf(&projects).expect("Should find path");
+
+        let path_b = module_b
+            .build_path_buf(&projects)
+            .expect("Should find path");
         assert_eq!(path_b, proj_b_path);
 
         // Case 3: Non-existent project
         let relative_c = ModulePathProjectRelative::new(vec!["foo".to_string()]);
         let module_c = ModulePath::new(relative_c, "ProjectC".to_string());
-        
+
         let path_c = module_c.build_path_buf(&projects);
         assert!(path_c.is_none());
     }
-    
+
     #[test]
     fn test_module_path_project_relative() {
         let elements = vec!["one".to_string(), "two".to_string()];
         let relative = ModulePathProjectRelative::new(elements.clone());
-        
+
         assert_eq!(relative.elements(), &elements);
-        
+
         let path_buf = relative.build_path_buf();
         let expected = PathBuf::from("one").join("two");
         assert_eq!(path_buf, expected);

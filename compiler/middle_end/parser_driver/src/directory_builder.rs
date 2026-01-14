@@ -1,7 +1,7 @@
-use std::ops::Deref;
 use ast::directory::Directory;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
+use std::ops::Deref;
 use std::path::PathBuf;
 
 /// Builds an untyped directory
@@ -54,7 +54,7 @@ impl DirectoryBuilder {
                 self.files.push(to_add);
                 Some(())
             }
-            Some(_) => None
+            Some(_) => None,
         }
     }
 
@@ -78,7 +78,7 @@ impl DirectoryBuilder {
                 self.subdirectories.push(to_add);
                 Some(())
             }
-            Some(_) => None
+            Some(_) => None,
         }
     }
 
@@ -97,7 +97,11 @@ impl DirectoryBuilder {
     ///
     /// - **Some(())** - If adding was successful
     /// - **None** - If a file with this name already exists
-    pub fn add_file(&mut self, to_add: ASTNode<File<UntypedAST>, PathBuf>, path: &[String]) -> Option<()> {
+    pub fn add_file(
+        &mut self,
+        to_add: ASTNode<File<UntypedAST>, PathBuf>,
+        path: &[String],
+    ) -> Option<()> {
         self.subdir_by_path(path).add_file_directly(to_add)
     }
 
@@ -154,7 +158,7 @@ impl DirectoryBuilder {
     }
 
     /// Gets the file specified by a path and a filename
-    /// 
+    ///
     /// # Parameter
     ///
     /// - **path** - The path to lookup.
@@ -165,7 +169,8 @@ impl DirectoryBuilder {
     /// - **None** - The file does not exist.
     /// - **Some(file)** - The file was found
     pub fn file_by_path_name(&self, path: &[String], filename: &str) -> Option<&File<UntypedAST>> {
-        self.subdir_by_path_nonmutating(&path)?.file_by_name(filename)
+        self.subdir_by_path_nonmutating(&path)?
+            .file_by_name(filename)
     }
 
     /// Turns self into a [`Directory`]
@@ -194,7 +199,11 @@ impl DirectoryBuilder {
     /// - **None** - The file does not exist
     /// - **Some(file)** - The file was found
     pub fn file_by_name(&self, name: &str) -> Option<&File<UntypedAST>> {
-        self.files.iter().filter(|file| file.name() == name).map(|file| file.deref()).next()
+        self.files
+            .iter()
+            .filter(|file| file.name() == name)
+            .map(|file| file.deref())
+            .next()
     }
 
     /// Ensures that a subdir with a specific name exists
@@ -246,9 +255,9 @@ impl DirectoryBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::file::File;
     use ast::ASTNode;
     use ast::UntypedAST;
+    use ast::file::File;
     use std::path::PathBuf;
 
     fn create_dummy_file(name: &str) -> ASTNode<File<UntypedAST>, PathBuf> {
@@ -294,7 +303,10 @@ mod tests {
         assert_eq!(builder.add_subdirectory_directly(subdir), Some(()));
         assert_eq!(builder.subdirectories.len(), 1);
         assert_eq!(builder.subdirectories[0].name, "sub");
-        assert_eq!(builder.subdirectories[0].location, PathBuf::from("root/sub"));
+        assert_eq!(
+            builder.subdirectories[0].location,
+            PathBuf::from("root/sub")
+        );
 
         // Add duplicate
         let subdir_dup = DirectoryBuilder::new("sub".to_string(), PathBuf::from("root/sub"));
@@ -318,15 +330,18 @@ mod tests {
         builder.create_subdir("sub".to_string());
         let f2 = create_dummy_file("f2");
         assert_eq!(builder.add_file(f2, &["sub".to_string()]), Some(()));
-        
+
         let sub = builder.subdir_by_name("sub").unwrap();
         assert_eq!(sub.files.len(), 1);
         assert_eq!(sub.files[0].name(), "f2");
 
         // Add to new nested subdir (should create intermediate)
         let f3 = create_dummy_file("f3");
-        assert_eq!(builder.add_file(f3, &["sub".to_string(), "nested".to_string()]), Some(()));
-        
+        assert_eq!(
+            builder.add_file(f3, &["sub".to_string(), "nested".to_string()]),
+            Some(())
+        );
+
         let sub = builder.subdir_by_name("sub").unwrap();
         let nested = sub.subdir_by_name("nested").unwrap();
         assert_eq!(nested.files.len(), 1);
@@ -341,7 +356,7 @@ mod tests {
 
         let f1_dup = create_dummy_file("f1");
         assert_eq!(builder.add_file(f1_dup, &["sub".to_string()]), None);
-        
+
         // Verify integrity
         let sub = builder.subdir_by_name("sub").unwrap();
         assert_eq!(sub.files.len(), 1);
@@ -373,9 +388,21 @@ mod tests {
         builder.subdir_by_path(&["a".to_string()]);
 
         assert!(builder.subdir_by_path_nonmutating(&[]).is_some());
-        assert!(builder.subdir_by_path_nonmutating(&["a".to_string()]).is_some());
-        assert!(builder.subdir_by_path_nonmutating(&["b".to_string()]).is_none());
-        assert!(builder.subdir_by_path_nonmutating(&["a".to_string(), "b".to_string()]).is_none());
+        assert!(
+            builder
+                .subdir_by_path_nonmutating(&["a".to_string()])
+                .is_some()
+        );
+        assert!(
+            builder
+                .subdir_by_path_nonmutating(&["b".to_string()])
+                .is_none()
+        );
+        assert!(
+            builder
+                .subdir_by_path_nonmutating(&["a".to_string(), "b".to_string()])
+                .is_none()
+        );
     }
 
     #[test]
@@ -390,15 +417,23 @@ mod tests {
         assert_eq!(found.unwrap().name(), "f1");
 
         // Not found (wrong name)
-        assert!(builder.file_by_path_name(&["a".to_string()], "f2").is_none());
+        assert!(
+            builder
+                .file_by_path_name(&["a".to_string()], "f2")
+                .is_none()
+        );
 
         // Not found (wrong path)
-        assert!(builder.file_by_path_name(&["b".to_string()], "f1").is_none());
+        assert!(
+            builder
+                .file_by_path_name(&["b".to_string()], "f1")
+                .is_none()
+        );
 
         // File in root
         let f2 = create_dummy_file("f2");
         builder.add_file_directly(f2);
-        assert!(builder.file_by_path_name(&[],"f2").is_some());
+        assert!(builder.file_by_path_name(&[], "f2").is_some());
     }
 
     #[test]
@@ -424,7 +459,7 @@ mod tests {
     fn test_ensure_subdir_exists() {
         let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
         builder.ensure_subdir_exists("sub".to_string());
-        
+
         assert_eq!(builder.subdirectories.len(), 1);
         assert_eq!(builder.subdirectories[0].name, "sub");
 

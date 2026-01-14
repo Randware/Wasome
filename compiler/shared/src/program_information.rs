@@ -16,13 +16,24 @@ pub struct ProgramInformation {
     /// The main file
     ///
     /// Relative to the project root
-    main_file: PathBuf
+    main_file: PathBuf,
 }
 
 impl ProgramInformation {
-    pub fn new(name: String, path: PathBuf, dependencies: Vec<Project>,
-               main_project: String, main_file: PathBuf) -> Self {
-        Self { name, path, projects: dependencies, main_project, main_file }
+    pub fn new(
+        name: String,
+        path: PathBuf,
+        dependencies: Vec<Project>,
+        main_project: String,
+        main_file: PathBuf,
+    ) -> Self {
+        Self {
+            name,
+            path,
+            projects: dependencies,
+            main_project,
+            main_file,
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -54,7 +65,7 @@ pub struct Project {
     /// The name of the project
     name: String,
     /// Relative to the program path
-    path: PathBuf
+    path: PathBuf,
 }
 
 impl Project {

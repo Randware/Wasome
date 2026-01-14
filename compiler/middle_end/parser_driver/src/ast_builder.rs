@@ -45,6 +45,17 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         Some(to_ret)
     }
 
+    /// Turns this into an actual untyped AST
+    ///
+    /// # Return
+    ///
+    /// The untyped AST
+    pub fn build(self) -> AST<UntypedAST> {
+        // This will never panic as all imports must be valid as we add all imports and error if they
+        // are invalid
+        AST::new(self.root.build()).unwrap()
+    }
+
     fn extract_main_file(from: &ProgramInformation) -> Option<ModulePath> {
         let mut main_file_location = from
             .main_file()
@@ -57,12 +68,6 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             from.main_project().to_owned(),
         );
         Some(main_file_location)
-    }
-
-    pub fn build(self) -> AST<UntypedAST> {
-        // This will never panic as all imports must be valid as we add all imports and error if they
-        // are invalid
-        AST::new(self.root.build()).unwrap()
     }
 
     fn add_file_handle_imports(
@@ -110,48 +115,96 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     fn handle_import(&mut self, path: ModulePath) -> Option<()> {
         let module_dir = path.build_path_buf(self.program_information.projects())?;
 
-        if Self::list_wasome_files_in_dir(&module_dir)?
-            .all(|file| {
-                // Only load the file if it isn't loaded, yet
-                // We can't use an entire module at once as the main file is loaded alone
-                if self.does_file_exist(&path, &file) {
-                    // We don't load the file, but there is no error
-                    return true;
-                }
-                let loaded = match self.load_file(module_dir.clone(), file) {
-                    Some(value) => value,
-                    None => return false,
-                };
+        if Self::list_wasome_files_in_dir(&module_dir)?.all(|file| {
+            // Only load the file if it isn't loaded, yet
+            // We can't use an entire module at once as the main file is loaded alone
+            if self.does_file_exist(&path, &file) {
+                // We don't load the file, but there is no error
+                return true;
+            }
+            let loaded = match self.load_file(module_dir.clone(), &file) {
+                Some(value) => value,
+                None => return false,
+            };
 
-                self.add_file_handle_imports(&path, loaded);
+            self.add_file_handle_imports(&path, loaded);
 
-                true
-            })
-        {
+            true
+        }) {
             Some(())
         } else {
             None
         }
     }
 
-    fn does_file_exist(&mut self, path: &ModulePath, filename: &str) -> bool {
-        self.root.file_by_path_name(&path.elements(), filename).is_some()
+    fn does_file_exist(&self, path: &ModulePath, filename: &str) -> bool {
+        self.root
+            .file_by_path_name(&path.elements(), filename)
+            .is_some()
     }
 
-    fn list_wasome_files_in_dir(dir: &PathBuf) -> Option<impl Iterator<Item=String>> {
-        Some(Loader::list_files(dir).ok()?
-            .map(|file_name| file_name.into_string().ok())
-            .collect::<Option<Vec<_>>>()?
-            .into_iter()
-            .filter(|file| {
-                WASOME_FILE_ENDINGS
-                    .iter()
-                    .all(|ending| file.ends_with(ending))
-            }))
+    /// Lists all Wasome source files in the provided directory
+    ///
+    /// # Parameters
+    ///
+    /// - **module_path** - The path of the module the file belongs to
+    ///     - Relative to the root of the [`SourceMap`]
+    ///
+    /// # Return
+    ///
+    /// An iterator over the filenames of all wasome files in the provided directory
+    ///     - Including file extensions
+    ///
+    /// # Errors
+    ///
+    /// There was an IO error, for example
+    /// - Missing permissions
+    /// - Directory not found
+    ///
+    /// All errors are represented by a return of `None`
+    fn list_wasome_files_in_dir(dir: &PathBuf) -> Option<impl Iterator<Item = String>> {
+        Some(
+            Loader::list_files(dir)
+                .ok()?
+                .map(|file_name| file_name.into_string().ok())
+                .collect::<Option<Vec<_>>>()?
+                .into_iter()
+                .filter(|file| {
+                    WASOME_FILE_ENDINGS
+                        .iter()
+                        .all(|ending| file.ends_with(ending))
+                }),
+        )
     }
 
-    fn load_file(&mut self, mut file_path: PathBuf, file: String) -> Option<FileID> {
-        file_path.push(file);
-        self.load_from.load_file(file_path).ok()
+    /// Loads a file into the SourceMap and returns the FileID handle to it
+    ///
+    /// The file is specified via a module path and the file name. They are concatenated to get the
+    /// final path
+    ///
+    /// # Parameters
+    ///
+    /// - **module_path** - The path of the module the file belongs to
+    ///     - Relative to the root of the [`SourceMap`]
+    /// - **file_name** - The name of the file
+    ///     - Including the file extension
+    ///
+    /// # Return
+    ///
+    /// A handle to the loaded file
+    ///
+    /// # Errors
+    ///
+    /// The file could not be loaded, for example due to nonexistence
+    ///
+    /// All errors are represented by a return of `None`
+    fn load_file(&mut self, mut module_path: PathBuf, file_name: &str) -> Option<FileID> {
+        module_path.push(file_name);
+        self.load_file_combined_path(module_path)
+    }
+
+    /// Like [`Self::load_file`], but the filepath is already combined
+    fn load_file_combined_path(&mut self, module_path: PathBuf) -> Option<FileID> {
+        self.load_from.load_file(module_path).ok()
     }
 }
