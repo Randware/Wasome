@@ -39,7 +39,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             load_from,
             program_information: from,
         };
-        let main_file_location = Self::extract_main_file(from)?;
+        let main_file_location = Self::extract_main_file_module(from)?;
         let main_file_id = to_ret.load_from.load_file(from.path()).ok()?;
         to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Some(to_ret)
@@ -56,12 +56,24 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         AST::new(self.root.build()).unwrap()
     }
 
-    fn extract_main_file(from: &ProgramInformation) -> Option<ModulePath> {
+    /// Extracts the module
+    ///
+    /// # Parameter
+    ///
+    /// - **from** - From where to extract the path
+    ///
+    /// # Errors
+    ///
+    /// The main file path contains non-UTF8 characters
+    ///
+    /// All errors are represented by a return of `None`
+    fn extract_main_file_module(from: &ProgramInformation) -> Option<ModulePath> {
         let mut main_file_location = from
             .main_file()
             .iter()
             .map(|file_name| file_name.to_os_string().into_string().ok())
             .collect::<Option<Vec<_>>>()?;
+        // Don't include the filename
         main_file_location.pop();
         let main_file_location = ModulePath::new(
             ModulePathProjectRelative::new(main_file_location),
@@ -70,6 +82,22 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         Some(main_file_location)
     }
 
+    /// Handles the addition of a file
+    ///
+    /// All imports are handled recursively
+    ///
+    /// # Parameters
+    ///
+    /// - **file_location** - The location of the file
+    /// - **file** - The file to handle
+    ///
+    ///
+    /// # Errors
+    ///
+    /// - There is a syntax error
+    /// - `file_location` is empty
+    ///
+    /// All errors are represented by a return of `None`
     fn add_file_handle_imports(
         &mut self,
         file_location: &ModulePath,
@@ -82,6 +110,25 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .fold(Some(()), |a, b| a.zip(b).map(|_| ()))
     }
 
+    /// Handles the addition of a file
+    ///
+    /// All modules referenced by it are returned
+    ///
+    /// # Parameters
+    ///
+    /// - **file_location** - The location of the file
+    /// - **file** - The file to handle
+    ///
+    /// # Returns
+    ///
+    /// All modules imported by the file
+    ///
+    /// # Errors
+    ///
+    /// - There is a syntax error in the file
+    /// - `file_location` is empty
+    ///
+    /// All errors are represented by a return of `None`
     fn handle_file(
         &mut self,
         file_location: &ModulePath,
@@ -93,6 +140,18 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         Some(imports_information)
     }
 
+    /// Adds a file to the AST
+    ///
+    /// # Parameter
+    ///
+    /// - **file_location** - Where to add the file
+    /// - **file** - The file to add
+    ///
+    /// # Errors
+    ///
+    /// If the project of `file_location` can't be found in self
+    ///
+    /// All errors are represented by a return of `None`
     fn add_file(&mut self, file_location: &ModulePath, file: File<UntypedAST>) -> Option<()> {
         let mut file_path = file_location.build_path_buf(self.program_information.projects())?;
         file_path.push(file.name().to_owned());
@@ -101,24 +160,63 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         Some(())
     }
 
+    /// Parses a file
+    ///
+    /// The behavior is arbitrary, including possible panics but no UB, if `to_parse` does
+    /// is not from the [`SourceMap`] of self
+    ///
+    /// # Parameters
+    ///
+    /// - **file_location** - The location of the file. May not be empty
+    /// - **to_parse**: The file, provided as id in the [`SourceMap`] of self
+    ///
+    /// # Return
+    ///
+    /// The parsed file
+    ///
+    /// # Errors
+    ///
+    /// - `file_location` is empty
+    /// - The file contains syntax errors
+    ///
+    /// All errors are represented by a return of `None`
     fn parse_file(
         &mut self,
         file_location: &ModulePath,
-        to_add: FileID,
+        to_parse: FileID,
     ) -> Option<File<UntypedAST>> {
         let last = file_location.elements().pop()?;
-        let file_information = FileInformation::new(to_add, &last, self.load_from)?;
+        let file_information = FileInformation::new(to_parse, &last, self.load_from)?;
         let parsed = parse(file_information)?;
         Some(parsed)
     }
 
-    fn handle_import(&mut self, path: ModulePath) -> Option<()> {
-        let module_dir = path.build_path_buf(self.program_information.projects())?;
+    /// Handles an import
+    ///
+    /// More precisely, it loads all files imported by an import
+    /// Their imports are then loaded recursively
+    ///
+    /// Should a file already exist, nothing is done
+    ///
+    /// The import is only provided via it's import path
+    ///
+    /// # Parameter
+    ///
+    /// - **module_path** - The import path
+    ///
+    /// # Errors
+    ///
+    /// There was an IO error
+    ///     - This includes if `module_path` can't be resolved
+    ///
+    /// All errors are represented by a return of `None`
+    fn handle_import(&mut self, import_path: ModulePath) -> Option<()> {
+        let module_dir = import_path.build_path_buf(self.program_information.projects())?;
 
         if Self::list_wasome_files_in_dir(&module_dir)?.all(|file| {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
-            if self.does_file_exist(&path, &file) {
+            if self.does_file_exist_in_ast(&import_path, &file) {
                 // We don't load the file, but there is no error
                 return true;
             }
@@ -126,9 +224,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 Some(value) => value,
                 None => return false,
             };
-
-            self.add_file_handle_imports(&path, loaded);
-
+            self.add_file_handle_imports(&import_path, loaded);
             true
         }) {
             Some(())
@@ -137,7 +233,21 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         }
     }
 
-    fn does_file_exist(&self, path: &ModulePath, filename: &str) -> bool {
+    /// Checks wherever a file exists in the AST
+    ///
+    /// The file is provided via a path to the module and the name
+    ///
+    /// # Parameters
+    ///
+    /// - **module_path** - The path of the module the file belongs to
+    ///     - Relative to the root of the [`SourceMap`]
+    /// - **file_name** - The name of the file
+    ///     - Including the file extension
+    ///
+    /// # Return
+    ///
+    /// Does the file exist?
+    fn does_file_exist_in_ast(&self, path: &ModulePath, filename: &str) -> bool {
         self.root
             .file_by_path_name(&path.elements(), filename)
             .is_some()
