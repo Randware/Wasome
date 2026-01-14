@@ -142,7 +142,7 @@ impl DirectoryBuilder {
     ///
     /// - **None** - The directory does not exist
     /// - **Some(directory)** - The directory was found
-    fn subdir_by_path_nonmutating(&self, path: &[String]) -> Option<&DirectoryBuilder> {
+    pub fn subdir_by_path_nonmutating(&self, path: &[String]) -> Option<&DirectoryBuilder> {
         match path.first() {
             None => Some(self),
             Some(dir_name) => {
@@ -154,11 +154,12 @@ impl DirectoryBuilder {
     }
 
     /// Gets the file specified by a path
-    ///
+    /// 
     /// # Parameter
     ///
     /// - **path** - The path to lookup.
     ///     - Empty paths are not allowed as they can never reference a file
+    ///     - Unlike other paths, this includes the filename as its last element
     ///
     /// # Return
     ///
@@ -242,7 +243,7 @@ impl DirectoryBuilder {
     ///
     /// - **None** - The file does not exist
     /// - **Some(file)** - The file was found
-    fn file_by_name(&self, name: &str) -> Option<&File<UntypedAST>> {
+    pub fn file_by_name(&self, name: &str) -> Option<&File<UntypedAST>> {
         self.files.iter().filter(|file| file.name() == name).map(|file| file.deref()).next()
     }
 }
