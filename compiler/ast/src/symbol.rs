@@ -1,6 +1,5 @@
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
-use crate::visibility::Visibility;
 use crate::{ASTType, SemanticEq, TypedAST};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;

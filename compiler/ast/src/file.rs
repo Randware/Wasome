@@ -59,36 +59,6 @@ impl<Type: ASTType> File<Type> {
         &self.structs
     }
 
-    /// Gets the symbol with the specified origin if it is public or outside is false
-    fn symbol_specified_origin(
-        &self,
-        origin: &[String],
-        outside: bool,
-    ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
-        // Symbols can be a direct function...
-        self.function_symbol(origin.first()?, outside)
-            .map(|function_symbol| DirectlyAvailableSymbol::Function(function_symbol))
-            // ... or a function in a struct ...
-            .or_else(|| {
-                Some(DirectlyAvailableSymbol::Function(
-                    self.struct_by_name(&origin[0])?
-                        .function_symbol(origin.get(1)?, outside)?,
-                ))
-            })
-            // ... or a struct
-            .or_else(|| {
-                Some(DirectlyAvailableSymbol::Struct(
-                    self.struct_by_name(&origin[0])?.symbol(),
-                ))
-            })
-            // ... or an enum
-            .or_else(|| {
-                Some(DirectlyAvailableSymbol::Enum(
-                    self.enum_by_name(&origin[0])?.symbol(),
-                ))
-            })
-    }
-
     /// Gets the symbol with the specified name
     pub fn symbol(&self, name: &str) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         self.symbol_chosen_public(name, true)
@@ -125,13 +95,6 @@ impl<Type: ASTType> File<Type> {
         self.functions()
             .iter()
             .find(|function| function.declaration().name() == name)
-    }
-
-    /// Gets the function with the specified name if it is public or only_public is false
-    fn function_symbol(&self, name: &str, only_public: bool) -> Option<&FunctionSymbol<Type>> {
-        self.function_by_name(name)
-            .filter(|function| !only_public || function.visibility() == Visibility::Public)
-            .map(|function| function.declaration())
     }
 
     /// Gets the function with the specified name
