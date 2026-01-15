@@ -36,9 +36,9 @@ impl<Type: ASTType> Enum<Type> {
     }
 
     /// Gets the enum variant with the specified name
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// There is no variant with `name`
     pub fn variant_by_name(&self, name: &str) -> Option<&ASTNode<EnumVariant<Type>>> {
         self.variants()
@@ -54,7 +54,7 @@ impl<Type: ASTType> Enum<Type> {
 
 impl<Type: ASTType> SemanticEq for Enum<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.symbol() == other.symbol() &&
+        self.symbol().semantic_eq(other.symbol()) &&
             self.variants().semantic_eq(other.variants())
     }
 }
@@ -83,15 +83,7 @@ impl<Type: ASTType> EnumVariant<Type> {
 
 impl<Type: ASTType> SemanticEq for EnumVariant<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        let symbol = self.inner();
-        let other_symbol = other.inner();
-        symbol.name() == other_symbol.name()
-            && symbol.fields().len() == other_symbol.fields().len()
-            && symbol
-                .fields()
-                .iter()
-                .zip(other_symbol.fields().iter())
-                .all(|(self_fields, other_fields)| self_fields == other_fields)
+        self.inner().semantic_eq(other.inner())
     }
 }
 
@@ -160,9 +152,8 @@ impl<Type: ASTType> Struct<Type> {
 
 impl<Type: ASTType> SemanticEq for Struct<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.symbol == other.symbol
+        self.symbol().semantic_eq(other.symbol())
             && self.functions().semantic_eq(other.functions())
-            && self.functions.semantic_eq(other.functions())
             && self.fields().semantic_eq(other.fields())
     }
 }
@@ -190,6 +181,6 @@ impl<Type: ASTType> StructField<Type> {
 impl<Type: ASTType> SemanticEq for StructField<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.inner.name() == other.inner.name()
-            && self.inner().data_type() == other.inner().data_type()
+            && self.inner().semantic_eq(other.inner())
     }
 }
