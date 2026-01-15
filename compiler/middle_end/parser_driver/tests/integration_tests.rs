@@ -50,7 +50,7 @@ fn test_simple_program() {
         vec![Project::new("simple".to_string(), PathBuf::from("simple"))],
         "simple".to_string(),
         main_file,
-    );
+    ).unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::new(root);
 
@@ -88,7 +88,7 @@ fn test_multi_module_program() {
         )],
         "multi_module".to_string(),
         main_file,
-    );
+    ).unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::new(root);
 
@@ -141,7 +141,7 @@ fn test_multi_project_program() {
         ],
         "app".to_string(),
         main_file,
-    );
+    ).unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::new(root);
 
@@ -191,7 +191,7 @@ fn test_circular_imports() {
         )],
         "circular".to_string(),
         main_file,
-    );
+    ).unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::new(root);
 

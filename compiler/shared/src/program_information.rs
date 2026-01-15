@@ -16,23 +16,34 @@ pub struct ProgramInformation {
     /// The main file
     ///
     /// Relative to the project root
+    /// May not be empty
     main_file: PathBuf,
 }
 
 impl ProgramInformation {
+    /// Tries to create a new instance
+    /// 
+    /// # Errors
+    /// 
+    /// main_file is empty
     pub fn new(
         name: String,
         path: PathBuf,
         dependencies: Vec<Project>,
         main_project: String,
         main_file: PathBuf,
-    ) -> Self {
-        Self {
-            name,
-            path,
-            projects: dependencies,
-            main_project,
-            main_file,
+    ) -> Option<Self> {
+        if main_file.iter().count() == 0 {
+            None
+        }
+        else {
+            Some(Self {
+                name,
+                path,
+                projects: dependencies,
+                main_project,
+                main_file,
+            })
         }
     }
 

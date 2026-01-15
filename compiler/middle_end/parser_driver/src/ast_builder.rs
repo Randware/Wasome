@@ -82,7 +82,8 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .map(|file_name| file_name.to_os_string().into_string().ok())
             .collect::<Option<Vec<_>>>()?;
         // Don't include the filename
-        main_file_location.pop();
+        // This will never panic as the main file of [`ProgramInformation`] will never be empty
+        main_file_location.pop().unwrap();
         let main_file_location = ModulePath::new(
             ModulePathProjectRelative::new(main_file_location),
             from.main_project().to_owned(),
@@ -337,11 +338,11 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// All errors are represented by a return of `None`
     fn load_file(&mut self, mut module_path: PathBuf, file_name: &str) -> Option<FileID> {
         module_path.push(file_name);
-        self.load_file_combined_path(module_path)
+        self.load_file_combined_path(&module_path)
     }
 
     /// Like [`Self::load_file`], but the filepath is already combined
-    fn load_file_combined_path(&mut self, module_path: PathBuf) -> Option<FileID> {
-        self.load_from.load_file(module_path).ok()
+    fn load_file_combined_path(&mut self, module_path: &Path) -> Option<FileID> {
+        self.load_from.load_file(&module_path).ok()
     }
 }
