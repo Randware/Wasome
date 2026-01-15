@@ -116,7 +116,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         let imports_information = self.handle_file(file_location, to_add, file_name)?;
         imports_information
             .into_iter()
-            .map(|path| self.handle_import(path))
+            .map(|path| self.handle_import(&path))
             .try_fold((), |_a, b| b)
     }
 
@@ -228,7 +228,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///     - This includes if `module_path` can't be resolved
     ///
     /// All errors are represented by a return of `None`
-    fn handle_import(&mut self, import_path: ModulePath) -> Option<()> {
+    fn handle_import(&mut self, import_path: &ModulePath) -> Option<()> {
         let module_dir = import_path.build_path_buf(self.program_information.projects())?;
 
         let imported_files = self
