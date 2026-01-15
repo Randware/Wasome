@@ -70,7 +70,7 @@ impl<Type: ASTType> Statement<Type> {
             Statement::VariableDeclaration(inner) => vec![inner.variable()],
             Statement::ControlStructure(crtl) =>
             match crtl.as_ref() {
-                ControlStructure::Match(mat) => mat.variables.iter().map(|var| var.as_ref()).collect(),
+                ControlStructure::IfEnumBlock(mat) => mat.variables.iter().map(|var| var.as_ref()).collect(),
                 _ => Vec::new()
             },
             _ => Vec::new(),
@@ -80,7 +80,7 @@ impl<Type: ASTType> Statement<Type> {
     pub fn get_direct_child_only_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
         match self {
             Statement::ControlStructure(inner) => match inner.deref() {
-                ControlStructure::Match(mat) => mat
+                ControlStructure::IfEnumBlock(mat) => mat
                     .variables
                     .iter()
                     .map(|var| DirectlyAvailableSymbol::Variable(var))
@@ -120,11 +120,11 @@ impl<Type: ASTType> Index<usize> for Statement<Type> {
     }
 }
 
-/// This represents an assignement to a variable. If this variable doesn't exist previously, it is created
+/// This represents an assignment to a variable. If this variable doesn't exist previously, it is created
 ///
 /// # Equality
 ///
-/// Two different VariableAssignement are never equal.
+/// Two different VariableAssignment are never equal.
 /// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct VariableAssignment<Type: ASTType> {
@@ -186,7 +186,7 @@ impl<Type: ASTType> VariableAssignment<Type> {
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
-    Match(Match<Type>),
+    IfEnumBlock(IfEnumVariant<Type>),
     Loop(Loop<Type>),
 }
 
@@ -199,7 +199,7 @@ impl<Type: ASTType> SemanticEq for ControlStructure<Type> {
             (ControlStructure::Loop(inner), ControlStructure::Loop(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (ControlStructure::Match(inner), ControlStructure::Match(other_inner)) => {
+            (ControlStructure::IfEnumBlock(inner), ControlStructure::IfEnumBlock(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
             _ => false,
@@ -214,7 +214,7 @@ impl<Type: ASTType> ControlStructure<Type> {
     pub fn child_len(&self) -> usize {
         match self {
             ControlStructure::Conditional(inner) => inner.len(),
-            ControlStructure::Match(inner) => inner.child_len(),
+            ControlStructure::IfEnumBlock(inner) => inner.child_len(),
             ControlStructure::Loop(inner) => inner.len(),
         }
     }
@@ -225,7 +225,7 @@ impl<Type: ASTType> ControlStructure<Type> {
     pub(crate) fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match self {
             ControlStructure::Conditional(cond) => cond.child_statement_at(index),
-            ControlStructure::Match(mat) => {
+            ControlStructure::IfEnumBlock(mat) => {
                 assert_eq!(index, 0);
                 // A match has only one child statement
                 &mat.then_statement
@@ -318,22 +318,22 @@ impl<Type: ASTType> SemanticEq for Conditional<Type> {
 /// Two different Matches are never equal.
 /// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
-pub struct Match<Type: ASTType> {
+pub struct IfEnumVariant<Type: ASTType> {
     condition_enum: Rc<EnumSymbol>,
     condition_enum_variant: Rc<EnumVariantSymbol<Type>>,
-    assignement_expression: ASTNode<Expression<Type>>,
+    assignment_expression: ASTNode<Expression<Type>>,
     variables: Vec<Rc<VariableSymbol<Type>>>,
     then_statement: ASTNode<Statement<Type>>,
 }
 
 /// Attempts to create a new Match
-
+///
 /// Returns None if the amount of variables doesn't match the amount of data types on the enum variant
-impl Match<UntypedAST> {
+impl IfEnumVariant<UntypedAST> {
     pub fn new(
         condition_enum: Rc<EnumSymbol>,
         condition_enum_variant: Rc<EnumVariantSymbol<UntypedAST>>,
-        assignement_expression: ASTNode<Expression<UntypedAST>>,
+        assignment_expression: ASTNode<Expression<UntypedAST>>,
         variables: Vec<Rc<VariableSymbol<UntypedAST>>>,
         then_statement: ASTNode<Statement<UntypedAST>>,
     ) -> Option<Self> {
@@ -343,7 +343,7 @@ impl Match<UntypedAST> {
         Some(Self {
             condition_enum,
             condition_enum_variant,
-            assignement_expression,
+            assignment_expression,
             variables,
             then_statement,
         })
@@ -353,11 +353,11 @@ impl Match<UntypedAST> {
 /// Attempts to create a new Match
 ///
 /// Returns None if the amount or data types of variables doesn't match the data types on the enum variant
-impl Match<TypedAST> {
+impl IfEnumVariant<TypedAST> {
     pub fn new(
         condition_enum: Rc<EnumSymbol>,
         condition_enum_variant: Rc<EnumVariantSymbol<TypedAST>>,
-        assignement_expression: ASTNode<Expression<TypedAST>>,
+        assignment_expression: ASTNode<Expression<TypedAST>>,
         variables: Vec<Rc<VariableSymbol<TypedAST>>>,
         then_statement: ASTNode<Statement<TypedAST>>,
     ) -> Option<Self> {
@@ -367,20 +367,20 @@ impl Match<TypedAST> {
                 .iter()
                 .zip(variables.iter().map(|var| var.data_type()))
                 .any(|(enum_data_type, variable_data_type)| enum_data_type != variable_data_type)
-            || assignement_expression.data_type() != DataType::Enum(condition_enum.clone())
+            || assignment_expression.data_type() != DataType::Enum(condition_enum.clone())
         {
             return None;
         }
         Some(Self {
             condition_enum,
             condition_enum_variant,
-            assignement_expression,
+            assignment_expression,
             variables,
             then_statement,
         })
     }
 }
-impl<Type: ASTType> Match<Type> {
+impl<Type: ASTType> IfEnumVariant<Type> {
     pub fn condition_enum(&self) -> &EnumSymbol {
         &self.condition_enum
     }
@@ -389,8 +389,8 @@ impl<Type: ASTType> Match<Type> {
         &self.condition_enum_variant
     }
 
-    pub fn assignement_expression(&self) -> &Expression<Type> {
-        &self.assignement_expression
+    pub fn assignment_expression(&self) -> &Expression<Type> {
+        &self.assignment_expression
     }
 
     pub fn variables(&self) -> &[Rc<VariableSymbol<Type>>] {
@@ -408,13 +408,13 @@ impl<Type: ASTType> Match<Type> {
     }
 }
 
-impl<Type: ASTType> SemanticEq for Match<Type> {
+impl<Type: ASTType> SemanticEq for IfEnumVariant<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.condition_enum() == other.condition_enum()
             && self.condition_enum_variant() == other.condition_enum_variant()
             && self
-                .assignement_expression()
-                .semantic_eq(other.assignement_expression())
+                .assignment_expression()
+                .semantic_eq(other.assignment_expression())
             && self.variables() == other.variables()
             && self
                 .then_statement()
@@ -636,7 +636,7 @@ mod tests {
     use crate::test_shared::{basic_test_variable, sample_codearea};
 
     #[test]
-    fn variable_assignement() {
+    fn variable_assignment() {
         basic_test_variable(Rc::new(VariableSymbol::new(
             "test".to_string(),
             DataType::F32,

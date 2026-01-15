@@ -318,7 +318,7 @@ mod tests {
     use crate::directory::Directory;
     use crate::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct, StructFieldAccess};
     use crate::file::File;
-    use crate::statement::{CodeBlock, ControlStructure, Loop, LoopType, Match, Return, Statement, VariableAssignment};
+    use crate::statement::{CodeBlock, ControlStructure, Loop, LoopType, IfEnumVariant, Return, Statement, VariableAssignment};
     use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, VariableSymbol};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
@@ -1533,8 +1533,8 @@ mod tests {
                                                 vec![
                                                     ASTNode::new(
                                                         Statement::ControlStructure(Box::new(
-                                                            ControlStructure::Match(
-                                                                Match::<TypedAST>::new(
+                                                            ControlStructure::IfEnumBlock(
+                                                                IfEnumVariant::<TypedAST>::new(
                                                                     msg_symbol.clone(),
                                                                     msg_warning_msg_symbol.clone(),
                                                                     ASTNode::new(
