@@ -1,4 +1,3 @@
-use std::ops::Index;
 use crate::directory_builder::DirectoryBuilder;
 use crate::module_path::{ModulePath, ModulePathProjectRelative};
 use ast::file::File;
@@ -221,7 +220,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     fn handle_import(&mut self, import_path: ModulePath) -> Option<()> {
         let module_dir = import_path.build_path_buf(self.program_information.projects())?;
 
-        let imported_files = self.list_wasome_files_in_dir(&module_dir)?.collect::<Vec<_>>();
+        let imported_files = self
+            .list_wasome_files_in_dir(&module_dir)?
+            .collect::<Vec<_>>();
         if imported_files.into_iter().all(|file| {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
@@ -235,7 +236,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 Some(value) => value,
                 None => return false,
             };
-            if self.add_file_handle_imports(&import_path, loaded).is_none(){
+            if self.add_file_handle_imports(&import_path, loaded).is_none() {
                 return false;
             };
             true
