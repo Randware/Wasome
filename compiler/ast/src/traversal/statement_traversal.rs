@@ -1,11 +1,11 @@
 use crate::statement::Statement;
-use crate::symbol::{ModuleUsageNameSymbol, DirectlyAvailableSymbol, SymbolTable, VariableSymbol};
+use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
+use crate::traversal::HasSymbols;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
 use std::ops::Index;
 use std::vec::IntoIter;
-use crate::traversal::HasSymbols;
 
 /// This struct helps with traversing statements
 ///
@@ -124,7 +124,9 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     }
 
     /// Extracts symbols from a statement
-    fn symbol_mapper(input: &Statement<Type>) -> impl Iterator<Item=DirectlyAvailableSymbol<'_, Type>> {
+    fn symbol_mapper(
+        input: &Statement<Type>,
+    ) -> impl Iterator<Item = DirectlyAvailableSymbol<'_, Type>> {
         input.get_direct_symbols().into_iter()
     }
     /// Gets a vec of all symbols declared in a direct child of self
@@ -138,7 +140,8 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     pub fn symbols_defined_directly_in(&self) -> Vec<DirectlyAvailableSymbol<'b, Type>> {
         // self.amount_children() can never be > self.amount_children()
         // So unwrapping can never panic
-        self.symbols_defined_directly_in_before_index(self.amount_children()).unwrap()
+        self.symbols_defined_directly_in_before_index(self.amount_children())
+            .unwrap()
     }
 
     /// Gets the amount of direct child statements
@@ -161,9 +164,9 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ) -> Vec<U>
     where
         F: FnMut(&'c T) -> I,
-        I: Iterator<Item=U>,
+        I: Iterator<Item = U>,
         T: 'c,
-        U: 'c
+        U: 'c,
     {
         let mut result = Vec::with_capacity(len);
         for index in 0..len {
@@ -196,7 +199,7 @@ struct StatementSymbolTable<'a, 'b, Type: ASTType> {
     root_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
     /// Deduplicates variables for variable shadowing
     found_variables: HashSet<&'b str>,
-    current_statement_symbols: IntoIter<&'b VariableSymbol<Type>>
+    current_statement_symbols: IntoIter<&'b VariableSymbol<Type>>,
 }
 
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
@@ -217,7 +220,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
             prev_index: 0,
             root_symbols: Box::new(source.root.symbols()),
             found_variables: HashSet::new(),
-            current_statement_symbols: Vec::new().into_iter()
+            current_statement_symbols: Vec::new().into_iter(),
         };
         if to_ret.go_up_statement_tree().is_some() {
             // We don't want to include the statement we started are starting with
@@ -267,9 +270,13 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
         }
         // Attempts to get a child symbol from the current symbol
         // If all child statements were traversed, this loop ends
-        while self.prev_index > 0 {
+        if self.prev_index > 0 {
             self.prev_index -= 1;
-            self.current_statement_symbols = self.current.index(self.prev_index).get_direct_variable_symbols().into_iter();
+            self.current_statement_symbols = self
+                .current
+                .index(self.prev_index)
+                .get_direct_variable_symbols()
+                .into_iter();
             return self.next_variable_symbol();
         }
         // Attempts to go up the statement tree to get symbols from the layer above the current one
@@ -302,7 +309,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     fn go_up_statement_tree(&mut self) -> Option<()> {
         let new_current_location = self.current_location.parent_statement()?;
         // When the container statement is a match, it can itself contain symbols
-        self.prev_index = self.current_location.index()?+1;
+        self.prev_index = self.current_location.index()? + 1;
         self.current_location = new_current_location;
         self.current = self.current_location.referenced_statement();
         Some(())
@@ -311,7 +318,10 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
 
 impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
     /// A tuple of prefix and symbol as required by  [`SymbolTable`]
-    type Item = (Option<&'b ModuleUsageNameSymbol>, DirectlyAvailableSymbol<'b, Type>);
+    type Item = (
+        Option<&'b ModuleUsageNameSymbol>,
+        DirectlyAvailableSymbol<'b, Type>,
+    );
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_variable_symbol()

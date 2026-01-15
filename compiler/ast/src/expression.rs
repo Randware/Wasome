@@ -47,18 +47,12 @@ impl<Type: ASTType> SemanticEq for Expression<Type> {
             (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (Exp::Variable(inner), Exp::Variable(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (Exp::Variable(inner), Exp::Variable(other_inner)) => inner.semantic_eq(other_inner),
             // For Literals, there are no inner structs with ids
             (Exp::Literal(_), Exp::Literal(_)) => self == other,
             (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_eq(other_inner),
-            (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
-            (Exp::NewStruct(inner), Exp::NewStruct(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => inner.semantic_eq(other_inner),
+            (Exp::NewStruct(inner), Exp::NewStruct(other_inner)) => inner.semantic_eq(other_inner),
             (Exp::NewEnum(inner), Exp::NewEnum(other_inner)) => inner.semantic_eq(other_inner),
             (Exp::StructFieldAccess(inner), Exp::StructFieldAccess(other_inner)) => {
                 inner.semantic_eq(other_inner)
@@ -498,9 +492,9 @@ impl BinaryOpType {
 /// The creation of an instance of a struct
 ///
 /// e.g.: new Struct(10, a, 'b')
-/// 
+///
 /// # Type safety
-/// 
+///
 /// Checks of the amount and type of the parameters are neither done in the typed nor the untyped variants
 ///
 /// In the typed AST, it is considered an error to have new struct expressions with invalid types, so the checking
@@ -540,9 +534,9 @@ impl<Type: ASTType> SemanticEq for NewStruct<Type> {
 /// The creation of an instance of an enum
 ///
 /// e.g.: Enum::Variant(1, true)
-/// 
+///
 /// ## Variant checking
-/// 
+///
 /// It is not checked that the variant belongs to the symbol.
 /// A mismatch is an error in the typed ast and thus needs to be checked externally
 #[derive(Debug, PartialEq)]

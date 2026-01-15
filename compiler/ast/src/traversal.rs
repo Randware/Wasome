@@ -33,9 +33,9 @@ pub trait FunctionContainer<'b, Type: ASTType> {
     fn len_functions(&self) -> usize;
 
     /// Gets the function at index
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Errors if `index > self.len_functions()`
     fn index_function(&self, index: usize) -> Option<FunctionTraversalHelper<'_, 'b, Type>>;
 

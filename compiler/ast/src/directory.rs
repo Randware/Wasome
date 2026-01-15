@@ -1,9 +1,9 @@
 use crate::file::File;
+use crate::symbol::DirectlyAvailableSymbol;
+use crate::top_level::Import;
 use crate::{ASTNode, ASTType, SemanticEq};
 use std::ops::Deref;
 use std::path::PathBuf;
-use crate::symbol::DirectlyAvailableSymbol;
-use crate::top_level::Import;
 
 /// A directory containing code.
 ///
@@ -150,9 +150,7 @@ impl<Type: ASTType> Directory<Type> {
 impl<Type: ASTType> SemanticEq for Directory<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.name() == other.name()
-            && self
-                .subdirectories()
-                .semantic_eq(other.subdirectories())
+            && self.subdirectories().semantic_eq(other.subdirectories())
             && self.files().semantic_eq(other.files())
     }
 }

@@ -1,8 +1,8 @@
-use crate::{ASTNode, ASTType, SemanticEq};
 use crate::composite::{Enum, Struct};
 use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
+use crate::{ASTNode, ASTType, SemanticEq};
 
 /// A file containing code
 ///
@@ -111,7 +111,11 @@ impl<Type: ASTType> File<Type> {
     ///
     /// - `None`: If no symbol was found
     /// - `Some(<Symbol>)`: If a symbol was found
-    fn symbol_chosen_public(&self, name: &str, only_public: bool) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+    fn symbol_chosen_public(
+        &self,
+        name: &str,
+        only_public: bool,
+    ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         self.symbols_chosen_public(only_public)
             .find(|symbol| symbol.name() == name)
     }
@@ -192,13 +196,20 @@ impl<Type: ASTType> File<Type> {
     /// # Return
     ///
     /// The requested symbols
-    fn symbols_chosen_public(&self, only_public: bool) -> impl Iterator<Item = DirectlyAvailableSymbol<'_, Type>> {
+    fn symbols_chosen_public(
+        &self,
+        only_public: bool,
+    ) -> impl Iterator<Item = DirectlyAvailableSymbol<'_, Type>> {
         self.function_symbols(only_public)
             .map(|function_symbol| DirectlyAvailableSymbol::Function(function_symbol))
-            .chain(self.enum_symbols(only_public)
-                .map(|enum_symbol| DirectlyAvailableSymbol::Enum(enum_symbol)))
-            .chain(self.struct_symbols(only_public)
-                .map(|struct_symbol| DirectlyAvailableSymbol::Struct(struct_symbol)))
+            .chain(
+                self.enum_symbols(only_public)
+                    .map(|enum_symbol| DirectlyAvailableSymbol::Enum(enum_symbol)),
+            )
+            .chain(
+                self.struct_symbols(only_public)
+                    .map(|struct_symbol| DirectlyAvailableSymbol::Struct(struct_symbol)),
+            )
     }
 
     /// Gets function symbols

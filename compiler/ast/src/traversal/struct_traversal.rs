@@ -34,7 +34,10 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelpe
     }
 
     fn index_function(&self, index: usize) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
-        Some(FunctionTraversalHelper::new(self.inner.functions().get(index)?, self))
+        Some(FunctionTraversalHelper::new(
+            self.inner.functions().get(index)?,
+            self,
+        ))
     }
 
     fn function_iterator<'c>(
@@ -61,28 +64,36 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'a, '
 }
 
 struct StructSymbolTable<'a, 'b, Type: ASTType> {
-    symbols: Box<dyn Iterator<Item = (Option<&'b ModuleUsageNameSymbol>, DirectlyAvailableSymbol<'b, Type>)> + 'a>,
+    symbols: Box<
+        dyn Iterator<
+                Item = (
+                    Option<&'b ModuleUsageNameSymbol>,
+                    DirectlyAvailableSymbol<'b, Type>,
+                ),
+            > + 'a,
+    >,
 }
 
 impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
     pub(crate) fn new(symbol_source: &'a StructTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
-            symbols: Box::new(
-                symbol_source
-                    .parent()
-                    .symbols_trait_object()
-                    .chain(
-                        symbol_source.function_iterator().map(|func| {
-                            (None, DirectlyAvailableSymbol::Function(func.inner().declaration()))
-                        }),
-                    ),
-            ),
+            symbols: Box::new(symbol_source.parent().symbols_trait_object().chain(
+                symbol_source.function_iterator().map(|func| {
+                    (
+                        None,
+                        DirectlyAvailableSymbol::Function(func.inner().declaration()),
+                    )
+                }),
+            )),
         }
     }
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for StructSymbolTable<'a, 'b, Type> {
-    type Item = (Option<&'b ModuleUsageNameSymbol>, DirectlyAvailableSymbol<'b, Type>);
+    type Item = (
+        Option<&'b ModuleUsageNameSymbol>,
+        DirectlyAvailableSymbol<'b, Type>,
+    );
 
     fn next(&mut self) -> Option<Self::Item> {
         self.symbols.next()

@@ -15,8 +15,16 @@ pub struct Enum<Type: ASTType> {
 }
 
 impl<Type: ASTType> Enum<Type> {
-    pub fn new(symbol: Rc<EnumSymbol>, variants: Vec<ASTNode<EnumVariant<Type>>>, visibility: Visibility) -> Self {
-        Self { symbol, variants, visibility }
+    pub fn new(
+        symbol: Rc<EnumSymbol>,
+        variants: Vec<ASTNode<EnumVariant<Type>>>,
+        visibility: Visibility,
+    ) -> Self {
+        Self {
+            symbol,
+            variants,
+            visibility,
+        }
     }
 
     pub fn symbol(&self) -> &EnumSymbol {
@@ -54,8 +62,7 @@ impl<Type: ASTType> Enum<Type> {
 
 impl<Type: ASTType> SemanticEq for Enum<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.symbol().semantic_eq(other.symbol()) &&
-            self.variants().semantic_eq(other.variants())
+        self.symbol().semantic_eq(other.symbol()) && self.variants().semantic_eq(other.variants())
     }
 }
 
@@ -101,13 +108,13 @@ impl<Type: ASTType> Struct<Type> {
         symbol: Rc<StructSymbol>,
         functions: Vec<ASTNode<Function<Type>>>,
         fields: Vec<ASTNode<StructField<Type>>>,
-        visibility: Visibility
+        visibility: Visibility,
     ) -> Self {
         Self {
             symbol,
             functions,
             fields,
-            visibility
+            visibility,
         }
     }
 
@@ -139,11 +146,7 @@ impl<Type: ASTType> Struct<Type> {
     }
 
     /// Gets the function with the specified name if it is public or only_public is false
-    pub fn function_symbol(
-        &self,
-        name: &str,
-        only_public: bool,
-    ) -> Option<&FunctionSymbol<Type>> {
+    pub fn function_symbol(&self, name: &str, only_public: bool) -> Option<&FunctionSymbol<Type>> {
         self.function_by_name(name)
             .filter(|function| !only_public || function.visibility() == Visibility::Public)
             .map(|function| function.declaration())
@@ -180,7 +183,6 @@ impl<Type: ASTType> StructField<Type> {
 
 impl<Type: ASTType> SemanticEq for StructField<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.inner.name() == other.inner.name()
-            && self.inner().semantic_eq(other.inner())
+        self.inner.name() == other.inner.name() && self.inner().semantic_eq(other.inner())
     }
 }

@@ -1,9 +1,9 @@
-use std::ops::{Deref, Index};
-use std::rc::Rc;
-use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
 use crate::data_type::{DataType, Typed};
 use crate::expression::{Expression, FunctionCall};
 use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, VariableSymbol};
+use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
+use std::ops::{Deref, Index};
+use std::rc::Rc;
 
 /// A Statement as per section 4 of the lang spec
 ///
@@ -38,16 +38,12 @@ impl<Type: ASTType> SemanticEq for Statement<Type> {
             (St::VariableDeclaration(inner), St::VariableDeclaration(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::Expression(inner), St::Expression(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (St::Expression(inner), St::Expression(other_inner)) => inner.semantic_eq(other_inner),
             (St::Return(inner), St::Return(other_inner)) => inner.semantic_eq(other_inner),
             (St::ControlStructure(inner), St::ControlStructure(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::Codeblock(inner), St::Codeblock(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (St::Codeblock(inner), St::Codeblock(other_inner)) => inner.semantic_eq(other_inner),
             (St::VoidFunctionCall(inner), St::VoidFunctionCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
@@ -94,7 +90,10 @@ impl<Type: ASTType> Statement<Type> {
 
     /// Same as [`Self::get_direct_variable_symbols`], except that the [`DirectlyAvailableSymbol`] struct is used
     pub fn get_direct_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
-        self.get_direct_variable_symbols().into_iter().map(DirectlyAvailableSymbol::Variable).collect()
+        self.get_direct_variable_symbols()
+            .into_iter()
+            .map(DirectlyAvailableSymbol::Variable)
+            .collect()
     }
 
     /// Gets the length of the child statements
@@ -135,8 +134,7 @@ pub struct VariableAssignment<Type: ASTType> {
 
 impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.variable().semantic_eq(other.variable())
-            && self.value.semantic_eq(&other.value)
+        self.variable().semantic_eq(other.variable()) && self.value.semantic_eq(&other.value)
     }
 }
 
@@ -200,9 +198,10 @@ impl<Type: ASTType> SemanticEq for ControlStructure<Type> {
             (ControlStructure::Loop(inner), ControlStructure::Loop(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (ControlStructure::IfEnumVariant(inner), ControlStructure::IfEnumVariant(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (
+                ControlStructure::IfEnumVariant(inner),
+                ControlStructure::IfEnumVariant(other_inner),
+            ) => inner.semantic_eq(other_inner),
             _ => false,
         }
     }
@@ -416,14 +415,14 @@ impl<Type: ASTType> IfEnumVariant<Type> {
 impl<Type: ASTType> SemanticEq for IfEnumVariant<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.condition_enum().semantic_eq(other.condition_enum())
-            && self.condition_enum_variant().semantic_eq(other.condition_enum_variant())
+            && self
+                .condition_enum_variant()
+                .semantic_eq(other.condition_enum_variant())
             && self
                 .assignment_expression()
                 .semantic_eq(other.assignment_expression())
             && self.variables().semantic_eq(other.variables())
-            && self
-                .then_statement()
-                .semantic_eq(other.then_statement())
+            && self.then_statement().semantic_eq(other.then_statement())
     }
 }
 

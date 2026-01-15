@@ -274,7 +274,7 @@ fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
 pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type LiteralType: PartialEq + Debug;
     type GeneralDataType: PartialEq + Debug + Clone + SemanticEq;
-    type FunctionCallSymbol: Debug + PartialEq +SemanticEq;
+    type FunctionCallSymbol: Debug + PartialEq + SemanticEq;
     type VariableUse: Debug + PartialEq + Clone + SemanticEq;
     type StructUse: Debug + PartialEq;
     type EnumUse: Debug + PartialEq;
@@ -316,10 +316,20 @@ mod tests {
     use crate::composite::{Enum, EnumVariant, Struct, StructField};
     use crate::data_type::DataType;
     use crate::directory::Directory;
-    use crate::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct, StructFieldAccess};
+    use crate::expression::{
+        BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
+        StructFieldAccess,
+    };
     use crate::file::File;
-    use crate::statement::{CodeBlock, ControlStructure, Loop, LoopType, IfEnumVariant, Return, Statement, VariableAssignment};
-    use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, VariableSymbol};
+    use crate::statement::{
+        CodeBlock, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
+        VariableAssignment,
+    };
+    use crate::symbol::{
+        DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol,
+        ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, VariableSymbol,
+    };
+    use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
@@ -330,23 +340,23 @@ mod tests {
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
     use std::rc::Rc;
-    use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
 
     #[test]
     fn prove_identity_vs_semantic_eq() {
         let node_a = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(5)),
-            sample_codearea()
+            sample_codearea(),
         );
 
         let node_b = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(5)),
-            sample_codearea()
+            sample_codearea(),
         );
 
-
-        assert_ne!(node_a, node_b, "PartialEq (==) must fail because IDs are different");
-
+        assert_ne!(
+            node_a, node_b,
+            "PartialEq (==) must fail because IDs are different"
+        );
 
         assert!(
             node_a.semantic_eq(&node_b),
@@ -367,7 +377,10 @@ mod tests {
             statement.get_direct_variable_symbols()
         );
 
-        assert_eq!(vec![symbol.as_ref()], statement.get_direct_variable_symbols());
+        assert_eq!(
+            vec![symbol.as_ref()],
+            statement.get_direct_variable_symbols()
+        );
 
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
@@ -390,7 +403,10 @@ mod tests {
             vec![DirectlyAvailableSymbol::Function(
                 function_ref.inner().declaration()
             )],
-            statement_ref.symbols().map(|symbol| symbol.1).collect::<Vec<_>>()
+            statement_ref
+                .symbols()
+                .map(|symbol| symbol.1)
+                .collect::<Vec<_>>()
         );
     }
 
@@ -1138,8 +1154,7 @@ mod tests {
     pub fn composite_multifile() {
         let warning_msg_inner_symbol =
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
-        let warning_msg_symbol =
-            Rc::new(StructSymbol::new("Warning".to_string()));
+        let warning_msg_symbol = Rc::new(StructSymbol::new("Warning".to_string()));
 
         let warning_msg_new_inner_param =
             Rc::new(VariableSymbol::new("inner".to_string(), DataType::Char));
@@ -1161,9 +1176,7 @@ mod tests {
 
         let error_msg_inner_symbol =
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
-        let error_msg_symbol = Rc::new(StructSymbol::new(
-            "Error".to_string(),
-        ));
+        let error_msg_symbol = Rc::new(StructSymbol::new("Error".to_string()));
 
         let error_msg_new_inner_param =
             Rc::new(VariableSymbol::new("inner".to_string(), DataType::Char));
@@ -1642,7 +1655,10 @@ mod tests {
         let match_statement = root_statement.get_child(0).unwrap();
         let inner_function_call = match_statement.get_child(0).unwrap();
 
-        let symbols = inner_function_call.symbols().map(|symbol| symbol.1).collect::<Vec<_>>();
+        let symbols = inner_function_call
+            .symbols()
+            .map(|symbol| symbol.1)
+            .collect::<Vec<_>>();
         assert_eq!(symbols.len(), 6);
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&main_fn_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&main_fn_warning_symbol)));
@@ -1654,12 +1670,19 @@ mod tests {
         let error_msg_struct = msg_file.struct_by_name("Error").unwrap();
         let new_error_function = error_msg_struct.function_by_name("new").unwrap();
         let root_statement = new_error_function.ref_to_implementation();
-        let symbols = root_statement.symbols().map(|symbol| symbol.1).collect::<Vec<_>>();
+        let symbols = root_statement
+            .symbols()
+            .map(|symbol| symbol.1)
+            .collect::<Vec<_>>();
 
         assert_eq!(symbols.len(), 7);
         assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&error_msg_new_symbol)));
-        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(&error_msg_get_inner_symbol)));
-        assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(&error_msg_new_inner_param)));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Function(
+            &error_msg_get_inner_symbol
+        )));
+        assert!(symbols.contains(&DirectlyAvailableSymbol::Variable(
+            &error_msg_new_inner_param
+        )));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&error_msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Enum(&msg_symbol)));
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));

@@ -1,6 +1,6 @@
+use crate::SemanticEq;
 use crate::symbol::{EnumSymbol, StructSymbol};
 use std::rc::Rc;
-use crate::SemanticEq;
 
 /// A data type
 #[derive(Debug, Clone, PartialEq)]
@@ -34,8 +34,12 @@ pub trait Typed {
 impl SemanticEq for DataType {
     fn semantic_eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (DataType::Struct(self_struct), DataType::Struct(other_struct)) => self_struct.semantic_eq(other_struct),
-            (DataType::Enum(self_enum), DataType::Enum(other_enum)) => self_enum.semantic_eq(other_enum),
+            (DataType::Struct(self_struct), DataType::Struct(other_struct)) => {
+                self_struct.semantic_eq(other_struct)
+            }
+            (DataType::Enum(self_enum), DataType::Enum(other_enum)) => {
+                self_enum.semantic_eq(other_enum)
+            }
             _ => self == other,
         }
     }

@@ -1,14 +1,16 @@
+use crate::composite::Enum;
 use crate::file::File;
-use crate::symbol::{ModuleUsageNameSymbol, DirectlyAvailableSymbol, SymbolTable, EnumSymbol, StructSymbol};
+use crate::symbol::{
+    DirectlyAvailableSymbol, EnumSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable,
+};
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
+use crate::traversal::struct_traversal::StructTraversalHelper;
+use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
 use std::iter;
 use std::path::PathBuf;
-use crate::composite::Enum;
-use crate::traversal::{FunctionContainer, HasSymbols};
-use crate::traversal::struct_traversal::StructTraversalHelper;
 
 /// This struct helps with traversing files
 /// It keeps a reference to a file and its parent (directory).
@@ -94,7 +96,10 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     ///
     /// Errors if `index > self.len_structs()`
     pub fn index_struct(&self, index: usize) -> Option<StructTraversalHelper<'_, 'b, Type>> {
-        Some(StructTraversalHelper::new(self.inner.structs().get(index)?, self))
+        Some(StructTraversalHelper::new(
+            self.inner.structs().get(index)?,
+            self,
+        ))
     }
 
     /// Gets the subdirectory with the specified name.
@@ -135,7 +140,10 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for FileTraversalHelper<
     }
 
     fn index_function(&self, index: usize) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
-        Some(FunctionTraversalHelper::new(self.inner.functions().get(index)?, self))
+        Some(FunctionTraversalHelper::new(
+            self.inner.functions().get(index)?,
+            self,
+        ))
     }
 
     fn function_iterator<'c>(
@@ -163,7 +171,14 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'a, 'b,
 }
 
 struct FileSymbolTable<'a, 'b, Type: ASTType> {
-    symbols: Box<dyn Iterator<Item = (Option<&'b ModuleUsageNameSymbol>, DirectlyAvailableSymbol<'b, Type>)> + 'a>,
+    symbols: Box<
+        dyn Iterator<
+                Item = (
+                    Option<&'b ModuleUsageNameSymbol>,
+                    DirectlyAvailableSymbol<'b, Type>,
+                ),
+            > + 'a,
+    >,
     enum_symbols: Box<dyn Iterator<Item = &'b EnumSymbol> + 'a>,
     struct_symbols: Box<dyn Iterator<Item = &'b StructSymbol> + 'a>,
 }
@@ -194,7 +209,13 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                                 None,
                                 DirectlyAvailableSymbol::ModuleUsageName(import.usage_name()),
                             )))
-                    }).chain(symbol_source.function_iterator().map(|func| (None, DirectlyAvailableSymbol::Function(func.inner().declaration())))),
+                    })
+                    .chain(symbol_source.function_iterator().map(|func| {
+                        (
+                            None,
+                            DirectlyAvailableSymbol::Function(func.inner().declaration()),
+                        )
+                    })),
             ),
             enum_symbols: Box::new(symbol_source.enums_iterator().map(|en| en.symbol())),
             struct_symbols: Box::new(
@@ -207,7 +228,10 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for FileSymbolTable<'a, 'b, Type> {
-    type Item = (Option<&'b ModuleUsageNameSymbol>, DirectlyAvailableSymbol<'b, Type>);
+    type Item = (
+        Option<&'b ModuleUsageNameSymbol>,
+        DirectlyAvailableSymbol<'b, Type>,
+    );
 
     fn next(&mut self) -> Option<Self::Item> {
         self.symbols

@@ -1,9 +1,9 @@
-use std::hash::{Hash, Hasher};
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
-use crate::{ASTType, SemanticEq, TypedAST};
-use std::rc::Rc;
 use crate::visibility::Visibility;
+use crate::{ASTType, SemanticEq, TypedAST};
+use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 /// Has symbols available to use
 ///
@@ -26,7 +26,12 @@ use crate::visibility::Visibility;
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
 pub trait SymbolTable<'a, Type: ASTType>:
-    Iterator<Item = (Option<&'a ModuleUsageNameSymbol>, DirectlyAvailableSymbol<'a, Type>)>
+    Iterator<
+    Item = (
+        Option<&'a ModuleUsageNameSymbol>,
+        DirectlyAvailableSymbol<'a, Type>,
+    ),
+>
 {
 }
 
@@ -43,7 +48,7 @@ pub enum DirectlyAvailableSymbol<'a, Type: ASTType> {
     Variable(&'a VariableSymbol<Type>),
     Enum(&'a EnumSymbol),
     Struct(&'a StructSymbol),
-    ModuleUsageName(&'a ModuleUsageNameSymbol)
+    ModuleUsageName(&'a ModuleUsageNameSymbol),
 }
 
 impl<'a, Type: ASTType> DirectlyAvailableSymbol<'a, Type> {
@@ -70,8 +75,9 @@ impl<Type: ASTType> Clone for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Variable(var) => DirectlyAvailableSymbol::Variable(var),
             DirectlyAvailableSymbol::Enum(en) => DirectlyAvailableSymbol::Enum(en),
             DirectlyAvailableSymbol::Struct(st) => DirectlyAvailableSymbol::Struct(st),
-            DirectlyAvailableSymbol::ModuleUsageName(mun) =>  DirectlyAvailableSymbol::ModuleUsageName(mun),
-
+            DirectlyAvailableSymbol::ModuleUsageName(mun) => {
+                DirectlyAvailableSymbol::ModuleUsageName(mun)
+            }
         }
     }
 }
@@ -84,7 +90,6 @@ impl<Type: ASTType> Hash for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Enum(en) => en.hash(state),
             DirectlyAvailableSymbol::Struct(st) => st.hash(state),
             DirectlyAvailableSymbol::ModuleUsageName(mun) => mun.hash(state),
-
         }
     }
 }
@@ -161,7 +166,6 @@ impl<Type: ASTType> FunctionSymbol<Type> {
     }
 }
 
-
 impl<Type: ASTType> Hash for FunctionSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
@@ -223,8 +227,7 @@ impl Typed for VariableSymbol<TypedAST> {
 
 impl<Type: ASTType> SemanticEq for VariableSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name())
-            && self.data_type().semantic_eq(other.data_type())
+        self.name().semantic_eq(other.name()) && self.data_type().semantic_eq(other.data_type())
     }
 }
 
@@ -333,14 +336,14 @@ impl SemanticEq for EnumSymbol {
 #[derive(Debug)]
 pub struct StructSymbol {
     id: Id,
-    name: String
+    name: String,
 }
 
 impl StructSymbol {
     pub fn new(name: String) -> Self {
         Self {
             id: Id::new(),
-            name
+            name,
         }
     }
 
@@ -419,8 +422,7 @@ impl<Type: ASTType> Eq for EnumVariantSymbol<Type> {}
 
 impl<Type: ASTType> SemanticEq for EnumVariantSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name())
-            && self.fields().semantic_eq(other.fields())
+        self.name().semantic_eq(other.name()) && self.fields().semantic_eq(other.fields())
     }
 }
 
@@ -470,8 +472,7 @@ impl<Type: ASTType> Eq for StructFieldSymbol<Type> {}
 
 impl<Type: ASTType> SemanticEq for StructFieldSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name())
-            && self.data_type().semantic_eq(other.data_type())
+        self.name().semantic_eq(other.name()) && self.data_type().semantic_eq(other.data_type())
     }
 }
 
@@ -479,10 +480,10 @@ impl<Type: ASTType> SemanticEq for StructFieldSymbol<Type> {
 mod tests {
     use crate::data_type::DataType;
     use crate::expression::{Expression, FunctionCall, Literal};
-    use std::rc::Rc;
-    use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST};
     use crate::symbol::{FunctionSymbol, VariableSymbol};
     use crate::test_shared::sample_codearea;
+    use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST};
+    use std::rc::Rc;
 
     #[test]
     fn create_function_call_untyped() {
