@@ -229,14 +229,16 @@ impl DirectoryBuilder {
     fn subdir_by_name(&self, name: &str) -> Option<&DirectoryBuilder> {
         // Subdirs must be unique by name
         self.subdirectories
-            .iter().find(|subdir| subdir.name == name)
+            .iter()
+            .find(|subdir| subdir.name == name)
     }
 
     /// Like [`Self::subdir_by_name`], but with `&mut` instead of `&`
     fn subdir_by_name_mut(&mut self, name: &str) -> Option<&mut DirectoryBuilder> {
         // Subdirs must be unique by name
         self.subdirectories
-            .iter_mut().find(|subdir| subdir.name == name)
+            .iter_mut()
+            .find(|subdir| subdir.name == name)
     }
 
     /// Like [`Self::add_subdirectory_directly`], but it only requires a name and handles the rest

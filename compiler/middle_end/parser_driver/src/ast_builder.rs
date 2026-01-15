@@ -114,7 +114,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         imports_information
             .into_iter()
             .map(|path| self.handle_import(path))
-            .try_fold((), |_a,b| b)
+            .try_fold((), |_a, b| b)
     }
 
     /// Handles the addition of a file
