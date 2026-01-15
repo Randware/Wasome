@@ -33,10 +33,10 @@ pub trait FunctionContainer<'b, Type: ASTType> {
 
     /// Gets the function at index
     /// 
-    /// # Panics
+    /// # Errors
     /// 
-    /// Panics if `index > self.len_functions()`
-    fn index_function(&self, index: usize) -> FunctionTraversalHelper<'_, 'b, Type>;
+    /// Errors if `index > self.len_functions()`
+    fn index_function(&self, index: usize) -> Option<FunctionTraversalHelper<'_, 'b, Type>>;
 
     /// Gets the function with the specified name
     /// Returns None if it doesn't exist

@@ -33,8 +33,8 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelpe
         self.inner.functions().len()
     }
 
-    fn index_function(&self, index: usize) -> FunctionTraversalHelper<'_, 'b, Type> {
-        FunctionTraversalHelper::new(&self.inner.functions()[index], self)
+    fn index_function(&self, index: usize) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
+        Some(FunctionTraversalHelper::new(self.inner.functions().get(index)?, self))
     }
 
     fn function_iterator<'c>(
