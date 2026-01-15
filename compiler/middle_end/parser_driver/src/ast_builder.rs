@@ -41,9 +41,10 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         };
         let main_file_location = Self::extract_main_file_module(from)?;
         let mut main_file_path = main_file_location.build_path_buf(from.projects())?;
-        main_file_path.push(from.main_file().iter().next_back()?);
+        let main_file_name = from.main_file().iter().next_back()?.to_str()?;
+        main_file_path.push(main_file_name);
         let main_file_id = to_ret.load_from.load_file(main_file_path).ok()?;
-        to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
+        to_ret.add_file_handle_imports(&main_file_location, main_file_id, main_file_name)?;
         Some(to_ret)
     }
 
@@ -97,7 +98,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// - **file_location** - The location of the file
     /// - **file** - The file to handle
-    ///
+    /// - **file_name** - The filename on disk (e.g.: with file extension)
     ///
     /// # Errors
     ///
@@ -109,8 +110,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
+        file_name: &str,
     ) -> Option<()> {
-        let imports_information = self.handle_file(file_location, to_add)?;
+        let imports_information = self.handle_file(file_location, to_add, file_name)?;
         imports_information
             .into_iter()
             .map(|path| self.handle_import(path))
@@ -125,6 +127,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// - **file_location** - The location of the file
     /// - **file** - The file to handle
+    /// - **file_name** - The filename on disk (e.g.: with file extension)
     ///
     /// # Returns
     ///
@@ -140,10 +143,11 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
+        file_name: &str,
     ) -> Option<Vec<ModulePath>> {
         let parsed = self.parse_file(file_location, to_add)?;
         let imports_information = ModulePath::from_file(&parsed, file_location);
-        self.add_file(file_location, parsed)?;
+        self.add_file(file_location, parsed, file_name)?;
         Some(imports_information)
     }
 
@@ -153,17 +157,23 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// - **file_location** - Where to add the file
     /// - **file** - The file to add
+    /// - **file_name** - The filename on disk (e.g.: with file extension)
     ///
     /// # Errors
     ///
     /// If the project of `file_location` can't be found in self
     ///
     /// All errors are represented by a return of `None`
-    fn add_file(&mut self, file_location: &ModulePath, file: File<UntypedAST>) -> Option<()> {
+    fn add_file(
+        &mut self,
+        file_location: &ModulePath,
+        file: File<UntypedAST>,
+        file_name: &str,
+    ) -> Option<()> {
         let mut file_path = file_location.build_path_buf(self.program_information.projects())?;
-        file_path.push(file.name());
+        file_path.push(file_name);
         self.root
-            .add_file(ASTNode::new(file, file_path), &file_location.elements());
+            .add_file(ASTNode::new(file, file_path), &file_location.elements())?;
         Some(())
     }
 
@@ -236,7 +246,10 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 Some(value) => value,
                 None => return false,
             };
-            if self.add_file_handle_imports(&import_path, loaded).is_none() {
+            if self
+                .add_file_handle_imports(&import_path, loaded, &file)
+                .is_none()
+            {
                 return false;
             };
             true

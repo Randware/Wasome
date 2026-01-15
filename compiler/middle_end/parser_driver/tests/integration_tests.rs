@@ -129,15 +129,15 @@ fn test_multi_project_program() {
         ("multi_project/app/main.waso", MULTI_PROJECT_APP_MAIN),
         ("multi_project/lib/math/ops.waso", MULTI_PROJECT_LIB_OPS),
     ]);
-    let root = dir.path().to_path_buf();
+    let root = dir.path().to_path_buf().join("multi_project");
     let main_file = PathBuf::from("main.waso");
 
     let prog_info = ProgramInformation::new(
         "multi_project".to_string(),
         root.clone(),
         vec![
-            Project::new("app".to_string(), PathBuf::from("multi_project/app")),
-            Project::new("lib".to_string(), PathBuf::from("multi_project/lib")),
+            Project::new("app".to_string(), PathBuf::from("app")),
+            Project::new("lib".to_string(), PathBuf::from("lib")),
         ],
         "app".to_string(),
         main_file,
