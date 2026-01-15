@@ -364,10 +364,10 @@ mod tests {
 
         assert_eq!(
             vec![symbol.as_ref()],
-            statement.get_direct_symbols()
+            statement.get_direct_variable_symbols()
         );
 
-        assert_eq!(vec![symbol.as_ref()], statement.get_direct_symbols());
+        assert_eq!(vec![symbol.as_ref()], statement.get_direct_variable_symbols());
 
         let function = Function::new(
             Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
@@ -1533,7 +1533,7 @@ mod tests {
                                                 vec![
                                                     ASTNode::new(
                                                         Statement::ControlStructure(Box::new(
-                                                            ControlStructure::IfEnumBlock(
+                                                            ControlStructure::IfEnumVariant(
                                                                 IfEnumVariant::<TypedAST>::new(
                                                                     msg_symbol.clone(),
                                                                     msg_warning_msg_symbol.clone(),

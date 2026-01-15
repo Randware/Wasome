@@ -27,6 +27,7 @@ pub trait HasSymbols<'b, Type: ASTType>: Debug {
     fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_>;
 }
 
+/// A traversalhelper that contains Functions
 pub trait FunctionContainer<'b, Type: ASTType> {
     /// Gets the length of functions that self contains
     fn len_functions(&self) -> usize;

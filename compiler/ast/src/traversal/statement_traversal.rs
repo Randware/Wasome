@@ -123,8 +123,9 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
         })
     }
 
+    /// Extracts symbols from a statement
     fn symbol_mapper(input: &Statement<Type>) -> impl Iterator<Item=DirectlyAvailableSymbol<'_, Type>> {
-        input.get_direct_symbol_reference_struct().into_iter()
+        input.get_direct_symbols().into_iter()
     }
     /// Gets a vec of all symbols declared in a direct child of self
     /// Symbols declared by self directly are not included
@@ -268,7 +269,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
         // If all child statements were traversed, this loop ends
         while self.prev_index > 0 {
             self.prev_index -= 1;
-            self.current_statement_symbols = self.current.index(self.prev_index).get_direct_symbols().into_iter();
+            self.current_statement_symbols = self.current.index(self.prev_index).get_direct_variable_symbols().into_iter();
             return self.next_variable_symbol();
         }
         // Attempts to go up the statement tree to get symbols from the layer above the current one

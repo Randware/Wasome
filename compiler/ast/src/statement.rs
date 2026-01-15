@@ -60,27 +60,28 @@ impl<Type: ASTType> SemanticEq for Statement<Type> {
 impl<Type: ASTType> Statement<Type> {
     /// Gets the symbol defined in this statement
     /// Only symbols that can be accessed by following statements in the
-    /// following scope are considered. For example, variables
+    /// current scope are considered. For example, variables
+    ///
+    /// Due to the above rules, symbol introduced by [`IfEnumVariant`] are
+    /// *not* considered
     ///
     /// # Return
     ///
     /// A vec with the symbols. It will be empty if there are no symbols
-    pub fn get_direct_symbols(&self) -> Vec<&VariableSymbol<Type>> {
+    pub fn get_direct_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
         match self {
             Statement::VariableDeclaration(inner) => vec![inner.variable()],
-            Statement::ControlStructure(crtl) =>
-            match crtl.as_ref() {
-                ControlStructure::IfEnumBlock(mat) => mat.variables.iter().map(|var| var.as_ref()).collect(),
-                _ => Vec::new()
-            },
             _ => Vec::new(),
         }
     }
 
+    /// Gets all symbols defined in self and only available to child statements
+    ///
+    /// Currently, only IfEnumBlocks return anything but an empty vec
     pub fn get_direct_child_only_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
         match self {
             Statement::ControlStructure(inner) => match inner.deref() {
-                ControlStructure::IfEnumBlock(mat) => mat
+                ControlStructure::IfEnumVariant(mat) => mat
                     .variables
                     .iter()
                     .map(|var| DirectlyAvailableSymbol::Variable(var))
@@ -91,9 +92,9 @@ impl<Type: ASTType> Statement<Type> {
         }
     }
 
-    /// Same as `get_direct_symbol`, except that the [`Symbol`] struct is used
-    pub fn get_direct_symbol_reference_struct(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
-        self.get_direct_symbols().into_iter().map(DirectlyAvailableSymbol::Variable).collect()
+    /// Same as [`Self::get_direct_variable_symbols`], except that the [`DirectlyAvailableSymbol`] struct is used
+    pub fn get_direct_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
+        self.get_direct_variable_symbols().into_iter().map(DirectlyAvailableSymbol::Variable).collect()
     }
 
     /// Gets the length of the child statements
@@ -186,7 +187,7 @@ impl<Type: ASTType> VariableAssignment<Type> {
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
-    IfEnumBlock(IfEnumVariant<Type>),
+    IfEnumVariant(IfEnumVariant<Type>),
     Loop(Loop<Type>),
 }
 
@@ -199,7 +200,7 @@ impl<Type: ASTType> SemanticEq for ControlStructure<Type> {
             (ControlStructure::Loop(inner), ControlStructure::Loop(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (ControlStructure::IfEnumBlock(inner), ControlStructure::IfEnumBlock(other_inner)) => {
+            (ControlStructure::IfEnumVariant(inner), ControlStructure::IfEnumVariant(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
             _ => false,
@@ -214,7 +215,7 @@ impl<Type: ASTType> ControlStructure<Type> {
     pub fn child_len(&self) -> usize {
         match self {
             ControlStructure::Conditional(inner) => inner.len(),
-            ControlStructure::IfEnumBlock(inner) => inner.child_len(),
+            ControlStructure::IfEnumVariant(inner) => inner.child_len(),
             ControlStructure::Loop(inner) => inner.len(),
         }
     }
@@ -225,7 +226,7 @@ impl<Type: ASTType> ControlStructure<Type> {
     pub(crate) fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match self {
             ControlStructure::Conditional(cond) => cond.child_statement_at(index),
-            ControlStructure::IfEnumBlock(mat) => {
+            ControlStructure::IfEnumVariant(mat) => {
                 assert_eq!(index, 0);
                 // A match has only one child statement
                 &mat.then_statement
@@ -311,11 +312,15 @@ impl<Type: ASTType> SemanticEq for Conditional<Type> {
     }
 }
 
-/// This represents a match
+/// Checks if an enum is a specific variant
+///
+/// If yes, the inner values of the enum are assigned to variables and code is executed
+///
+/// Comparable to an if let in rust
 ///
 /// # Equality
 ///
-/// Two different Matches are never equal.
+/// Two different [`IfEnumVariant`]s are never equal.
 /// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct IfEnumVariant<Type: ASTType> {
@@ -326,10 +331,10 @@ pub struct IfEnumVariant<Type: ASTType> {
     then_statement: ASTNode<Statement<Type>>,
 }
 
-/// Attempts to create a new Match
-///
-/// Returns None if the amount of variables doesn't match the amount of data types on the enum variant
 impl IfEnumVariant<UntypedAST> {
+    /// Attempts to create a new IfEnumVariant
+    ///
+    /// Returns None if the amount of variables doesn't match the amount of data types on the enum variant
     pub fn new(
         condition_enum: Rc<EnumSymbol>,
         condition_enum_variant: Rc<EnumVariantSymbol<UntypedAST>>,
@@ -350,7 +355,7 @@ impl IfEnumVariant<UntypedAST> {
     }
 }
 
-/// Attempts to create a new Match
+/// Attempts to create a new IfEnumVariant
 ///
 /// Returns None if the amount or data types of variables doesn't match the data types on the enum variant
 impl IfEnumVariant<TypedAST> {
@@ -402,7 +407,7 @@ impl<Type: ASTType> IfEnumVariant<Type> {
     }
 
     pub fn child_len(&self) -> usize {
-        // A match has one child statement
+        // A IfEnumVariant has one child statement
         // The then statement
         1
     }
@@ -410,12 +415,12 @@ impl<Type: ASTType> IfEnumVariant<Type> {
 
 impl<Type: ASTType> SemanticEq for IfEnumVariant<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.condition_enum() == other.condition_enum()
-            && self.condition_enum_variant() == other.condition_enum_variant()
+        self.condition_enum().semantic_eq(other.condition_enum())
+            && self.condition_enum_variant().semantic_eq(other.condition_enum_variant())
             && self
                 .assignment_expression()
                 .semantic_eq(other.assignment_expression())
-            && self.variables() == other.variables()
+            && self.variables().semantic_eq(other.variables())
             && self
                 .then_statement()
                 .semantic_eq(other.then_statement())

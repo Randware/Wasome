@@ -64,11 +64,11 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
 
     /// Gets the enum at a specific index
     ///
-    /// ### Panics
+    /// ### Errors
     ///
-    /// Panics if `index > self.len_enums()`
-    pub fn index_enums(&self, index: usize) -> &'b ASTNode<Enum<Type>> {
-        &self.inner.enums()[index]
+    /// Errors if `index > self.len_enums()`
+    pub fn index_enums(&self, index: usize) -> Option<&'b ASTNode<Enum<Type>>> {
+        self.inner.enums().get(index)
     }
 
     /// Gets the subdirectory with the specified name.
@@ -90,11 +90,11 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
 
     /// Gets the enum at a specific index
     ///
-    /// ### Panics
+    /// ### Errors
     ///
-    /// Panics if `index > self.len_structs()`
-    pub fn index_struct(&self, index: usize) -> StructTraversalHelper<'_, 'b, Type> {
-        StructTraversalHelper::new(&self.inner.structs()[index], self)
+    /// Errors if `index > self.len_structs()`
+    pub fn index_struct(&self, index: usize) -> Option<StructTraversalHelper<'_, 'b, Type>> {
+        Some(StructTraversalHelper::new(self.inner.structs().get(index)?, self))
     }
 
     /// Gets the subdirectory with the specified name.
