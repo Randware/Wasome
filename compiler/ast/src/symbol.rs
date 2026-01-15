@@ -283,8 +283,7 @@ impl Hash for ModuleUsageNameSymbol {
     }
 }
 
-/** The symbol of an enum
-*/
+/// The symbol of an enum
 #[derive(Debug)]
 pub struct EnumSymbol
 //<Type: ASTType>
@@ -330,8 +329,7 @@ impl SemanticEq for EnumSymbol {
     }
 }
 
-/** A symbol for a struct
-*/
+/// A symbol for a struct
 #[derive(Debug)]
 pub struct StructSymbol {
     id: Id,
@@ -375,8 +373,7 @@ impl SemanticEq for StructSymbol {
     }
 }
 
-/** The symbol of an enum
-*/
+/// The symbol of an enum
 #[derive(Debug)]
 pub struct EnumVariantSymbol<Type: ASTType> {
     id: Id,
@@ -427,8 +424,7 @@ impl<Type: ASTType> SemanticEq for EnumVariantSymbol<Type> {
     }
 }
 
-/** The symbol of an enum
-*/
+/// The symbol of an enum
 #[derive(Debug)]
 pub struct StructFieldSymbol<Type: ASTType> {
     id: Id,

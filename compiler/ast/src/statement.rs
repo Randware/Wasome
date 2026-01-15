@@ -311,11 +311,12 @@ impl<Type: ASTType> SemanticEq for Conditional<Type> {
     }
 }
 
-/** This represents a match
-# Equality
-Two different Matches are never equal.
-Use semantic_equals from [`SemanticEquality`] to check semantics only
-*/
+/// This represents a match
+///
+/// # Equality
+///
+/// Two different Matches are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Match<Type: ASTType> {
     condition_enum: Rc<EnumSymbol>,
@@ -325,10 +326,9 @@ pub struct Match<Type: ASTType> {
     then_statement: ASTNode<Statement<Type>>,
 }
 
-/** Attempts to create a new Match
+/// Attempts to create a new Match
 
-Returns None if the amount of variables doesn't match the amount of data types on the enum variant
-*/
+/// Returns None if the amount of variables doesn't match the amount of data types on the enum variant
 impl Match<UntypedAST> {
     pub fn new(
         condition_enum: Rc<EnumSymbol>,
@@ -350,10 +350,9 @@ impl Match<UntypedAST> {
     }
 }
 
-/** Attempts to create a new Match
-
-Returns None if the amount or data types of variables doesn't match the data types on the enum variant
-*/
+/// Attempts to create a new Match
+///
+/// Returns None if the amount or data types of variables doesn't match the data types on the enum variant
 impl Match<TypedAST> {
     pub fn new(
         condition_enum: Rc<EnumSymbol>,

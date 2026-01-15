@@ -6,8 +6,7 @@ use crate::visibility::{Visibility, Visible};
 use crate::{ASTNode, ASTType, SemanticEq};
 use std::rc::Rc;
 
-/** An enum
-*/
+/// An enum
 #[derive(Debug, PartialEq)]
 pub struct Enum<Type: ASTType> {
     symbol: Rc<EnumSymbol>,
@@ -36,16 +35,18 @@ impl<Type: ASTType> Enum<Type> {
         self.visibility
     }
 
-    /** Gets the struct with the specified name
-     */
+    /// Gets the enum variant with the specified name
+    /// 
+    /// # Errors
+    /// 
+    /// There is no variant with `name`
     pub fn variant_by_name(&self, name: &str) -> Option<&ASTNode<EnumVariant<Type>>> {
         self.variants()
             .iter()
             .find(|var| var.inner().name() == name)
     }
 
-    /** Gets an iterator over all enums
-     */
+    /// Gets an iterator over all variants
     pub fn variants_iterator(&self) -> impl Iterator<Item = &ASTNode<EnumVariant<Type>>> {
         self.variants().iter()
     }
@@ -58,10 +59,9 @@ impl<Type: ASTType> SemanticEq for Enum<Type> {
     }
 }
 
-/** A variant of an enum.
-
-In contrast to the symbol, this is supposed to be used for definitions
-*/
+/// A variant of an enum.
+///
+/// In contrast to the symbol, this is supposed to be used for definitions
 #[derive(Debug, PartialEq)]
 pub struct EnumVariant<Type: ASTType> {
     inner: Rc<EnumVariantSymbol<Type>>,
@@ -95,8 +95,7 @@ impl<Type: ASTType> SemanticEq for EnumVariant<Type> {
     }
 }
 
-/** A struct
-*/
+/// A struct
 #[derive(Debug, PartialEq)]
 pub struct Struct<Type: ASTType> {
     symbol: Rc<StructSymbol>,
@@ -140,17 +139,15 @@ impl<Type: ASTType> Struct<Type> {
         self.visibility
     }
 
-    /** Gets the function with the specified name
-     */
+    /// Gets the function with the specified name
     pub fn function_by_name(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
         self.functions()
             .iter()
             .find(|function| function.declaration().name() == name)
     }
 
-    /** Gets the function with the specified name if it is public or only_public is false
-     */
-    pub(crate) fn function_symbol(
+    /// Gets the function with the specified name if it is public or only_public is false
+    pub fn function_symbol(
         &self,
         name: &str,
         only_public: bool,
@@ -170,8 +167,7 @@ impl<Type: ASTType> SemanticEq for Struct<Type> {
     }
 }
 
-/** A field of a struct
-*/
+/// A field of a struct
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct StructField<Type: ASTType> {
     inner: Rc<StructFieldSymbol<Type>>,

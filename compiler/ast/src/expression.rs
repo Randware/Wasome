@@ -245,7 +245,7 @@ impl<Type: ASTType> Typecast<Type> {
 }
 
 impl Typecast<TypedAST> {
-    /// Returns what a specific type typecasted with self would return
+    /// Returns what a specific type type-casted with self would return
     ///
     /// # Parameters
     ///
@@ -254,7 +254,7 @@ impl Typecast<TypedAST> {
     ///
     /// # Return
     ///
-    /// - Some(result) if to_process can be casted to result
+    /// - Some(result) if to_process can be cast to result
     /// - None if there is no cast available
     pub fn result_type(&self, to_process: DataType) -> Option<DataType> {
         match (to_process, &self.target) {
@@ -495,15 +495,16 @@ impl BinaryOpType {
     }
 }
 
-/** The creation of a new struct
-
-e.g.: new Struct(10, a, 'b')
-## Type safety
-Checks of the amount and type of the parameters are neither done in the typed nor the untyped variants
-
-In the typed AST, it is considered an error to have new struct expressions with invalid types, so the checking
-needs to happen externally
-*/
+/// The creation of an instance of a struct
+///
+/// e.g.: new Struct(10, a, 'b')
+/// 
+/// # Type safety
+/// 
+/// Checks of the amount and type of the parameters are neither done in the typed nor the untyped variants
+///
+/// In the typed AST, it is considered an error to have new struct expressions with invalid types, so the checking
+/// needs to happen externally
 #[derive(Debug, PartialEq)]
 pub struct NewStruct<Type: ASTType> {
     symbol: Type::StructUse,
@@ -536,13 +537,14 @@ impl<Type: ASTType> SemanticEq for NewStruct<Type> {
     }
 }
 
-/** The creation of a new enum
-
-e.g.: Enum::Variant(1, true)
-## Variant checking
-It is not checked that the variant belongs to the symbol.
-A mismatch is an error in the typed ast and thus needs to be checked externally
-*/
+/// The creation of an instance of an enum
+///
+/// e.g.: Enum::Variant(1, true)
+/// 
+/// ## Variant checking
+/// 
+/// It is not checked that the variant belongs to the symbol.
+/// A mismatch is an error in the typed ast and thus needs to be checked externally
 #[derive(Debug, PartialEq)]
 pub struct NewEnum<Type: ASTType> {
     symbol: Type::EnumUse,
@@ -579,9 +581,8 @@ impl NewEnum<UntypedAST> {
 }
 
 impl NewEnum<TypedAST> {
-    /** Creates a new NewEnum
-    Returns none if the types of the parameters and of the variant don't match
-    */
+    /// Creates a new NewEnum
+    /// Returns none if the types of the parameters and of the variant don't match
     pub fn new(
         symbol: Rc<EnumSymbol>,
         variant: Rc<EnumVariantSymbol<TypedAST>>,
@@ -635,9 +636,8 @@ impl StructFieldAccess<UntypedAST> {
 }
 
 impl StructFieldAccess<TypedAST> {
-    /** Tries to create a new StructFieldAccess
-    Returns None if the return type of of is not a struct
-    */
+    /// Tries to create a new StructFieldAccess
+    /// Returns None if the return type of of is not a struct
     pub fn new(
         of: ASTNode<Expression<TypedAST>>,
         field: Rc<StructFieldSymbol<TypedAST>>,

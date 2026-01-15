@@ -59,8 +59,7 @@ impl<Type: ASTType> File<Type> {
         &self.structs
     }
 
-    /** Gets the symbol with the specified origin if it is public or outside is false
-     */
+    /// Gets the symbol with the specified origin if it is public or outside is false
     fn symbol_specified_origin(
         &self,
         origin: &[String],
@@ -82,7 +81,7 @@ impl<Type: ASTType> File<Type> {
                     self.struct_by_name(&origin[0])?.symbol(),
                 ))
             })
-            // ... or a struct
+            // ... or an enum
             .or_else(|| {
                 Some(DirectlyAvailableSymbol::Enum(
                     self.enum_by_name(&origin[0])?.symbol(),
@@ -124,19 +123,16 @@ impl<Type: ASTType> File<Type> {
             .find(|function| function.declaration().name() == name)
     }
 
-    /** Gets the function with the specified name if it is public or only_public is false
-     */
+    /// Gets the function with the specified name if it is public or only_public is false
     fn function_symbol(&self, name: &str, only_public: bool) -> Option<&FunctionSymbol<Type>> {
         self.function_by_name(name)
             .filter(|function| !only_public || function.visibility() == Visibility::Public)
             .map(|function| function.declaration())
     }
 
-    /** Gets the function with the specified name
-    */
+    /// Gets the function with the specified name
     pub fn function_by_name(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
-        self.functions()
-            .iter()
+        self.function_iterator()
             .find(|function| function.declaration().name() == name)
     }
 
@@ -145,26 +141,22 @@ impl<Type: ASTType> File<Type> {
         self.functions().iter()
     }
 
-    /** Gets the struct with the specified name
-     */
+    /// Gets the struct with the specified name
     pub fn struct_by_name(&self, name: &str) -> Option<&ASTNode<Struct<Type>>> {
         self.structs().iter().find(|st| st.symbol().name() == name)
     }
 
-    /** Gets the enum with the specified name
-     */
+    /// Gets the enum with the specified name
     pub fn enum_by_name(&self, name: &str) -> Option<&ASTNode<Enum<Type>>> {
         self.enums().iter().find(|en| en.symbol().name() == name)
     }
 
-    /** Gets an iterator over all enums
-     */
+    /// Gets an iterator over all enums
     pub fn enum_iterator(&self) -> impl Iterator<Item = &ASTNode<Enum<Type>>> {
         self.enums().iter()
     }
 
-    /** Gets an iterator over all structs
-     */
+    /// Gets an iterator over all structs
     pub fn struct_iterator(&self) -> impl Iterator<Item = &ASTNode<Struct<Type>>> {
         self.structs().iter()
     }
@@ -271,9 +263,8 @@ impl<Type: ASTType> SemanticEq for File<Type> {
     }
 }
 
-/** This represents all composites <br>
-inside a [File]
-*/
+/// This represents all composites
+/// inside a [File]
 pub struct Composites<Type: ASTType> {
     enums: Vec<ASTNode<Enum<Type>>>,
     structs: Vec<ASTNode<Struct<Type>>>,

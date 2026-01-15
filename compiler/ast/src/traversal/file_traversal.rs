@@ -6,7 +6,6 @@ use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::iter;
 use std::path::PathBuf;
-use itertools::Itertools;
 use crate::composite::Enum;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::traversal::struct_traversal::StructTraversalHelper;
@@ -58,53 +57,56 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
             .find(|function| function.inner().declaration().name() == name)
     }
 
-    /** Gets the length of the enums
-     */
+    /// Gets the length of the enums
     pub fn len_enums(&self) -> usize {
         self.inner.enums().len()
     }
-    /** Gets the enum at a specific index
-       ### Panics
-       Panics if ```index > self.len_enums()```
-    */
+
+    /// Gets the enum at a specific index
+    ///
+    /// ### Panics
+    ///
+    /// Panics if `index > self.len_enums()`
     pub fn index_enums(&self, index: usize) -> &'b ASTNode<Enum<Type>> {
         &self.inner.enums()[index]
     }
-    /** Gets the subdirectory with the specified name.
-      Returns None if it doesn't exist
-    */
+
+    /// Gets the subdirectory with the specified name.
+    ///
+    /// Returns None if it doesn't exist
     pub fn enum_by_name(&self, name: &str) -> Option<&'b ASTNode<Enum<Type>>> {
         self.inner().enum_by_name(name)
     }
 
-    /** Gets an iterator over all enums
-     */
+    /// Gets an iterator over all enums
     pub fn enums_iterator<'c>(&'c self) -> impl Iterator<Item = &'b ASTNode<Enum<Type>>> + 'c {
         self.inner.enum_iterator()
     }
 
-    /** Gets the length of the enums
-     */
+    /// Gets the length of the enums
     pub fn len_structs(&self) -> usize {
         self.inner.structs().len()
     }
-    /** Gets the enum at a specific index
-          ### Panics
-          Panics if ```index > self.len_enums()```
-    */
+
+    /// Gets the enum at a specific index
+    ///
+    /// ### Panics
+    ///
+    /// Panics if `index > self.len_structs()`
     pub fn index_struct(&self, index: usize) -> StructTraversalHelper<'_, 'b, Type> {
         StructTraversalHelper::new(&self.inner.structs()[index], self)
     }
-    /** Gets the subdirectory with the specified name.
-         Returns None if it doesn't exist
-    */
+
+    /// Gets the subdirectory with the specified name.
+    ///
+    /// Returns None if it doesn't exist
     pub fn struct_by_name(&self, name: &str) -> Option<StructTraversalHelper<'_, 'b, Type>> {
         self.inner()
             .struct_by_name(name)
             .map(|st| StructTraversalHelper::new(st, self))
     }
-    /** Gets an iterator over all enums
-     */
+
+    /// Gets an iterator over all enums
     pub fn structs_iterator<'c>(
         &'c self,
     ) -> impl Iterator<Item = StructTraversalHelper<'c, 'b, Type>> + 'c {
@@ -150,14 +152,13 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for FileTraversalHelper<
 }
 
 impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'a, 'b, Type> {
-
-    fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_> {
-        Box::new(self.symbols())
-    }
-
     /// Gets all symbols defined in self
     fn symbols(&self) -> impl SymbolTable<'b, Type> {
         FileSymbolTable::new_file_traversal_helper(self)
+    }
+
+    fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_> {
+        Box::new(self.symbols())
     }
 }
 

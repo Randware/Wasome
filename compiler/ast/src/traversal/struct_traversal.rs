@@ -4,7 +4,6 @@ use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
-use itertools::Itertools;
 
 #[derive(Debug)]
 pub struct StructTraversalHelper<'a, 'b, Type: ASTType> {
