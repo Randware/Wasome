@@ -1,3 +1,4 @@
+use std::ops::Index;
 use crate::directory_builder::DirectoryBuilder;
 use crate::module_path::{ModulePath, ModulePathProjectRelative};
 use ast::file::File;
@@ -7,7 +8,7 @@ use parser::{FileInformation, parse};
 use shared::program_information::ProgramInformation;
 use source::SourceMap;
 use source::types::FileID;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// All valid wasome file extensions
 const WASOME_FILE_ENDINGS: &'static [&'static str] = &[".waso", ".✨"];
@@ -35,12 +36,14 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// - **Some(Self)** - Otherwise
     pub fn new(from: &'a ProgramInformation, load_from: &'a mut SourceMap<Loader>) -> Option<Self> {
         let mut to_ret = Self {
-            root: DirectoryBuilder::new(from.name().to_owned(), from.path().to_owned()),
+            root: DirectoryBuilder::new(from.name().to_owned(), PathBuf::new()),
             load_from,
             program_information: from,
         };
         let main_file_location = Self::extract_main_file_module(from)?;
-        let main_file_id = to_ret.load_from.load_file(from.path()).ok()?;
+        let mut main_file_path = main_file_location.build_path_buf(&from.projects())?;
+        main_file_path.push(from.main_file().iter().last()?);
+        let main_file_id = to_ret.load_from.load_file(main_file_path).ok()?;
         to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Some(to_ret)
     }
@@ -61,6 +64,11 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// # Parameter
     ///
     /// - **from** - From where to extract the path
+    ///
+    /// # Return
+    ///
+    /// The main file path.
+    /// Its project component can potentially not be included in `from.projects()`
     ///
     /// # Errors
     ///
@@ -136,7 +144,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ) -> Option<Vec<ModulePath>> {
         let parsed = self.parse_file(&file_location, to_add)?;
         let imports_information = ModulePath::from_file(&parsed, &file_location);
-        self.add_file(file_location, parsed);
+        self.add_file(file_location, parsed)?;
         Some(imports_information)
     }
 
@@ -213,10 +221,13 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     fn handle_import(&mut self, import_path: ModulePath) -> Option<()> {
         let module_dir = import_path.build_path_buf(self.program_information.projects())?;
 
-        if Self::list_wasome_files_in_dir(&module_dir)?.all(|file| {
+        let imported_files = self.list_wasome_files_in_dir(&module_dir)?.collect::<Vec<_>>();
+        if imported_files.into_iter().all(|file| {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
-            if self.does_file_exist_in_ast(&import_path, &file) {
+            // All wasome files must have a file extension
+            // So this will never panic
+            if self.does_file_exist_in_ast(&import_path, &file[0..file.rfind('.').unwrap()]) {
                 // We don't load the file, but there is no error
                 return true;
             }
@@ -224,7 +235,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 Some(value) => value,
                 None => return false,
             };
-            self.add_file_handle_imports(&import_path, loaded);
+            if self.add_file_handle_imports(&import_path, loaded).is_none(){
+                return false;
+            };
             true
         }) {
             Some(())
@@ -272,9 +285,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// - Directory not found
     ///
     /// All errors are represented by a return of `None`
-    fn list_wasome_files_in_dir(dir: &PathBuf) -> Option<impl Iterator<Item = String>> {
+    fn list_wasome_files_in_dir(&self, dir: &Path) -> Option<impl Iterator<Item = String>> {
         Some(
-            Loader::list_files(dir)
+            Loader::list_files(self.program_information.path().join(dir))
                 .ok()?
                 .map(|file_name| file_name.into_string().ok())
                 .collect::<Option<Vec<_>>>()?
@@ -282,7 +295,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 .filter(|file| {
                     WASOME_FILE_ENDINGS
                         .iter()
-                        .all(|ending| file.ends_with(ending))
+                        .any(|ending| file.ends_with(ending))
                 }),
         )
     }

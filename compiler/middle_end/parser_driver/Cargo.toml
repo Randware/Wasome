@@ -9,3 +9,6 @@ ast = { path = "../../ast"}
 source = { path = "../../source"}
 parser = { path = "../parser"}
 io = { path = "../../io"}
+
+[dev-dependencies]
+tempfile = "3"
