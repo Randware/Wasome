@@ -71,7 +71,6 @@ impl Literal {
             Literal::S32(_) => DT::S32,
             Literal::Bool(_) => DT::Bool,
             Literal::Char(_) => DT::Char,
-            //Literal::F32(_) => DT::F32,
             Literal::F64(_) => DT::F64,
         }
     }
