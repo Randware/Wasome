@@ -88,6 +88,7 @@ impl<Type: ASTType> Statement<Type> {
         }
     }
 
+    /// Same as [`Self::get_direct_child_only_variable_symbols`], except that the [`DirectlyAvailableSymbol`] struct is used
     pub fn get_direct_child_only_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
         self.get_direct_child_only_variable_symbols()
             .into_iter()
