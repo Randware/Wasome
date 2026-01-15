@@ -169,7 +169,7 @@ impl DirectoryBuilder {
     /// - **None** - The file does not exist.
     /// - **Some(file)** - The file was found
     pub fn file_by_path_name(&self, path: &[String], filename: &str) -> Option<&File<UntypedAST>> {
-        self.subdir_by_path_nonmutating(&path)?
+        self.subdir_by_path_nonmutating(path)?
             .file_by_name(filename)
     }
 
@@ -229,18 +229,14 @@ impl DirectoryBuilder {
     fn subdir_by_name(&self, name: &str) -> Option<&DirectoryBuilder> {
         // Subdirs must be unique by name
         self.subdirectories
-            .iter()
-            .filter(|subdir| subdir.name == name)
-            .next()
+            .iter().find(|subdir| subdir.name == name)
     }
 
     /// Like [`Self::subdir_by_name`], but with `&mut` instead of `&`
     fn subdir_by_name_mut(&mut self, name: &str) -> Option<&mut DirectoryBuilder> {
         // Subdirs must be unique by name
         self.subdirectories
-            .iter_mut()
-            .filter(|subdir| subdir.name == name)
-            .next()
+            .iter_mut().find(|subdir| subdir.name == name)
     }
 
     /// Like [`Self::add_subdirectory_directly`], but it only requires a name and handles the rest

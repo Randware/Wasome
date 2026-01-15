@@ -119,7 +119,7 @@ impl ModulePath {
         Some(
             projects
                 .iter()
-                .find(|project| project.name() == &self.project)?
+                .find(|project| project.name() == self.project)?
                 .path()
                 .iter()
                 .chain(self.relative_to_project.build_path_buf().iter())

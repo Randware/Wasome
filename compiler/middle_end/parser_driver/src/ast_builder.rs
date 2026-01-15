@@ -10,7 +10,7 @@ use source::types::FileID;
 use std::path::{Path, PathBuf};
 
 /// All valid wasome file extensions
-const WASOME_FILE_ENDINGS: &'static [&'static str] = &[".waso", ".✨"];
+const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
 
 /// Builds an entire untyped AST
 #[derive(Debug)]
@@ -40,8 +40,8 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             program_information: from,
         };
         let main_file_location = Self::extract_main_file_module(from)?;
-        let mut main_file_path = main_file_location.build_path_buf(&from.projects())?;
-        main_file_path.push(from.main_file().iter().last()?);
+        let mut main_file_path = main_file_location.build_path_buf(from.projects())?;
+        main_file_path.push(from.main_file().iter().next_back()?);
         let main_file_id = to_ret.load_from.load_file(main_file_path).ok()?;
         to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Some(to_ret)
@@ -114,7 +114,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         imports_information
             .into_iter()
             .map(|path| self.handle_import(path))
-            .fold(Some(()), |a, b| a.zip(b).map(|_| ()))
+            .try_fold((), |_a,b| b)
     }
 
     /// Handles the addition of a file
@@ -141,8 +141,8 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         file_location: &ModulePath,
         to_add: FileID,
     ) -> Option<Vec<ModulePath>> {
-        let parsed = self.parse_file(&file_location, to_add)?;
-        let imports_information = ModulePath::from_file(&parsed, &file_location);
+        let parsed = self.parse_file(file_location, to_add)?;
+        let imports_information = ModulePath::from_file(&parsed, file_location);
         self.add_file(file_location, parsed)?;
         Some(imports_information)
     }
@@ -161,7 +161,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// All errors are represented by a return of `None`
     fn add_file(&mut self, file_location: &ModulePath, file: File<UntypedAST>) -> Option<()> {
         let mut file_path = file_location.build_path_buf(self.program_information.projects())?;
-        file_path.push(file.name().to_owned());
+        file_path.push(file.name());
         self.root
             .add_file(ASTNode::new(file, file_path), &file_location.elements());
         Some(())
