@@ -4,17 +4,46 @@ use source::SourceMap;
 use io::WasomeLoader;
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::fs;
+use tempfile::TempDir;
 
-/// Helper to get the path to the test programs directory
-fn get_test_programs_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests")
-        .join("test_programs")
+// --- Test Program Contents ---
+
+const SIMPLE_MAIN: &str = include_str!("test_programs/simple/main.waso");
+
+const MULTI_MODULE_MAIN: &str = include_str!("test_programs/multi_module/main.waso");
+const MULTI_MODULE_MATH: &str = include_str!("test_programs/multi_module/utils/math.waso");
+const MULTI_MODULE_STRING: &str = include_str!("test_programs/multi_module/utils/string.waso");
+
+const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi_project/app/main.waso");
+const MULTI_PROJECT_LIB_OPS: &str = include_str!("test_programs/multi_project/lib/math/ops.waso");
+
+const CIRCULAR_A: &str = include_str!("test_programs/circular/a/a.waso");
+const CIRCULAR_B: &str = include_str!("test_programs/circular/b/b.waso");
+
+// --- Helper Functions ---
+
+fn setup_temp_project(files: &[(&str, &str)]) -> TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    for (rel_path, content) in files {
+        let path = root.join(rel_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(path, content).unwrap();
+    }
+    dir
 }
+
+// --- Tests ---
 
 #[test]
 fn test_simple_program() {
-    let root = get_test_programs_dir();
+    let dir = setup_temp_project(&[
+        ("simple/main.waso", SIMPLE_MAIN)
+    ]);
+    let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("main.waso");
 
     let prog_info = ProgramInformation::new(
@@ -33,13 +62,18 @@ fn test_simple_program() {
     assert_eq!(root_node.name(), "simple");
     
     // Check main file
-    let main_file_node = root_node.files().iter().find(|f| f.name() == "main").expect("main not found");
+    let main_file_node = root_node.file_by_name("main").expect("main not found");
     assert!(main_file_node.functions().iter().any(|f| f.declaration().name() == "main"));
 }
 
 #[test]
 fn test_multi_module_program() {
-    let root = get_test_programs_dir();
+    let dir = setup_temp_project(&[
+        ("multi_module/main.waso", MULTI_MODULE_MAIN),
+        ("multi_module/utils/math.waso", MULTI_MODULE_MATH),
+        ("multi_module/utils/string.waso", MULTI_MODULE_STRING),
+    ]);
+    let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("main.waso");
 
     let prog_info = ProgramInformation::new(
@@ -73,7 +107,11 @@ fn test_multi_module_program() {
 
 #[test]
 fn test_multi_project_program() {
-    let root = get_test_programs_dir();
+    let dir = setup_temp_project(&[
+        ("multi_project/app/main.waso", MULTI_PROJECT_APP_MAIN),
+        ("multi_project/lib/math/ops.waso", MULTI_PROJECT_LIB_OPS),
+    ]);
+    let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("main.waso");
 
     let prog_info = ProgramInformation::new(
@@ -108,7 +146,11 @@ fn test_multi_project_program() {
 
 #[test]
 fn test_circular_imports() {
-    let root = get_test_programs_dir();
+    let dir = setup_temp_project(&[
+        ("circular/a/a.waso", CIRCULAR_A),
+        ("circular/b/b.waso", CIRCULAR_B),
+    ]);
+    let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("a/a.waso");
 
     let prog_info = ProgramInformation::new(
