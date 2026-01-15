@@ -22,9 +22,9 @@ pub struct ProgramInformation {
 
 impl ProgramInformation {
     /// Tries to create a new instance
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// main_file is empty
     pub fn new(
         name: String,
@@ -35,8 +35,7 @@ impl ProgramInformation {
     ) -> Option<Self> {
         if main_file.iter().count() == 0 {
             None
-        }
-        else {
+        } else {
             Some(Self {
                 name,
                 path,

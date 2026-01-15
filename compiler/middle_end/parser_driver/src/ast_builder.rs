@@ -239,7 +239,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             // We can't use an entire module at once as the main file is loaded alone
             // All wasome files must have a file extension
             // So this will never panic
-            if self.does_file_exist_in_ast(&import_path, &file[0..file.rfind('.').unwrap()]) {
+            if self.does_file_exist_in_ast(import_path, &file[0..file.rfind('.').unwrap()]) {
                 // We don't load the file, but there is no error
                 return true;
             }
@@ -248,7 +248,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 None => return false,
             };
             if self
-                .add_file_handle_imports(&import_path, loaded, &file)
+                .add_file_handle_imports(import_path, loaded, &file)
                 .is_none()
             {
                 return false;
@@ -343,6 +343,6 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
 
     /// Like [`Self::load_file`], but the filepath is already combined
     fn load_file_combined_path(&mut self, module_path: &Path) -> Option<FileID> {
-        self.load_from.load_file(&module_path).ok()
+        self.load_from.load_file(module_path).ok()
     }
 }
