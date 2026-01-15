@@ -222,10 +222,10 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
             found_variables: HashSet::new(),
             current_statement_symbols: Vec::new().into_iter(),
         };
-        if to_ret.go_up_statement_tree().is_some() {
-            // We don't want to include the statement we started are starting with
-            to_ret.prev_index -= 1;
-        }
+        // Don't have the referenced statement act as the first container
+        // statement
+        // This might fail, but then there are no symbols anyway
+        to_ret.go_up_statement_tree();
         to_ret
     }
 
@@ -279,6 +279,9 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
                 .into_iter();
             return self.next_variable_symbol();
         }
+        // These symbols will not be returned until the next recursion
+        // But this is completely fine
+        self.current_statement_symbols = self.current.get_direct_child_only_variable_symbols().into_iter();
         // Attempts to go up the statement tree to get symbols from the layer above the current one
         // It fails if there are no more layers
         // In this case, we return None
@@ -308,8 +311,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     ///     - Note that this doesn't carry any data
     fn go_up_statement_tree(&mut self) -> Option<()> {
         let new_current_location = self.current_location.parent_statement()?;
-        // When the container statement is a match, it can itself contain symbols
-        self.prev_index = self.current_location.index()? + 1;
+        self.prev_index = self.current_location.index()?;
         self.current_location = new_current_location;
         self.current = self.current_location.referenced_statement();
         Some(())

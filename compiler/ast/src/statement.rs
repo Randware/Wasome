@@ -74,18 +74,25 @@ impl<Type: ASTType> Statement<Type> {
     /// Gets all symbols defined in self and only available to child statements
     ///
     /// Currently, only IfEnumBlocks return anything but an empty vec
-    pub fn get_direct_child_only_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
+    pub fn get_direct_child_only_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
         match self {
             Statement::ControlStructure(inner) => match inner.deref() {
                 ControlStructure::IfEnumVariant(mat) => mat
                     .variables
                     .iter()
-                    .map(|var| DirectlyAvailableSymbol::Variable(var))
+                    .map(|var| var.deref())
                     .collect(),
                 _ => Vec::new(),
             },
             _ => Vec::new(),
         }
+    }
+
+    pub fn get_direct_child_only_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
+        self.get_direct_child_only_variable_symbols()
+            .into_iter()
+            .map(|var| DirectlyAvailableSymbol::Variable(var))
+            .collect()
     }
 
     /// Same as [`Self::get_direct_variable_symbols`], except that the [`DirectlyAvailableSymbol`] struct is used

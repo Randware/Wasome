@@ -1688,6 +1688,7 @@ mod tests {
         assert!(symbols.contains(&DirectlyAvailableSymbol::Struct(&warning_msg_symbol)));
     }
 
+    #[test]
     fn create_function_call_untyped() {
         let name = "test".to_string();
         let arg = ASTNode::new(
