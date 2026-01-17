@@ -304,9 +304,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         Some(
             Loader::list_files(self.program_information.path().join(dir))
                 .ok()?
-                .map(|file_name| file_name.into_string().ok())
-                .collect::<Option<Vec<_>>>()?
-                .into_iter()
+                // Skip files with non-UTF8 filenames
+                // They might be non-wasome files so we don't want to hard-fail
+                .filter_map(|file_name| file_name.into_string().ok())
                 .filter(|file| {
                     WASOME_FILE_ENDINGS
                         .iter()
