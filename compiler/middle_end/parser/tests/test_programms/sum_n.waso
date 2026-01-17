@@ -1,0 +1,7 @@
+fn sum_n(s32 n) -> s32 {
+    s32 sum <- 0
+    loop (s32 i <- 0; i < n; i <- i + 1) {
+        sum <- sum + i
+    }
+    -> sum
+}
