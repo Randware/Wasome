@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
 /// Information about a program being compiled
+///
+/// Intended to be passed to the parser driver to properly load and parse the program
 #[derive(Debug)]
 pub struct ProgramInformation {
     /// The name of the program
@@ -12,6 +14,8 @@ pub struct ProgramInformation {
     /// Including the main project and dependencies
     projects: Vec<Project>,
     /// The project of the main file
+    ///
+    /// A project with this name must exist in `projects`
     main_project: String,
     /// The main file
     ///
@@ -25,21 +29,26 @@ impl ProgramInformation {
     ///
     /// # Errors
     ///
-    /// main_file is empty
+    /// - `main_file` is empty
+    /// - `main_project` is not in `projects`
     pub fn new(
         name: String,
         path: PathBuf,
-        dependencies: Vec<Project>,
+        projects: Vec<Project>,
         main_project: String,
         main_file: PathBuf,
     ) -> Option<Self> {
-        if main_file.iter().count() == 0 {
+        let main_file_empty = main_file.iter().count() == 0;
+        let main_project_not_found = !projects
+            .iter()
+            .any(|project| project.name() == &main_project);
+        if main_file_empty || main_project_not_found {
             None
         } else {
             Some(Self {
                 name,
                 path,
-                projects: dependencies,
+                projects,
                 main_project,
                 main_file,
             })
