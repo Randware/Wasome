@@ -138,7 +138,6 @@ fn parse_tokens(
     parser
         .parse(&to_parse_with_file_info)
         .into_output()
-        // TODO: Add functions and enums
         .map(|(imports, functions, structs, enums)| File::new(filename, imports, functions, enums, structs))
 }
 
