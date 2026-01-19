@@ -1,3 +1,4 @@
+use crate::function_parser::function_parser;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, maybe_statement_separator, statement_separator,
     token_parser,
@@ -12,6 +13,8 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
 use std::rc::Rc;
+use ast::composite::{Enum, Struct};
+use crate::composite_parser::{enum_parser, struct_parser};
 
 /// Parses all Top-Level elements in a file.
 ///
@@ -25,21 +28,46 @@ pub(crate) fn top_level_parser<'src>(
 ) -> impl Parser<
     'src,
     &'src [PosInfoWrapper<TokenType>],
-    (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>),
+    (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>, Vec<ASTNode<Struct<UntypedAST>>>, Vec<ASTNode<Enum<UntypedAST>>>)
 > {
     let imports = maybe_statement_separator()
         .ignore_then(import_parser(file_information).then_ignore(statement_separator()))
         .repeated()
         .collect::<Vec<_>>();
 
-    let functions = function_parser()
+    let top_level_element = choice((
+        function_parser().map(TopLevelElement::Function),
+        enum_parser().map(TopLevelElement::Enum),
+        struct_parser().map(TopLevelElement::Struct),
+    ));
+    let top_level_elements = top_level_element
         .separated_by(statement_separator())
         .allow_trailing()
         .collect::<Vec<_>>();
+    
 
     maybe_statement_separator()
-        .then(imports.then(functions))
-        .map(|(_, data)| data)
+        .ignore_then(imports.then(top_level_elements))
+        .map(|(imports, top_level_elements)| { 
+            let mut functions = Vec::new();
+            let mut structs = Vec::new();
+            let mut enums = Vec::new();
+            
+            top_level_elements.into_iter().for_each(|tle| match tle {
+                TopLevelElement::Function(func) => functions.push(func),
+                TopLevelElement::Struct(stru) => structs.push(stru),
+                TopLevelElement::Enum(en) => enums.push(en)
+            });
+
+            (imports, functions, structs, enums)
+        })
+}
+
+/// Enum for temporarily storing data during parsing
+enum TopLevelElement {
+    Function(ASTNode<Function<UntypedAST>>),
+    Struct(ASTNode<Struct<UntypedAST>>),
+    Enum(ASTNode<Enum<UntypedAST>>)
 }
 
 mod import_parser {
@@ -290,61 +318,4 @@ mod import_parser {
             assert!(parsed.is_none());
         }
     }
-}
-
-/// Parses a single function
-fn function_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Function<UntypedAST>>> {
-    let statement = statement_parser();
-    let data_type = datatype_parser();
-    let ident = identifier_parser();
-    let param = data_type
-        .clone()
-        .then(ident.clone())
-        .map(|(data_type, name)| {
-            PosInfoWrapper::new(
-                Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
-                combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
-            )
-        });
-
-    token_parser(TokenType::Public)
-        .or_not()
-        .then(
-            token_parser(TokenType::Function).ignore_then(ident).then(
-                param
-                    .clone()
-                    .separated_by(token_parser(TokenType::ArgumentSeparator))
-                    .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
-                    .delimited_by(
-                        token_parser(TokenType::OpenParen),
-                        token_parser(TokenType::CloseParen),
-                    ),
-            ),
-        )
-        .then(
-            token_parser(TokenType::Return)
-                .ignore_then(data_type)
-                .or_not(),
-        )
-        .then(statement)
-        .map(
-            |(((visibility, (name, params)), return_type), implementation)| {
-                let pos = combine_code_areas_succeeding(&name.pos_info, implementation.position());
-                ASTNode::new(
-                    Function::new(
-                        Rc::new(FunctionSymbol::new(
-                            name.inner,
-                            return_type.map(|to_map| to_map.inner),
-                            params.into_iter().map(|param| param.inner).collect(),
-                        )),
-                        implementation,
-                        visibility
-                            .map(|_| Visibility::Public)
-                            .unwrap_or(Visibility::Private),
-                    ),
-                    pos,
-                )
-            },
-        )
 }

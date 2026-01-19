@@ -192,7 +192,7 @@ fn test_parse_simple_programm() {
         Vec::new(), // imports
         vec![function],
         Vec::new(),
-        Vec::new()
+        Vec::new(),
     );
 
     assert!(parsed.semantic_eq(&expected));
@@ -240,8 +240,13 @@ fn test_parse_max() {
         Visibility::Private,
     ));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![function], Vec::new(),
-                                        Vec::new());
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![function],
+        Vec::new(),
+        Vec::new(),
+    );
     assert!(parsed.semantic_eq(&expected));
 }
 
@@ -325,8 +330,13 @@ fn test_parse_sum_n() {
         Visibility::Private,
     ));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![function], Vec::new(),
-                                        Vec::new());
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![function],
+        Vec::new(),
+        Vec::new(),
+    );
     assert!(parsed.semantic_eq(&expected));
 }
 
@@ -376,8 +386,13 @@ fn test_parse_is_even() {
         Visibility::Private,
     ));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![function], Vec::new(),
-                                        Vec::new());
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![function],
+        Vec::new(),
+        Vec::new(),
+    );
     assert!(parsed.semantic_eq(&expected));
 }
 
@@ -424,8 +439,13 @@ fn test_parse_modular_arithmetic() {
         )])));
 
         let function = wrap(Function::new(mod_add_symbol, body, Visibility::Private));
-        let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![function], Vec::new(),
-                                            Vec::new());
+        let expected = ast::file::File::new(
+            "main".to_string(),
+            Vec::new(),
+            vec![function],
+            Vec::new(),
+            Vec::new(),
+        );
         assert!(parsed.semantic_eq(&expected));
     }
 
@@ -471,8 +491,13 @@ fn test_parse_modular_arithmetic() {
         )])));
 
         let function = wrap(Function::new(mod_mul_symbol, body, Visibility::Private));
-        let expected = ast::file::File::new("main".to_string(), vec![import], vec![function], Vec::new(),
-                                            Vec::new());
+        let expected = ast::file::File::new(
+            "main".to_string(),
+            vec![import],
+            vec![function],
+            Vec::new(),
+            Vec::new(),
+        );
         assert!(parsed.semantic_eq(&expected));
     }
 }
@@ -610,7 +635,7 @@ fn test_misc_features() {
             precedence_func,
         ],
         Vec::new(),
-        Vec::new()
+        Vec::new(),
     );
 
     assert!(parsed.semantic_eq(&expected));
@@ -641,8 +666,13 @@ fn test_unary_on_typecast() {
     )])));
 
     let function = wrap(Function::new(main_symbol, body, Visibility::Private));
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![function], Vec::new(),
-                                        Vec::new());
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![function],
+        Vec::new(),
+        Vec::new(),
+    );
     assert!(parsed.semantic_eq(&expected));
 }
 

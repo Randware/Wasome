@@ -11,7 +11,9 @@ use std::fmt::Debug;
 use std::ops::Deref;
 use std::path::PathBuf;
 
+mod composite_parser;
 mod expression_parser;
+mod function_parser;
 mod misc_parsers;
 mod statement_parser;
 mod top_level_parser;
@@ -137,7 +139,7 @@ fn parse_tokens(
         .parse(&to_parse_with_file_info)
         .into_output()
         // TODO: Add functions and enums
-        .map(|(imports, functions)| File::new(filename, imports, functions, Vec::new(), Vec::new()))
+        .map(|(imports, functions, structs, enums)| File::new(filename, imports, functions, enums, structs))
 }
 
 fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<TokenType>> {
