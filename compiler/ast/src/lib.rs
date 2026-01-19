@@ -194,6 +194,7 @@ impl<Type: ASTType> SemanticEq for AST<Type> {
 /// # Equality
 ///
 /// Two different ASTNodes are never equal.
+///
 /// Use semantic_equals from [`SemanticEq`] to check semantics only
 
 #[derive(Debug)]
@@ -321,10 +322,7 @@ mod tests {
         StructFieldAccess,
     };
     use crate::file::File;
-    use crate::statement::{
-        CodeBlock, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
-        VariableAssignment,
-    };
+    use crate::statement::{CodeBlock, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
     use crate::symbol::{
         DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol,
         ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, VariableSymbol,
@@ -366,7 +364,7 @@ mod tests {
 
     #[test]
     fn ast() {
-        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
+        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F64));
         let statement = ASTNode::new(
             Statement::VariableDeclaration(basic_test_variable(symbol.clone()).unwrap()),
             sample_codearea(),
@@ -412,17 +410,17 @@ mod tests {
 
     #[test]
     fn ast_2() {
-        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F32));
+        let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F64));
 
         let symbol2 = Rc::new(VariableSymbol::new("test2".to_string(), DataType::Bool));
         let statement = ASTNode::new(
             Statement::Codeblock(CodeBlock::new(vec![
                 ASTNode::new(
                     Statement::VariableDeclaration(
-                        VariableAssignment::<TypedAST>::new(
+                        VariableDeclaration::<TypedAST>::new(
                             symbol.clone(),
                             ASTNode::new(
-                                Expression::Literal(Literal::F32(10.0)),
+                                Expression::Literal(Literal::F64(10.0)),
                                 sample_codearea(),
                             ),
                         )
@@ -434,7 +432,7 @@ mod tests {
                     Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
                         ASTNode::new(
                             Statement::VariableDeclaration(
-                                VariableAssignment::<TypedAST>::new(
+                                VariableDeclaration::<TypedAST>::new(
                                     symbol2.clone(),
                                     ASTNode::new(
                                         Expression::Literal(Literal::Bool(true)),
@@ -577,7 +575,7 @@ mod tests {
                     Statement::Codeblock(CodeBlock::new(vec![
                         ASTNode::new(
                             Statement::VariableDeclaration(
-                                VariableAssignment::<TypedAST>::new(
+                                VariableDeclaration::<TypedAST>::new(
                                     current.clone(),
                                     ASTNode::new(
                                         Expression::Literal(Literal::S32(1)),
@@ -590,7 +588,7 @@ mod tests {
                         ),
                         ASTNode::new(
                             Statement::VariableDeclaration(
-                                VariableAssignment::<TypedAST>::new(
+                                VariableDeclaration::<TypedAST>::new(
                                     previous.clone(),
                                     ASTNode::new(
                                         Expression::Literal(Literal::S32(0)),
@@ -608,7 +606,7 @@ mod tests {
                                         Statement::Codeblock(CodeBlock::new(vec![
                                             ASTNode::new(
                                                 Statement::VariableDeclaration(
-                                                    VariableAssignment::<TypedAST>::new(
+                                                    VariableDeclaration::<TypedAST>::new(
                                                         temp.clone(),
                                                         ASTNode::new(
                                                             Expression::Variable(current.clone()),
@@ -762,7 +760,7 @@ mod tests {
                 ASTNode::new(
                     Statement::Codeblock(CodeBlock::new(vec![
                         ASTNode::new(
-                            Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
+                            Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                                 current.clone(),
                                 ASTNode::new(
                                     Expression::Literal("1".to_string()),
@@ -772,7 +770,7 @@ mod tests {
                             sample_codearea(),
                         ),
                         ASTNode::new(
-                            Statement::VariableDeclaration(VariableAssignment::<UntypedAST>::new(
+                            Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                                 previous.clone(),
                                 ASTNode::new(
                                     Expression::Literal("0".to_string()),
@@ -788,7 +786,7 @@ mod tests {
                                         Statement::Codeblock(CodeBlock::new(vec![
                                             ASTNode::new(
                                                 Statement::VariableDeclaration(
-                                                    VariableAssignment::<UntypedAST>::new(
+                                                    VariableDeclaration::<UntypedAST>::new(
                                                         temp.clone(),
                                                         ASTNode::new(
                                                             Expression::Variable(
@@ -803,7 +801,7 @@ mod tests {
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
                                                     VariableAssignment::<UntypedAST>::new(
-                                                        current.clone(),
+                                                        current.name().into(),
                                                         ASTNode::new(
                                                             Expression::BinaryOp(Box::new(
                                                                 BinaryOp::<UntypedAST>::new(
@@ -831,7 +829,7 @@ mod tests {
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
                                                     VariableAssignment::<UntypedAST>::new(
-                                                        previous.clone(),
+                                                        previous.name().into(),
                                                         ASTNode::new(
                                                             Expression::Variable(
                                                                 "temp".to_string(),
@@ -845,7 +843,7 @@ mod tests {
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
                                                     VariableAssignment::<UntypedAST>::new(
-                                                        nth.clone(),
+                                                        nth.name().into(),
                                                         ASTNode::new(
                                                             Expression::BinaryOp(Box::new(
                                                                 BinaryOp::<UntypedAST>::new(
@@ -1754,7 +1752,7 @@ pub(crate) mod test_shared {
     use crate::directory::Directory;
     use crate::expression::{Expression, Literal};
     use crate::file::File;
-    use crate::statement::VariableAssignment;
+    use crate::statement::{VariableAssignment, VariableDeclaration};
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
     use crate::{AST, ASTNode, ASTType, TypedAST};
@@ -1774,10 +1772,10 @@ pub(crate) mod test_shared {
 
     pub(crate) fn basic_test_variable(
         symbol: Rc<VariableSymbol<TypedAST>>,
-    ) -> Option<VariableAssignment<TypedAST>> {
-        VariableAssignment::<TypedAST>::new(
+    ) -> Option<VariableDeclaration<TypedAST>> {
+        VariableDeclaration::<TypedAST>::new(
             symbol,
-            ASTNode::new(Expression::Literal(Literal::F32(14.0)), sample_codearea()),
+            ASTNode::new(Expression::Literal(Literal::F64(14.0)), sample_codearea()),
         )
     }
 
