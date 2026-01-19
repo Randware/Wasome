@@ -136,7 +136,8 @@ fn parse_tokens(
     parser
         .parse(&to_parse_with_file_info)
         .into_output()
-        .map(|(imports, functions)| File::new(filename, imports, functions))
+        // TODO: Add functions and enums
+        .map(|(imports, functions)| File::new(filename, imports, functions, Vec::new(), Vec::new()))
 }
 
 fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<TokenType>> {
