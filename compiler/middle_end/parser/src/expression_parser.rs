@@ -1,6 +1,6 @@
 use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, maybe_statement_separator, token_parser};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, NewStruct, StructFieldAccess, Typecast, UnaryOp, UnaryOpType};
+use ast::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess, Typecast, UnaryOp, UnaryOpType};
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
@@ -87,8 +87,19 @@ pub(crate) fn expression_parser<'src>()
                     ASTNode::new(Expression::NewStruct(Box::new(NewStruct::new(name.inner, fields))), pos)
                 });
 
+        let new_enum = cross_module_capable_identifier_parser().then_ignore(token_parser(TokenType::PathSeparator))
+            .then(identifier_parser()).then_ignore(token_parser(TokenType::OpenParen))
+            .then(expr.clone().separated_by(token_parser(TokenType::ArgumentSeparator)).collect::<Vec<_>>())
+            .then(token_parser(TokenType::CloseParen))
+            .map(|(((enum_name, variant_name), field_values), end)|
+                {
+                    let pos = combine_code_areas_succeeding(enum_name.pos_info(), end.pos_info());
+                    ASTNode::new(Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(enum_name.inner, variant_name.inner, field_values))), pos)
+                });
+
         let simple_combined = sfa
             .or(new_struct)
+            .or(new_enum)
             .or(atom);
 
         let typecast = simple_combined.foldl(
