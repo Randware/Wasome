@@ -1,10 +1,6 @@
-use crate::misc_parsers::{
-    cross_module_capable_identifier_parser, datatype_parser, identifier_parser, token_parser,
-};
+use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, maybe_statement_separator, token_parser};
 use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::expression::{
-    BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
-};
+use ast::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, NewStruct, StructFieldAccess, Typecast, UnaryOp, UnaryOpType};
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
@@ -64,15 +60,38 @@ pub(crate) fn expression_parser<'src>()
                 )
             });
 
+
         let atom = call
             .or(literal)
             .or(ident.map(|input| ASTNode::new(Expression::Variable(input.inner), input.pos_info)))
-            .or(expr.delimited_by(
+            .or(expr.clone().delimited_by(
                 token_parser(TokenType::OpenParen),
                 token_parser(TokenType::CloseParen),
             ));
 
-        let typecast = atom.clone().foldl(
+        let sfa = atom.clone().then_ignore(token_parser(TokenType::Dot)).then(identifier_parser())
+            .map(|(struct_expr, field)|
+                {
+                    let pos = combine_code_areas_succeeding(struct_expr.position(), field.pos_info());
+                    ASTNode::new(Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(struct_expr, field.inner))), pos)
+                });
+
+        let new_struct = token_parser(TokenType::New).then(cross_module_capable_identifier_parser()).then_ignore(token_parser(TokenType::OpenScope))
+            .then(identifier_parser().then_ignore(token_parser(TokenType::Assign)).then(expr.clone()).separated_by(token_parser(TokenType::ArgumentSeparator)).collect::<Vec<_>>())
+            .then(token_parser(TokenType::CloseScope))
+            .map(|(((start, name), field_values), end)|
+                {
+                    let pos = combine_code_areas_succeeding(start.pos_info(), end.pos_info());
+                    let fields = field_values.into_iter().map(|field|
+                        (field.0.into_ast_node(), field.1)).collect::<Vec<_>>();
+                    ASTNode::new(Expression::NewStruct(Box::new(NewStruct::new(name.inner, fields))), pos)
+                });
+
+        let simple_combined = sfa
+            .or(new_struct)
+            .or(atom);
+
+        let typecast = simple_combined.foldl(
             token_parser(TokenType::As)
                 .ignored()
                 .then(datatype_parser())

@@ -21,7 +21,9 @@ use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
-use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol, VariableSymbol};
+use crate::symbol::{
+    EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol, VariableSymbol,
+};
 use crate::top_level::{Import, ImportRoot};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
@@ -277,9 +279,10 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type GeneralDataType: PartialEq + Debug + Clone + SemanticEq;
     type FunctionCallSymbol: Debug + PartialEq + SemanticEq;
     type VariableUse: Debug + PartialEq + Clone + SemanticEq;
-    type StructUse: Debug + PartialEq;
-    type EnumUse: Debug + PartialEq;
-    type EnumVariantUse: Debug + PartialEq;
+    type StructUse: Debug + PartialEq + SemanticEq;
+    type EnumUse: Debug + PartialEq + SemanticEq;
+    type EnumVariantUse: Debug + PartialEq + SemanticEq;
+    type StructFieldUse: Debug + PartialEq + SemanticEq;
 }
 
 ///  This is an ast type
@@ -295,6 +298,7 @@ impl ASTType for TypedAST {
     type StructUse = Rc<StructSymbol>;
     type EnumUse = Rc<EnumSymbol>;
     type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
+    type StructFieldUse = Rc<StructFieldSymbol<TypedAST>>;
 }
 
 ///  This is an ast type
@@ -310,6 +314,7 @@ impl ASTType for UntypedAST {
     type StructUse = String;
     type EnumUse = String;
     type EnumVariantUse = String;
+    type StructFieldUse = String;
 }
 
 #[cfg(test)]
@@ -322,7 +327,10 @@ mod tests {
         StructFieldAccess,
     };
     use crate::file::File;
-    use crate::statement::{CodeBlock, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
+    use crate::statement::{
+        CodeBlock, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
+        VariableAssignment, VariableDeclaration,
+    };
     use crate::symbol::{
         DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol,
         ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, VariableSymbol,
@@ -333,7 +341,7 @@ mod tests {
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::traversal::{FunctionContainer, HasSymbols};
     use crate::visibility::Visibility;
-    use crate::{AST, ASTNode, SemanticEq, TypedAST, UntypedAST};
+    use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST, AST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
@@ -1283,6 +1291,13 @@ mod tests {
                                                                                     Box::new(NewStruct::new(
                                                                                         error_msg_symbol.clone(),
                                                                                         vec![
+                                                                                            (ASTNode::new(error_msg_inner_symbol.clone(),
+                                                                                                CodeArea::new(
+                                                                                                    CodeLocation::new(152, 5),
+                                                                                                    CodeLocation::new(152, 10),
+                                                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
+                                                                                                ).unwrap()
+                                                                                                          ),
                                                                                             ASTNode::new(
                                                                                                 Expression::Variable(
                                                                                                     error_msg_new_inner_param.clone()
@@ -1291,7 +1306,7 @@ mod tests {
                                                                                                     CodeLocation::new(152, 10),
                                                                                                     CodeLocation::new(152, 20),
                                                                                                     CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                                                ).unwrap())
+                                                                                                ).unwrap()))
                                                                                         ],
                                                                                     ))
                                                                                 ),
@@ -1411,6 +1426,13 @@ mod tests {
                                                                                     Box::new(NewStruct::new(
                                                                                         warning_msg_symbol.clone(),
                                                                                         vec![
+                                                                                            (ASTNode::new(warning_msg_inner_symbol.clone(),
+                                                                                                CodeArea::new(
+                                                                                                    CodeLocation::new(152, 5),
+                                                                                                    CodeLocation::new(152, 10),
+                                                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
+                                                                                                ).unwrap()
+                                                                                                          ),
                                                                                             ASTNode::new(
                                                                                                 Expression::Variable(
                                                                                                     warning_msg_new_inner_param.clone()
@@ -1419,7 +1441,7 @@ mod tests {
                                                                                                     CodeLocation::new(152, 10),
                                                                                                     CodeLocation::new(152, 20),
                                                                                                     CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                                                ).unwrap())
+                                                                                                ).unwrap()))
                                                                                         ],
                                                                                     ))
                                                                                 ),
@@ -1752,10 +1774,10 @@ pub(crate) mod test_shared {
     use crate::directory::Directory;
     use crate::expression::{Expression, Literal};
     use crate::file::File;
-    use crate::statement::{VariableAssignment, VariableDeclaration};
+    use crate::statement::VariableDeclaration;
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
-    use crate::{AST, ASTNode, ASTType, TypedAST};
+    use crate::{ASTNode, ASTType, TypedAST, AST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;

@@ -529,11 +529,12 @@ impl BinaryOpType {
 #[derive(Debug, PartialEq)]
 pub struct NewStruct<Type: ASTType> {
     symbol: Type::StructUse,
-    parameters: Vec<ASTNode<Expression<Type>>>,
+    /// The field and the value
+    parameters: Vec<(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)>,
 }
 
 impl<Type: ASTType> NewStruct<Type> {
-    pub fn new(symbol: Type::StructUse, parameters: Vec<ASTNode<Expression<Type>>>) -> Self {
+    pub fn new(symbol: Type::StructUse, parameters: Vec<(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)>) -> Self {
         Self { symbol, parameters }
     }
 
@@ -541,7 +542,7 @@ impl<Type: ASTType> NewStruct<Type> {
         &self.symbol
     }
 
-    pub fn parameters(&self) -> &[ASTNode<Expression<Type>>] {
+    pub fn parameters(&self) -> &[(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)] {
         &self.parameters
     }
 }
@@ -554,7 +555,12 @@ impl Typed for NewStruct<TypedAST> {
 
 impl<Type: ASTType> SemanticEq for NewStruct<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.parameters().semantic_eq(other.parameters()) && self.symbol() == other.symbol()
+        self.parameters().len() == other.parameters().len()
+            && self.parameters().iter().zip(other.parameters().iter())
+            .all(|(lhs, rhs)| 
+            lhs.0.semantic_eq(&rhs.0) &&
+            lhs.1.semantic_eq(&rhs.1)) 
+            && self.symbol() == other.symbol()
     }
 }
 
@@ -644,13 +650,13 @@ impl<Type: ASTType> SemanticEq for NewEnum<Type> {
 #[derive(Debug, PartialEq)]
 pub struct StructFieldAccess<Type: ASTType> {
     of: ASTNode<Expression<Type>>,
-    field: Rc<StructFieldSymbol<Type>>,
+    field: Type::StructFieldUse,
 }
 
 impl StructFieldAccess<UntypedAST> {
     pub fn new(
         of: ASTNode<Expression<UntypedAST>>,
-        field: Rc<StructFieldSymbol<UntypedAST>>,
+        field: String,
     ) -> Self {
         Self { of, field }
     }
@@ -676,12 +682,8 @@ impl<Type: ASTType> StructFieldAccess<Type> {
         &self.of
     }
 
-    pub fn field(&self) -> &StructFieldSymbol<Type> {
+    pub fn field(&self) -> &Type::StructFieldUse {
         &self.field
-    }
-
-    pub fn field_owned(&self) -> Rc<StructFieldSymbol<Type>> {
-        self.field.clone()
     }
 }
 

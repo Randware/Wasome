@@ -374,34 +374,29 @@ impl<Type: ASTType> SemanticEq for Conditional<Type> {
 /// Use semantic_equals from [`SemanticEquality`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct IfEnumVariant<Type: ASTType> {
-    condition_enum: Rc<EnumSymbol>,
-    condition_enum_variant: Rc<EnumVariantSymbol<Type>>,
+    condition_enum: Type::EnumUse,
+    condition_enum_variant: Type::EnumVariantUse,
     assignment_expression: ASTNode<Expression<Type>>,
     variables: Vec<Rc<VariableSymbol<Type>>>,
     then_statement: ASTNode<Statement<Type>>,
 }
 
 impl IfEnumVariant<UntypedAST> {
-    /// Attempts to create a new IfEnumVariant
-    ///
-    /// Returns None if the amount of variables doesn't match the amount of data types on the enum variant
+    /// Creates a new IfEnumVariant
     pub fn new(
-        condition_enum: Rc<EnumSymbol>,
-        condition_enum_variant: Rc<EnumVariantSymbol<UntypedAST>>,
+        condition_enum: String,
+        condition_enum_variant: String,
         assignment_expression: ASTNode<Expression<UntypedAST>>,
         variables: Vec<Rc<VariableSymbol<UntypedAST>>>,
         then_statement: ASTNode<Statement<UntypedAST>>,
-    ) -> Option<Self> {
-        if condition_enum_variant.fields().len() != variables.len() {
-            return None;
-        }
-        Some(Self {
+    ) -> Self {
+        Self {
             condition_enum,
             condition_enum_variant,
             assignment_expression,
             variables,
             then_statement,
-        })
+        }
     }
 }
 
@@ -436,11 +431,11 @@ impl IfEnumVariant<TypedAST> {
     }
 }
 impl<Type: ASTType> IfEnumVariant<Type> {
-    pub fn condition_enum(&self) -> &EnumSymbol {
+    pub fn condition_enum(&self) -> &Type::EnumUse {
         &self.condition_enum
     }
 
-    pub fn condition_enum_variant(&self) -> &EnumVariantSymbol<Type> {
+    pub fn condition_enum_variant(&self) -> &Type::EnumVariantUse {
         &self.condition_enum_variant
     }
 
