@@ -1,7 +1,7 @@
 use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
 use crate::top_level::Function;
-use crate::traversal::HasSymbols;
 use crate::traversal::statement_traversal::StatementTraversalHelper;
+use crate::traversal::HasSymbols;
 use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;

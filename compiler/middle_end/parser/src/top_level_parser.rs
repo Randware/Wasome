@@ -1,20 +1,13 @@
+use crate::composite_parser::{enum_parser, struct_parser};
 use crate::function_parser::function_parser;
-use crate::misc_parsers::{
-    datatype_parser, identifier_parser, maybe_statement_separator, statement_separator,
-    token_parser,
-};
-use crate::statement_parser::statement_parser;
+use crate::misc_parsers::{maybe_statement_separator, statement_separator};
 use crate::top_level_parser::import_parser::import_parser;
-use crate::{FileInformation, PosInfoWrapper, combine_code_areas_succeeding};
-use ast::symbol::{FunctionSymbol, VariableSymbol};
+use crate::{FileInformation, PosInfoWrapper};
+use ast::composite::{Enum, Struct};
 use ast::top_level::{Function, Import};
-use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
-use std::rc::Rc;
-use ast::composite::{Enum, Struct};
-use crate::composite_parser::{enum_parser, struct_parser};
 
 /// Parses all Top-Level elements in a file.
 ///
@@ -28,7 +21,12 @@ pub(crate) fn top_level_parser<'src>(
 ) -> impl Parser<
     'src,
     &'src [PosInfoWrapper<TokenType>],
-    (Vec<ASTNode<Import>>, Vec<ASTNode<Function<UntypedAST>>>, Vec<ASTNode<Struct<UntypedAST>>>, Vec<ASTNode<Enum<UntypedAST>>>)
+    (
+        Vec<ASTNode<Import>>,
+        Vec<ASTNode<Function<UntypedAST>>>,
+        Vec<ASTNode<Struct<UntypedAST>>>,
+        Vec<ASTNode<Enum<UntypedAST>>>,
+    ),
 > {
     let imports = maybe_statement_separator()
         .ignore_then(import_parser(file_information).then_ignore(statement_separator()))
@@ -44,19 +42,18 @@ pub(crate) fn top_level_parser<'src>(
         .separated_by(statement_separator())
         .allow_trailing()
         .collect::<Vec<_>>();
-    
 
     maybe_statement_separator()
         .ignore_then(imports.then(top_level_elements))
-        .map(|(imports, top_level_elements)| { 
+        .map(|(imports, top_level_elements)| {
             let mut functions = Vec::new();
             let mut structs = Vec::new();
             let mut enums = Vec::new();
-            
+
             top_level_elements.into_iter().for_each(|tle| match tle {
                 TopLevelElement::Function(func) => functions.push(func),
                 TopLevelElement::Struct(stru) => structs.push(stru),
-                TopLevelElement::Enum(en) => enums.push(en)
+                TopLevelElement::Enum(en) => enums.push(en),
             });
 
             (imports, functions, structs, enums)
@@ -67,15 +64,15 @@ pub(crate) fn top_level_parser<'src>(
 enum TopLevelElement {
     Function(ASTNode<Function<UntypedAST>>),
     Struct(ASTNode<Struct<UntypedAST>>),
-    Enum(ASTNode<Enum<UntypedAST>>)
+    Enum(ASTNode<Enum<UntypedAST>>),
 }
 
 mod import_parser {
     use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
     use crate::{FileInformation, PosInfoWrapper};
-    use ast::ASTNode;
     use ast::symbol::ModuleUsageNameSymbol;
     use ast::top_level::{Import, ImportRoot};
+    use ast::ASTNode;
     use chumsky::IterParser;
     use chumsky::Parser;
 

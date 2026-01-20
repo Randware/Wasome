@@ -1,6 +1,4 @@
-use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::visibility::Visibility;
-use chumsky::combinator::OrNot;
+use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use chumsky::prelude::*;
 use lexer::TokenType;
 

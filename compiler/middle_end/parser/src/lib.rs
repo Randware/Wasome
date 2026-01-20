@@ -2,7 +2,7 @@ use crate::top_level_parser::top_level_parser;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
 use chumsky::Parser;
-use lexer::{Token, TokenType, lex};
+use lexer::{lex, Token, TokenType};
 use shared::code_file::CodeFile;
 use shared::code_reference::{CodeArea, CodeLocation};
 use source::types::FileID;
@@ -135,10 +135,11 @@ fn parse_tokens(
     // It's not a good idea to put this into a static to prevent recreating the parser
     // as it would require unsafe code
     let parser = top_level_parser(file_information);
-    parser
-        .parse(&to_parse_with_file_info)
-        .into_output()
-        .map(|(imports, functions, structs, enums)| File::new(filename, imports, functions, enums, structs))
+    parser.parse(&to_parse_with_file_info).into_output().map(
+        |(imports, functions, structs, enums)| {
+            File::new(filename, imports, functions, enums, structs)
+        },
+    )
 }
 
 fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<TokenType>> {

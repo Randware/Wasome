@@ -1,7 +1,7 @@
 use crate::statement::Statement;
 use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
-use crate::traversal::HasSymbols;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
+use crate::traversal::HasSymbols;
 use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
 use std::ops::Index;
@@ -289,7 +289,10 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
         }
         // These symbols will not be returned until the next recursion
         // But this is completely fine
-        self.current_statement_symbols = self.current.get_direct_child_only_variable_symbols().into_iter();
+        self.current_statement_symbols = self
+            .current
+            .get_direct_child_only_variable_symbols()
+            .into_iter();
         // Attempts to go up the statement tree to get symbols from the layer above the current one
         // It fails if there are no more layers
         // In this case, we return None

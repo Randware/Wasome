@@ -1,5 +1,5 @@
-use crate::SemanticEq;
 use crate::symbol::{EnumSymbol, StructSymbol};
+use crate::SemanticEq;
 use std::rc::Rc;
 
 /// A data type

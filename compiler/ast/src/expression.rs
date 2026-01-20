@@ -1,6 +1,6 @@
 use crate::data_type::{DataType, Typed};
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol};
-use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
+use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
 use std::rc::Rc;
 
 /// This represents an expression as per section 2 of the lang spec
@@ -534,7 +534,10 @@ pub struct NewStruct<Type: ASTType> {
 }
 
 impl<Type: ASTType> NewStruct<Type> {
-    pub fn new(symbol: Type::StructUse, parameters: Vec<(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)>) -> Self {
+    pub fn new(
+        symbol: Type::StructUse,
+        parameters: Vec<(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)>,
+    ) -> Self {
         Self { symbol, parameters }
     }
 
@@ -556,10 +559,11 @@ impl Typed for NewStruct<TypedAST> {
 impl<Type: ASTType> SemanticEq for NewStruct<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.parameters().len() == other.parameters().len()
-            && self.parameters().iter().zip(other.parameters().iter())
-            .all(|(lhs, rhs)| 
-            lhs.0.semantic_eq(&rhs.0) &&
-            lhs.1.semantic_eq(&rhs.1)) 
+            && self
+                .parameters()
+                .iter()
+                .zip(other.parameters().iter())
+                .all(|(lhs, rhs)| lhs.0.semantic_eq(&rhs.0) && lhs.1.semantic_eq(&rhs.1))
             && self.symbol() == other.symbol()
     }
 }
@@ -654,10 +658,7 @@ pub struct StructFieldAccess<Type: ASTType> {
 }
 
 impl StructFieldAccess<UntypedAST> {
-    pub fn new(
-        of: ASTNode<Expression<UntypedAST>>,
-        field: String,
-    ) -> Self {
+    pub fn new(of: ASTNode<Expression<UntypedAST>>, field: String) -> Self {
         Self { of, field }
     }
 }

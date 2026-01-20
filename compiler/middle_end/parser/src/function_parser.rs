@@ -1,6 +1,6 @@
 use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, visibility_parser};
 use crate::statement_parser::statement_parser;
-use crate::{PosInfoWrapper, combine_code_areas_succeeding};
+use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::Function;
 use ast::visibility::Visibility;
@@ -47,10 +47,13 @@ pub(crate) fn function_parser<'src>()
         .then(statement)
         .map(
             |(((visibility, (name, params)), return_type), implementation)| {
-                let pos = combine_code_areas_succeeding(visibility
-                                                            .as_ref()
-                                                            .map(|vis| vis.pos_info())
-                                                            .unwrap_or(name.pos_info()), implementation.position());
+                let pos = combine_code_areas_succeeding(
+                    visibility
+                        .as_ref()
+                        .map(|vis| vis.pos_info())
+                        .unwrap_or(name.pos_info()),
+                    implementation.position(),
+                );
                 let visibility = visibility
                     .map(|_| Visibility::Public)
                     .unwrap_or(Visibility::Private);
@@ -62,7 +65,7 @@ pub(crate) fn function_parser<'src>()
                             params.into_iter().map(|param| param.inner).collect(),
                         )),
                         implementation,
-                        visibility
+                        visibility,
                     ),
                     pos,
                 )

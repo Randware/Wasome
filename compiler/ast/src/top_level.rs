@@ -104,9 +104,9 @@ impl Import {
 
 impl SemanticEq for Import {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.root() == other.root() &&
-            self.path() == other.path() &&
-            self.usage_name().semantic_eq(other.usage_name())
+        self.root() == other.root()
+            && self.path() == other.path()
+            && self.usage_name().semantic_eq(other.usage_name())
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::data_type::{DataType, Typed};
 use crate::expression::{Expression, FunctionCall};
 use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, VariableSymbol};
-use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
+use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
 use std::ops::{Deref, Index};
 use std::rc::Rc;
 
@@ -77,11 +77,9 @@ impl<Type: ASTType> Statement<Type> {
     pub fn get_direct_child_only_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
         match self {
             Statement::ControlStructure(inner) => match inner.deref() {
-                ControlStructure::IfEnumVariant(mat) => mat
-                    .variables
-                    .iter()
-                    .map(|var| var.deref())
-                    .collect(),
+                ControlStructure::IfEnumVariant(mat) => {
+                    mat.variables.iter().map(|var| var.deref()).collect()
+                }
                 _ => Vec::new(),
             },
             _ => Vec::new(),
@@ -680,10 +678,10 @@ impl<Type: ASTType> SemanticEq for CodeBlock<Type> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::TypedAST;
     use crate::data_type::DataType;
     use crate::expression::{Expression, Literal};
     use crate::test_shared::{basic_test_variable, sample_codearea};
+    use crate::TypedAST;
 
     #[test]
     fn variable_assignment() {

@@ -1,6 +1,11 @@
-use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, maybe_statement_separator, token_parser};
-use crate::{PosInfoWrapper, combine_code_areas_succeeding};
-use ast::expression::{BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess, Typecast, UnaryOp, UnaryOpType};
+use crate::misc_parsers::{
+    cross_module_capable_identifier_parser, datatype_parser, identifier_parser, token_parser,
+};
+use crate::{combine_code_areas_succeeding, PosInfoWrapper};
+use ast::expression::{
+    BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
+    Typecast, UnaryOp, UnaryOpType,
+};
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
@@ -60,7 +65,6 @@ pub(crate) fn expression_parser<'src>()
                 )
             });
 
-
         let atom = call
             .or(literal)
             .or(ident.map(|input| ASTNode::new(Expression::Variable(input.inner), input.pos_info)))
@@ -69,38 +73,67 @@ pub(crate) fn expression_parser<'src>()
                 token_parser(TokenType::CloseParen),
             ));
 
-        let sfa = atom.clone().then_ignore(token_parser(TokenType::Dot)).then(identifier_parser())
-            .map(|(struct_expr, field)|
-                {
-                    let pos = combine_code_areas_succeeding(struct_expr.position(), field.pos_info());
-                    ASTNode::new(Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(struct_expr, field.inner))), pos)
-                });
+        let sfa = atom
+            .clone()
+            .then_ignore(token_parser(TokenType::Dot))
+            .then(identifier_parser())
+            .map(|(struct_expr, field)| {
+                let pos = combine_code_areas_succeeding(struct_expr.position(), field.pos_info());
+                ASTNode::new(
+                    Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(
+                        struct_expr,
+                        field.inner,
+                    ))),
+                    pos,
+                )
+            });
 
-        let new_struct = token_parser(TokenType::New).then(cross_module_capable_identifier_parser()).then_ignore(token_parser(TokenType::OpenScope))
-            .then(identifier_parser().then_ignore(token_parser(TokenType::Assign)).then(expr.clone()).separated_by(token_parser(TokenType::ArgumentSeparator)).collect::<Vec<_>>())
+        let new_struct = token_parser(TokenType::New)
+            .then(cross_module_capable_identifier_parser())
+            .then_ignore(token_parser(TokenType::OpenScope))
+            .then(
+                identifier_parser()
+                    .then_ignore(token_parser(TokenType::Assign))
+                    .then(expr.clone())
+                    .separated_by(token_parser(TokenType::ArgumentSeparator))
+                    .collect::<Vec<_>>(),
+            )
             .then(token_parser(TokenType::CloseScope))
-            .map(|(((start, name), field_values), end)|
-                {
-                    let pos = combine_code_areas_succeeding(start.pos_info(), end.pos_info());
-                    let fields = field_values.into_iter().map(|field|
-                        (field.0.into_ast_node(), field.1)).collect::<Vec<_>>();
-                    ASTNode::new(Expression::NewStruct(Box::new(NewStruct::new(name.inner, fields))), pos)
-                });
+            .map(|(((start, name), field_values), end)| {
+                let pos = combine_code_areas_succeeding(start.pos_info(), end.pos_info());
+                let fields = field_values
+                    .into_iter()
+                    .map(|field| (field.0.into_ast_node(), field.1))
+                    .collect::<Vec<_>>();
+                ASTNode::new(
+                    Expression::NewStruct(Box::new(NewStruct::new(name.inner, fields))),
+                    pos,
+                )
+            });
 
-        let new_enum = cross_module_capable_identifier_parser().then_ignore(token_parser(TokenType::PathSeparator))
-            .then(identifier_parser()).then_ignore(token_parser(TokenType::OpenParen))
-            .then(expr.clone().separated_by(token_parser(TokenType::ArgumentSeparator)).collect::<Vec<_>>())
+        let new_enum = cross_module_capable_identifier_parser()
+            .then_ignore(token_parser(TokenType::PathSeparator))
+            .then(identifier_parser())
+            .then_ignore(token_parser(TokenType::OpenParen))
+            .then(
+                expr.clone()
+                    .separated_by(token_parser(TokenType::ArgumentSeparator))
+                    .collect::<Vec<_>>(),
+            )
             .then(token_parser(TokenType::CloseParen))
-            .map(|(((enum_name, variant_name), field_values), end)|
-                {
-                    let pos = combine_code_areas_succeeding(enum_name.pos_info(), end.pos_info());
-                    ASTNode::new(Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(enum_name.inner, variant_name.inner, field_values))), pos)
-                });
+            .map(|(((enum_name, variant_name), field_values), end)| {
+                let pos = combine_code_areas_succeeding(enum_name.pos_info(), end.pos_info());
+                ASTNode::new(
+                    Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
+                        enum_name.inner,
+                        variant_name.inner,
+                        field_values,
+                    ))),
+                    pos,
+                )
+            });
 
-        let simple_combined = sfa
-            .or(new_struct)
-            .or(new_enum)
-            .or(atom);
+        let simple_combined = sfa.or(new_struct).or(new_enum).or(atom);
 
         let typecast = simple_combined.foldl(
             token_parser(TokenType::As)
