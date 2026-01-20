@@ -3,10 +3,10 @@ use crate::misc_parsers::{
     cross_module_capable_identifier_parser, datatype_parser, identifier_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{PosInfoWrapper, combine_code_areas_succeeding};
+use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
-    CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
+    CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     VariableAssignment, VariableDeclaration,
 };
 use ast::symbol::VariableSymbol;
@@ -70,7 +70,7 @@ pub(crate) fn statement_parser<'src>()
 
         let variable_declaration = data_type
             .clone()
-            .then(ident)
+            .then(ident.clone())
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|((data_type, name), val)| {
@@ -122,6 +122,52 @@ pub(crate) fn statement_parser<'src>()
 
                 PosInfoWrapper::new(Conditional::new(cond, then, else_statement), pos)
             });
+
+        let if_enum_variant = token_parser(TokenType::If)
+            .then_ignore(token_parser(TokenType::Let))
+            .then(cross_module_capable_identifier_parser().clone())
+            .then(ident.clone())
+            .then(
+                data_type
+                    .clone()
+                    .then(ident)
+                    .separated_by(token_parser(TokenType::ArgumentSeparator))
+                    .collect::<Vec<_>>()
+                    .delimited_by(
+                        token_parser(TokenType::OpenParen),
+                        token_parser(TokenType::CloseParen),
+                    ),
+            )
+            .then_ignore(token_parser(TokenType::Assign))
+            .then(expression.clone())
+            .then_ignore(maybe_statement_separator())
+            .then(statement.clone())
+            .map(
+                |(((((if_keyword, enum_name), enum_variant), vars), source), then_statement)| {
+                    let pos = combine_code_areas_succeeding(
+                        if_keyword.pos_info(),
+                        then_statement.position(),
+                    );
+
+                    let vars = vars
+                        .into_iter()
+                        .map(|var| {
+                            Rc::new(VariableSymbol::<UntypedAST>::new(var.0.inner, var.1.inner))
+                        })
+                        .collect::<Vec<_>>();
+
+                    PosInfoWrapper::new(
+                        IfEnumVariant::<UntypedAST>::new(
+                            enum_name.inner,
+                            enum_variant.inner,
+                            source,
+                            vars,
+                            then_statement,
+                        ),
+                        pos,
+                    )
+                },
+            );
 
         let loop_body = maybe_statement_separator().ignore_then(statement.clone());
         let loop_statement = token_parser(TokenType::Loop)
@@ -188,6 +234,11 @@ pub(crate) fn statement_parser<'src>()
             loop_statement.map(|lst| {
                 lst.map(|inner| {
                     Statement::ControlStructure(Box::new(ControlStructure::Loop(inner)))
+                })
+            }),
+            if_enum_variant.map(|iev| {
+                iev.map(|inner| {
+                    Statement::ControlStructure(Box::new(ControlStructure::IfEnumVariant(inner)))
                 })
             }),
             code_block.map(|code_block| code_block.map(Statement::Codeblock)),

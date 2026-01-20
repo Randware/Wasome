@@ -140,6 +140,8 @@ pub enum TokenType {
     New,
     #[token("import")]
     Import,
+    #[token("let")]
+    Let,
 
     // Symbols
     #[token("->")]
