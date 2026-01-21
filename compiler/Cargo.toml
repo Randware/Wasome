@@ -2,3 +2,6 @@
 resolver = "3"
 
 members = ["ast", "lexer", "shared", "source", "io", "middle_end/parser"]
+
+[workspace.dependencies]
+tempfile = "3"
