@@ -43,21 +43,21 @@ fn wrap<T: Debug>(inner: T) -> ASTNode<T> {
 
 // --- INTEGRATION TESTS ---
 
-const FIBONACCI: &'static str = include_str!("../../../../docs/examples/single_file/fibonacci.waso");
-const MAX: &'static str = include_str!("../../../../docs/examples/single_file/max.waso");
-const SUM_N: &'static str = include_str!("../../../../docs/examples/single_file/sum_n.waso");
-const IS_EVEN: &'static str = include_str!("../../../../docs/examples/single_file/is_even.waso");
+const FIBONACCI: &'static str = include_str!("test_programs/single_file/fibonacci.waso");
+const MAX: &'static str = include_str!("test_programs/single_file/max.waso");
+const SUM_N: &'static str = include_str!("test_programs/single_file/sum_n.waso");
+const IS_EVEN: &'static str = include_str!("test_programs/single_file/is_even.waso");
 const MODULAR_ADD: &'static str =
-    include_str!("../../../../docs/examples/single_project/modular_arithmetic/modular_add.waso");
+    include_str!("test_programs/single_project/modular_arithmetic/modular_add.waso");
 const MODULAR_MUL: &'static str =
-    include_str!("../../../../docs/examples/single_project/modular_arithmetic/modular_mul.waso");
-const MISC_FEATURES: &'static str = include_str!("../../../../docs/examples/single_file/misc.waso");
-const UNARY_CAST: &'static str = include_str!("../../../../docs/examples/single_file/unary_cast.waso");
+    include_str!("test_programs/single_project/modular_arithmetic/modular_mul.waso");
+const MISC_FEATURES: &'static str = include_str!("test_programs/single_file/misc.waso");
+const UNARY_CAST: &'static str = include_str!("test_programs/single_file/unary_cast.waso");
 const MISSING_IMPORT_SEPARATOR: &'static str =
-    include_str!("../../../../docs/examples/single_file/missing_import_separator.waso");
+    include_str!("test_programs/single_file/missing_import_separator.waso");
 
 #[test]
-fn test_parse_simple_programm() {
+fn test_parse_simple_program() {
     let (sm, id) = setup_source_map(FIBONACCI);
 
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
