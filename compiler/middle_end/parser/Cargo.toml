@@ -11,5 +11,4 @@ shared = { path = "../../shared"}
 source = { path = "../../source"}
 
 [dev-dependencies]
-tempfile = "3"
-
+tempfile.workspace = true

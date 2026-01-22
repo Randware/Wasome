@@ -29,7 +29,7 @@ pub(crate) fn expression_parser<'src>()
                             }
                         }
                         TokenType::Integer(inner) => inner.to_string(),
-                        TokenType::CharLiteral(inner) => inner.to_string(),
+                        TokenType::CharLiteral(inner) => format!("'{}'", inner),
                         TokenType::True => "true".to_owned(),
                         TokenType::False => "false".to_owned(),
                         _ => return Err(EmptyErr::default()),
