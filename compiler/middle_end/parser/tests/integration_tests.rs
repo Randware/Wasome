@@ -1,9 +1,16 @@
-use ast::expression::{BinaryOp, BinaryOpType, Expression, Typecast, UnaryOp, UnaryOpType};
+use ast::composite::{Enum, EnumVariant, Struct, StructField};
+use ast::expression::{
+    BinaryOp, BinaryOpType, Expression, NewEnum, NewStruct, StructFieldAccess, Typecast, UnaryOp,
+    UnaryOpType,
+};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
     VariableAssignment, VariableDeclaration,
 };
-use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol, VariableSymbol};
+use ast::symbol::{
+    EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
+    StructSymbol, VariableSymbol,
+};
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
@@ -58,6 +65,8 @@ const LOOP_TEST: &'static str = include_str!("test_programs/single_file/loop.was
 const OPERATOR_TEST: &'static str = include_str!("test_programs/single_file/operator.waso");
 const MISSING_STATEMENT_SEPARATOR: &'static str =
     include_str!("test_programs/single_file/missing_statement_separator.waso");
+const STRUCT_TEST: &'static str = include_str!("test_programs/single_file/struct.waso");
+const ENUM_TEST: &'static str = include_str!("test_programs/single_file/enum.waso");
 
 #[test]
 fn test_parse_simple_program() {
@@ -979,4 +988,160 @@ fn test_missing_statement_separator() {
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse);
     assert!(parsed.is_none());
+}
+
+#[test]
+fn test_parse_struct() {
+    let (sm, id) = setup_source_map(STRUCT_TEST);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing failed");
+
+    let point_symbol = Rc::new(StructSymbol::new("Point".to_string()));
+    let x_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
+        "x".to_string(),
+        "s32".to_string(),
+    ))));
+    let y_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
+        "y".to_string(),
+        "s32".to_string(),
+    ))));
+
+    let point_struct = wrap(Struct::new(
+        point_symbol.clone(),
+        Vec::new(),
+        vec![x_field, y_field],
+        Visibility::Private,
+    ));
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+    ));
+
+    // Point point <- new Point { x <- 10, y <- 20 }
+    let point_var = Rc::new(VariableSymbol::new(
+        "point".to_string(),
+        "Point".to_string(),
+    ));
+    let new_point_expr = wrap(Expression::NewStruct(Box::new(NewStruct::<UntypedAST>::new(
+        "Point".to_string(),
+        vec![
+            (
+                wrap("x".to_string()),
+                wrap(Expression::Literal("10".to_string())),
+            ),
+            (
+                wrap("y".to_string()),
+                wrap(Expression::Literal("20".to_string())),
+            ),
+        ],
+    ))));
+    let stmt1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        point_var.clone(),
+        new_point_expr,
+    )));
+
+    // s32 old_x_coordinate <- point.x
+    let old_x_var = Rc::new(VariableSymbol::new(
+        "old_x_coordinate".to_string(),
+        "s32".to_string(),
+    ));
+    let access_expr = wrap(Expression::StructFieldAccess(Box::new(
+        StructFieldAccess::<UntypedAST>::new(
+            wrap(Expression::Variable("point".to_string())),
+            "x".to_string(),
+        ),
+    )));
+    let stmt2 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        old_x_var.clone(),
+        access_expr,
+    )));
+
+    // point.x <- 15
+    let stmt3 = wrap(Statement::VariableAssignment(VariableAssignment::<
+        UntypedAST,
+    >::new(
+        "point.x".to_string(),
+        wrap(Expression::Literal("15".to_string())),
+    )));
+
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        stmt1, stmt2, stmt3,
+    ])));
+    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![main_func],
+        Vec::new(),
+        vec![point_struct],
+    );
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_enum() {
+    let (sm, id) = setup_source_map(ENUM_TEST);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing failed");
+
+    let weekday_symbol = Rc::new(EnumSymbol::new("Weekday".to_string()));
+    let variants = vec![
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+    ]
+    .into_iter()
+    .map(|name| {
+        wrap(EnumVariant::new(Rc::new(EnumVariantSymbol::new(
+            name.to_string(),
+            vec![],
+        ))))
+    })
+    .collect();
+
+    let weekday_enum = wrap(Enum::new(
+        weekday_symbol.clone(),
+        variants,
+        Visibility::Private,
+    ));
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+    ));
+
+    // Weekday weekday <- Weekday::Saturday
+    let weekday_var = Rc::new(VariableSymbol::new(
+        "weekday".to_string(),
+        "Weekday".to_string(),
+    ));
+    let new_enum_expr = wrap(Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
+        "Weekday".to_string(),
+        "Saturday".to_string(),
+        vec![],
+    ))));
+    let stmt1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        weekday_var.clone(),
+        new_enum_expr,
+    )));
+
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt1])));
+    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![main_func],
+        vec![weekday_enum],
+        Vec::new(),
+    );
+    assert!(parsed.semantic_eq(&expected));
 }

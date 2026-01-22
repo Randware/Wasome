@@ -79,12 +79,14 @@ pub(crate) fn enum_parser<'src>()
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let variant = ident.clone().then(
-        token_parser(TokenType::OpenParen).ignore_then(
-            data_type
-                .separated_by(token_parser(TokenType::ArgumentSeparator))
-                .collect::<Vec<_>>()
-                .then(token_parser(TokenType::CloseParen)),
-        ),
+        token_parser(TokenType::OpenParen)
+            .ignore_then(
+                data_type
+                    .separated_by(token_parser(TokenType::ArgumentSeparator))
+                    .collect::<Vec<_>>()
+                    .then(token_parser(TokenType::CloseParen)),
+            )
+            .or_not(),
     );
     visibility_parser()
         .then(
@@ -104,14 +106,18 @@ pub(crate) fn enum_parser<'src>()
         .map(|(visibility, ((name, variants), end))| {
             let variants = variants
                 .into_iter()
-                .map(|(name, (fields, end))| {
+                .map(|(name, opt_fields)| {
+                    let (fields, end_pos) = match opt_fields {
+                        Some((f, end)) => (f, end.pos_info),
+                        None => (Vec::new(), name.pos_info.clone()),
+                    };
                     ASTNode::new(
                         EnumVariant::new(Rc::new(EnumVariantSymbol::<UntypedAST>::new(
                             name.inner,
                             fields.into_iter().map(|field| field.inner).collect(),
                         ))),
                         // This will never panic as name is before end
-                        combine_code_areas_succeeding(&name.pos_info, &end.pos_info),
+                        combine_code_areas_succeeding(&name.pos_info, &end_pos),
                     )
                 })
                 .collect::<Vec<_>>();

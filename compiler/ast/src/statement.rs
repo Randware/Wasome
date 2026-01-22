@@ -1,7 +1,10 @@
 use crate::data_type::{DataType, Typed};
 use crate::expression::{Expression, FunctionCall};
-use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, VariableSymbol};
+use crate::symbol::{
+    DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, StructFieldSymbol, VariableSymbol,
+};
 use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
+use std::cmp::PartialEq;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
 
@@ -15,6 +18,8 @@ use std::rc::Rc;
 pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
     VariableAssignment(VariableAssignment<Type>),
+    // Assignment to a struct field
+    StructFieldAssignment(StructFieldAssignment<Type>),
     // Creation of new variable
     VariableDeclaration(VariableDeclaration<Type>),
     Expression(ASTNode<Expression<Type>>),
@@ -33,6 +38,9 @@ impl<Type: ASTType> SemanticEq for Statement<Type> {
         use Statement as St;
         match (self, other) {
             (St::VariableAssignment(inner), St::VariableAssignment(other_inner)) => {
+                inner.semantic_eq(other_inner)
+            }
+            (St::StructFieldAssignment(inner), St::StructFieldAssignment(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
             (St::VariableDeclaration(inner), St::VariableDeclaration(other_inner)) => {
@@ -218,6 +226,83 @@ impl VariableAssignment<UntypedAST> {
 impl<Type: ASTType> VariableAssignment<Type> {
     pub fn variable(&self) -> &Type::VariableUse {
         &self.variable
+    }
+
+    pub fn value(&self) -> &ASTNode<Expression<Type>> {
+        &self.value
+    }
+}
+
+/// This represents an assignment to a field of a struct
+///
+/// This is not combined with [`VariableAssignment`] as assignment does not make sense for the
+/// result of other expressions
+#[derive(Debug, PartialEq)]
+pub struct StructFieldAssignment<Type: ASTType> {
+    struct_source: ASTNode<Expression<Type>>,
+    struct_field: Type::StructFieldUse,
+    value: ASTNode<Expression<Type>>,
+}
+
+impl<Type: ASTType> SemanticEq for StructFieldAssignment<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.struct_source().semantic_eq(other.struct_source())
+            && self.struct_field().semantic_eq(other.struct_field())
+            && self.value().semantic_eq(other.value())
+    }
+}
+
+impl StructFieldAssignment<TypedAST> {
+    /// Tries to create a new instance
+    ///
+    /// # Errors
+    ///
+    /// - The data type of `struct_field` and `value` mismatch
+    /// - `struct_source` doesn't evaluate to a struct
+
+    pub fn new(
+        struct_source: ASTNode<Expression<TypedAST>>,
+        struct_field: Rc<StructFieldSymbol<TypedAST>>,
+        value: ASTNode<Expression<TypedAST>>,
+    ) -> Option<Self> {
+        if struct_field.data_type() != &value.data_type() {
+            return None;
+        }
+        match struct_source.data_type() {
+            DataType::Struct(_) => (),
+            _ => return None,
+        }
+        Some(Self {
+            struct_source,
+            struct_field,
+            value,
+        })
+    }
+}
+
+impl StructFieldAssignment<UntypedAST> {
+    /// Creates a new instance
+
+    pub fn new(
+        struct_source: ASTNode<Expression<UntypedAST>>,
+        struct_field: String,
+        value: ASTNode<Expression<UntypedAST>>,
+    ) -> Self {
+        Self {
+            struct_source,
+            struct_field,
+            value,
+        }
+    }
+}
+
+impl<Type: ASTType> StructFieldAssignment<Type> {
+    pub fn struct_source(&self) -> &ASTNode<Expression<Type>> {
+        &self.struct_source
+    }
+
+    pub fn struct_field(&self) -> &Type::StructFieldUse {
+        &self.struct_field
     }
 
     pub fn value(&self) -> &ASTNode<Expression<Type>> {
