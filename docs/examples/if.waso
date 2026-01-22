@@ -10,4 +10,6 @@ fn showcase_if_conditionals() -> char {
     } else {
         -> '🤥'   
     }
+    // We need to have a return at the end
+    -> ' '
 }

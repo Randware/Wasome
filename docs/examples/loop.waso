@@ -18,6 +18,6 @@ fn main() {
     s32 count3 <- 0
     
     loop {
-        count3 = count3 + 1
+        count3 <- count3 + 1
     }
 }
