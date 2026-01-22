@@ -1,16 +1,17 @@
 import { writable } from 'svelte/store';
 
-const { subscribe, set } = writable(window.location.hash.slice(1) || '/');
+const { subscribe, set } = writable(window.location.pathname);
 
 export const route = {
   subscribe,
   init: () => {
-    const update = () => set(window.location.hash.slice(1) || '/');
-    window.addEventListener('hashchange', update);
-    return () => window.removeEventListener('hashchange', update);
+    const update = () => set(window.location.pathname);
+    window.addEventListener('popstate', update);
+    return () => window.removeEventListener('popstate', update);
   }
 };
 
 export const navigate = (path) => {
-  window.location.hash = path;
+  window.history.pushState({}, '', path);
+  set(path);
 };

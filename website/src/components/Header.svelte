@@ -10,28 +10,28 @@
 
 <header>
   <div class="container">
-    <a href="#/" class="logo" on:click|preventDefault={() => go('/')}>
+    <a href="/" class="logo" on:click|preventDefault={() => go('/')}>
       <img src="/logo.png" alt="Wasome Logo" />
       <span>Wasome</span>
     </a>
 
     <nav>
-      <a href="#/docs" 
+      <a href="/docs" 
          class:active={activeRoute === '/docs'} 
          on:click|preventDefault={() => go('/docs')}>
         Docs
       </a>
-      <a href="#/walkthrough" 
+      <a href="/walkthrough" 
          class:active={activeRoute === '/walkthrough'} 
          on:click|preventDefault={() => go('/walkthrough')}>
         Tour
       </a>
-      <a href="#/examples" 
+      <a href="/examples" 
          class:active={activeRoute === '/examples'} 
          on:click|preventDefault={() => go('/examples')}>
         Examples
       </a>
-      <a href="#/playground" 
+      <a href="/playground" 
          class:active={activeRoute === '/playground'} 
          on:click|preventDefault={() => go('/playground')}>
         Playground
@@ -39,7 +39,7 @@
     </nav>
     
     <div class="cta">
-      <a href="#/install" class="install-btn" on:click|preventDefault={() => go('/install')}>
+      <a href="/install" class="install-btn" on:click|preventDefault={() => go('/install')}>
         Install
       </a>
       <a href="https://github.com/Randware/Wasome" target="_blank" class="github-btn">
