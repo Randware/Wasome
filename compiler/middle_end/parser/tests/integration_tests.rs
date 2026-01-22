@@ -738,7 +738,7 @@ fn test_parse_if() {
     ])));
     let showcase_func = wrap(Function::new(showcase_symbol, showcase_body, Visibility::Private));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func, showcase_func]);
+    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func, showcase_func], Vec::new(), Vec::new());
     assert!(parsed.semantic_eq(&expected));
 }
 
@@ -856,7 +856,7 @@ fn test_parse_loop() {
     ])));
     let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func]);
+    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func], Vec::new(), Vec::new());
     assert!(parsed.semantic_eq(&expected));
 }
 
@@ -969,7 +969,7 @@ fn test_parse_operator() {
     ])));
     let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func]);
+    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func], Vec::new(), Vec::new());
     assert!(parsed.semantic_eq(&expected));
 }
 
