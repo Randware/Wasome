@@ -169,14 +169,20 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
+        let (path, primary_range) = if let Some(cached) = self.cache.get(&snippet.file) {
+            (cached.path.clone(), snippet.primary.range.clone())
+        } else {
+            (String::new(), 0..0)
+        };
+
         let kind = ReportKind::Custom("", self.styling.type_heading);
 
-        let report = Report::build(kind, (String::new(), 0..0))
+        let report = Report::build(kind, (path, primary_range))
             .with_config(Self::resolve_config(self.diagnostic.level));
 
         let report = self.label_report(report, snippet);
 
-        let buffer = self.strip_report(report)?;
+        let buffer = self.render_report(report)?;
 
         self.writer.write_all(&buffer)?;
 
@@ -196,7 +202,7 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    fn strip_report(
+    fn render_report(
         &mut self,
         report: ReportBuilder<(String, std::ops::Range<usize>)>,
     ) -> io::Result<Vec<u8>> {
@@ -209,43 +215,30 @@ impl<'a> Renderer<'a> {
 
         report.finish().write(sources, &mut buffer)?;
 
-        // Remove the first line of the report
+        // Remove the first line of the report (ariadne header)
         if let Some(newline_idx) = buffer.iter().position(|&b| b == b'\n') {
             buffer.drain(0..=newline_idx);
-        }
-
-        // Remove the primary error position
-        if let Some(colon_idx) = buffer.iter().position(|&b| b == b':') {
-            if let Some(space_offset) = buffer[colon_idx..].iter().position(|&b| b == b' ') {
-                let space_idx = colon_idx + space_offset - 1;
-
-                buffer.drain(colon_idx..=space_idx);
-            }
         }
 
         Ok(buffer)
     }
 
-    // TODO: Decide if we should color code grouped annotations
     fn label_report<'b>(
         &self,
         mut builder: ReportBuilder<'b, (String, std::ops::Range<usize>)>,
         snippet: &'b Snippet,
     ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
         if let Some(cached) = self.cache.get(&snippet.file) {
-            for ann in &snippet.annotations {
-                let mut ranges: Vec<_> = ann.ranges.iter().collect();
+            let mut annotations = snippet.context.clone();
+            annotations.push(snippet.primary.clone());
 
-                // TODO: Decide whether to sort annotations or not
-                ranges.sort_by_key(|r| r.start);
+            annotations.sort_by_key(|ann| ann.range.start);
 
-                for range in ranges {
-                    let label = Label::new((cached.path.clone(), (*range).clone()))
-                        .with_message(&ann.message.fg(self.styling.annotation_message))
-                        .with_color(self.styling.snippet_highlight);
-
-                    builder.add_label(label);
-                }
+            for ann in annotations {
+                let label = Label::new((cached.path.clone(), ann.range.clone()))
+                    .with_message(&ann.message.fg(self.styling.annotation_message))
+                    .with_color(self.styling.snippet_highlight);
+                builder.add_label(label);
             }
         }
 

@@ -23,7 +23,7 @@ fn test_single_file_fixture() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .annotate(88..89, "Identifier expected here")
+                .primary(88..89, "Identifier expected here")
                 .build(),
         )
         .help("Assign name to variable")
@@ -33,7 +33,7 @@ fn test_single_file_fixture() {
 }
 
 #[test]
-fn test_annotate_many() {
+fn test_with_context() {
     MockLoader::reset();
 
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
@@ -48,13 +48,14 @@ fn test_annotate_many() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .annotate_many([77..80, 52..55], "'num' is of type 'i64'")
+                .primary(77..80, "'num' is of type 'i64'")
+                .context(52..55, "'num' was declared here")
                 .build(),
         )
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .annotate(11..14, "Function expects type 'i32'")
+                .primary(11..14, "Function expects type 'i32'")
                 .build(),
         )
         .help("Change types or cast")
@@ -79,8 +80,8 @@ fn test_primary_span() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .annotate(88..89, "Primary")
-                .annotate(52..55, "Secondary")
+                .primary(88..89, "Primary")
+                .context(52..55, "Secondary")
                 .build(),
         )
         .build();
@@ -104,7 +105,7 @@ fn test_print_with_snippets() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .annotate(52..55, "Error")
+                .primary(52..55, "Error")
                 .build(),
         )
         .build();
@@ -130,13 +131,13 @@ fn test_multi_file() {
         .snippet(
             Snippet::builder()
                 .file(b_id)
-                .annotate(32..40, "Struct `Vector2D` is private")
+                .primary(32..40, "Struct `Vector2D` is private")
                 .build(),
         )
         .snippet(
             Snippet::builder()
                 .file(a_id)
-                .annotate(0..0, "Missing `pub` modifier")
+                .primary(0..0, "Missing `pub` modifier")
                 .build(),
         )
         .build();

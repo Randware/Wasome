@@ -54,37 +54,39 @@ impl Diagnostic {
 #[derive(Builder, Debug, Clone)]
 pub struct Snippet {
     #[builder(field)]
-    pub(crate) annotations: Vec<Annotation>,
+    pub(crate) primary: Annotation,
+
+    #[builder(field)]
+    pub(crate) context: Vec<Annotation>,
 
     pub(crate) file: FileID,
 }
 
-// TODO: Maybe make this a builder, so we can explicitly set primary annotations
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct Annotation {
-    pub ranges: Vec<Range<usize>>,
+    pub range: Range<usize>,
     pub message: String,
 }
 
+impl Annotation {
+    fn new(range: Range<usize>, message: impl Into<String>) -> Self {
+        Self {
+            range,
+            message: message.into(),
+        }
+    }
+}
+
 impl<S: snippet_builder::State> SnippetBuilder<S> {
-    /// Adds a single annotation to the snippet.
-    pub fn annotate(self, range: Range<usize>, message: impl Into<String>) -> Self {
-        self.annotate_many(std::iter::once(range), message)
+    /// Adds a primary annotation to the snippet.
+    pub fn primary(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
+        self.primary = Annotation::new(range, message);
+        self
     }
 
-    /// Adds multiple locations for the same message.
-    pub fn annotate_many<I>(mut self, ranges: I, message: impl Into<String>) -> Self
-    where
-        I: IntoIterator<Item = Range<usize>>,
-    {
-        let ranges: Vec<_> = ranges.into_iter().collect();
-
-        if !ranges.is_empty() {
-            self.annotations.push(Annotation {
-                ranges,
-                message: message.into(),
-            });
-        }
+    /// Adds a context annotation to the snippet.
+    pub fn context(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
+        self.context.push(Annotation::new(range, message));
         self
     }
 }
