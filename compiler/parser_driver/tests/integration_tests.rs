@@ -1,12 +1,11 @@
 use io::WasomeLoader;
-use parser_driver::generate_untyped_ast;
 use shared::program_information::{ProgramInformation, Project};
 use source::SourceMap;
 use std::fs;
 use std::ops::Deref;
 use std::path::PathBuf;
 use tempfile::TempDir;
-
+use parser_driver::parser_driver::generate_untyped_ast;
 // --- Test Program Contents ---
 
 const SIMPLE_MAIN: &str = include_str!("test_programs/simple/main.waso");
@@ -52,7 +51,7 @@ fn test_simple_program() {
         main_file,
     )
     .unwrap();
-
+    
     let mut sm = SourceMap::<WasomeLoader>::new(root);
 
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");

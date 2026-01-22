@@ -1,5 +1,3 @@
-use crate::directory_builder::DirectoryBuilder;
-use crate::module_path::{ModulePath, ModulePathProjectRelative};
 use ast::file::File;
 use ast::{AST, ASTNode, UntypedAST};
 use io::FullIO;
@@ -8,6 +6,8 @@ use shared::program_information::ProgramInformation;
 use source::SourceMap;
 use source::types::FileID;
 use std::path::{Path, PathBuf};
+use crate::parser_driver::directory_builder::DirectoryBuilder;
+use crate::parser_driver::module_path::{ModulePath, ModulePathProjectRelative};
 
 /// All valid wasome file extensions
 const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
