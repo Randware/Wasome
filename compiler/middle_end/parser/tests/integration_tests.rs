@@ -43,21 +43,24 @@ fn wrap<T: Debug>(inner: T) -> ASTNode<T> {
 
 // --- INTEGRATION TESTS ---
 
-const FIBONACCI: &'static str = include_str!("test_programms/fibonacci.waso");
-const MAX: &'static str = include_str!("test_programms/max.waso");
-const SUM_N: &'static str = include_str!("test_programms/sum_n.waso");
-const IS_EVEN: &'static str = include_str!("test_programms/is_even.waso");
+const FIBONACCI: &'static str = include_str!("test_programs/single_file/fibonacci.waso");
+const MAX: &'static str = include_str!("test_programs/single_file/max.waso");
+const SUM_N: &'static str = include_str!("test_programs/single_file/sum_n.waso");
+const IS_EVEN: &'static str = include_str!("test_programs/single_file/is_even.waso");
 const MODULAR_ADD: &'static str =
-    include_str!("test_programms/modular_arithmetic/modular_add.waso");
+    include_str!("test_programs/single_project/modular_arithmetic/modular_add.waso");
 const MODULAR_MUL: &'static str =
-    include_str!("test_programms/modular_arithmetic/modular_mul.waso");
-const MISC_FEATURES: &'static str = include_str!("test_programms/misc.waso");
-const UNARY_CAST: &'static str = include_str!("test_programms/unary_cast.waso");
-const MISSING_IMPORT_SEPARATOR: &'static str =
-    include_str!("test_programms/missing_import_separator.waso");
+    include_str!("test_programs/single_project/modular_arithmetic/modular_mul.waso");
+const MISC_FEATURES: &'static str = include_str!("test_programs/single_file/misc.waso");
+const UNARY_CAST: &'static str = include_str!("test_programs/single_file/unary_cast.waso");
+const IF_TEST: &'static str = include_str!("test_programs/single_file/if.waso");
+const LOOP_TEST: &'static str = include_str!("test_programs/single_file/loop.waso");
+const OPERATOR_TEST: &'static str = include_str!("test_programs/single_file/operator.waso");
+const MISSING_STATEMENT_SEPARATOR: &'static str =
+    include_str!("test_programs/single_file/missing_statement_separator.waso");
 
 #[test]
-fn test_parse_simple_programm() {
+fn test_parse_simple_program() {
     let (sm, id) = setup_source_map(FIBONACCI);
 
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
@@ -537,7 +540,7 @@ fn test_misc_features() {
         )),
         wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::Literal(
-                "c".to_string(),
+                "'c'".to_string(),
             ))))),
         )]))),
         Visibility::Private,
@@ -637,8 +640,302 @@ fn test_unary_on_typecast() {
 }
 
 #[test]
-fn test_missing_import_separator() {
-    let (sm, id) = setup_source_map(MISSING_IMPORT_SEPARATOR);
+fn test_parse_if() {
+    let (sm, id) = setup_source_map(IF_TEST);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing failed");
+
+    // fn main() { char wasome <- showcase_if_conditionals() }
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+    ));
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+            Rc::new(VariableSymbol::new("wasome".to_string(), "char".to_string())),
+            wrap(Expression::FunctionCall(ast::expression::FunctionCall::<UntypedAST>::new(
+                "showcase_if_conditionals".to_string(),
+                vec![],
+            ))),
+        ))),
+    ])));
+    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+
+    // fn showcase_if_conditionals() -> char
+    let showcase_symbol = Rc::new(FunctionSymbol::new(
+        "showcase_if_conditionals".to_string(),
+        Some("char".to_string()),
+        vec![],
+    ));
+
+    // bool wasome_is_awesome <- true
+    let var_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+        Rc::new(VariableSymbol::new("wasome_is_awesome".to_string(), "bool".to_string())),
+        wrap(Expression::Literal("true".to_string())),
+    )));
+
+    // if (wasome_is_awesome) { -> '✨' } else { -> '🤥' }
+    let cond = wrap(Expression::Variable("wasome_is_awesome".to_string()));
+    let then_stmt = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        wrap(Statement::Return(Return::new(Some(wrap(Expression::Literal("'✨'".to_string())))))),
+    ])));
+    let else_stmt = Some(wrap(Statement::Codeblock(CodeBlock::new(vec![
+        wrap(Statement::Return(Return::new(Some(wrap(Expression::Literal("'🤥'".to_string())))))),
+    ]))));
+
+    let if_stmt = wrap(Statement::ControlStructure(Box::new(ControlStructure::Conditional(
+        Conditional::new(cond, then_stmt, else_stmt),
+    ))));
+
+    // -> ' '
+    let ret_stmt = wrap(Statement::Return(Return::new(Some(wrap(Expression::Literal("' '".to_string()))))));
+
+    let showcase_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        var_decl,
+        if_stmt,
+        ret_stmt,
+    ])));
+    let showcase_func = wrap(Function::new(showcase_symbol, showcase_body, Visibility::Private));
+
+    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func, showcase_func]);
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_loop() {
+    let (sm, id) = setup_source_map(LOOP_TEST);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing failed");
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+    ));
+
+    // s32 count1 <- 0
+    let decl1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+        Rc::new(VariableSymbol::new("count1".to_string(), "s32".to_string())),
+        wrap(Expression::Literal("0".to_string())),
+    )));
+
+    // loop (count1 < 10) { count1 <- count1 + 1 }
+    let while_cond = wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+        BinaryOpType::Lesser,
+        wrap(Expression::Variable("count1".to_string())),
+        wrap(Expression::Literal("10".to_string())),
+    ))));
+    let while_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        wrap(Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
+            "count1".to_string(),
+            wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                BinaryOpType::Addition,
+                wrap(Expression::Variable("count1".to_string())),
+                wrap(Expression::Literal("1".to_string())),
+            )))),
+        ))),
+    ])));
+    let while_loop = wrap(Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
+        while_body,
+        LoopType::While(while_cond),
+    )))));
+
+    // s32 sum <- 0
+    let decl_sum = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+        Rc::new(VariableSymbol::new("sum".to_string(), "s32".to_string())),
+        wrap(Expression::Literal("0".to_string())),
+    )));
+
+    // loop (s32 count2 <- 0; count2 < 100; count2 <- count2 + 1) { sum <- sum + count2 }
+    let for_init = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+        Rc::new(VariableSymbol::new("count2".to_string(), "s32".to_string())),
+        wrap(Expression::Literal("0".to_string())),
+    )));
+    let for_cond = wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+        BinaryOpType::Lesser,
+        wrap(Expression::Variable("count2".to_string())),
+        wrap(Expression::Literal("100".to_string())),
+    ))));
+    let for_after = wrap(Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
+        "count2".to_string(),
+        wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+            BinaryOpType::Addition,
+            wrap(Expression::Variable("count2".to_string())),
+            wrap(Expression::Literal("1".to_string())),
+        )))),
+    )));
+    let for_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        wrap(Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
+            "sum".to_string(),
+            wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                BinaryOpType::Addition,
+                wrap(Expression::Variable("sum".to_string())),
+                wrap(Expression::Variable("count2".to_string())),
+            )))),
+        ))),
+    ])));
+    let for_loop = wrap(Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
+        for_body,
+        LoopType::For {
+            start: for_init,
+            cond: for_cond,
+            after_each: for_after,
+        },
+    )))));
+
+    // s32 count3 <- 0
+    let decl3 = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+        Rc::new(VariableSymbol::new("count3".to_string(), "s32".to_string())),
+        wrap(Expression::Literal("0".to_string())),
+    )));
+
+    // loop { count3 <- count3 + 1 }
+    let inf_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        wrap(Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
+            "count3".to_string(),
+            wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                BinaryOpType::Addition,
+                wrap(Expression::Variable("count3".to_string())),
+                wrap(Expression::Literal("1".to_string())),
+            )))),
+        ))),
+    ])));
+    let inf_loop = wrap(Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
+        inf_body,
+        LoopType::Infinite,
+    )))));
+
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        decl1,
+        while_loop,
+        decl_sum,
+        for_loop,
+        decl3,
+        inf_loop,
+    ])));
+    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+
+    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func]);
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_operator() {
+    let (sm, id) = setup_source_map(OPERATOR_TEST);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing failed");
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+    ));
+
+    // s32 math_showcase <- 10 * 2 + 5 - 3 / 1
+    // ((10 * 2) + 5) - (3 / 1)
+    let expr_math = wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+        BinaryOpType::Subtraction,
+        wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+            BinaryOpType::Addition,
+            wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+                BinaryOpType::Multiplication,
+                wrap(Expression::Literal("10".to_string())),
+                wrap(Expression::Literal("2".to_string())),
+            )))),
+            wrap(Expression::Literal("5".to_string())),
+        )))),
+        wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+            BinaryOpType::Division,
+            wrap(Expression::Literal("3".to_string())),
+            wrap(Expression::Literal("1".to_string())),
+        )))),
+    ))));
+    let decl_math = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+        Rc::new(VariableSymbol::new("math_showcase".to_string(), "s32".to_string())),
+        expr_math,
+    )));
+
+    // s32 num <- 10
+    let decl_num = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+        Rc::new(VariableSymbol::new("num".to_string(), "s32".to_string())),
+        wrap(Expression::Literal("10".to_string())),
+    )));
+
+    // Helper to create simple if statements with empty bodies
+    let create_if = |op: BinaryOpType, rhs: &str| {
+        let cond = wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+            op,
+            wrap(Expression::Variable("num".to_string())),
+            wrap(Expression::Literal(rhs.to_string())),
+        ))));
+        wrap(Statement::ControlStructure(Box::new(ControlStructure::Conditional(
+            Conditional::new(cond, wrap(Statement::Codeblock(CodeBlock::new(vec![]))), None),
+        ))))
+    };
+
+    // if (num < 10)
+    let if_lt = create_if(BinaryOpType::Lesser, "10");
+    // if (num <= 10)
+    let if_le = create_if(BinaryOpType::LesserEquals, "10");
+    // if (num == 10)
+    let if_eq = create_if(BinaryOpType::Equals, "10");
+    // if (num != 10)
+    let if_ne = create_if(BinaryOpType::NotEquals, "10");
+    // if (num > 10)
+    let if_gt = create_if(BinaryOpType::Greater, "10");
+    // if (num >= 10)
+    let if_ge = create_if(BinaryOpType::GreaterEquals, "10");
+
+    // if (num == 10 && true)
+    let cond_and = wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+        BinaryOpType::And,
+        wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+            BinaryOpType::Equals,
+            wrap(Expression::Variable("num".to_string())),
+            wrap(Expression::Literal("10".to_string())),
+        )))),
+        wrap(Expression::Literal("true".to_string())),
+    ))));
+    let if_and = wrap(Statement::ControlStructure(Box::new(ControlStructure::Conditional(
+        Conditional::new(cond_and, wrap(Statement::Codeblock(CodeBlock::new(vec![]))), None),
+    ))));
+
+    // if (num == 10 || false)
+    let cond_or = wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+        BinaryOpType::Or,
+        wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
+            BinaryOpType::Equals,
+            wrap(Expression::Variable("num".to_string())),
+            wrap(Expression::Literal("10".to_string())),
+        )))),
+        wrap(Expression::Literal("false".to_string())),
+    ))));
+    let if_or = wrap(Statement::ControlStructure(Box::new(ControlStructure::Conditional(
+        Conditional::new(cond_or, wrap(Statement::Codeblock(CodeBlock::new(vec![]))), None),
+    ))));
+
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        decl_math,
+        decl_num,
+        if_lt,
+        if_le,
+        if_eq,
+        if_ne,
+        if_gt,
+        if_ge,
+        if_and,
+        if_or,
+    ])));
+    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+
+    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func]);
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_missing_statement_separator() {
+    let (sm, id) = setup_source_map(MISSING_STATEMENT_SEPARATOR);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse);
     assert!(parsed.is_none());
