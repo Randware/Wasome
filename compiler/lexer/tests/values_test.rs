@@ -1,30 +1,94 @@
-use lexer::{Token, lex};
+use lexer::{Token, TokenType, lex};
 
 #[test]
 fn test_all_values() {
     let input = r#"
-    name name_trimmed 
+    name name_trimmed
     0.123 123.0 123.01
-    0 123
+    0 123 true false
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Identifier("name".to_string()),
-        Token::Identifier("name_trimmed".to_string()),
-        Token::StatementSeparator,
-        Token::Decimal(0.123),
-        Token::Decimal(123.0),
-        Token::Decimal(123.01),
-        Token::StatementSeparator,
-        Token::Integer(0),
-        Token::Integer(123),
-        Token::StatementSeparator,
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 0,
+            span: 0..1,
+        },
+        Token {
+            kind: TokenType::Identifier("name".to_string()),
+            line: 1,
+            span: 4..8,
+        },
+        Token {
+            kind: TokenType::Identifier("name_trimmed".to_string()),
+            line: 1,
+            span: 9..21,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 1,
+            span: 21..22,
+        },
+        Token {
+            kind: TokenType::Decimal(0.123),
+            line: 2,
+            span: 4..9,
+        },
+        Token {
+            kind: TokenType::Decimal(123.0),
+            line: 2,
+            span: 10..15,
+        },
+        Token {
+            kind: TokenType::Decimal(123.01),
+            line: 2,
+            span: 16..22,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 2,
+            span: 22..23,
+        },
+        Token {
+            kind: TokenType::Integer(0),
+            line: 3,
+            span: 4..5,
+        },
+        Token {
+            kind: TokenType::Integer(123),
+            line: 3,
+            span: 6..9,
+        },
+        Token {
+            kind: TokenType::True,
+            line: 3,
+            span: 10..14,
+        },
+        Token {
+            kind: TokenType::False,
+            line: 3,
+            span: 15..20,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 3,
+            span: 20..21,
+        },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    // Lexing, panics if met with an error
+    let actual_tokens: Vec<Token> = lex(input)
+        .map(|res| res.expect("Lexer failed with error"))
+        .collect();
 
-    assert_eq!(tokens, expected_tokens);
+    // Comparing
+    for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
+        assert_eq!(
+            got, want,
+            "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
+            i, got, want
+        );
+    }
 }
 #[test]
 fn test_broken_format_decimal() {
@@ -33,17 +97,51 @@ fn test_broken_format_decimal() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Decimal(0.1),
-        Token::Decimal(0.1),
-        Token::Dot,
-        Token::Integer(1),
-        Token::StatementSeparator,
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 0,
+            span: 0..1,
+        },
+        Token {
+            kind: TokenType::Decimal(0.1),
+            line: 1,
+            span: 4..7,
+        },
+        Token {
+            kind: TokenType::Decimal(0.1),
+            line: 1,
+            span: 8..11,
+        },
+        Token {
+            kind: TokenType::Dot,
+            line: 1,
+            span: 11..12,
+        },
+        Token {
+            kind: TokenType::Integer(1),
+            line: 1,
+            span: 12..13,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 1,
+            span: 13..14,
+        },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    // Lexing, panics if met with an error
+    let actual_tokens: Vec<Token> = lex(input)
+        .map(|res| res.expect("Lexer failed with error"))
+        .collect();
 
-    assert_eq!(tokens, expected_tokens);
+    // Comparing
+    for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
+        assert_eq!(
+            got, want,
+            "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
+            i, got, want
+        );
+    }
 }
 
 #[test]
@@ -55,29 +153,99 @@ fn test_char_literal() {
     "#;
 
     let expected_tokens = vec![
-        Token::StatementSeparator,
-        Token::Char,
-        Token::Identifier("var1".to_string()),
-        Token::Assign,
-        Token::CharLiteral('n'),
-        Token::StatementSeparator,
-        Token::Char,
-        Token::Identifier("var2".to_string()),
-        Token::Assign,
-        Token::CharLiteral('🎌'),
-        Token::StatementSeparator,
-        Token::Char,
-        Token::Identifier("var3".to_string()),
-        Token::Assign,
-        Token::CharLiteral('\n'),
-        Token::StatementSeparator,
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 0,
+            span: 0..1,
+        },
+        Token {
+            kind: TokenType::Char,
+            line: 1,
+            span: 4..8,
+        },
+        Token {
+            kind: TokenType::Identifier("var1".to_string()),
+            line: 1,
+            span: 9..13,
+        },
+        Token {
+            kind: TokenType::Assign,
+            line: 1,
+            span: 14..16,
+        },
+        Token {
+            kind: TokenType::CharLiteral('n'),
+            line: 1,
+            span: 17..20,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 1,
+            span: 20..21,
+        },
+        Token {
+            kind: TokenType::Char,
+            line: 2,
+            span: 4..8,
+        },
+        Token {
+            kind: TokenType::Identifier("var2".to_string()),
+            line: 2,
+            span: 9..13,
+        },
+        Token {
+            kind: TokenType::Assign,
+            line: 2,
+            span: 14..16,
+        },
+        Token {
+            kind: TokenType::CharLiteral('🎌'),
+            line: 2,
+            span: 17..23,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 2,
+            span: 23..24,
+        },
+        Token {
+            kind: TokenType::Char,
+            line: 3,
+            span: 4..8,
+        },
+        Token {
+            kind: TokenType::Identifier("var3".to_string()),
+            line: 3,
+            span: 9..13,
+        },
+        Token {
+            kind: TokenType::Assign,
+            line: 3,
+            span: 14..16,
+        },
+        Token {
+            kind: TokenType::CharLiteral('\n'),
+            line: 3,
+            span: 17..21,
+        },
+        Token {
+            kind: TokenType::StatementSeparator,
+            line: 3,
+            span: 21..22,
+        },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    // Lexing, panics if met with an error
+    let actual_tokens: Vec<Token> = lex(input)
+        .map(|res| res.expect("Lexer failed with error"))
+        .collect();
 
-    for token in &tokens {
-        println!("{:?}", token);
+    // Comparing
+    for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
+        assert_eq!(
+            got, want,
+            "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
+            i, got, want
+        );
     }
-
-    assert_eq!(tokens, expected_tokens);
 }
