@@ -1,7 +1,0 @@
-import "./utils" as u
-
-fn main() -> s32 {
-    u.add(1, 2)
-    u.concat()
-    -> 0
-}

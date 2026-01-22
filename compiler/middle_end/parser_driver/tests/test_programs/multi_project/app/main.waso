@@ -1,5 +1,0 @@
-import "lib/math" as m
-
-fn main() {
-    m.op()
-}

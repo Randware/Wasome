@@ -1,5 +1,0 @@
-import "circular/a" as a
-
-pub fn func_b() {
-    a.func_a()
-}
