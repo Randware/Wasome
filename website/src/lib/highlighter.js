@@ -1,4 +1,38 @@
-export function highlight(code) {
+const grammars = {
+  wasome: {
+    comments: [ /(\/\/.*$)/gm ],
+    strings: [ /("[^"]*")/g ],
+    tokens: [
+      { regex: /\b(fn|struct|enum|if|else|loop|break|return|import|new|true|false)\b/g, class: 'hl-keyword' },
+      { regex: /\b(s8|s16|s32|s64|u8|u16|u32|u64|f32|f64|bool|char|void)\b/g, class: 'hl-type' },
+      { regex: /\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\()/g, class: 'hl-function' },
+      { regex: /\b(\d+(\.\d+)?)\b/g, class: 'hl-number' }
+    ]
+  },
+  bash: {
+    comments: [ /(#.*$)/gm ],
+    strings: [ /("[^"]*")/g, /('[^']*')/g ],
+    tokens: [
+      { regex: /\b(curl|sh|sudo|apt|git|npm|node|echo|cd|ls|mkdir|rm)\b/g, class: 'hl-keyword' },
+      { regex: /(https?:\/\/[^\s]+)/g, class: 'hl-string' },
+      { regex: /(-[a-zA-Z]+|--[a-zA-Z0-9-]+)/g, class: 'hl-type' },
+      { regex: /(\|)/g, class: 'hl-keyword' },
+      { regex: /\b(\d+)\b/g, class: 'hl-number' }
+    ]
+  },
+  powershell: {
+    comments: [ /(#.*$)/gm ],
+    strings: [ /("[^"]*")/g, /('[^']*')/g ],
+    tokens: [
+      { regex: /\b(iwr|iex|Invoke-WebRequest|Invoke-Expression|Write-Host|Get-Command)\b/gi, class: 'hl-keyword' },
+      { regex: /(https?:\/\/[^\s]+)/g, class: 'hl-string' },
+      { regex: /(\|)/g, class: 'hl-keyword' },
+      { regex: /(-[a-zA-Z]+)\b/g, class: 'hl-type' }
+    ]
+  }
+};
+
+export function highlight(code, lang = 'wasome') {
   if (!code) return '';
 
   // Escape HTML to prevent injection and rendering issues
@@ -7,36 +41,8 @@ export function highlight(code) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  // Token patterns
-  // We use a specific order. Strings/Comments first to capture content that shouldn't be tokenized as keywords.
-  const patterns = [
-    // Comments: // ...
-    { regex: /(\/\/.*$)/gm, class: 'hl-comment' },
-    
-    // Strings: "..."
-    { regex: /("[^"]*")/g, class: 'hl-string' },
-    
-    // Keywords
-    { regex: /\b(fn|struct|enum|if|else|loop|break|return|import|new|true|false)\b/g, class: 'hl-keyword' },
-    
-    // Types
-    { regex: /\b(s8|s16|s32|s64|u8|u16|u32|u64|f32|f64|bool|char|void)\b/g, class: 'hl-type' },
+  const grammar = grammars[lang] || grammars.wasome;
 
-    // Functions
-    { regex: /\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\()/g, class: 'hl-function' },
-
-    // Numbers
-    { regex: /\b(\d+(\.\d+)?)\b/g, class: 'hl-number' },
-  ];
-
-  // Replacement strategy:
-  // 1. Find all matches for all patterns.
-  // 2. Sort by position.
-  // 3. Apply non-overlapping matches.
-  
-  // Actually, a simpler strategy for this level of complexity:
-  // Replace with temporary placeholders to avoid re-matching inside HTML tags.
-  
   let tokens = [];
   let tokenIndex = 0;
   
@@ -46,18 +52,26 @@ export function highlight(code) {
     return key;
   };
 
-  // 1. Comments (consume entire line)
-  result = result.replace(/(\/\/.*$)/gm, m => save(m, 'hl-comment'));
+  // 1. Comments
+  if (grammar.comments) {
+    grammar.comments.forEach(regex => {
+      result = result.replace(regex, m => save(m, 'hl-comment'));
+    });
+  }
   
   // 2. Strings
-  result = result.replace(/("[^"]*")/g, m => save(m, 'hl-string'));
+  if (grammar.strings) {
+    grammar.strings.forEach(regex => {
+      result = result.replace(regex, m => save(m, 'hl-string'));
+    });
+  }
 
-  // 3. Keywords & Types & Funcs & Numbers
-  // We can do these safely now that strings/comments are hidden
-  result = result.replace(/\b(fn|struct|enum|if|else|loop|break|return|import|new|true|false)\b/g, m => save(m, 'hl-keyword'));
-  result = result.replace(/\b(s8|s16|s32|s64|u8|u16|u32|u64|f32|f64|bool|char|void)\b/g, m => save(m, 'hl-type'));
-  result = result.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\()/g, m => save(m, 'hl-function'));
-  result = result.replace(/\b(\d+(\.\d+)?)\b/g, m => save(m, 'hl-number'));
+  // 3. Tokens (Keywords, Types, etc.)
+  if (grammar.tokens) {
+    grammar.tokens.forEach(token => {
+      result = result.replace(token.regex, m => save(m, token.class));
+    });
+  }
 
   // Restore
   tokens.forEach(t => {

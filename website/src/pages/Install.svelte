@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fade, slide } from 'svelte/transition';
+  import { highlight } from '../lib/highlighter';
 
   let os = 'unknown';
   let installCommand = '';
@@ -68,7 +69,7 @@
 
       <div class="command-wrapper">
         <div class="command-box">
-          <code>{installCommand}</code>
+          <code>{@html highlight(installCommand, os === 'windows' ? 'powershell' : 'bash')}</code>
         </div>
         <button class="copy-btn" on:click={copyToClipboard} class:copied={showCopied}>
           {#if showCopied}
