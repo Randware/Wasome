@@ -49,6 +49,8 @@ impl<'a> Renderer<'a> {
         let mut cache = HashMap::new();
         let unique: HashSet<_> = diagnostic.snippets.iter().map(|s| s.file).collect();
 
+        // We add our files with None checks, since we always want the user to see at least something,
+        // even if we are missing sources
         for id in unique {
             if let Some(path_buf) = source.get_path(id) {
                 let path = path_buf.to_string_lossy().to_string();
