@@ -12,5 +12,4 @@ source = { path = "../../source"}
 io = { path = "../../io"}
 
 [dev-dependencies]
-tempfile = "3"
-
+tempfile.workspace = true
