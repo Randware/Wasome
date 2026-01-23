@@ -5,20 +5,20 @@ use std::fs;
 use std::ops::Deref;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use parser_driver::parser_driver::generate_untyped_ast;
+use driver::parser_driver::generate_untyped_ast;
 // --- Test Program Contents ---
 
-const SIMPLE_MAIN: &str = include_str!("test_programs/simple/main.waso");
+const SIMPLE_MAIN: &str = include_str!("test_programs/single_project/min/main.waso");
 
-const MULTI_MODULE_MAIN: &str = include_str!("test_programs/multi_module/main.waso");
-const MULTI_MODULE_MATH: &str = include_str!("test_programs/multi_module/utils/math.waso");
-const MULTI_MODULE_STRING: &str = include_str!("test_programs/multi_module/utils/string.waso");
+const MULTI_MODULE_MAIN: &str = include_str!("test_programs/single_project/simple/main.waso");
+const MULTI_MODULE_MATH: &str = include_str!("test_programs/single_project/simple/utils/math.waso");
+const MULTI_MODULE_STRING: &str = include_str!("test_programs/single_project/simple/utils/string.waso");
 
-const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi_project/app/main.waso");
-const MULTI_PROJECT_LIB_OPS: &str = include_str!("test_programs/multi_project/lib/math/ops.waso");
+const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/min/app/main.waso");
+const MULTI_PROJECT_LIB_OPS: &str = include_str!("test_programs/multi-project/min/lib/math/ops.waso");
 
-const CIRCULAR_A: &str = include_str!("test_programs/circular/a/a.waso");
-const CIRCULAR_B: &str = include_str!("test_programs/circular/b/b.waso");
+const CIRCULAR_A: &str = include_str!("test_programs/single_project/circular/a/a.waso");
+const CIRCULAR_B: &str = include_str!("test_programs/single_project/circular/b/b.waso");
 
 // --- Helper Functions ---
 
