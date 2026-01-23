@@ -229,8 +229,8 @@ fn test_overlapping() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .primary(52..95, "Outer range")
                 .context(69..81, "Inner range")
+                .primary(52..95, "Outer range")
                 .build(),
         )
         .build();

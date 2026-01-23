@@ -6,7 +6,7 @@ use regex::Regex;
 use source::types::FileID;
 use yansi::{Color, Paint};
 
-use crate::diagnostic::{Annotation, Diagnostic, Level, Snippet};
+use crate::diagnostic::{Diagnostic, Level, Snippet};
 use crate::source::SourceLookup;
 
 struct DiagnosticStyling {
@@ -275,27 +275,14 @@ impl<'a> Renderer<'a> {
         snippet: &'b Snippet,
     ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
         if let Some(cached) = self.cache.get(&snippet.file) {
-            let mut annotations: Vec<(Annotation, bool)> = snippet
-                .context
-                .clone()
-                .iter()
-                .map(|a| (a.clone(), false))
-                .collect();
-
-            if let Some(primary) = snippet.primary.clone() {
-                annotations.push((primary, true));
-            }
-
-            annotations.sort_by_key(|ann| ann.0.range.start);
-
-            for ann in annotations {
-                let color = match ann.1 {
+            for ann in &snippet.annotations {
+                let color = match ann.primary {
                     true => self.styling.primary_highlight,
                     false => self.styling.context_highlight,
                 };
 
-                let label = Label::new((cached.path.clone(), ann.0.range.clone()))
-                    .with_message(&ann.0.message.fg(self.styling.annotation_message))
+                let label = Label::new((cached.path.clone(), ann.range.clone()))
+                    .with_message(&ann.message.fg(self.styling.annotation_message))
                     .with_color(color);
 
                 builder.add_label(label);

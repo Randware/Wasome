@@ -54,44 +54,36 @@ impl Diagnostic {
 #[derive(Builder, Debug, Clone)]
 pub struct Snippet {
     #[builder(field)]
-    pub(crate) context: Vec<Annotation>,
-
-    // 'with' is used to allow for the (0..1, "Message") syntax conversion.
-    #[builder(with = |range: Range<usize>, message: impl Into<String>| Annotation { 
-        range, 
-        message: message.into() 
-    })]
-    /// Set the primary error location of this snippet, only one primary location is allowed.
-    pub(crate) primary: Option<Annotation>,
+    pub(crate) annotations: Vec<Annotation>,
 
     pub(crate) file: FileID,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct Annotation {
-    pub range: Range<usize>,
-    pub message: String,
-}
-
-impl<S: Into<String>> From<(Range<usize>, S)> for Annotation {
-    fn from((range, message): (Range<usize>, S)) -> Self {
-        Self::new(range, message)
-    }
-}
-
-impl Annotation {
-    fn new(range: Range<usize>, message: impl Into<String>) -> Self {
-        Self {
-            range,
-            message: message.into(),
-        }
-    }
+    pub(crate) range: Range<usize>,
+    pub(crate) message: String,
+    pub(crate) primary: bool,
 }
 
 impl<S: snippet_builder::State> SnippetBuilder<S> {
+    /// Adds a primary annotation to the snippet.
+    pub fn primary(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
+        self.annotations.push(Annotation {
+            range,
+            message: message.into(),
+            primary: true,
+        });
+        self
+    }
+
     /// Adds a context annotation to the snippet.
     pub fn context(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
-        self.context.push(Annotation::new(range, message));
+        self.annotations.push(Annotation {
+            range,
+            message: message.into(),
+            primary: false,
+        });
         self
     }
 }
