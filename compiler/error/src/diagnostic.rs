@@ -54,7 +54,7 @@ impl Diagnostic {
 #[derive(Builder, Debug, Clone)]
 pub struct Snippet {
     #[builder(field)]
-    pub(crate) primary: Annotation,
+    pub(crate) primary: Option<Annotation>,
 
     #[builder(field)]
     pub(crate) context: Vec<Annotation>,
@@ -62,7 +62,7 @@ pub struct Snippet {
     pub(crate) file: FileID,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct Annotation {
     pub range: Range<usize>,
     pub message: String,
@@ -80,7 +80,7 @@ impl Annotation {
 impl<S: snippet_builder::State> SnippetBuilder<S> {
     /// Adds a primary annotation to the snippet.
     pub fn primary(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
-        self.primary = Annotation::new(range, message);
+        self.primary = Some(Annotation::new(range, message));
         self
     }
 

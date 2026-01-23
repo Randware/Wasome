@@ -55,7 +55,7 @@ fn test_with_context() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .primary(11..14, "Function expects type 'i32'")
+                .context(11..14, "Function expects type 'i32'")
                 .build(),
         )
         .help("Change types or cast")
@@ -80,8 +80,8 @@ fn test_primary_span() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .primary(88..89, "Primary")
-                .context(52..55, "Secondary")
+                .primary(52..55, "Secondary")
+                .context(88..89, "Primary")
                 .build(),
         )
         .build();

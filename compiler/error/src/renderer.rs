@@ -2,10 +2,11 @@ use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
 use ariadne::{Config, Label, Report, ReportBuilder, ReportKind};
+use regex::Regex;
 use source::types::FileID;
 use yansi::{Color, Paint};
 
-use crate::diagnostic::{Diagnostic, Level, Snippet};
+use crate::diagnostic::{Annotation, Diagnostic, Level, Snippet};
 use crate::source::SourceLookup;
 
 struct DiagnosticStyling {
@@ -14,7 +15,8 @@ struct DiagnosticStyling {
     diagnostic_message: Color,
     annotation_message: Color,
     help_message: Color,
-    snippet_highlight: Color,
+    primary_highlight: Color,
+    context_highlight: Color,
 }
 
 #[derive(Clone, Debug)]
@@ -86,7 +88,8 @@ impl<'a> Renderer<'a> {
                 diagnostic_message: Color::Primary,
                 annotation_message: Color::Primary,
                 help_message: Color::Primary,
-                snippet_highlight: Color::Red,
+                primary_highlight: Color::Red,
+                context_highlight: Color::Blue,
             },
             Level::Warning => DiagnosticStyling {
                 type_heading: Color::Yellow,
@@ -94,7 +97,8 @@ impl<'a> Renderer<'a> {
                 diagnostic_message: Color::Primary,
                 annotation_message: Color::Primary,
                 help_message: Color::Primary,
-                snippet_highlight: Color::Yellow,
+                primary_highlight: Color::Yellow,
+                context_highlight: Color::Blue,
             },
             Level::Info => DiagnosticStyling {
                 type_heading: Color::Cyan,
@@ -102,7 +106,8 @@ impl<'a> Renderer<'a> {
                 diagnostic_message: Color::Primary,
                 annotation_message: Color::Primary,
                 help_message: Color::Primary,
-                snippet_highlight: Color::Cyan,
+                primary_highlight: Color::Cyan,
+                context_highlight: Color::Blue,
             },
         }
     }
@@ -169,20 +174,21 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
-        let (path, primary_range) = if let Some(cached) = self.cache.get(&snippet.file) {
-            (cached.path.clone(), snippet.primary.range.clone())
-        } else {
-            (String::new(), 0..0)
-        };
+        let path = self
+            .cache
+            .get(&snippet.file)
+            .and_then(|c| Some(c.path.clone()))
+            .unwrap_or(String::new());
 
         let kind = ReportKind::Custom("", self.styling.type_heading);
 
-        let report = Report::build(kind, (path, primary_range))
+        // Primary range is 0..0, since we strip it anyway
+        let report = Report::build(kind, (path, 0..0))
             .with_config(Self::resolve_config(self.diagnostic.level));
 
         let report = self.label_report(report, snippet);
 
-        let buffer = self.render_report(report)?;
+        let buffer = self.strip_report(report)?;
 
         self.writer.write_all(&buffer)?;
 
@@ -202,7 +208,7 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    fn render_report(
+    fn strip_report(
         &mut self,
         report: ReportBuilder<(String, std::ops::Range<usize>)>,
     ) -> io::Result<Vec<u8>> {
@@ -215,12 +221,50 @@ impl<'a> Renderer<'a> {
 
         report.finish().write(sources, &mut buffer)?;
 
-        // Remove the first line of the report (ariadne header)
-        if let Some(newline_idx) = buffer.iter().position(|&b| b == b'\n') {
-            buffer.drain(0..=newline_idx);
+        let s =
+            String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+        let mut output_lines = Vec::new();
+
+        for (i, line) in s.lines().enumerate() {
+            if i == 0 {
+                continue;
+            }
+
+            // Strip ANSI color sequences from line, to detect the first actual character
+            let clean = Self::strip_ansi(line);
+            // Strip whitespace at the start of line
+            let trimmed = clean.trim_start();
+
+            // If our line stars with one of these charactes, it is a header line
+            if trimmed.starts_with('╭') || trimmed.starts_with('├') {
+                output_lines.push(Self::remove_primary_location(line));
+            } else {
+                output_lines.push(line.to_string());
+            }
         }
 
-        Ok(buffer)
+        let mut output = output_lines.join("\n").into_bytes();
+        output.push(b'\n');
+
+        Ok(output)
+    }
+
+    fn strip_ansi(s: &str) -> String {
+        let re = Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap();
+        re.replace_all(s, "").to_string()
+    }
+
+    fn remove_primary_location(line: &str) -> String {
+        if let Some(colon_idx) = line.find(':') {
+            if let Some(space_offset) = line[colon_idx..].find(' ') {
+                let space_idx = colon_idx + space_offset;
+
+                return format!("{}{}", &line[..colon_idx], &line[space_idx..]);
+            }
+        }
+
+        line.to_string()
     }
 
     fn label_report<'b>(
@@ -229,15 +273,29 @@ impl<'a> Renderer<'a> {
         snippet: &'b Snippet,
     ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
         if let Some(cached) = self.cache.get(&snippet.file) {
-            let mut annotations = snippet.context.clone();
-            annotations.push(snippet.primary.clone());
+            let mut annotations: Vec<(Annotation, bool)> = snippet
+                .context
+                .clone()
+                .iter()
+                .map(|a| (a.clone(), false))
+                .collect();
 
-            annotations.sort_by_key(|ann| ann.range.start);
+            if let Some(primary) = snippet.primary.clone() {
+                annotations.push((primary, true));
+            }
+
+            annotations.sort_by_key(|ann| ann.0.range.start);
 
             for ann in annotations {
-                let label = Label::new((cached.path.clone(), ann.range.clone()))
-                    .with_message(&ann.message.fg(self.styling.annotation_message))
-                    .with_color(self.styling.snippet_highlight);
+                let color = match ann.1 {
+                    true => self.styling.primary_highlight,
+                    false => self.styling.context_highlight,
+                };
+
+                let label = Label::new((cached.path.clone(), ann.0.range.clone()))
+                    .with_message(&ann.0.message.fg(self.styling.annotation_message))
+                    .with_color(color);
+
                 builder.add_label(label);
             }
         }
