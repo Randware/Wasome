@@ -41,6 +41,7 @@ pub(crate) fn top_level_parser<'src>(
     let top_level_elements = top_level_element
         .separated_by(statement_separator())
         .allow_trailing()
+        .allow_leading()
         .collect::<Vec<_>>();
 
     maybe_statement_separator()
