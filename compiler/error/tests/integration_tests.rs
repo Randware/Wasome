@@ -65,7 +65,7 @@ fn test_with_context() {
 }
 
 #[test]
-fn test_primary_span() {
+fn test_primary() {
     MockLoader::reset();
 
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
@@ -80,8 +80,8 @@ fn test_primary_span() {
         .snippet(
             Snippet::builder()
                 .file(main_id)
-                .primary(52..55, "Secondary")
-                .context(88..89, "Primary")
+                .primary(52..55, "Primary")
+                .context(88..89, "Secondary")
                 .build(),
         )
         .build();
@@ -137,7 +137,7 @@ fn test_multi_file() {
         .snippet(
             Snippet::builder()
                 .file(a_id)
-                .primary(0..0, "Missing `pub` modifier")
+                .context(0..0, "Missing `pub` modifier")
                 .build(),
         )
         .build();
@@ -167,4 +167,117 @@ fn test_print_no_snippets() {
         .build();
 
     error.print().unwrap();
+}
+
+#[test]
+fn test_multiline() {
+    MockLoader::reset();
+    MockLoader::load_from_disk("/src/main.waso", "main.waso");
+
+    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let main_id = sm.load_file("main.waso").expect("Failed to load file");
+
+    let error = Diagnostic::builder()
+        .level(Level::Error)
+        .message("Function already declared")
+        .snippet(
+            Snippet::builder()
+                .file(main_id)
+                .primary(98..134, "This function was already declared")
+                .context(0..36, "Already declared here")
+                .build(),
+        )
+        .build();
+
+    error.print_snippets(&sm).unwrap();
+}
+
+#[test]
+fn test_unicode() {
+    MockLoader::reset();
+    MockLoader::load_from_disk("/src/unicode.waso", "unicode.waso");
+
+    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let unicode_id = sm.load_file("unicode.waso").expect("Failed to load file");
+
+    let error = Diagnostic::builder()
+        .level(Level::Error)
+        .message("Unicode alignment test")
+        .snippet(
+            Snippet::builder()
+                .file(unicode_id)
+                .primary(3..4, "This identifier is an emoji")
+                .context(21..22, "So is this string")
+                .build(),
+        )
+        .build();
+
+    error.print_snippets(&sm).unwrap();
+}
+
+#[test]
+fn test_overlapping() {
+    MockLoader::reset();
+    MockLoader::load_from_disk("/src/main.waso", "main.waso");
+
+    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let main_id = sm.load_file("main.waso").expect("Failed to load file");
+
+    let error = Diagnostic::builder()
+        .level(Level::Warning)
+        .message("Overlapping ranges")
+        .snippet(
+            Snippet::builder()
+                .file(main_id)
+                .primary(52..95, "Outer range")
+                .context(69..81, "Inner range")
+                .build(),
+        )
+        .build();
+
+    error.print_snippets(&sm).unwrap();
+}
+
+#[test]
+fn test_zero_length() {
+    MockLoader::reset();
+    MockLoader::load_from_disk("/src/main.waso", "main.waso");
+
+    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let main_id = sm.load_file("main.waso").expect("Failed to load file");
+
+    let error = Diagnostic::builder()
+        .level(Level::Error)
+        .message("Unexpected EOF")
+        .snippet(
+            Snippet::builder()
+                .file(main_id)
+                .primary(134..135, "Expected semicolon here")
+                .build(),
+        )
+        .build();
+
+    error.print_snippets(&sm).unwrap();
+}
+
+#[test]
+fn test_empty_file() {
+    MockLoader::reset();
+    MockLoader::load_from_disk("/src/empty.waso", "empty.waso");
+
+    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let empty_id = sm.load_file("empty.waso").expect("Failed to load file");
+
+    let error = Diagnostic::builder()
+        .level(Level::Error)
+        .message("File is empty")
+        .snippet(
+            Snippet::builder()
+                .file(empty_id)
+                .primary(0..0, "Nothing to see here")
+                .build(),
+        )
+        .build();
+
+    error.print_snippets(&sm).unwrap();
 }

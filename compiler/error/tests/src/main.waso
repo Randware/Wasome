@@ -9,3 +9,7 @@ fn main() {
 
   u32 <- 20
 }
+
+fn add_one(i32 num) {
+  -> num + 1
+}
