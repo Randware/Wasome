@@ -15,7 +15,7 @@ pub(crate) struct DirectoryBuilder {
     name: String,
     /// The subdirectories
     ///
-    /// They are implicitly created and don't need manual handling by the customer
+    /// They are implicitly created and don't need manual handling by the caller
     ///
     /// Duplicates are forbidden
     subdirectories: Vec<DirectoryBuilder>,
@@ -163,6 +163,7 @@ impl DirectoryBuilder {
     ///
     /// - **path** - The path to lookup.
     /// - **filename** - The name of the file
+    ///     - Excluding the file extension
     ///
     /// # Return
     ///
@@ -192,7 +193,7 @@ impl DirectoryBuilder {
     ///
     /// # Parameter
     ///
-    /// - **name** - The name if the file to lookup.
+    /// - **name** - The name of the file to lookup.
     ///
     /// # Return
     ///
@@ -220,7 +221,7 @@ impl DirectoryBuilder {
     ///
     /// # Parameter
     ///
-    /// - **name** - The name if the subdir to lookup.
+    /// - **name** - The name of the subdir to lookup.
     ///
     /// # Return
     ///

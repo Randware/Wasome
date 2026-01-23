@@ -23,7 +23,7 @@ pub(crate) struct ASTBuilder<'a, Loader: FullIO> {
 impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// Creates a new ASTBuilder
     ///
-    /// The resulting ASTBuilder will be ready to be [`Self::build`]t
+    /// The resulting ASTBuilder will be ready to be [`Self::build`]
     /// # Parameters
     ///
     /// - **from** - Information about the program being compiled
@@ -98,7 +98,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// # Parameters
     ///
     /// - **file_location** - The location of the file
-    /// - **file** - The file to handle
+    /// - **to_add** - The file to handle
     /// - **file_name** - The filename on disk (e.g.: with file extension)
     ///
     /// # Errors
@@ -180,8 +180,8 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
 
     /// Parses a file
     ///
-    /// The behavior is arbitrary, including possible panics but no UB, if `to_parse` does
-    /// is not from the [`SourceMap`] of self
+    /// The behavior is arbitrary, including possible panics but no UB, if `to_parse` does not
+    /// originate from the [`SourceMap`] of self
     ///
     /// # Parameters
     ///
@@ -261,7 +261,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         }
     }
 
-    /// Checks wherever a file exists in the AST
+    /// Checks if a file exists in the AST
     ///
     /// The file is provided via a path to the module and the name
     ///
@@ -270,7 +270,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// - **module_path** - The path of the module the file belongs to
     ///     - Relative to the root of the [`SourceMap`]
     /// - **file_name** - The name of the file
-    ///     - Including the file extension
+    ///     - Excluding the file extension
     ///
     /// # Return
     ///
