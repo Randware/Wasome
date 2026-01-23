@@ -1,6 +1,6 @@
 use crate::{combine_code_areas_succeeding, PosInfoWrapper};
-use chumsky::prelude::*;
 use ast::visibility::Visibility;
+use chumsky::prelude::*;
 use lexer::TokenType;
 
 /// Parses data types

@@ -3,7 +3,10 @@ use ast::expression::{
     BinaryOp, BinaryOpType, Expression, NewEnum, NewStruct, StructFieldAccess, Typecast, UnaryOp,
     UnaryOpType,
 };
-use ast::statement::{CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, StructFieldAssignment, VariableAssignment, VariableDeclaration};
+use ast::statement::{
+    CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
+    StructFieldAssignment, VariableAssignment, VariableDeclaration,
+};
 use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
     StructSymbol, VariableSymbol,
@@ -1037,14 +1040,14 @@ fn test_parse_struct() {
     let parsed = parse(to_parse).expect("Parsing failed");
 
     let point_symbol = Rc::new(StructSymbol::new("Point".to_string()));
-    let x_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
-        "x".to_string(),
-        "s32".to_string(),
-    )), Visibility::Public));
-    let y_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
-        "y".to_string(),
-        "s32".to_string(),
-    )), Visibility::Public));
+    let x_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new("x".to_string(), "s32".to_string())),
+        Visibility::Public,
+    ));
+    let y_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new("y".to_string(), "s32".to_string())),
+        Visibility::Public,
+    ));
 
     let point_struct = wrap(Struct::new(
         point_symbol.clone(),
@@ -1209,14 +1212,14 @@ fn test_parse_exhaustive_defs() {
     ));
 
     let point_symbol = Rc::new(StructSymbol::new("Point".to_string()));
-    let x_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
-        "x".to_string(),
-        "s32".to_string(),
-    )), Visibility::Public));
-    let y_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
-        "y".to_string(),
-        "s32".to_string(),
-    )), Visibility::Public));
+    let x_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new("x".to_string(), "s32".to_string())),
+        Visibility::Public,
+    ));
+    let y_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new("y".to_string(), "s32".to_string())),
+        Visibility::Public,
+    ));
     let point_struct = wrap(Struct::new(
         point_symbol,
         Vec::new(),
@@ -1282,8 +1285,13 @@ fn test_parse_exhaustive_main() {
     let p_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
-        Rc::new(VariableSymbol::new("p".to_string(), "exhaustive.Point".to_string())),
-        wrap(Expression::FunctionCall(ast::expression::FunctionCall::<UntypedAST>::new(
+        Rc::new(VariableSymbol::new(
+            "p".to_string(),
+            "exhaustive.Point".to_string(),
+        )),
+        wrap(Expression::FunctionCall(ast::expression::FunctionCall::<
+            UntypedAST,
+        >::new(
             "exhaustive.create_point".to_string(),
             vec![
                 wrap(Expression::Literal("10".to_string())),
@@ -1302,7 +1310,10 @@ fn test_parse_exhaustive_main() {
                 "Ok".to_string(),
                 vec![],
             )))),
-            vec![Rc::new(VariableSymbol::new("code".to_string(), "s32".to_string()))],
+            vec![Rc::new(VariableSymbol::new(
+                "code".to_string(),
+                "s32".to_string(),
+            ))],
             wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
                 Statement::StructFieldAssignment(StructFieldAssignment::<UntypedAST>::new(
                     wrap(Expression::Variable("p".to_string())),
@@ -1321,7 +1332,9 @@ fn test_parse_exhaustive_main() {
         "y".to_string(),
         wrap(Expression::StructFieldAccess(Box::new(
             StructFieldAccess::<UntypedAST>::new(
-                wrap(Expression::FunctionCall(ast::expression::FunctionCall::<UntypedAST>::new(
+                wrap(Expression::FunctionCall(ast::expression::FunctionCall::<
+                    UntypedAST,
+                >::new(
                     "exhaustive.create_point".to_string(),
                     vec![
                         wrap(Expression::Literal("1".to_string())),

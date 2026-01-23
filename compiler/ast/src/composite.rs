@@ -165,7 +165,7 @@ impl<Type: ASTType> SemanticEq for Struct<Type> {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct StructField<Type: ASTType> {
     inner: Rc<StructFieldSymbol<Type>>,
-    visibility: Visibility
+    visibility: Visibility,
 }
 
 impl<Type: ASTType> StructField<Type> {
