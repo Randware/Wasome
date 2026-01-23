@@ -1,0 +1,11 @@
+import "./"
+
+fn main() {
+    exhaustive.Point p <- exhaustive.create_point(10, 20)
+
+    if (let exhaustive.Status::Err(s32 code) <- exhaustive.Status::Ok) {
+        p.x <- code
+    }
+
+    p.y <- exhaustive.create_point(1, 2).y
+}

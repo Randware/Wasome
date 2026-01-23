@@ -1,5 +1,6 @@
 use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use chumsky::prelude::*;
+use ast::visibility::Visibility;
 use lexer::TokenType;
 
 /// Parses data types
@@ -111,4 +112,11 @@ pub(crate) fn string_parser<'a>()
 pub(crate) fn visibility_parser<'a>()
 -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], Option<PosInfoWrapper<TokenType>>> + Clone {
     token_parser(TokenType::Public).or_not()
+}
+
+// Technically not a parser, but there is no better place for this
+pub(crate) fn map_visibility(visibility: Option<&PosInfoWrapper<TokenType>>) -> Visibility {
+    visibility
+        .map(|_| Visibility::Public)
+        .unwrap_or(Visibility::Private)
 }

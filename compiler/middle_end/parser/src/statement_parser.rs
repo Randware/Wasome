@@ -162,26 +162,37 @@ pub(crate) fn statement_parser<'src>()
             });
 
         let if_enum_variant = token_parser(TokenType::If)
-            .then_ignore(token_parser(TokenType::Let))
-            .then(cross_module_capable_identifier_parser().clone())
-            .then(ident.clone())
             .then(
-                data_type
-                    .clone()
-                    .then(ident)
-                    .separated_by(token_parser(TokenType::ArgumentSeparator))
-                    .collect::<Vec<_>>()
+                token_parser(TokenType::Let)
+                    .ignored()
+                    .then(cross_module_capable_identifier_parser().clone())
+                    .then_ignore(token_parser(TokenType::PathSeparator))
+                    .then(ident.clone())
+                    .then(
+                        data_type
+                            .clone()
+                            .then(ident)
+                            .separated_by(token_parser(TokenType::ArgumentSeparator))
+                            .collect::<Vec<_>>()
+                            .delimited_by(
+                                token_parser(TokenType::OpenParen),
+                                token_parser(TokenType::CloseParen),
+                            ),
+                    )
+                    .then_ignore(token_parser(TokenType::Assign))
+                    .then(expression.clone())
                     .delimited_by(
                         token_parser(TokenType::OpenParen),
                         token_parser(TokenType::CloseParen),
                     ),
             )
-            .then_ignore(token_parser(TokenType::Assign))
-            .then(expression.clone())
             .then_ignore(maybe_statement_separator())
             .then(statement.clone())
             .map(
-                |(((((if_keyword, enum_name), enum_variant), vars), source), then_statement)| {
+                |((
+                    (if_keyword, ((((_, enum_name), enum_variant), vars), source)),
+                    then_statement,
+                ))| {
                     let pos = combine_code_areas_succeeding(
                         if_keyword.pos_info(),
                         then_statement.position(),
@@ -190,7 +201,7 @@ pub(crate) fn statement_parser<'src>()
                     let vars = vars
                         .into_iter()
                         .map(|var| {
-                            Rc::new(VariableSymbol::<UntypedAST>::new(var.0.inner, var.1.inner))
+                            Rc::new(VariableSymbol::<UntypedAST>::new(var.1.inner, var.0.inner))
                         })
                         .collect::<Vec<_>>();
 

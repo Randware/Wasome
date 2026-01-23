@@ -165,19 +165,23 @@ impl<Type: ASTType> SemanticEq for Struct<Type> {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct StructField<Type: ASTType> {
     inner: Rc<StructFieldSymbol<Type>>,
+    visibility: Visibility
 }
 
 impl<Type: ASTType> StructField<Type> {
-    pub fn new(inner: Rc<StructFieldSymbol<Type>>) -> Self {
-        Self { inner }
+    pub fn new(inner: Rc<StructFieldSymbol<Type>>, visibility: Visibility) -> Self {
+        Self { inner, visibility }
     }
-
     pub fn inner(&self) -> &StructFieldSymbol<Type> {
         &self.inner
     }
 
     pub fn inner_owned(&self) -> Rc<StructFieldSymbol<Type>> {
         self.inner.clone()
+    }
+
+    pub fn visibility(&self) -> Visibility {
+        self.visibility
     }
 }
 

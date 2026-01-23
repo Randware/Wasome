@@ -3,10 +3,7 @@ use ast::expression::{
     BinaryOp, BinaryOpType, Expression, NewEnum, NewStruct, StructFieldAccess, Typecast, UnaryOp,
     UnaryOpType,
 };
-use ast::statement::{
-    CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
-    StructFieldAssignment, VariableAssignment, VariableDeclaration,
-};
+use ast::statement::{CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, StructFieldAssignment, VariableAssignment, VariableDeclaration};
 use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
     StructSymbol, VariableSymbol,
@@ -67,6 +64,10 @@ const MISSING_STATEMENT_SEPARATOR: &'static str =
     include_str!("test_programs/single_file/missing_statement_separator.waso");
 const STRUCT_TEST: &'static str = include_str!("test_programs/single_file/struct.waso");
 const ENUM_TEST: &'static str = include_str!("test_programs/single_file/enum.waso");
+const EXHAUSTIVE_DEFS: &'static str =
+    include_str!("test_programs/single_project/exhaustive/defs.waso");
+const EXHAUSTIVE_MAIN: &'static str =
+    include_str!("test_programs/single_project/exhaustive/main.waso");
 
 #[test]
 fn test_parse_simple_program() {
@@ -1039,11 +1040,11 @@ fn test_parse_struct() {
     let x_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
         "x".to_string(),
         "s32".to_string(),
-    ))));
+    )), Visibility::Public));
     let y_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
         "y".to_string(),
         "s32".to_string(),
-    ))));
+    )), Visibility::Public));
 
     let point_struct = wrap(Struct::new(
         point_symbol.clone(),
@@ -1181,6 +1182,167 @@ fn test_parse_enum() {
         Vec::new(),
         vec![main_func],
         vec![weekday_enum],
+        Vec::new(),
+    );
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_exhaustive_defs() {
+    let (sm, id) = setup_source_map(EXHAUSTIVE_DEFS);
+    let to_parse = FileInformation::new(id, "exhaustive", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing defs failed");
+
+    let status_symbol = Rc::new(EnumSymbol::new("Status".to_string()));
+    let ok_variant = wrap(EnumVariant::new(Rc::new(EnumVariantSymbol::new(
+        "Ok".to_string(),
+        vec![],
+    ))));
+    let err_variant = wrap(EnumVariant::new(Rc::new(EnumVariantSymbol::new(
+        "Err".to_string(),
+        vec!["s32".to_string()],
+    ))));
+    let status_enum = wrap(Enum::new(
+        status_symbol,
+        vec![ok_variant, err_variant],
+        Visibility::Public,
+    ));
+
+    let point_symbol = Rc::new(StructSymbol::new("Point".to_string()));
+    let x_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
+        "x".to_string(),
+        "s32".to_string(),
+    )), Visibility::Public));
+    let y_field = wrap(StructField::new(Rc::new(StructFieldSymbol::new(
+        "y".to_string(),
+        "s32".to_string(),
+    )), Visibility::Public));
+    let point_struct = wrap(Struct::new(
+        point_symbol,
+        Vec::new(),
+        vec![x_field, y_field],
+        Visibility::Public,
+    ));
+
+    let x_param = Rc::new(VariableSymbol::new("x".to_string(), "s32".to_string()));
+    let y_param = Rc::new(VariableSymbol::new("y".to_string(), "s32".to_string()));
+    let create_point_symbol = Rc::new(FunctionSymbol::new(
+        "create_point".to_string(),
+        Some("Point".to_string()),
+        vec![x_param, y_param],
+    ));
+    let create_point_body = wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        Statement::Return(Return::new(Some(wrap(Expression::NewStruct(Box::new(
+            NewStruct::<UntypedAST>::new(
+                "Point".to_string(),
+                vec![
+                    (
+                        wrap("x".to_string()),
+                        wrap(Expression::Variable("x".to_string())),
+                    ),
+                    (
+                        wrap("y".to_string()),
+                        wrap(Expression::Variable("y".to_string())),
+                    ),
+                ],
+            ),
+        )))))),
+    )])));
+    let create_point_func = wrap(Function::new(
+        create_point_symbol,
+        create_point_body,
+        Visibility::Public,
+    ));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![create_point_func],
+        vec![status_enum],
+        vec![point_struct],
+    );
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_exhaustive_main() {
+    let (sm, id) = setup_source_map(EXHAUSTIVE_MAIN);
+    let to_parse = FileInformation::new(id, "exhaustive", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing main failed");
+
+    let import = wrap(Import::new(
+        ImportRoot::CurrentModule,
+        Vec::new(),
+        Rc::new(ModuleUsageNameSymbol::new("exhaustive".to_string())),
+    ));
+
+    let main_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
+
+    // exhaustive.Point p <- exhaustive.create_point(10, 20)
+    let p_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        Rc::new(VariableSymbol::new("p".to_string(), "exhaustive.Point".to_string())),
+        wrap(Expression::FunctionCall(ast::expression::FunctionCall::<UntypedAST>::new(
+            "exhaustive.create_point".to_string(),
+            vec![
+                wrap(Expression::Literal("10".to_string())),
+                wrap(Expression::Literal("20".to_string())),
+            ],
+        ))),
+    )));
+
+    // if (let exhaustive.Status.Err(s32 code) <- exhaustive.Status.Ok) { p.x <- code }
+    let if_let = wrap(Statement::ControlStructure(Box::new(
+        ControlStructure::IfEnumVariant(IfEnumVariant::<UntypedAST>::new(
+            "exhaustive.Status".to_string(),
+            "Err".to_string(),
+            wrap(Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
+                "exhaustive.Status".to_string(),
+                "Ok".to_string(),
+                vec![],
+            )))),
+            vec![Rc::new(VariableSymbol::new("code".to_string(), "s32".to_string()))],
+            wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+                Statement::StructFieldAssignment(StructFieldAssignment::<UntypedAST>::new(
+                    wrap(Expression::Variable("p".to_string())),
+                    "x".to_string(),
+                    wrap(Expression::Variable("code".to_string())),
+                )),
+            )]))),
+        )),
+    )));
+
+    // p.y <- exhaustive.create_point(1, 2).y
+    let p_y_assign = wrap(Statement::StructFieldAssignment(StructFieldAssignment::<
+        UntypedAST,
+    >::new(
+        wrap(Expression::Variable("p".to_string())),
+        "y".to_string(),
+        wrap(Expression::StructFieldAccess(Box::new(
+            StructFieldAccess::<UntypedAST>::new(
+                wrap(Expression::FunctionCall(ast::expression::FunctionCall::<UntypedAST>::new(
+                    "exhaustive.create_point".to_string(),
+                    vec![
+                        wrap(Expression::Literal("1".to_string())),
+                        wrap(Expression::Literal("2".to_string())),
+                    ],
+                ))),
+                "y".to_string(),
+            ),
+        ))),
+    )));
+
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
+        p_decl, if_let, p_y_assign,
+    ])));
+    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        vec![import],
+        vec![main_func],
+        Vec::new(),
         Vec::new(),
     );
     assert!(parsed.semantic_eq(&expected));

@@ -1375,7 +1375,8 @@ mod tests {
                                                         vec![
                                                             ASTNode::new(
                                                                 StructField::new(
-                                                                    error_msg_inner_symbol.clone()
+                                                                    error_msg_inner_symbol.clone(),
+                                                                    Visibility::Public
                                                                 ),
                                                                 CodeArea::new(
                                                                     CodeLocation::new(110, 0),
@@ -1510,7 +1511,8 @@ mod tests {
                                                         vec![
                                                             ASTNode::new(
                                                                 StructField::new(
-                                                                    warning_msg_inner_symbol.clone()
+                                                                    warning_msg_inner_symbol.clone(),
+                                                                    Visibility::Public
                                                                 ),
                                                                 CodeArea::new(
                                                                     CodeLocation::new(110, 0),

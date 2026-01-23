@@ -65,29 +65,6 @@ pub(crate) fn expression_parser<'src>()
                 )
             });
 
-        let atom = call
-            .or(literal)
-            .or(ident.map(|input| ASTNode::new(Expression::Variable(input.inner), input.pos_info)))
-            .or(expr.clone().delimited_by(
-                token_parser(TokenType::OpenParen),
-                token_parser(TokenType::CloseParen),
-            ));
-
-        let sfa = atom
-            .clone()
-            .then_ignore(token_parser(TokenType::Dot))
-            .then(identifier_parser())
-            .map(|(struct_expr, field)| {
-                let pos = combine_code_areas_succeeding(struct_expr.position(), field.pos_info());
-                ASTNode::new(
-                    Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(
-                        struct_expr,
-                        field.inner,
-                    ))),
-                    pos,
-                )
-            });
-
         let new_struct = token_parser(TokenType::New)
             .then(cross_module_capable_identifier_parser())
             .then_ignore(token_parser(TokenType::OpenScope))
@@ -143,7 +120,33 @@ pub(crate) fn expression_parser<'src>()
                 )
             });
 
-        let simple_combined = sfa.or(new_struct).or(new_enum).or(atom);
+        let base = call
+            .or(literal)
+            // New struct / enum is before variable to prevent is being parsed as a variable
+            .or(new_struct)
+            .or(new_enum)
+            .or(ident.map(|input| ASTNode::new(Expression::Variable(input.inner), input.pos_info)))
+            .or(expr.clone().delimited_by(
+                token_parser(TokenType::OpenParen),
+                token_parser(TokenType::CloseParen),
+            ));
+
+        let sfa = base
+            .clone()
+            .then_ignore(token_parser(TokenType::Dot))
+            .then(identifier_parser())
+            .map(|(struct_expr, field)| {
+                let pos = combine_code_areas_succeeding(struct_expr.position(), field.pos_info());
+                ASTNode::new(
+                    Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(
+                        struct_expr,
+                        field.inner,
+                    ))),
+                    pos,
+                )
+            });
+
+        let simple_combined = sfa.or(base);
 
         let typecast = simple_combined.foldl(
             token_parser(TokenType::As)
