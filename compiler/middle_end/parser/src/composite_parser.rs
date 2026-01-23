@@ -22,7 +22,7 @@ pub(crate) fn struct_parser<'src>()
     visibility_parser()
         .then(
             token_parser(TokenType::Struct)
-                .ignore_then(ident)
+                .then(ident)
                 .then_ignore(maybe_statement_separator())
                 .then_ignore(token_parser(TokenType::OpenScope))
                 .then(
@@ -42,7 +42,7 @@ pub(crate) fn struct_parser<'src>()
                 )
                 .then(token_parser(TokenType::CloseScope)),
         )
-        .map(|(visibility, (((name, fields), functions), end))| {
+        .map(|(visibility, ((((struct_token, name), fields), functions), end))| {
             let fields = fields
                 .into_iter()
                 .map(|(data_type, name)| {
@@ -62,7 +62,7 @@ pub(crate) fn struct_parser<'src>()
                 visibility
                     .as_ref()
                     .map(|vis| vis.pos_info())
-                    .unwrap_or(name.pos_info()),
+                    .unwrap_or(struct_token.pos_info()),
                 &end.pos_info,
             );
             let visibility = visibility
@@ -91,19 +91,21 @@ pub(crate) fn enum_parser<'src>()
     visibility_parser()
         .then(
             token_parser(TokenType::Enum)
-                .ignore_then(ident)
+                .then(ident)
                 .then_ignore(maybe_statement_separator())
                 .then_ignore(token_parser(TokenType::OpenScope))
                 .then(
                     variant
                         .separated_by(statement_separator())
+                        // Don't allow e.g.: `Monday()`
+                        .at_least(1)
                         .allow_leading()
                         .allow_trailing()
                         .collect::<Vec<_>>(),
                 )
                 .then(token_parser(TokenType::CloseScope)),
         )
-        .map(|(visibility, ((name, variants), end))| {
+        .map(|(visibility, (((enum_token, name), variants), end))| {
             let variants = variants
                 .into_iter()
                 .map(|(name, opt_fields)| {
@@ -127,7 +129,7 @@ pub(crate) fn enum_parser<'src>()
                 visibility
                     .as_ref()
                     .map(|vis| vis.pos_info())
-                    .unwrap_or(name.pos_info()),
+                    .unwrap_or(enum_token.pos_info()),
                 &end.pos_info,
             );
             let visibility = visibility
