@@ -1,0 +1,15 @@
+fn main() {
+    char wasome <- showcase_if_conditionals()
+}
+
+fn showcase_if_conditionals() -> char {
+    bool wasome_is_awesome <- true
+ 
+    if (wasome_is_awesome) {
+        -> '✨'
+    } else {
+        -> '🤥'   
+    }
+    // We need to have a return at the end
+    -> ' '
+}
