@@ -1,7 +1,7 @@
 use ast::UntypedAST;
 use ast::file::File;
 use ast::top_level::ImportRoot;
-use shared::program_information::Project;
+use crate::program_information::Project;
 use std::path::PathBuf;
 
 /// Represents the fully qualified path to a module
@@ -229,7 +229,7 @@ fn combine_import_path(
 mod tests {
     use super::*;
     use ast::top_level::ImportRoot;
-    use shared::program_information::Project;
+    use crate::program_information::Project;
     use std::path::PathBuf;
 
     #[test]

@@ -2,7 +2,7 @@ use ast::file::File;
 use ast::{AST, ASTNode, UntypedAST};
 use io::FullIO;
 use parser::{FileInformation, parse};
-use shared::program_information::ProgramInformation;
+use crate::program_information::ProgramInformation;
 use source::SourceMap;
 use source::types::FileID;
 use std::path::{Path, PathBuf};

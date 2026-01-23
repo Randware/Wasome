@@ -4,7 +4,7 @@ mod module_path;
 
 use ast::{UntypedAST, AST};
 use io::FullIO;
-use shared::program_information::ProgramInformation;
+use crate::program_information::ProgramInformation;
 use source::SourceMap;
 use crate::parser_driver::ast_builder::ASTBuilder;
 

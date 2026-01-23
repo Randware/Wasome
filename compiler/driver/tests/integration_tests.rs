@@ -1,5 +1,5 @@
 use io::WasomeLoader;
-use shared::program_information::{ProgramInformation, Project};
+use driver::program_information::{ProgramInformation, Project};
 use source::SourceMap;
 use std::fs;
 use std::ops::Deref;
