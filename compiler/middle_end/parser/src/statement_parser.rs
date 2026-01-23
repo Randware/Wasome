@@ -75,6 +75,7 @@ pub(crate) fn statement_parser<'src>()
         let struct_field_assignment = not_assign_token
             .clone()
             .then_ignore(
+                // Don't consume the struct field in the expression
                 not_assign_token
                     .clone()
                     .and_is(not_dot)
