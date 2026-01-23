@@ -7,7 +7,7 @@ use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
-    VariableAssignment, VariableDeclaration,
+    StructFieldAssignment, VariableAssignment, VariableDeclaration,
 };
 use ast::symbol::VariableSymbol;
 use ast::{ASTNode, UntypedAST};
@@ -66,6 +66,43 @@ pub(crate) fn statement_parser<'src>()
             .map(|(name, val)| {
                 let pos = combine_code_areas_succeeding(&name.pos_info, val.position());
                 PosInfoWrapper::new(VariableAssignment::<UntypedAST>::new(name.inner, val), pos)
+            });
+
+        let not_assign = token_parser(TokenType::Assign).not();
+        let not_dot = token_parser(TokenType::Dot).not();
+        let not_assign_token = any().and_is(not_assign.clone());
+
+        let struct_field_assignment = not_assign_token
+            .clone()
+            .then_ignore(
+                not_assign_token
+                    .clone()
+                    .and_is(not_dot)
+                    .or_not()
+                    .then(token_parser(TokenType::Dot))
+                    .rewind(),
+            )
+            .repeated()
+            .collect::<Vec<_>>()
+            .then_ignore(token_parser(TokenType::Dot))
+            .then(not_assign_token.repeated().collect::<Vec<_>>())
+            .then_ignore(token_parser(TokenType::Assign))
+            .then(expression.clone())
+            .try_map(|((source, field), val), _| {
+                let source = expression_parser()
+                    .parse(&source)
+                    .into_output()
+                    .ok_or(EmptyErr::default())?;
+                let field = identifier_parser()
+                    .parse(&field)
+                    .into_output()
+                    .ok_or(EmptyErr::default())?;
+
+                let pos = combine_code_areas_succeeding(source.position(), val.position());
+                Ok(PosInfoWrapper::new(
+                    StructFieldAssignment::<UntypedAST>::new(source, field.inner, val),
+                    pos,
+                ))
             });
 
         let variable_declaration = data_type
@@ -225,6 +262,8 @@ pub(crate) fn statement_parser<'src>()
 
         choice((
             variable_assignment.map(|var_assign| var_assign.map(Statement::VariableAssignment)),
+            struct_field_assignment
+                .map(|str_assign| str_assign.map(Statement::StructFieldAssignment)),
             variable_declaration.map(|var_decl| var_decl.map(Statement::VariableDeclaration)),
             conditional.map(|cond| {
                 cond.map(|inner| {

@@ -5,7 +5,7 @@ use ast::expression::{
 };
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
-    VariableAssignment, VariableDeclaration,
+    StructFieldAssignment, VariableAssignment, VariableDeclaration,
 };
 use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
@@ -14,11 +14,11 @@ use ast::symbol::{
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
-use parser::{FileInformation, parse};
+use parser::{parse, FileInformation};
 use shared::code_file::CodeFile;
 use shared::code_reference::{CodeArea, CodeLocation};
-use source::SourceMap;
 use source::types::FileID;
+use source::SourceMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;
@@ -695,20 +695,21 @@ fn test_parse_if() {
     let parsed = parse(to_parse).expect("Parsing failed");
 
     // fn main() { char wasome <- showcase_if_conditionals() }
-    let main_symbol = Rc::new(FunctionSymbol::new(
-        "main".to_string(),
-        None,
-        vec![],
-    ));
-    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
-            Rc::new(VariableSymbol::new("wasome".to_string(), "char".to_string())),
-            wrap(Expression::FunctionCall(ast::expression::FunctionCall::<UntypedAST>::new(
+    let main_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+            Rc::new(VariableSymbol::new(
+                "wasome".to_string(),
+                "char".to_string(),
+            )),
+            wrap(Expression::FunctionCall(ast::expression::FunctionCall::<
+                UntypedAST,
+            >::new(
                 "showcase_if_conditionals".to_string(),
                 vec![],
             ))),
-        ))),
-    ])));
+        )),
+    )])));
     let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
 
     // fn showcase_if_conditionals() -> char
@@ -719,35 +720,54 @@ fn test_parse_if() {
     ));
 
     // bool wasome_is_awesome <- true
-    let var_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
-        Rc::new(VariableSymbol::new("wasome_is_awesome".to_string(), "bool".to_string())),
+    let var_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        Rc::new(VariableSymbol::new(
+            "wasome_is_awesome".to_string(),
+            "bool".to_string(),
+        )),
         wrap(Expression::Literal("true".to_string())),
     )));
 
     // if (wasome_is_awesome) { -> '✨' } else { -> '🤥' }
     let cond = wrap(Expression::Variable("wasome_is_awesome".to_string()));
-    let then_stmt = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        wrap(Statement::Return(Return::new(Some(wrap(Expression::Literal("'✨'".to_string())))))),
-    ])));
-    let else_stmt = Some(wrap(Statement::Codeblock(CodeBlock::new(vec![
-        wrap(Statement::Return(Return::new(Some(wrap(Expression::Literal("'🤥'".to_string())))))),
-    ]))));
+    let then_stmt = wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        Statement::Return(Return::new(Some(wrap(Expression::Literal(
+            "'✨'".to_string(),
+        ))))),
+    )])));
+    let else_stmt = Some(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        Statement::Return(Return::new(Some(wrap(Expression::Literal(
+            "'🤥'".to_string(),
+        ))))),
+    )]))));
 
-    let if_stmt = wrap(Statement::ControlStructure(Box::new(ControlStructure::Conditional(
-        Conditional::new(cond, then_stmt, else_stmt),
-    ))));
+    let if_stmt = wrap(Statement::ControlStructure(Box::new(
+        ControlStructure::Conditional(Conditional::new(cond, then_stmt, else_stmt)),
+    )));
 
     // -> ' '
-    let ret_stmt = wrap(Statement::Return(Return::new(Some(wrap(Expression::Literal("' '".to_string()))))));
+    let ret_stmt = wrap(Statement::Return(Return::new(Some(wrap(
+        Expression::Literal("' '".to_string()),
+    )))));
 
     let showcase_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        var_decl,
-        if_stmt,
-        ret_stmt,
+        var_decl, if_stmt, ret_stmt,
     ])));
-    let showcase_func = wrap(Function::new(showcase_symbol, showcase_body, Visibility::Private));
+    let showcase_func = wrap(Function::new(
+        showcase_symbol,
+        showcase_body,
+        Visibility::Private,
+    ));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func, showcase_func], Vec::new(), Vec::new());
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![main_func, showcase_func],
+        Vec::new(),
+        Vec::new(),
+    );
     assert!(parsed.semantic_eq(&expected));
 }
 
@@ -757,14 +777,12 @@ fn test_parse_loop() {
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse).expect("Parsing failed");
 
-    let main_symbol = Rc::new(FunctionSymbol::new(
-        "main".to_string(),
-        None,
-        vec![],
-    ));
+    let main_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
 
     // s32 count1 <- 0
-    let decl1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+    let decl1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
         Rc::new(VariableSymbol::new("count1".to_string(), "s32".to_string())),
         wrap(Expression::Literal("0".to_string())),
     )));
@@ -775,29 +793,32 @@ fn test_parse_loop() {
         wrap(Expression::Variable("count1".to_string())),
         wrap(Expression::Literal("10".to_string())),
     ))));
-    let while_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        wrap(Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
+    let while_body = wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
             "count1".to_string(),
             wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                 BinaryOpType::Addition,
                 wrap(Expression::Variable("count1".to_string())),
                 wrap(Expression::Literal("1".to_string())),
             )))),
-        ))),
-    ])));
-    let while_loop = wrap(Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
-        while_body,
-        LoopType::While(while_cond),
-    )))));
+        )),
+    )])));
+    let while_loop = wrap(Statement::ControlStructure(Box::new(
+        ControlStructure::Loop(Loop::new(while_body, LoopType::While(while_cond))),
+    )));
 
     // s32 sum <- 0
-    let decl_sum = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+    let decl_sum = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
         Rc::new(VariableSymbol::new("sum".to_string(), "s32".to_string())),
         wrap(Expression::Literal("0".to_string())),
     )));
 
     // loop (s32 count2 <- 0; count2 < 100; count2 <- count2 + 1) { sum <- sum + count2 }
-    let for_init = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+    let for_init = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
         Rc::new(VariableSymbol::new("count2".to_string(), "s32".to_string())),
         wrap(Expression::Literal("0".to_string())),
     )));
@@ -806,7 +827,9 @@ fn test_parse_loop() {
         wrap(Expression::Variable("count2".to_string())),
         wrap(Expression::Literal("100".to_string())),
     ))));
-    let for_after = wrap(Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
+    let for_after = wrap(Statement::VariableAssignment(VariableAssignment::<
+        UntypedAST,
+    >::new(
         "count2".to_string(),
         wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
             BinaryOpType::Addition,
@@ -814,58 +837,62 @@ fn test_parse_loop() {
             wrap(Expression::Literal("1".to_string())),
         )))),
     )));
-    let for_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        wrap(Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
+    let for_body = wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
             "sum".to_string(),
             wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                 BinaryOpType::Addition,
                 wrap(Expression::Variable("sum".to_string())),
                 wrap(Expression::Variable("count2".to_string())),
             )))),
-        ))),
-    ])));
-    let for_loop = wrap(Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
-        for_body,
-        LoopType::For {
-            start: for_init,
-            cond: for_cond,
-            after_each: for_after,
-        },
-    )))));
+        )),
+    )])));
+    let for_loop = wrap(Statement::ControlStructure(Box::new(
+        ControlStructure::Loop(Loop::new(
+            for_body,
+            LoopType::For {
+                start: for_init,
+                cond: for_cond,
+                after_each: for_after,
+            },
+        )),
+    )));
 
     // s32 count3 <- 0
-    let decl3 = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+    let decl3 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
         Rc::new(VariableSymbol::new("count3".to_string(), "s32".to_string())),
         wrap(Expression::Literal("0".to_string())),
     )));
 
     // loop { count3 <- count3 + 1 }
-    let inf_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        wrap(Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
+    let inf_body = wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        Statement::VariableAssignment(VariableAssignment::<UntypedAST>::new(
             "count3".to_string(),
             wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
                 BinaryOpType::Addition,
                 wrap(Expression::Variable("count3".to_string())),
                 wrap(Expression::Literal("1".to_string())),
             )))),
-        ))),
-    ])));
-    let inf_loop = wrap(Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
-        inf_body,
-        LoopType::Infinite,
-    )))));
+        )),
+    )])));
+    let inf_loop = wrap(Statement::ControlStructure(Box::new(
+        ControlStructure::Loop(Loop::new(inf_body, LoopType::Infinite)),
+    )));
 
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        decl1,
-        while_loop,
-        decl_sum,
-        for_loop,
-        decl3,
-        inf_loop,
+        decl1, while_loop, decl_sum, for_loop, decl3, inf_loop,
     ])));
     let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func], Vec::new(), Vec::new());
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![main_func],
+        Vec::new(),
+        Vec::new(),
+    );
     assert!(parsed.semantic_eq(&expected));
 }
 
@@ -875,11 +902,7 @@ fn test_parse_operator() {
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse).expect("Parsing failed");
 
-    let main_symbol = Rc::new(FunctionSymbol::new(
-        "main".to_string(),
-        None,
-        vec![],
-    ));
+    let main_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
 
     // s32 math_showcase <- 10 * 2 + 5 - 3 / 1
     // ((10 * 2) + 5) - (3 / 1)
@@ -900,13 +923,20 @@ fn test_parse_operator() {
             wrap(Expression::Literal("1".to_string())),
         )))),
     ))));
-    let decl_math = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
-        Rc::new(VariableSymbol::new("math_showcase".to_string(), "s32".to_string())),
+    let decl_math = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        Rc::new(VariableSymbol::new(
+            "math_showcase".to_string(),
+            "s32".to_string(),
+        )),
         expr_math,
     )));
 
     // s32 num <- 10
-    let decl_num = wrap(Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
+    let decl_num = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
         Rc::new(VariableSymbol::new("num".to_string(), "s32".to_string())),
         wrap(Expression::Literal("10".to_string())),
     )));
@@ -918,9 +948,13 @@ fn test_parse_operator() {
             wrap(Expression::Variable("num".to_string())),
             wrap(Expression::Literal(rhs.to_string())),
         ))));
-        wrap(Statement::ControlStructure(Box::new(ControlStructure::Conditional(
-            Conditional::new(cond, wrap(Statement::Codeblock(CodeBlock::new(vec![]))), None),
-        ))))
+        wrap(Statement::ControlStructure(Box::new(
+            ControlStructure::Conditional(Conditional::new(
+                cond,
+                wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
+                None,
+            )),
+        )))
     };
 
     // if (num < 10)
@@ -946,9 +980,13 @@ fn test_parse_operator() {
         )))),
         wrap(Expression::Literal("true".to_string())),
     ))));
-    let if_and = wrap(Statement::ControlStructure(Box::new(ControlStructure::Conditional(
-        Conditional::new(cond_and, wrap(Statement::Codeblock(CodeBlock::new(vec![]))), None),
-    ))));
+    let if_and = wrap(Statement::ControlStructure(Box::new(
+        ControlStructure::Conditional(Conditional::new(
+            cond_and,
+            wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
+            None,
+        )),
+    )));
 
     // if (num == 10 || false)
     let cond_or = wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
@@ -960,25 +998,26 @@ fn test_parse_operator() {
         )))),
         wrap(Expression::Literal("false".to_string())),
     ))));
-    let if_or = wrap(Statement::ControlStructure(Box::new(ControlStructure::Conditional(
-        Conditional::new(cond_or, wrap(Statement::Codeblock(CodeBlock::new(vec![]))), None),
-    ))));
+    let if_or = wrap(Statement::ControlStructure(Box::new(
+        ControlStructure::Conditional(Conditional::new(
+            cond_or,
+            wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
+            None,
+        )),
+    )));
 
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
-        decl_math,
-        decl_num,
-        if_lt,
-        if_le,
-        if_eq,
-        if_ne,
-        if_gt,
-        if_ge,
-        if_and,
-        if_or,
+        decl_math, decl_num, if_lt, if_le, if_eq, if_ne, if_gt, if_ge, if_and, if_or,
     ])));
     let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
 
-    let expected = ast::file::File::new("main".to_string(), Vec::new(), vec![main_func], Vec::new(), Vec::new());
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![main_func],
+        Vec::new(),
+        Vec::new(),
+    );
     assert!(parsed.semantic_eq(&expected));
 }
 
@@ -1013,30 +1052,28 @@ fn test_parse_struct() {
         Visibility::Private,
     ));
 
-    let main_symbol = Rc::new(FunctionSymbol::new(
-        "main".to_string(),
-        None,
-        vec![],
-    ));
+    let main_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
 
     // Point point <- new Point { x <- 10, y <- 20 }
     let point_var = Rc::new(VariableSymbol::new(
         "point".to_string(),
         "Point".to_string(),
     ));
-    let new_point_expr = wrap(Expression::NewStruct(Box::new(NewStruct::<UntypedAST>::new(
-        "Point".to_string(),
-        vec![
-            (
-                wrap("x".to_string()),
-                wrap(Expression::Literal("10".to_string())),
-            ),
-            (
-                wrap("y".to_string()),
-                wrap(Expression::Literal("20".to_string())),
-            ),
-        ],
-    ))));
+    let new_point_expr = wrap(Expression::NewStruct(Box::new(
+        NewStruct::<UntypedAST>::new(
+            "Point".to_string(),
+            vec![
+                (
+                    wrap("x".to_string()),
+                    wrap(Expression::Literal("10".to_string())),
+                ),
+                (
+                    wrap("y".to_string()),
+                    wrap(Expression::Literal("20".to_string())),
+                ),
+            ],
+        ),
+    )));
     let stmt1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
@@ -1063,10 +1100,11 @@ fn test_parse_struct() {
     )));
 
     // point.x <- 15
-    let stmt3 = wrap(Statement::VariableAssignment(VariableAssignment::<
+    let stmt3 = wrap(Statement::StructFieldAssignment(StructFieldAssignment::<
         UntypedAST,
     >::new(
-        "point.x".to_string(),
+        wrap(Expression::Variable("point".to_string())),
+        "x".to_string(),
         wrap(Expression::Literal("15".to_string())),
     )));
 
@@ -1093,7 +1131,13 @@ fn test_parse_enum() {
 
     let weekday_symbol = Rc::new(EnumSymbol::new("Weekday".to_string()));
     let variants = vec![
-        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
     ]
     .into_iter()
     .map(|name| {
@@ -1110,11 +1154,7 @@ fn test_parse_enum() {
         Visibility::Private,
     ));
 
-    let main_symbol = Rc::new(FunctionSymbol::new(
-        "main".to_string(),
-        None,
-        vec![],
-    ));
+    let main_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
 
     // Weekday weekday <- Weekday::Saturday
     let weekday_var = Rc::new(VariableSymbol::new(

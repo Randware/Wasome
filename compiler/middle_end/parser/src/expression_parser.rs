@@ -114,20 +114,30 @@ pub(crate) fn expression_parser<'src>()
         let new_enum = cross_module_capable_identifier_parser()
             .then_ignore(token_parser(TokenType::PathSeparator))
             .then(identifier_parser())
-            .then_ignore(token_parser(TokenType::OpenParen))
             .then(
                 expr.clone()
                     .separated_by(token_parser(TokenType::ArgumentSeparator))
-                    .collect::<Vec<_>>(),
+                    .at_least(1)
+                    .collect::<Vec<_>>()
+                    .delimited_by(
+                        token_parser(TokenType::OpenParen),
+                        token_parser(TokenType::CloseParen),
+                    )
+                    .or_not(),
             )
-            .then(token_parser(TokenType::CloseParen))
-            .map(|(((enum_name, variant_name), field_values), end)| {
-                let pos = combine_code_areas_succeeding(enum_name.pos_info(), end.pos_info());
+            .map(|((enum_name, variant_name), field_values)| {
+                let pos = combine_code_areas_succeeding(
+                    enum_name.pos_info(),
+                    field_values
+                        .as_ref()
+                        .and_then(|fv| fv.last().map(|last_val| last_val.position()))
+                        .unwrap_or(variant_name.pos_info()),
+                );
                 ASTNode::new(
                     Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
                         enum_name.inner,
                         variant_name.inner,
-                        field_values,
+                        field_values.unwrap_or(Vec::new()),
                     ))),
                     pos,
                 )

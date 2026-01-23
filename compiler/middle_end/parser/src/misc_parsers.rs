@@ -18,6 +18,7 @@ pub(crate) fn datatype_parser<'src>()
         token_parser(TokenType::U64).map(|to_map| to_map.map(|_| "u64".to_string())),
         token_parser(TokenType::Bool).map(|to_map| to_map.map(|_| "bool".to_string())),
         token_parser(TokenType::Char).map(|to_map| to_map.map(|_| "char".to_string())),
+        cross_module_capable_identifier_parser(),
     ))
 }
 
