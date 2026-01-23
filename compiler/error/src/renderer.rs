@@ -176,23 +176,23 @@ impl<'a> Renderer<'a> {
     }
 
     fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
-        let path = self
+        if let Some(path) = self
             .cache
             .get(&snippet.file)
             .and_then(|c| Some(c.path.clone()))
-            .unwrap_or(String::new());
+        {
+            let kind = ReportKind::Custom("", self.styling.type_heading);
 
-        let kind = ReportKind::Custom("", self.styling.type_heading);
+            // Primary range is 0..0, since we strip it anyway
+            let report = Report::build(kind, (path.clone(), 0..0))
+                .with_config(Self::resolve_config(self.diagnostic.level));
 
-        // Primary range is 0..0, since we strip it anyway
-        let report = Report::build(kind, (path, 0..0))
-            .with_config(Self::resolve_config(self.diagnostic.level));
+            let report = self.label_report(report, snippet);
 
-        let report = self.label_report(report, snippet);
+            let buffer = self.strip_report(report)?;
 
-        let buffer = self.strip_report(report)?;
-
-        self.writer.write_all(&buffer)?;
+            self.writer.write_all(&buffer)?;
+        }
 
         Ok(())
     }
