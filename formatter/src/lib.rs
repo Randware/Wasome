@@ -14,10 +14,12 @@
 mod constants;
 mod engine;
 mod indent;
-mod reorder;
-mod spacing;
+pub mod reorder;
+pub mod spacing;
 
 pub use engine::format_source;
+pub use reorder::{categorize_keyword, ItemCategory};
+pub use spacing::needs_space_before;
 
 use std::fs;
 use std::io::{self, Read, Write};
