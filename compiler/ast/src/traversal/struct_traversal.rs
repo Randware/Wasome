@@ -84,7 +84,16 @@ impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
                         DirectlyAvailableSymbol::Function(func.inner().declaration()),
                     )
                 }),
-            )),
+            ).chain(
+                Type::type_parameter_symbols_of_composite(symbol_source.inner().symbol())
+                    .map(|type_param| {
+                        (
+                            None,
+                            // For typed enums, there are never any type parameter symbols,
+                            // so this is fine
+                            DirectlyAvailableSymbol::UntypedTypeParameter(type_param),
+                        )
+                    })))
         }
     }
 }

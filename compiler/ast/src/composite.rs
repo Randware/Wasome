@@ -3,20 +3,20 @@ use crate::symbol::{
 };
 use crate::top_level::Function;
 use crate::visibility::{Visibility, Visible};
-use crate::{ASTNode, ASTType, SemanticEq};
+use crate::{ASTNode, ASTType, SemanticEq, TypedAST};
 use std::rc::Rc;
 
 /// An enum
 #[derive(Debug, PartialEq)]
 pub struct Enum<Type: ASTType> {
-    symbol: Rc<EnumSymbol>,
+    symbol: Rc<EnumSymbol<Type>>,
     variants: Vec<ASTNode<EnumVariant<Type>>>,
     visibility: Visibility,
 }
 
 impl<Type: ASTType> Enum<Type> {
     pub fn new(
-        symbol: Rc<EnumSymbol>,
+        symbol: Rc<EnumSymbol<Type>>,
         variants: Vec<ASTNode<EnumVariant<Type>>>,
         visibility: Visibility,
     ) -> Self {
@@ -27,11 +27,11 @@ impl<Type: ASTType> Enum<Type> {
         }
     }
 
-    pub fn symbol(&self) -> &EnumSymbol {
+    pub fn symbol(&self) -> &EnumSymbol<Type> {
         &self.symbol
     }
 
-    pub fn symbol_owned(&self) -> Rc<EnumSymbol> {
+    pub fn symbol_owned(&self) -> Rc<EnumSymbol<Type>> {
         self.symbol.clone()
     }
 
@@ -97,7 +97,7 @@ impl<Type: ASTType> SemanticEq for EnumVariant<Type> {
 /// A struct
 #[derive(Debug, PartialEq)]
 pub struct Struct<Type: ASTType> {
-    symbol: Rc<StructSymbol>,
+    symbol: Rc<StructSymbol<Type>>,
     functions: Vec<ASTNode<Function<Type>>>,
     fields: Vec<ASTNode<StructField<Type>>>,
     visibility: Visibility,
@@ -105,7 +105,7 @@ pub struct Struct<Type: ASTType> {
 
 impl<Type: ASTType> Struct<Type> {
     pub fn new(
-        symbol: Rc<StructSymbol>,
+        symbol: Rc<StructSymbol<Type>>,
         functions: Vec<ASTNode<Function<Type>>>,
         fields: Vec<ASTNode<StructField<Type>>>,
         visibility: Visibility,
@@ -118,11 +118,11 @@ impl<Type: ASTType> Struct<Type> {
         }
     }
 
-    pub fn symbol(&self) -> &StructSymbol {
+    pub fn symbol(&self) -> &StructSymbol<Type> {
         &self.symbol
     }
 
-    pub fn symbol_owned(&self) -> Rc<StructSymbol> {
+    pub fn symbol_owned(&self) -> Rc<StructSymbol<Type>> {
         self.symbol.clone()
     }
 

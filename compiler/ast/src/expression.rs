@@ -2,6 +2,7 @@ use crate::data_type::{DataType, Typed};
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol};
 use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
 use std::rc::Rc;
+use crate::type_parameter::UntypedTypeParameter;
 
 /// This represents an expression as per section 2 of the lang spec
 ///
@@ -578,14 +579,14 @@ impl<Type: ASTType> SemanticEq for NewStruct<Type> {
 /// A mismatch is an error in the typed ast and thus needs to be checked externally
 #[derive(Debug, PartialEq)]
 pub struct NewEnum<Type: ASTType> {
-    symbol: Type::EnumUse,
+    to_create: Type::EnumUse,
     variant: Type::EnumVariantUse,
     parameters: Vec<ASTNode<Expression<Type>>>,
 }
 
 impl<Type: ASTType> NewEnum<Type> {
-    pub fn symbol(&self) -> &Type::EnumUse {
-        &self.symbol
+    pub fn to_create(&self) -> &Type::EnumUse {
+        &self.to_create
     }
 
     pub fn variant(&self) -> &Type::EnumVariantUse {
@@ -599,12 +600,12 @@ impl<Type: ASTType> NewEnum<Type> {
 
 impl NewEnum<UntypedAST> {
     pub fn new(
-        symbol: String,
+        to_create: (String, Vec<UntypedTypeParameter>),
         variant: String,
         parameters: Vec<ASTNode<Expression<UntypedAST>>>,
     ) -> Self {
         Self {
-            symbol,
+            to_create,
             variant,
             parameters,
         }
@@ -615,7 +616,7 @@ impl NewEnum<TypedAST> {
     /// Creates a new NewEnum
     /// Returns none if the types of the parameters and of the variant don't match
     pub fn new(
-        symbol: Rc<EnumSymbol>,
+        symbol: Rc<EnumSymbol<TypedAST>>,
         variant: Rc<EnumVariantSymbol<TypedAST>>,
         parameters: Vec<ASTNode<Expression<TypedAST>>>,
     ) -> Option<Self> {
@@ -630,7 +631,7 @@ impl NewEnum<TypedAST> {
             return None;
         }
         Some(Self {
-            symbol,
+            to_create: symbol,
             variant,
             parameters,
         })
@@ -639,7 +640,7 @@ impl NewEnum<TypedAST> {
 
 impl Typed for NewEnum<TypedAST> {
     fn data_type(&self) -> DataType {
-        DataType::Enum(self.symbol().clone())
+        DataType::Enum(self.to_create().clone())
     }
 }
 
@@ -647,7 +648,7 @@ impl<Type: ASTType> SemanticEq for NewEnum<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.parameters().semantic_eq(other.parameters())
             && self.variant() == other.variant()
-            && self.symbol() == other.symbol()
+            && self.to_create() == other.to_create()
     }
 }
 

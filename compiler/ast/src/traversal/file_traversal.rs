@@ -73,11 +73,11 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
         self.inner.enums().get(index)
     }
 
-    /// Gets the subdirectory with the specified name.
+    /// Gets the enum with the specified identifier.
     ///
     /// Returns None if it doesn't exist
-    pub fn enum_by_name(&self, name: &str) -> Option<&'b ASTNode<Enum<Type>>> {
-        self.inner().enum_by_name(name)
+    pub fn enum_by_identifier(&self, identifier: Type::CompositeIdentifier<'_>) -> Option<&'b ASTNode<Enum<Type>>> {
+        self.inner().enum_by_identifier(identifier)
     }
 
     /// Gets an iterator over all enums
@@ -102,12 +102,12 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
         ))
     }
 
-    /// Gets the subdirectory with the specified name.
+    /// Gets the struct with the specified identifier.
     ///
     /// Returns None if it doesn't exist
-    pub fn struct_by_name(&self, name: &str) -> Option<StructTraversalHelper<'_, 'b, Type>> {
+    pub fn struct_by_identifier(&self, identifier: Type::CompositeIdentifier<'_>) -> Option<StructTraversalHelper<'_, 'b, Type>> {
         self.inner()
-            .struct_by_name(name)
+            .struct_by_identfier(identifier)
             .map(|st| StructTraversalHelper::new(st, self))
     }
 
@@ -170,7 +170,7 @@ impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'a, 'b,
     }
 }
 
-struct FileSymbolTable<'a, 'b, Type: ASTType> {
+pub(crate) struct FileSymbolTable<'a, 'b, Type: ASTType> {
     symbols: Box<
         dyn Iterator<
                 Item = (
@@ -179,8 +179,8 @@ struct FileSymbolTable<'a, 'b, Type: ASTType> {
                 ),
             > + 'a,
     >,
-    enum_symbols: Box<dyn Iterator<Item = &'b EnumSymbol> + 'a>,
-    struct_symbols: Box<dyn Iterator<Item = &'b StructSymbol> + 'a>,
+    enum_symbols: Box<dyn Iterator<Item = &'b EnumSymbol<Type>> + 'a>,
+    struct_symbols: Box<dyn Iterator<Item = &'b StructSymbol<Type>> + 'a>,
 }
 
 impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {

@@ -1,8 +1,12 @@
 use crate::symbol::{EnumSymbol, StructSymbol};
-use crate::SemanticEq;
+use crate::{SemanticEq, TypedAST};
 use std::rc::Rc;
 
 /// A data type
+///
+/// This only exists in the typed AST
+/// Therefore, having type parameters here does not make sense as they are part of the composite
+/// identifier (and not data types) in the typed AST
 #[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
     Char,
@@ -17,8 +21,8 @@ pub enum DataType {
     Bool,
     F32,
     F64,
-    Struct(Rc<StructSymbol>),
-    Enum(Rc<EnumSymbol>),
+    Struct(Rc<StructSymbol<TypedAST>>),
+    Enum(Rc<EnumSymbol<TypedAST>>),
 }
 
 /// A syntax element in wasome with a data type.

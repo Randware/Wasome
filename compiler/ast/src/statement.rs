@@ -7,6 +7,7 @@ use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST
 use std::cmp::PartialEq;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
+use crate::type_parameter::UntypedTypeParameter;
 
 /// A Statement as per section 4 of the lang spec
 ///
@@ -467,7 +468,7 @@ pub struct IfEnumVariant<Type: ASTType> {
 impl IfEnumVariant<UntypedAST> {
     /// Creates a new IfEnumVariant
     pub fn new(
-        condition_enum: String,
+        condition_enum: (String, Vec<UntypedTypeParameter>),
         condition_enum_variant: String,
         assignment_expression: ASTNode<Expression<UntypedAST>>,
         variables: Vec<Rc<VariableSymbol<UntypedAST>>>,
@@ -488,7 +489,7 @@ impl IfEnumVariant<UntypedAST> {
 /// Returns None if the amount or data types of variables doesn't match the data types on the enum variant
 impl IfEnumVariant<TypedAST> {
     pub fn new(
-        condition_enum: Rc<EnumSymbol>,
+        condition_enum: Rc<EnumSymbol<TypedAST>>,
         condition_enum_variant: Rc<EnumVariantSymbol<TypedAST>>,
         assignment_expression: ASTNode<Expression<TypedAST>>,
         variables: Vec<Rc<VariableSymbol<TypedAST>>>,

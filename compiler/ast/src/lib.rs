@@ -21,9 +21,7 @@ use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
-use crate::symbol::{
-    EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol, VariableSymbol,
-};
+use crate::symbol::{CompositeSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol, UntypedTypeParameterSymbol, VariableSymbol};
 use crate::top_level::{Import, ImportRoot};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
@@ -31,6 +29,8 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
+use crate::traversal::file_traversal::{FileSymbolTable, FileTraversalHelper};
+use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 
 pub mod composite;
 pub mod data_type;
@@ -43,6 +43,7 @@ pub mod symbol;
 pub mod top_level;
 pub mod traversal;
 pub mod visibility;
+pub mod type_parameter;
 
 ///  Comparing semantics only.
 ///
@@ -283,9 +284,35 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type EnumUse: Debug + PartialEq + SemanticEq;
     type EnumVariantUse: Debug + PartialEq + SemanticEq;
     type StructFieldUse: Debug + PartialEq + SemanticEq;
+    /// The type parameter on composite declaration, **not** usage
+    type TypeParameter: Debug + PartialEq;
+    /// The minimal combination of data that identifies a composite
+    /// 
+    /// This is supposed to be only used for querying and similar and is therefore
+    /// in its borrowed form (e.g.: `&str`)
+    /// 
+    /// This identifies the composite itself and not a usage
+    type CompositeIdentifier<'a>: Debug + PartialEq + Copy;
+
+    /// Gets all type parameter symbols of the provided composite
+    ///
+    /// In practice, this means that for untyped structs all parameters will be returned and for typed
+    /// an empty iterator.
+    ///
+    /// Keep in mind that for typed structs, the type parameters are part of the identifier and
+    /// not symbols that provide data types inside the composite
+    fn type_parameter_symbols_of_composite(
+        of: &impl CompositeSymbol<Self>,
+    ) -> impl Iterator<Item=&UntypedTypeParameterSymbol>;
+
+    /// Checks wherever a given composite matches a given identifier
+    fn composite_matches_identifier(
+        identifier: Self::CompositeIdentifier<'_>,
+        to_check: &impl CompositeSymbol<Self>,
+    ) -> bool;
 }
 
-///  This is an ast type
+/// This is an ast type
 /// ASTs with this type include concrete data types
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedAST {}
@@ -295,13 +322,28 @@ impl ASTType for TypedAST {
     type GeneralDataType = DataType;
     type FunctionCallSymbol = Rc<FunctionSymbol<TypedAST>>;
     type VariableUse = Rc<VariableSymbol<TypedAST>>;
-    type StructUse = Rc<StructSymbol>;
-    type EnumUse = Rc<EnumSymbol>;
+    type StructUse = Rc<StructSymbol<TypedAST>>;
+    type EnumUse = Rc<EnumSymbol<TypedAST>>;
     type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
     type StructFieldUse = Rc<StructFieldSymbol<TypedAST>>;
+    type TypeParameter = TypedTypeParameter;
+    type CompositeIdentifier<'a> = (&'a str, &'a [TypedTypeParameter]);
+    fn type_parameter_symbols_of_composite(
+        _of: &impl CompositeSymbol<Self>,
+    ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
+        // A typed struct has no type parameter symbols
+        [].into_iter()
+    }
+
+    fn composite_matches_identifier(
+        identifier: Self::CompositeIdentifier<'_>,
+        to_check: &impl CompositeSymbol<Self>,
+    ) -> bool {
+        to_check.type_parameters() == identifier.1 && to_check.name() == identifier.0
+    }
 }
 
-///  This is an ast type
+/// This is an ast type
 /// ASTs with this type carry the data type used in a string and perform no validation on it
 #[derive(Clone, PartialEq, Debug)]
 pub struct UntypedAST {}
@@ -311,10 +353,34 @@ impl ASTType for UntypedAST {
     type GeneralDataType = String;
     type FunctionCallSymbol = String;
     type VariableUse = String;
-    type StructUse = String;
-    type EnumUse = String;
+    type StructUse = (String, Vec<UntypedTypeParameter>);
+    type EnumUse = (String, Vec<UntypedTypeParameter>);
     type EnumVariantUse = String;
     type StructFieldUse = String;
+    type TypeParameter = UntypedTypeParameter;
+    type CompositeIdentifier<'a> = &'a str;
+    fn type_parameter_symbols_of_composite(
+        of: &impl CompositeSymbol<Self>,
+    ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
+        of.type_parameters()
+            .iter()
+            .map(|type_param| type_param.inner())
+    }
+
+    fn composite_matches_identifier(
+        identifier: Self::CompositeIdentifier<'_>,
+        to_check: &impl CompositeSymbol<Self>,
+    ) -> bool {
+        to_check.name() == identifier
+    }
+}
+
+// Required to make the trait bounds of `UntypedAST` work
+impl SemanticEq for (String, Vec<UntypedTypeParameter>) {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.0 == other.0 &&
+            self.1 == other.1
+    }
 }
 
 #[cfg(test)]
@@ -1160,7 +1226,7 @@ mod tests {
     pub fn composite_multifile() {
         let warning_msg_inner_symbol =
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
-        let warning_msg_symbol = Rc::new(StructSymbol::new("Warning".to_string()));
+        let warning_msg_symbol = Rc::new(StructSymbol::new("Warning".to_string(), Vec::new()));
 
         let warning_msg_new_inner_param =
             Rc::new(VariableSymbol::new("inner".to_string(), DataType::Char));
@@ -1182,7 +1248,7 @@ mod tests {
 
         let error_msg_inner_symbol =
             Rc::new(StructFieldSymbol::new("inner".to_string(), DataType::Char));
-        let error_msg_symbol = Rc::new(StructSymbol::new("Error".to_string()));
+        let error_msg_symbol = Rc::new(StructSymbol::new("Error".to_string(), Vec::new()));
 
         let error_msg_new_inner_param =
             Rc::new(VariableSymbol::new("inner".to_string(), DataType::Char));
@@ -1210,7 +1276,7 @@ mod tests {
             "Error".to_string(),
             vec![DataType::Struct(error_msg_symbol.clone())],
         ));
-        let msg_symbol = Rc::new(EnumSymbol::new("Message".to_string()));
+        let msg_symbol = Rc::new(EnumSymbol::new("Message".to_string(), Vec::new()));
 
         let main_fn_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
         let main_fn_warning_symbol = Rc::new(VariableSymbol::new(
@@ -1689,7 +1755,7 @@ mod tests {
 
         let msg_dir = root.subdirectory_by_name("message").unwrap();
         let msg_file = msg_dir.file_by_name("message").unwrap();
-        let error_msg_struct = msg_file.struct_by_name("Error").unwrap();
+        let error_msg_struct = msg_file.struct_by_identifier(("Error", &Vec::new())).unwrap();
         let new_error_function = error_msg_struct.function_by_name("new").unwrap();
         let root_statement = new_error_function.ref_to_implementation();
         let symbols = root_statement

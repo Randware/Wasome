@@ -108,14 +108,14 @@ impl<Type: ASTType> File<Type> {
         self.functions().iter()
     }
 
-    /// Gets the struct with the specified name
-    pub fn struct_by_name(&self, name: &str) -> Option<&ASTNode<Struct<Type>>> {
-        self.structs().iter().find(|st| st.symbol().name() == name)
+    /// Gets the struct with a specified identifier
+    pub fn struct_by_identfier(&self, identifier: Type::CompositeIdentifier<'_>) -> Option<&ASTNode<Struct<Type>>> {
+        self.structs().iter().find(|st| Type::composite_matches_identifier(identifier, st.symbol()))
     }
 
-    /// Gets the enum with the specified name
-    pub fn enum_by_name(&self, name: &str) -> Option<&ASTNode<Enum<Type>>> {
-        self.enums().iter().find(|en| en.symbol().name() == name)
+    /// Gets the enum with the specified identifier
+    pub fn enum_by_identifier(&self, identifier: Type::CompositeIdentifier<'_>) -> Option<&ASTNode<Enum<Type>>> {
+        self.enums().iter().find(|en| Type::composite_matches_identifier(identifier, en.symbol()))
     }
 
     /// Gets an iterator over all enums
@@ -203,7 +203,7 @@ impl<Type: ASTType> File<Type> {
     ///
     /// An iterator over the struct symbols. Note that it may be empty if there are no function
     /// symbols that meet the provided requirement
-    fn struct_symbols(&self, only_public: bool) -> impl Iterator<Item = &StructSymbol> {
+    fn struct_symbols(&self, only_public: bool) -> impl Iterator<Item = &StructSymbol<Type>> {
         self.struct_iterator()
             .filter(move |stru| !only_public || (*stru).visibility() == Visibility::Public)
             .map(|stru| stru.symbol())
@@ -220,7 +220,7 @@ impl<Type: ASTType> File<Type> {
     ///
     /// An iterator over the struct symbols. Note that it may be empty if there are no function
     /// symbols that meet the provided requirement
-    fn enum_symbols(&self, only_public: bool) -> impl Iterator<Item = &EnumSymbol> {
+    fn enum_symbols(&self, only_public: bool) -> impl Iterator<Item = &EnumSymbol<Type>> {
         self.enum_iterator()
             .filter(move |en| !only_public || (*en).visibility() == Visibility::Public)
             .map(|en| en.symbol())

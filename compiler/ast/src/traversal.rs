@@ -8,6 +8,7 @@ pub mod file_traversal;
 pub mod function_traversal;
 pub mod statement_traversal;
 pub mod struct_traversal;
+pub mod enum_traversal;
 
 /// Any type that includes symbols
 ///

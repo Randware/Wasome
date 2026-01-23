@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
 use crate::{ASTType, SemanticEq, TypedAST};
@@ -45,9 +46,12 @@ pub trait SymbolTable<'a, Type: ASTType>:
 pub enum DirectlyAvailableSymbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
     Variable(&'a VariableSymbol<Type>),
-    Enum(&'a EnumSymbol),
-    Struct(&'a StructSymbol),
+    Enum(&'a EnumSymbol<Type>),
+    Struct(&'a StructSymbol<Type>),
     ModuleUsageName(&'a ModuleUsageNameSymbol),
+    /// Only valid in the untyped AST
+    /// In the typed AST, type parameters are part of the composite identifier
+    UntypedTypeParameter(&'a UntypedTypeParameterSymbol),
 }
 
 impl<'a, Type: ASTType> DirectlyAvailableSymbol<'a, Type> {
@@ -61,6 +65,7 @@ impl<'a, Type: ASTType> DirectlyAvailableSymbol<'a, Type> {
             DirectlyAvailableSymbol::Enum(en) => en.name(),
             DirectlyAvailableSymbol::Struct(st) => st.name(),
             DirectlyAvailableSymbol::ModuleUsageName(mun) => mun.name(),
+            DirectlyAvailableSymbol::UntypedTypeParameter(mun) => mun.name(),
         }
     }
 }
@@ -76,7 +81,9 @@ impl<Type: ASTType> Clone for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Struct(st) => DirectlyAvailableSymbol::Struct(st),
             DirectlyAvailableSymbol::ModuleUsageName(mun) => {
                 DirectlyAvailableSymbol::ModuleUsageName(mun)
-            }
+            },
+            DirectlyAvailableSymbol::UntypedTypeParameter(utp) =>
+            DirectlyAvailableSymbol::UntypedTypeParameter(utp)
         }
     }
 }
@@ -89,6 +96,7 @@ impl<Type: ASTType> Hash for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Enum(en) => en.hash(state),
             DirectlyAvailableSymbol::Struct(st) => st.hash(state),
             DirectlyAvailableSymbol::ModuleUsageName(mun) => mun.hash(state),
+            DirectlyAvailableSymbol::UntypedTypeParameter(utp) => utp.hash(state),
         }
     }
 }
@@ -102,6 +110,7 @@ impl<Type: ASTType> SemanticEq for DirectlyAvailableSymbol<'_, Type> {
             (S::Enum(lhs), S::Enum(rhs)) => lhs.semantic_eq(rhs),
             (S::Struct(lhs), S::Struct(rhs)) => lhs.semantic_eq(rhs),
             (S::ModuleUsageName(lhs), S::ModuleUsageName(rhs)) => lhs.semantic_eq(rhs),
+            (S::UntypedTypeParameter(lhs), S::UntypedTypeParameter(rhs)) => lhs.semantic_eq(rhs),
             _ => false,
         }
     }
@@ -285,47 +294,62 @@ impl Hash for ModuleUsageNameSymbol {
     }
 }
 
+/// Either a struct or an enum symbol
+/// 
+/// This exists to allow code to work on both as they are extremely similar
+pub trait CompositeSymbol<Type: ASTType>: Debug+PartialEq+SemanticEq+Eq+Hash {
+    fn name(&self) -> &str;
+    fn id(&self) -> &Id;
+    fn type_parameters(&self) -> &[Type::TypeParameter];
+}
 /// The symbol of an enum
 #[derive(Debug)]
-pub struct EnumSymbol
-//<Type: ASTType>
-{
+pub struct EnumSymbol<Type: ASTType> {
     id: Id,
     name: String,
+    type_parameters: Vec<Type::TypeParameter>,
 }
 
-impl EnumSymbol {
-    pub fn new(name: String) -> Self {
+impl<Type: ASTType> EnumSymbol<Type> {
+    pub fn new(
+        name: String,
+        type_parameters: Vec<Type::TypeParameter>,
+    ) -> Self {
         Self {
             id: Id::new(),
             name,
+            type_parameters,
         }
     }
-
-    pub fn name(&self) -> &str {
+}
+impl<Type: ASTType> CompositeSymbol<Type> for EnumSymbol<Type> {
+    fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn id(&self) -> &Id {
+    fn id(&self) -> &Id {
         &self.id
     }
-}
 
-impl Hash for EnumSymbol {
+    fn type_parameters(&self) -> &[Type::TypeParameter] {
+        &self.type_parameters
+    }
+}
+impl<Type: ASTType> Hash for EnumSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
 }
 
-impl PartialEq<Self> for EnumSymbol {
+impl<Type: ASTType> PartialEq<Self> for EnumSymbol<Type> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Eq for EnumSymbol {}
+impl<Type: ASTType> Eq for EnumSymbol<Type> {}
 
-impl SemanticEq for EnumSymbol {
+impl<Type: ASTType> SemanticEq for EnumSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.name().semantic_eq(other.name())
     }
@@ -333,43 +357,47 @@ impl SemanticEq for EnumSymbol {
 
 /// A symbol for a struct
 #[derive(Debug)]
-pub struct StructSymbol {
+pub struct StructSymbol<Type: ASTType> {
     id: Id,
     name: String,
+    type_parameters: Vec<Type::TypeParameter>,
 }
 
-impl StructSymbol {
-    pub fn new(name: String) -> Self {
-        Self {
-            id: Id::new(),
-            name,
-        }
+impl<Type: ASTType> StructSymbol<Type> {
+    pub fn new(name: String, type_parameters: Vec<Type::TypeParameter>) -> Self {
+        Self { id: Id::new(), name, type_parameters }
     }
+}
+impl<Type: ASTType> CompositeSymbol<Type> for StructSymbol<Type> {
 
-    pub fn name(&self) -> &str {
+    fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn id(&self) -> &Id {
+    fn id(&self) -> &Id {
         &self.id
+    }
+
+    fn type_parameters(&self) -> &[Type::TypeParameter] {
+        &self.type_parameters
     }
 }
 
-impl Hash for StructSymbol {
+impl<Type: ASTType> Hash for StructSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
     }
 }
 
-impl PartialEq<Self> for StructSymbol {
+impl<Type: ASTType> PartialEq<Self> for StructSymbol<Type> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl Eq for StructSymbol {}
+impl<Type: ASTType> Eq for StructSymbol<Type> {}
 
-impl SemanticEq for StructSymbol {
+impl<Type: ASTType> SemanticEq for StructSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.name().semantic_eq(other.name())
     }
@@ -472,6 +500,37 @@ impl<Type: ASTType> Eq for StructFieldSymbol<Type> {}
 impl<Type: ASTType> SemanticEq for StructFieldSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.name().semantic_eq(other.name()) && self.data_type().semantic_eq(other.data_type())
+    }
+}
+
+/** The symbol of an untyped type parameter
+*/
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct UntypedTypeParameterSymbol {
+    id: Id,
+    name: String,
+}
+
+impl UntypedTypeParameterSymbol {
+    pub fn new(name: String) -> Self {
+        Self {
+            id: Id::new(),
+            name,
+        }
+    }
+
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl SemanticEq for UntypedTypeParameterSymbol {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
     }
 }
 
