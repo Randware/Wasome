@@ -4,6 +4,7 @@ use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
 };
+use std::fmt::{Debug, Formatter};
 use io::{FileIO, WasomeLoader};
 use crate::types::{BytePos, FileID, LineInfo, Location, MultiByteChar, Span};
 
@@ -13,13 +14,24 @@ use crate::types::{BytePos, FileID, LineInfo, Location, MultiByteChar, Span};
 /// * Loading source files from disk with a configured [`FileLoader`]
 /// * Deduplicating files to save memory (ensuring files are only loaded once)
 /// * Translating low level [`Span`]s (byte offsets) into human-readable [`Location`]s
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SourceMap<Loader: FileIO = WasomeLoader> {
     root_path: PathBuf,
     file_cache: HashMap<PathBuf, FileID>,
     files: Vec<SourceFile>,
     /// The loader's purpose is to let the user define custom loading behavior
     __loader: PhantomData<Loader>,
+}
+
+// This allows [`Debug`] to be used without the derive trait bounds
+impl<Loader: FileIO> Debug for SourceMap<Loader> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SourceMap")
+            .field("root_path", &self.root_path)
+            .field("file_cache", &self.file_cache)
+            .field("files", &self.files)
+            .finish()
+    }
 }
 
 impl<Loader: FileIO> SourceMap<Loader> {
