@@ -111,17 +111,21 @@ fn format_tokens(tokens: &[Token]) -> String {
         // Handle closing brace
         else if matches!(token.kind, TokenType::CloseScope) {
             match next.map(|t| &t.kind) {
-                Some(TokenType::Else) | Some(TokenType::Semicolon) => {}
+                // Don't add newline if followed by else - they stay on same line: } else
+                Some(TokenType::Else) => {}
+                // Don't add newline if followed by semicolon - it gets handled by semicolon case
+                Some(TokenType::Semicolon) => {}
                 _ => {
                     output.push('\n');
                     at_line_start = true;
                 }
             }
         }
-        // Handle semicolon after closing brace
+        // Handle semicolon after closing brace - keep on same line, then newline
         else if matches!(token.kind, TokenType::Semicolon) {
             if let Some(prev_token) = prev {
                 if matches!(prev_token.kind, TokenType::CloseScope) {
+                    // Semicolon directly after }, add newline after the semicolon
                     output.push('\n');
                     at_line_start = true;
                 }

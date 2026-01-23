@@ -44,8 +44,10 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
     let mut current_category = ItemCategory::Other;
     let mut brace_depth: usize = 0;
     let mut in_item = false;
+    
+    let mut iter = tokens.into_iter().peekable();
 
-    for token in tokens {
+    while let Some(token) = iter.next() {
         match &token.kind {
             TokenType::Import | TokenType::Struct | TokenType::Enum | TokenType::Function => {
                 if !in_item && brace_depth == 0 {
@@ -84,6 +86,13 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
                 brace_depth = brace_depth.saturating_sub(1);
                 current_tokens.push(token);
                 if brace_depth == 0 && in_item {
+                    // Check if next token is a semicolon - include it with this item
+                    // This handles struct Foo { ... }; correctly
+                    if let Some(next) = iter.peek() {
+                        if matches!(next.kind, TokenType::Semicolon) {
+                            current_tokens.push(iter.next().unwrap());
+                        }
+                    }
                     // End of top-level item
                     items.push(TopLevelItem {
                         category: current_category,
