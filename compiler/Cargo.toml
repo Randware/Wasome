@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 
-members = ["ast", "lexer", "shared", "source", "io", "middle_end/parser", "parser_driver"]
+members = ["ast", "lexer", "shared", "source", "io", "middle_end/parser", "driver"]
 
 [workspace.dependencies]
 tempfile = "3"
