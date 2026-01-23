@@ -1,0 +1,3 @@
+pub fn add(s32 a, s32 b) -> s32 {
+    -> a + b
+}
