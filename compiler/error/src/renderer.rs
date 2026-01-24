@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
+use std::sync::OnceLock;
 
 use ariadne::{Config, Label, Report, ReportBuilder, ReportKind};
 use regex::Regex;
@@ -168,10 +169,7 @@ impl<'a> Renderer<'a> {
         write!(
             self.writer,
             " {}",
-            self.diagnostic
-                .message
-                .clone()
-                .fg(self.styling.diagnostic_message)
+            self.diagnostic.message.fg(self.styling.diagnostic_message)
         )?;
 
         if let Some(code) = &self.diagnostic.code {
@@ -189,11 +187,7 @@ impl<'a> Renderer<'a> {
 
     /// Formats and prints a single code [`Snippet`].
     fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
-        if let Some(path) = self
-            .cache
-            .get(&snippet.file)
-            .and_then(|c| Some(c.path.clone()))
-        {
+        if let Some(path) = self.cache.get(&snippet.file).map(|c| c.path.clone()) {
             let kind = ReportKind::Custom("", self.styling.type_heading);
 
             // Use a dummy range 0..0 for the primary location, as we strip it manually later.
@@ -276,7 +270,10 @@ impl<'a> Renderer<'a> {
 
     /// Removes ANSI escape sequences from a string.
     fn strip_ansi(s: &str) -> String {
-        let re = Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap();
+        // Compile and store the regex only once
+        static REGEX: OnceLock<Regex> = OnceLock::new();
+        let re = REGEX.get_or_init(|| Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap());
+
         re.replace_all(s, "").to_string()
     }
 
