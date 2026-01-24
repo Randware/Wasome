@@ -94,10 +94,8 @@ pub enum TokenType {
     NotEqual,
     #[token("==")]
     Comparison,
-    #[token("<<")]
-    LShift,
-    #[token(">>")]
-    RShift,
+    // L and R Shift is just < or > twice
+    // Having it as its own token would interfere with the parsing of generics
     #[token("|")]
     BitOr,
     #[token("||")]

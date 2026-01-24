@@ -1,15 +1,16 @@
-use std::fmt::Debug;
-use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, identifier_with_type_parameter_parser, token_parser};
-use crate::{combine_code_areas_succeeding, remove_pos_info_from_vec, PosInfoWrapper};
+use crate::misc_parsers::{
+    datatype_parser, identifier_parser, identifier_with_type_parameter_parser, token_parser,
+};
+use crate::{PosInfoWrapper, combine_code_areas_succeeding, remove_pos_info_from_vec};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
     Typecast, UnaryOp, UnaryOpType,
 };
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
-use ast::data_type::UntypedDataType;
 use lexer::TokenType;
 use shared::code_reference::{CodeArea, CodeLocation};
+use std::fmt::Debug;
 
 /// Parses an expression
 pub(crate) fn expression_parser<'src>()
@@ -59,9 +60,15 @@ pub(crate) fn expression_parser<'src>()
                         .map(|to_map| to_map.position())
                         .unwrap_or(name.pos_info()),
                 );
-                let type_parameters = type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>();
+                let type_parameters = type_parameters
+                    .into_iter()
+                    .map(|type_param| type_param.inner)
+                    .collect::<Vec<_>>();
                 ASTNode::new(
-                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new((name.inner, type_parameters), args)),
+                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+                        (name.inner, type_parameters),
+                        args,
+                    )),
                     pos,
                 )
             });
@@ -83,9 +90,15 @@ pub(crate) fn expression_parser<'src>()
                     .into_iter()
                     .map(|field| (field.0.into_ast_node(), field.1))
                     .collect::<Vec<_>>();
-                let type_parameters = type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>();
+                let type_parameters = type_parameters
+                    .into_iter()
+                    .map(|type_param| type_param.inner)
+                    .collect::<Vec<_>>();
                 ASTNode::new(
-                    Expression::NewStruct(Box::new(NewStruct::new((name.inner, type_parameters), fields))),
+                    Expression::NewStruct(Box::new(NewStruct::new(
+                        (name.inner, type_parameters),
+                        fields,
+                    ))),
                     pos,
                 )
             });
@@ -123,16 +136,18 @@ pub(crate) fn expression_parser<'src>()
                 )
             });
 
-        let base = call
-            .or(literal)
+        let base = choice((
+            call,
+            literal,
             // New struct / enum is before variable to prevent is being parsed as a variable
-            .or(new_struct)
-            .or(new_enum)
-            .or(ident.map(|input| ASTNode::new(Expression::Variable(input.inner), input.pos_info)))
-            .or(expr.clone().delimited_by(
+            new_struct,
+            new_enum,
+            ident.map(|input| ASTNode::new(Expression::Variable(input.inner), input.pos_info)),
+            expr.clone().delimited_by(
                 token_parser(TokenType::OpenParen),
                 token_parser(TokenType::CloseParen),
-            ));
+            ),
+        ));
 
         let sfa = base
             .clone()
@@ -177,7 +192,7 @@ pub(crate) fn expression_parser<'src>()
         ));
         let unary = unary_op.repeated().foldr(typecast, |op, rhs| op(rhs));
 
-        let product = binary_operator_parser(
+        let product = binary_operator_from_token_parser(
             unary,
             &[
                 (TokenType::Multiplication, BinaryOpType::Multiplication),
@@ -187,7 +202,7 @@ pub(crate) fn expression_parser<'src>()
         )
         .boxed();
 
-        let sum = binary_operator_parser(
+        let sum = binary_operator_from_token_parser(
             product,
             &[
                 (TokenType::Addition, BinaryOpType::Addition),
@@ -195,16 +210,23 @@ pub(crate) fn expression_parser<'src>()
             ],
         );
 
-        let bitshift = binary_operator_parser(
+        let bitshift = binary_op_parser(
             sum,
-            &[
-                (TokenType::RShift, BinaryOpType::RightShift),
-                (TokenType::LShift, BinaryOpType::LeftShift),
-            ],
+            vec![
+                (
+                    token_parser(TokenType::LessThan).repeated().exactly(2),
+                    BinaryOpType::LeftShift,
+                ),
+                (
+                    token_parser(TokenType::GreaterThan).repeated().exactly(2),
+                    BinaryOpType::RightShift,
+                ),
+            ]
+            .into_iter(),
         )
         .boxed();
 
-        let comparison = binary_operator_parser(
+        let comparison = binary_operator_from_token_parser(
             bitshift,
             &[
                 (TokenType::LessThan, BinaryOpType::Lesser),
@@ -214,7 +236,7 @@ pub(crate) fn expression_parser<'src>()
             ],
         );
 
-        let equals = binary_operator_parser(
+        let equals = binary_operator_from_token_parser(
             comparison,
             &[
                 (TokenType::Comparison, BinaryOpType::Equals),
@@ -223,15 +245,20 @@ pub(crate) fn expression_parser<'src>()
         )
         .boxed();
 
-        let bitand =
-            binary_operator_parser(equals, &[(TokenType::BitAnd, BinaryOpType::BitwiseAnd)]);
+        let bitand = binary_operator_from_token_parser(
+            equals,
+            &[(TokenType::BitAnd, BinaryOpType::BitwiseAnd)],
+        );
 
-        let bitor =
-            binary_operator_parser(bitand, &[(TokenType::BitOr, BinaryOpType::BitwiseOr)]).boxed();
+        let bitor = binary_operator_from_token_parser(
+            bitand,
+            &[(TokenType::BitOr, BinaryOpType::BitwiseOr)],
+        )
+        .boxed();
 
-        let and = binary_operator_parser(bitor, &[(TokenType::And, BinaryOpType::And)]);
+        let and = binary_operator_from_token_parser(bitor, &[(TokenType::And, BinaryOpType::And)]);
 
-        binary_operator_parser(and, &[(TokenType::Or, BinaryOpType::Or)]).boxed()
+        binary_operator_from_token_parser(and, &[(TokenType::Or, BinaryOpType::Or)]).boxed()
     })
 }
 
@@ -240,14 +267,26 @@ pub(crate) fn expression_parser<'src>()
 /// # Parameter
 ///
 /// **ops**: The tokens to parse and what to parse them to
-fn binary_operator_parser<'a>(
+fn binary_operator_from_token_parser<'a>(
     input: impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone,
     ops: &[(TokenType, BinaryOpType)],
 ) -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone {
+    let ops = ops.iter().map(|op| (token_parser(op.0.clone()), op.1));
+    binary_op_parser(input, ops)
+}
+
+fn binary_op_parser<
+    'src,
+    Ignored,
+    OpParser: Parser<'src, &'src [PosInfoWrapper<TokenType>], Ignored> + Clone,
+    Ops: Iterator<Item = (OpParser, BinaryOpType)>,
+>(
+    input: impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone,
+    ops: Ops,
+) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone {
     input.clone().foldl(
         choice(
-            ops.iter()
-                .map(|(token, op)| token_parser(token.clone()).map(|_| binary_op_mapper(*op)))
+            ops.map(|(token, op)| token.map(move |a| binary_op_mapper(op)))
                 .collect::<Vec<_>>(),
         )
         .then(input)
@@ -317,10 +356,10 @@ fn map_unary_op(
 mod tests {
     use crate::expression_parser::expression_parser;
     use crate::test_shared::{wrap_in_ast_node, wrap_token};
+    use ast::data_type::UntypedDataType;
     use ast::expression::{
         BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
     };
-    use ast::data_type::UntypedDataType;
     use ast::{SemanticEq, UntypedAST};
     use chumsky::Parser;
     use lexer::TokenType;
@@ -350,7 +389,10 @@ mod tests {
             ("test".to_string(), Vec::new()),
             vec![
                 wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("f32".to_string(), Vec::new()))),
+                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new(
+                        "f32".to_string(),
+                        Vec::new(),
+                    ))),
                     wrap_in_ast_node(Expression::Literal("5".to_string())),
                 )))),
                 wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
@@ -394,7 +436,10 @@ mod tests {
             ("test".to_string(), Vec::new()),
             vec![
                 wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("f32".to_string(), Vec::new()))),
+                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new(
+                        "f32".to_string(),
+                        Vec::new(),
+                    ))),
                     wrap_in_ast_node(Expression::Literal("5".to_string())),
                 )))),
                 wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(

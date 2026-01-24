@@ -287,7 +287,7 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type EnumVariantUse: Debug + PartialEq + SemanticEq;
     type StructFieldUse: Debug + PartialEq + SemanticEq;
     /// The type parameter on declaration, **not** usage
-    type TypeParameterDeclaration: Debug + PartialEq;
+    type TypeParameterDeclaration: Debug + PartialEq + SemanticEq;
     /// The minimal combination of data that identifies a symbol
     ///
     /// This is supposed to be only used for querying and similar and is therefore
@@ -445,7 +445,7 @@ mod tests {
     use crate::traversal::{FunctionContainer, HasSymbols};
     use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
     use crate::visibility::Visibility;
-    use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST, AST};
+    use crate::{AST, ASTNode, SemanticEq, TypedAST, UntypedAST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
@@ -876,7 +876,10 @@ mod tests {
             "previous".to_string(),
             UntypedDataType::new("s32".to_string(), Vec::new()),
         ));
-        let temp = Rc::new(VariableSymbol::new("temp".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
+        let temp = Rc::new(VariableSymbol::new(
+            "temp".to_string(),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
+        ));
 
         let fibonacci = Rc::new(FunctionSymbol::new(
             "fibonacci".to_string(),
@@ -2013,7 +2016,7 @@ pub(crate) mod test_shared {
     use crate::statement::VariableDeclaration;
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
-    use crate::{ASTNode, ASTType, TypedAST, AST};
+    use crate::{AST, ASTNode, ASTType, TypedAST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;

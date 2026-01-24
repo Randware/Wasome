@@ -234,7 +234,7 @@ impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
         self.name().semantic_eq(other.name())
             && self.return_type().semantic_eq(&other.return_type())
             && self.params().semantic_eq(self.params())
-            && self.type_parameters() == other.type_parameters()
+            && self.type_parameters().semantic_eq(other.type_parameters())
     }
 }
 
@@ -382,7 +382,8 @@ impl<Type: ASTType> Eq for EnumSymbol<Type> {}
 
 impl<Type: ASTType> SemanticEq for EnumSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name()) && self.type_parameters() == other.type_parameters()
+        self.name().semantic_eq(other.name())
+            && self.type_parameters().semantic_eq(other.type_parameters())
     }
 }
 
@@ -433,7 +434,8 @@ impl<Type: ASTType> Eq for StructSymbol<Type> {}
 
 impl<Type: ASTType> SemanticEq for StructSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name()) && self.type_parameters() == other.type_parameters()
+        self.name().semantic_eq(other.name())
+            && self.type_parameters().semantic_eq(other.type_parameters())
     }
 }
 

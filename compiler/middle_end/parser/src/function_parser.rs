@@ -1,6 +1,9 @@
-use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, type_parameter_declaration_parser, visibility_parser};
+use crate::misc_parsers::{
+    datatype_parser, identifier_parser, token_parser, type_parameter_declaration_parser,
+    visibility_parser,
+};
 use crate::statement_parser::statement_parser;
-use crate::{combine_code_areas_succeeding, remove_pos_info_from_vec, PosInfoWrapper};
+use crate::{PosInfoWrapper, combine_code_areas_succeeding, remove_pos_info_from_vec};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::Function;
 use ast::visibility::Visibility;
@@ -28,17 +31,19 @@ pub(crate) fn function_parser<'src>()
 
     visibility_parser()
         .then(
-            token_parser(TokenType::Function).ignore_then(ident).then(type_parameter_declaration_parser())
+            token_parser(TokenType::Function)
+                .ignore_then(ident)
+                .then(type_parameter_declaration_parser())
                 .then(
-                param
-                    .clone()
-                    .separated_by(token_parser(TokenType::ArgumentSeparator))
-                    .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
-                    .delimited_by(
-                        token_parser(TokenType::OpenParen),
-                        token_parser(TokenType::CloseParen),
-                    ),
-            ),
+                    param
+                        .clone()
+                        .separated_by(token_parser(TokenType::ArgumentSeparator))
+                        .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
+                        .delimited_by(
+                            token_parser(TokenType::OpenParen),
+                            token_parser(TokenType::CloseParen),
+                        ),
+                ),
         )
         .then(
             token_parser(TokenType::Return)
@@ -64,7 +69,7 @@ pub(crate) fn function_parser<'src>()
                             name.inner,
                             return_type.map(|to_map| to_map.inner),
                             params.into_iter().map(|param| param.inner).collect(),
-                            remove_pos_info_from_vec(type_parameters)
+                            remove_pos_info_from_vec(type_parameters),
                         )),
                         implementation,
                         visibility,

@@ -1,6 +1,6 @@
-use crate::symbol::{SymbolTable, SymbolWithTypeParameter};
-use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::ASTType;
+use crate::symbol::SymbolTable;
+use crate::traversal::function_traversal::FunctionTraversalHelper;
 use std::fmt::Debug;
 
 pub mod directory_traversal;

@@ -1,6 +1,5 @@
 use crate::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
-    SymbolWithTypeParameter,
 };
 use crate::top_level::Function;
 use crate::visibility::{Visibility, Visible};

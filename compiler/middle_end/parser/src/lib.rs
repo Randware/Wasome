@@ -1,8 +1,9 @@
 use crate::top_level_parser::top_level_parser;
 use ast::file::File;
+use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
 use chumsky::Parser;
-use lexer::{lex, Token, TokenType};
+use lexer::{Token, TokenType, lex};
 use shared::code_file::CodeFile;
 use shared::code_reference::{CodeArea, CodeLocation};
 use source::types::FileID;
@@ -10,7 +11,6 @@ use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::path::PathBuf;
-use ast::visibility::Visibility;
 
 mod composite_parser;
 mod expression_parser;
@@ -228,8 +228,13 @@ impl<T: PartialEq + Debug + Clone, Pos: PartialEq + Debug + Clone> Clone
     }
 }
 
-fn remove_pos_info_from_vec<T: PartialEq+Debug>(type_parameters: Vec<PosInfoWrapper<T>>) -> Vec<T> {
-    type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>()
+fn remove_pos_info_from_vec<T: PartialEq + Debug>(
+    type_parameters: Vec<PosInfoWrapper<T>>,
+) -> Vec<T> {
+    type_parameters
+        .into_iter()
+        .map(|type_param| type_param.inner)
+        .collect::<Vec<_>>()
 }
 
 pub(crate) fn map_visibility(visibility: Option<&PosInfoWrapper<TokenType>>) -> Visibility {

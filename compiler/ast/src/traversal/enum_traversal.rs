@@ -1,7 +1,7 @@
 use crate::composite::Enum;
 use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable};
-use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::HasSymbols;
+use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::{ASTNode, ASTType};
 
 #[derive(Debug)]

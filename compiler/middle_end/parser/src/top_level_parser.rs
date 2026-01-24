@@ -71,9 +71,9 @@ enum TopLevelElement {
 mod import_parser {
     use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
     use crate::{FileInformation, PosInfoWrapper};
+    use ast::ASTNode;
     use ast::symbol::ModuleUsageNameSymbol;
     use ast::top_level::{Import, ImportRoot};
-    use ast::ASTNode;
     use chumsky::IterParser;
     use chumsky::Parser;
 

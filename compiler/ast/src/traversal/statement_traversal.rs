@@ -1,7 +1,7 @@
 use crate::statement::Statement;
 use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
-use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::HasSymbols;
+use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
 use std::ops::Index;

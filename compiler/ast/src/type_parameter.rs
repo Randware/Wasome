@@ -1,12 +1,12 @@
+use crate::SemanticEq;
 use crate::data_type::DataType;
 use crate::symbol::UntypedTypeParameterSymbol;
-use crate::SemanticEq;
 use std::rc::Rc;
 
 /// A type parameter in an untyped AST
 ///
 /// This is a data type that is available in the composite that uses it
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UntypedTypeParameter {
     inner: Rc<UntypedTypeParameterSymbol>,
 }

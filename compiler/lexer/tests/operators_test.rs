@@ -101,14 +101,24 @@ fn test_logic_operators() {
             span: 17..19,
         },
         Token {
-            kind: TokenType::LShift,
+            kind: TokenType::LessThan,
             line: 1,
-            span: 20..22,
+            span: 20..21,
         },
         Token {
-            kind: TokenType::RShift,
+            kind: TokenType::LessThan,
             line: 1,
-            span: 23..25,
+            span: 21..22,
+        },
+        Token {
+            kind: TokenType::GreaterThan,
+            line: 1,
+            span: 23..24,
+        },
+        Token {
+            kind: TokenType::GreaterThan,
+            line: 1,
+            span: 24..25,
         },
         Token {
             kind: TokenType::Or,

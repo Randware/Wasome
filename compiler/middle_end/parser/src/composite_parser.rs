@@ -1,6 +1,9 @@
 use crate::function_parser::function_parser;
-use crate::misc_parsers::{datatype_parser, identifier_parser, maybe_statement_separator, statement_separator, token_parser, type_parameter_declaration_parser, visibility_parser};
-use crate::{combine_code_areas_succeeding, map_visibility, PosInfoWrapper};
+use crate::misc_parsers::{
+    datatype_parser, identifier_parser, maybe_statement_separator, statement_separator,
+    token_parser, type_parameter_declaration_parser, visibility_parser,
+};
+use crate::{PosInfoWrapper, combine_code_areas_succeeding, map_visibility};
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
 use ast::symbol::{EnumSymbol, EnumVariantSymbol, StructFieldSymbol, StructSymbol};
 use ast::visibility::Visibility;
@@ -26,24 +29,29 @@ pub(crate) fn struct_parser<'src>()
                 .then_ignore(maybe_statement_separator())
                 .then_ignore(token_parser(TokenType::OpenScope))
                 .then(
-                    field
+                    // Ensure that the field does not end in an open parenthesis (the start of a function)
+                    field //.then_ignore(token_parser(TokenType::OpenParen).not())
                         .separated_by(statement_separator())
                         .allow_leading()
                         .allow_trailing()
                         .collect::<Vec<_>>(),
                 )
+                // Allows otherwise empty structs to have blank lines in them
                 .then_ignore(maybe_statement_separator())
                 .then(
                     function
                         .separated_by(statement_separator())
-                        .allow_leading()
+                        //.allow_leading()
                         .allow_trailing()
                         .collect::<Vec<_>>(),
                 )
                 .then(token_parser(TokenType::CloseScope)),
         )
         .map(
-            |(visibility, (((((struct_token, name), type_parameters), fields), functions), end))| {
+            |(
+                visibility,
+                (((((struct_token, name), type_parameters), fields), functions), end),
+            )| {
                 let fields = fields
                     .into_iter()
                     .map(|((visibility, data_type), name)| {
@@ -74,7 +82,10 @@ pub(crate) fn struct_parser<'src>()
                         .unwrap_or(struct_token.pos_info()),
                     &end.pos_info,
                 );
-                let type_parameters = type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>();
+                let type_parameters = type_parameters
+                    .into_iter()
+                    .map(|type_param| type_param.inner)
+                    .collect::<Vec<_>>();
                 let visibility = map_visibility(visibility.as_ref());
                 let symbol = Rc::new(StructSymbol::new(name.inner, type_parameters));
                 ASTNode::new(Struct::new(symbol, functions, fields, visibility), pos)
@@ -115,38 +126,43 @@ pub(crate) fn enum_parser<'src>()
                 )
                 .then(token_parser(TokenType::CloseScope)),
         )
-        .map(|(visibility, ((((enum_token, name), type_parameters), variants), end))| {
-            let variants = variants
-                .into_iter()
-                .map(|(name, opt_fields)| {
-                    let (fields, end_pos) = match opt_fields {
-                        Some((f, end)) => (f, end.pos_info),
-                        None => (Vec::new(), name.pos_info.clone()),
-                    };
-                    ASTNode::new(
-                        EnumVariant::new(Rc::new(EnumVariantSymbol::<UntypedAST>::new(
-                            name.inner,
-                            fields.into_iter().map(|field| field.inner).collect(),
-                        ))),
-                        // This will never panic as name is before end
-                        combine_code_areas_succeeding(&name.pos_info, &end_pos),
-                    )
-                })
-                .collect::<Vec<_>>();
+        .map(
+            |(visibility, ((((enum_token, name), type_parameters), variants), end))| {
+                let variants = variants
+                    .into_iter()
+                    .map(|(name, opt_fields)| {
+                        let (fields, end_pos) = match opt_fields {
+                            Some((f, end)) => (f, end.pos_info),
+                            None => (Vec::new(), name.pos_info.clone()),
+                        };
+                        ASTNode::new(
+                            EnumVariant::new(Rc::new(EnumVariantSymbol::<UntypedAST>::new(
+                                name.inner,
+                                fields.into_iter().map(|field| field.inner).collect(),
+                            ))),
+                            // This will never panic as name is before end
+                            combine_code_areas_succeeding(&name.pos_info, &end_pos),
+                        )
+                    })
+                    .collect::<Vec<_>>();
 
-            //This will never panic as the start is before the closing bracket
-            let pos = combine_code_areas_succeeding(
-                visibility
-                    .as_ref()
-                    .map(|vis| vis.pos_info())
-                    .unwrap_or(enum_token.pos_info()),
-                &end.pos_info,
-            );
-            let visibility = visibility
-                .map(|_| Visibility::Public)
-                .unwrap_or(Visibility::Private);
-            let type_parameters = type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>();
-            let symbol = Rc::new(EnumSymbol::new(name.inner, type_parameters));
-            ASTNode::new(Enum::new(symbol, variants, visibility), pos)
-        })
+                //This will never panic as the start is before the closing bracket
+                let pos = combine_code_areas_succeeding(
+                    visibility
+                        .as_ref()
+                        .map(|vis| vis.pos_info())
+                        .unwrap_or(enum_token.pos_info()),
+                    &end.pos_info,
+                );
+                let visibility = visibility
+                    .map(|_| Visibility::Public)
+                    .unwrap_or(Visibility::Private);
+                let type_parameters = type_parameters
+                    .into_iter()
+                    .map(|type_param| type_param.inner)
+                    .collect::<Vec<_>>();
+                let symbol = Rc::new(EnumSymbol::new(name.inner, type_parameters));
+                ASTNode::new(Enum::new(symbol, variants, visibility), pos)
+            },
+        )
 }

@@ -1,6 +1,6 @@
 use crate::data_type::{DataType, Typed};
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol};
-use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
+use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
 use std::rc::Rc;
 
 /// This represents an expression as per section 2 of the lang spec
