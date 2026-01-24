@@ -36,6 +36,8 @@ pub struct Diagnostic {
     pub(crate) message: String,
 
     /// An optional unique identifier code for this error case.
+    ///
+    /// It is recommended to use a consistent format, such as `E0123`, `W0404` or `I0001`.
     #[builder(into)]
     pub(crate) code: Option<String>,
 

@@ -6,7 +6,14 @@ use source::{SourceMap, loader::FileLoader, types::FileID};
 ///
 /// This trait decouples the diagnostic renderer from specific file loading implementations.
 pub trait SourceLookup {
+    /// Retrieves the source content for a given file ID.
+    ///
+    /// Returns `None` if the file does not exist, has not been loaded, or cannot be accessed.
     fn get_content(&self, id: FileID) -> Option<&str>;
+
+    /// Retrieves the file system path for a given file ID.
+    ///
+    /// Returns `None` if the path is unavailable or the source is virtual/in-memory only.
     fn get_path(&self, id: FileID) -> Option<&PathBuf>;
 }
 
