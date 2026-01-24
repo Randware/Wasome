@@ -31,53 +31,6 @@ impl SemanticEq for UntypedTypeParameter {
     }
 }
 
-/// A type parameter in an untyped AST
-///
-/// Unlike [`UntypedTypeParameter`], this is not used when defining composited, but instead
-/// when using them (e.g.: `Option<s32> test <- std.Option<s32>::Some(10)`)
-/// This is a data type that is available in the composite that uses it
-#[derive(Debug, PartialEq, Clone)]
-pub struct UntypedTypeParameterUsage {
-    name: String,
-    /// The [`DataType`] struct only exists in the typed AST, so it is not available
-    data_type: String,
-    type_parameters: Vec<UntypedTypeParameterUsage>,
-}
-
-impl UntypedTypeParameterUsage {
-    pub fn new(
-        name: String,
-        data_type: String,
-        type_parameters: Vec<UntypedTypeParameterUsage>,
-    ) -> Self {
-        Self {
-            name,
-            data_type,
-            type_parameters,
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn data_type(&self) -> &str {
-        &self.data_type
-    }
-
-    pub fn type_parameters(&self) -> &[UntypedTypeParameterUsage] {
-        &self.type_parameters
-    }
-}
-
-impl SemanticEq for UntypedTypeParameterUsage {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self.name() == other.name()
-            && self.data_type() == other.data_type()
-            && self.type_parameters().semantic_eq(other.type_parameters())
-    }
-}
-
 /// A type parameter in a typed AST
 ///
 /// This is part of the composite identifier

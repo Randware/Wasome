@@ -1,11 +1,13 @@
+use std::fmt::Debug;
 use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, identifier_with_type_parameter_parser, token_parser};
-use crate::{combine_code_areas_succeeding, PosInfoWrapper};
+use crate::{combine_code_areas_succeeding, remove_pos_info_from_vec, PosInfoWrapper};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
     Typecast, UnaryOp, UnaryOpType,
 };
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
+use ast::data_type::UntypedDataType;
 use lexer::TokenType;
 use shared::code_reference::{CodeArea, CodeLocation};
 
@@ -50,15 +52,16 @@ pub(crate) fn expression_parser<'src>()
                         token_parser(TokenType::CloseParen),
                     ),
             )
-            .map(|(identifier, args)| {
+            .map(|((name, type_parameters), args)| {
                 let pos = combine_code_areas_succeeding(
-                    identifier.0.pos_info(),
+                    name.pos_info(),
                     args.last()
                         .map(|to_map| to_map.position())
-                        .unwrap_or(identifier.0.pos_info()),
+                        .unwrap_or(name.pos_info()),
                 );
+                let type_parameters = type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>();
                 ASTNode::new(
-                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new((identifier.0.inner, identifier.1), args)),
+                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new((name.inner, type_parameters), args)),
                     pos,
                 )
             });
@@ -74,14 +77,15 @@ pub(crate) fn expression_parser<'src>()
                     .collect::<Vec<_>>(),
             )
             .then(token_parser(TokenType::CloseScope))
-            .map(|(((start, identifier), field_values), end)| {
+            .map(|(((start, (name, type_parameters)), field_values), end)| {
                 let pos = combine_code_areas_succeeding(start.pos_info(), end.pos_info());
                 let fields = field_values
                     .into_iter()
                     .map(|field| (field.0.into_ast_node(), field.1))
                     .collect::<Vec<_>>();
+                let type_parameters = type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>();
                 ASTNode::new(
-                    Expression::NewStruct(Box::new(NewStruct::new((identifier.0.inner, identifier.1), fields))),
+                    Expression::NewStruct(Box::new(NewStruct::new((name.inner, type_parameters), fields))),
                     pos,
                 )
             });
@@ -100,17 +104,18 @@ pub(crate) fn expression_parser<'src>()
                     )
                     .or_not(),
             )
-            .map(|((identifier, variant_name), field_values)| {
+            .map(|(((name, type_parameters), variant_name), field_values)| {
                 let pos = combine_code_areas_succeeding(
-                    identifier.0.pos_info(),
+                    name.pos_info(),
                     field_values
                         .as_ref()
                         .and_then(|fv| fv.last().map(|last_val| last_val.position()))
                         .unwrap_or(variant_name.pos_info()),
                 );
+                let type_parameters = remove_pos_info_from_vec(type_parameters);
                 ASTNode::new(
                     Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
-                        (identifier.0.inner, identifier.1),
+                        (name.inner, type_parameters),
                         variant_name.inner,
                         field_values.unwrap_or(Vec::new()),
                     ))),
@@ -152,10 +157,10 @@ pub(crate) fn expression_parser<'src>()
                 .then(datatype_parser())
                 .repeated(),
             |expr, (_, new_type)| {
-                let new_pos = combine_code_areas_succeeding(expr.position(), &new_type.0.pos_info);
+                let new_pos = combine_code_areas_succeeding(expr.position(), &new_type.pos_info);
                 ASTNode::new(
                     Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new((new_type.0.inner, new_type.1))),
+                        UnaryOpType::Typecast(Typecast::new(new_type.inner)),
                         expr,
                     ))),
                     new_pos,
@@ -315,6 +320,7 @@ mod tests {
     use ast::expression::{
         BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
     };
+    use ast::data_type::UntypedDataType;
     use ast::{SemanticEq, UntypedAST};
     use chumsky::Parser;
     use lexer::TokenType;
@@ -344,7 +350,7 @@ mod tests {
             ("test".to_string(), Vec::new()),
             vec![
                 wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new(("f32".to_string(), Vec::new()))),
+                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("f32".to_string(), Vec::new()))),
                     wrap_in_ast_node(Expression::Literal("5".to_string())),
                 )))),
                 wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
@@ -388,7 +394,7 @@ mod tests {
             ("test".to_string(), Vec::new()),
             vec![
                 wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new(("f32".to_string(), Vec::new()))),
+                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("f32".to_string(), Vec::new()))),
                     wrap_in_ast_node(Expression::Literal("5".to_string())),
                 )))),
                 wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(

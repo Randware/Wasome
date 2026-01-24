@@ -17,7 +17,7 @@
 //! For more information on how to use this, refer to the tests in this file.
 //! Note that unlike in the tests, ASTs are not supposed to be hardcoded
 
-use crate::data_type::DataType;
+use crate::data_type::{DataType, UntypedDataType};
 use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
@@ -26,7 +26,7 @@ use crate::symbol::{
     SymbolWithTypeParameter, UntypedTypeParameterSymbol, VariableSymbol,
 };
 use crate::top_level::{Import, ImportRoot};
-use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter, UntypedTypeParameterUsage};
+use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -358,11 +358,11 @@ pub struct UntypedAST {}
 
 impl ASTType for UntypedAST {
     type LiteralType = String;
-    type GeneralDataType = (String, Vec<UntypedTypeParameterUsage>);
-    type FunctionCallSymbol = (String, Vec<UntypedTypeParameterUsage>);
+    type GeneralDataType = UntypedDataType;
+    type FunctionCallSymbol = (String, Vec<UntypedDataType>);
     type VariableUse = String;
-    type StructUse = (String, Vec<UntypedTypeParameterUsage>);
-    type EnumUse = (String, Vec<UntypedTypeParameterUsage>);
+    type StructUse = (String, Vec<UntypedDataType>);
+    type EnumUse = (String, Vec<UntypedDataType>);
     type EnumVariantUse = String;
     type StructFieldUse = String;
     type TypeParameterDeclaration = UntypedTypeParameter;
@@ -384,7 +384,7 @@ impl ASTType for UntypedAST {
 }
 
 // Required to make the trait bounds of `UntypedAST` work
-impl SemanticEq for (String, Vec<UntypedTypeParameterUsage>) {
+impl SemanticEq for (String, Vec<UntypedDataType>) {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
     }
@@ -422,7 +422,7 @@ impl SymbolIdentifier for (&str, &[TypedTypeParameter]) {
 #[cfg(test)]
 mod tests {
     use crate::composite::{Enum, EnumVariant, Struct, StructField};
-    use crate::data_type::DataType;
+    use crate::data_type::{DataType, UntypedDataType};
     use crate::directory::Directory;
     use crate::expression::{
         BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
@@ -866,21 +866,21 @@ mod tests {
         // The how manyth fibonacci number we want
         let nth = Rc::new(VariableSymbol::<UntypedAST>::new(
             "nth".to_string(),
-            ("s32".to_string(), Vec::new()),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
         ));
         let current = Rc::new(VariableSymbol::new(
             "current".to_string(),
-            ("s32".to_string(), Vec::new()),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
         ));
         let previous = Rc::new(VariableSymbol::new(
             "previous".to_string(),
-            ("s32".to_string(), Vec::new()),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
         ));
-        let temp = Rc::new(VariableSymbol::new("temp".to_string(), ("s32".to_string(), Vec::new())));
+        let temp = Rc::new(VariableSymbol::new("temp".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
 
         let fibonacci = Rc::new(FunctionSymbol::new(
             "fibonacci".to_string(),
-            Some(("s32".to_string(), Vec::new())),
+            Some(UntypedDataType::new("s32".to_string(), Vec::new())),
             vec![nth.clone()],
             Vec::new(),
         ));

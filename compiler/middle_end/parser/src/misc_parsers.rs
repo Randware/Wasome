@@ -1,19 +1,21 @@
+use std::fmt::Debug;
 use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::symbol::UntypedTypeParameterSymbol;
-use ast::type_parameter::{UntypedTypeParameter, UntypedTypeParameterUsage};
+use ast::type_parameter::{UntypedTypeParameter};
 use ast::visibility::Visibility;
 use chumsky::prelude::*;
 use lexer::TokenType;
 use std::rc::Rc;
+use ast::data_type::UntypedDataType;
 
 /// Parses data types
 pub(crate) fn datatype_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<UntypedTypeParameterUsage>)> + Clone {
+-> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], PosInfoWrapper<UntypedDataType>> + Clone {
     let identifier_with_type_parameter = identifier_with_type_parameter_parser();
     datatype_parser_internal(identifier_with_type_parameter)
 }
 
-fn datatype_parser_internal<'src>(identifier_with_type_parameter: impl Parser<'src, &'src [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<UntypedTypeParameterUsage>)> + Clone) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<UntypedTypeParameterUsage>)> + Clone {
+fn datatype_parser_internal<'src>(identifier_with_type_parameter: impl Parser<'src, &'src [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<PosInfoWrapper<UntypedDataType>>)> + Clone) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], PosInfoWrapper<UntypedDataType>> + Clone {
     choice((
         token_parser(TokenType::F32).map(|to_map| to_map.map(|_| "f32".to_string())),
         token_parser(TokenType::F64).map(|to_map| to_map.map(|_| "f64".to_string())),
@@ -27,18 +29,21 @@ fn datatype_parser_internal<'src>(identifier_with_type_parameter: impl Parser<'s
         token_parser(TokenType::U64).map(|to_map| to_map.map(|_| "u64".to_string())),
         token_parser(TokenType::Bool).map(|to_map| to_map.map(|_| "bool".to_string())),
         token_parser(TokenType::Char).map(|to_map| to_map.map(|_| "char".to_string())),
-    )).map(|dt| (dt, Vec::new()))
-        .or(identifier_with_type_parameter)
+    )).map(|dt| dt.map(|inner| UntypedDataType::new(inner, Vec::new())))
+        .or(identifier_with_type_parameter.map(|(ident, type_params)| {
+            let pos = combine_code_areas_succeeding(&ident.pos_info, type_params.last().map(|last| last.pos_info()).unwrap_or(&ident.pos_info));
+            PosInfoWrapper::new(UntypedDataType::new(ident.inner, type_params.into_iter().map(|param| param.inner).collect::<Vec<_>>()), pos)
+        }))
 }
 
 /// Parses identifiers with possible type parameters
 pub(crate) fn identifier_with_type_parameter_parser<'src>()
-    -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<UntypedTypeParameterUsage>)> + Clone {
+    -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<PosInfoWrapper<UntypedDataType>>)> + Clone {
     let type_parameter_usage = type_parameter_usage_parser();
     identifier_with_type_parameter_parser_internal(type_parameter_usage)
 }
 
-fn identifier_with_type_parameter_parser_internal<'src>(type_parameter_usage: impl Parser<'src, &'src [PosInfoWrapper<TokenType>], Vec<UntypedTypeParameterUsage>> + Clone) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<UntypedTypeParameterUsage>)> + Clone {
+fn identifier_with_type_parameter_parser_internal<'src>(type_parameter_usage: impl Parser<'src, &'src [PosInfoWrapper<TokenType>], Vec<PosInfoWrapper<UntypedDataType>>> + Clone) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<PosInfoWrapper<UntypedDataType>>)> + Clone {
     cross_module_capable_identifier_parser().then(type_parameter_usage)
 }
 
@@ -137,7 +142,7 @@ pub(crate) fn visibility_parser<'a>()
 ///
 /// Also allows no type parameters to be present
 pub(crate) fn type_parameter_declaration_parser<'a>()
--> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], Vec<UntypedTypeParameter>> + Clone {
+-> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], Vec<PosInfoWrapper<UntypedTypeParameter>>> + Clone {
     identifier_parser()
         .separated_by(token_parser(TokenType::ArgumentSeparator))
         .at_least(1)
@@ -153,9 +158,10 @@ pub(crate) fn type_parameter_declaration_parser<'a>()
                     parameters
                         .into_iter()
                         .map(|parameter| {
-                            UntypedTypeParameter::new(Rc::new(UntypedTypeParameterSymbol::new(
-                                parameter.inner,
-                            )))
+                            parameter.map(|inner| UntypedTypeParameter::new(Rc::new(UntypedTypeParameterSymbol::new(
+                                inner,
+                            ))))
+
                         })
                         .collect::<Vec<_>>()
                 })
@@ -165,7 +171,7 @@ pub(crate) fn type_parameter_declaration_parser<'a>()
 
 /// Parses a single type parameter usage
 pub(crate) fn type_parameter_usage_parser<'a>()
--> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], Vec<UntypedTypeParameterUsage>> + Clone {
+-> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], Vec<PosInfoWrapper<UntypedDataType>>> + Clone {
     // Allow indirect recursion as datatype_parser calls type_parameter_usage_parser
     let mut identifier_with_type = Recursive::declare();
     let mut datatype = Recursive::declare();
@@ -176,10 +182,8 @@ pub(crate) fn type_parameter_usage_parser<'a>()
     type_parameter_usage
 }
 
-fn type_parameter_usage_parser_internal<'a>(datatype: impl Parser<'a, &'a [PosInfoWrapper<TokenType>], (PosInfoWrapper<String>, Vec<UntypedTypeParameterUsage>)> + Clone) -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], Vec<UntypedTypeParameterUsage>> + Clone {
-    identifier_parser()
-        .then_ignore(token_parser(TokenType::Assign))
-        .then(datatype)
+fn type_parameter_usage_parser_internal<'a>(datatype: impl Parser<'a, &'a [PosInfoWrapper<TokenType>], PosInfoWrapper<UntypedDataType>> + Clone) -> impl Parser<'a, &'a [PosInfoWrapper<TokenType>], Vec<PosInfoWrapper<UntypedDataType>>> + Clone {
+    datatype
         .separated_by(token_parser(TokenType::ArgumentSeparator))
         .at_least(1)
         .collect::<Vec<_>>()
@@ -190,21 +194,6 @@ fn type_parameter_usage_parser_internal<'a>(datatype: impl Parser<'a, &'a [PosIn
         .or_not()
         .map(|parameters| {
             parameters
-                .map(|parameters| {
-                    parameters
-                        .into_iter()
-                        .map(|parameter| {
-                            UntypedTypeParameterUsage::new(parameter.0.inner, parameter.1.0.inner, parameter.1.1)
-                        })
-                        .collect::<Vec<_>>()
-                })
                 .unwrap_or(Vec::new())
         })
-}
-
-// Technically not a parser, but there is no better place for this
-pub(crate) fn map_visibility(visibility: Option<&PosInfoWrapper<TokenType>>) -> Visibility {
-    visibility
-        .map(|_| Visibility::Public)
-        .unwrap_or(Visibility::Private)
 }

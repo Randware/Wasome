@@ -1,6 +1,6 @@
 use crate::expression_parser::expression_parser;
 use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, identifier_with_type_parameter_parser, maybe_statement_separator, statement_separator, token_parser};
-use crate::{combine_code_areas_succeeding, PosInfoWrapper};
+use crate::{combine_code_areas_succeeding, remove_pos_info_from_vec, PosInfoWrapper};
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
@@ -11,6 +11,7 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
 use std::rc::Rc;
+use ast::data_type::UntypedDataType;
 
 /// Ensures that T implements a specific trait
 ///
@@ -53,7 +54,7 @@ pub(crate) fn statement_parser<'src>()
                         .map(|to_map| to_map.position())
                         .unwrap_or(identifier.0.pos_info()),
                 );
-                PosInfoWrapper::new(FunctionCall::<UntypedAST>::new((identifier.0.inner, identifier.1), args), pos)
+                PosInfoWrapper::new(FunctionCall::<UntypedAST>::new((identifier.0.inner, remove_pos_info_from_vec(identifier.1)), args), pos)
             });
 
         let variable_assignment = ident
@@ -111,10 +112,10 @@ pub(crate) fn statement_parser<'src>()
             .map(|((data_type, name), val)| {
                 PosInfoWrapper::new(
                     VariableDeclaration::<UntypedAST>::new(
-                        Rc::new(VariableSymbol::new(name.inner, (data_type.0.inner, data_type.1))),
+                        Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
                         val,
                     ),
-                    combine_code_areas_succeeding(&data_type.0.pos_info, &name.pos_info),
+                    combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
                 )
             });
 
@@ -198,13 +199,13 @@ pub(crate) fn statement_parser<'src>()
                     let vars = vars
                         .into_iter()
                         .map(|var| {
-                            Rc::new(VariableSymbol::<UntypedAST>::new(var.1.inner, (var.0.0.inner, var.0.1)))
+                            Rc::new(VariableSymbol::<UntypedAST>::new(var.1.inner, var.0.inner))
                         })
                         .collect::<Vec<_>>();
 
                     PosInfoWrapper::new(
                         IfEnumVariant::<UntypedAST>::new(
-                            (enum_identifier.0.inner, enum_identifier.1),
+                            (enum_identifier.0.inner, remove_pos_info_from_vec(enum_identifier.1)),
                             enum_variant.inner,
                             source,
                             vars,
@@ -310,6 +311,7 @@ mod tests {
     };
     use ast::statement::{Statement, VariableDeclaration};
     use ast::symbol::VariableSymbol;
+    use ast::data_type::UntypedDataType;
     use ast::{SemanticEq, UntypedAST};
     use chumsky::Parser;
     use lexer::TokenType;
@@ -340,7 +342,7 @@ mod tests {
 
         let parsed = parser.parse(&to_parse).unwrap();
 
-        let symbol = Rc::new(VariableSymbol::new("var".to_string(), ("bool".to_string(), Vec::new())));
+        let symbol = Rc::new(VariableSymbol::new("var".to_string(), UntypedDataType::new("bool".to_string(), Vec::new())));
         let expected = wrap_in_ast_node(Statement::VariableDeclaration(VariableDeclaration::<
             UntypedAST,
         >::new(
@@ -349,7 +351,7 @@ mod tests {
                 ("test".to_string(), Vec::new()),
                 vec![
                     wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new(("f32".to_string(), Vec::new()))),
+                        UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("f32".to_string(), Vec::new()))),
                         wrap_in_ast_node(Expression::Literal("5".to_string())),
                     )))),
                     wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(

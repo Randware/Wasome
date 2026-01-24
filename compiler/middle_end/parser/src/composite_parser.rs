@@ -1,6 +1,6 @@
 use crate::function_parser::function_parser;
-use crate::misc_parsers::{datatype_parser, identifier_parser, map_visibility, maybe_statement_separator, statement_separator, token_parser, type_parameter_declaration_parser, visibility_parser};
-use crate::{combine_code_areas_succeeding, PosInfoWrapper};
+use crate::misc_parsers::{datatype_parser, identifier_parser, maybe_statement_separator, statement_separator, token_parser, type_parameter_declaration_parser, visibility_parser};
+use crate::{combine_code_areas_succeeding, map_visibility, PosInfoWrapper};
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
 use ast::symbol::{EnumSymbol, EnumVariantSymbol, StructFieldSymbol, StructSymbol};
 use ast::visibility::Visibility;
@@ -50,13 +50,13 @@ pub(crate) fn struct_parser<'src>()
                         let start = visibility
                             .as_ref()
                             .map(|vis| vis.pos_info())
-                            .unwrap_or(data_type.0.pos_info());
+                            .unwrap_or(data_type.pos_info());
                         let pos = combine_code_areas_succeeding(start, &name.pos_info);
                         ASTNode::new(
                             StructField::new(
                                 Rc::new(StructFieldSymbol::<UntypedAST>::new(
                                     name.inner,
-                                    (data_type.0.inner, data_type.1),
+                                    data_type.inner,
                                 )),
                                 map_visibility(visibility.as_ref()),
                             ),
@@ -74,6 +74,7 @@ pub(crate) fn struct_parser<'src>()
                         .unwrap_or(struct_token.pos_info()),
                     &end.pos_info,
                 );
+                let type_parameters = type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>();
                 let visibility = map_visibility(visibility.as_ref());
                 let symbol = Rc::new(StructSymbol::new(name.inner, type_parameters));
                 ASTNode::new(Struct::new(symbol, functions, fields, visibility), pos)
@@ -125,7 +126,7 @@ pub(crate) fn enum_parser<'src>()
                     ASTNode::new(
                         EnumVariant::new(Rc::new(EnumVariantSymbol::<UntypedAST>::new(
                             name.inner,
-                            fields.into_iter().map(|field| (field.0.inner, field.1)).collect(),
+                            fields.into_iter().map(|field| field.inner).collect(),
                         ))),
                         // This will never panic as name is before end
                         combine_code_areas_succeeding(&name.pos_info, &end_pos),
@@ -144,6 +145,7 @@ pub(crate) fn enum_parser<'src>()
             let visibility = visibility
                 .map(|_| Visibility::Public)
                 .unwrap_or(Visibility::Private);
+            let type_parameters = type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>();
             let symbol = Rc::new(EnumSymbol::new(name.inner, type_parameters));
             ASTNode::new(Enum::new(symbol, variants, visibility), pos)
         })

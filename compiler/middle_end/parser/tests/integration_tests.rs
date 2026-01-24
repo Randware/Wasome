@@ -1,4 +1,5 @@
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
+use ast::data_type::UntypedDataType;
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, NewEnum, NewStruct, StructFieldAccess, Typecast, UnaryOp,
     UnaryOpType,
@@ -80,17 +81,17 @@ fn test_parse_simple_program() {
     let parsed = parse(to_parse).expect("Parsing failed");
 
     // Construct Expected AST
-    let n_symbol = Rc::new(VariableSymbol::new("n".to_string(), ("u8".to_string(), Vec::new())));
+    let n_symbol = Rc::new(VariableSymbol::new("n".to_string(), UntypedDataType::new("u8".to_string(), Vec::new())));
     let fib_symbol = Rc::new(FunctionSymbol::new(
         "fibonacci".to_string(),
-        Some(("u64".to_string(), Vec::new())),
+        Some(UntypedDataType::new("u64".to_string(), Vec::new())),
         vec![n_symbol.clone()],
         Vec::new()
     ));
 
-    let curr_symbol = Rc::new(VariableSymbol::new("curr".to_string(), ("u64".to_string(), Vec::new())));
-    let prev_symbol = Rc::new(VariableSymbol::new("prev".to_string(), ("u64".to_string(), Vec::new())));
-    let temp_symbol = Rc::new(VariableSymbol::new("temp".to_string(), ("u64".to_string(), Vec::new())));
+    let curr_symbol = Rc::new(VariableSymbol::new("curr".to_string(), UntypedDataType::new("u64".to_string(), Vec::new())));
+    let prev_symbol = Rc::new(VariableSymbol::new("prev".to_string(), UntypedDataType::new("u64".to_string(), Vec::new())));
+    let temp_symbol = Rc::new(VariableSymbol::new("temp".to_string(), UntypedDataType::new("u64".to_string(), Vec::new())));
 
     // u64 curr <- 1 as u32 as u64
     let curr_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
@@ -98,9 +99,9 @@ fn test_parse_simple_program() {
     >::new(
         curr_symbol.clone(),
         wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-            UnaryOpType::Typecast(Typecast::new(("u64".to_string(), Vec::new()))),
+            UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("u64".to_string(), Vec::new()))),
             wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                UnaryOpType::Typecast(Typecast::new(("u32".to_string(), Vec::new()))),
+                UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("u32".to_string(), Vec::new()))),
                 wrap(Expression::Literal("1".to_string())),
             )))),
         )))),
@@ -112,9 +113,9 @@ fn test_parse_simple_program() {
     >::new(
         prev_symbol.clone(),
         wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-            UnaryOpType::Typecast(Typecast::new(("u64".to_string(), Vec::new()))),
+            UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("u64".to_string(), Vec::new()))),
             wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                UnaryOpType::Typecast(Typecast::new(("u32".to_string(), Vec::new()))),
+                UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("u32".to_string(), Vec::new()))),
                 wrap(Expression::Literal("0".to_string())),
             )))),
         )))),
@@ -165,11 +166,11 @@ fn test_parse_simple_program() {
             BinaryOpType::Subtraction,
             wrap(Expression::Variable("n".to_string())),
             wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                UnaryOpType::Typecast(Typecast::new(("u8".to_string(), Vec::new()))),
+                UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("u8".to_string(), Vec::new()))),
                 wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new(("u16".to_string(), Vec::new()))),
+                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("u16".to_string(), Vec::new()))),
                     wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new(("u32".to_string(), Vec::new()))),
+                        UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("u32".to_string(), Vec::new()))),
                         wrap(Expression::Literal("1".to_string())),
                     )))),
                 )))),
@@ -221,11 +222,11 @@ fn test_parse_max() {
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse).expect("Parsing failed");
 
-    let a_symbol = Rc::new(VariableSymbol::new("a".to_string(), ("s32".to_string(), Vec::new())));
-    let b_symbol = Rc::new(VariableSymbol::new("b".to_string(), ("s32".to_string(), Vec::new())));
+    let a_symbol = Rc::new(VariableSymbol::new("a".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
+    let b_symbol = Rc::new(VariableSymbol::new("b".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
     let max_symbol = Rc::new(FunctionSymbol::new(
         "max".to_string(),
-        Some(("s32".to_string(), Vec::new())),
+        Some(UntypedDataType::new("s32".to_string(), Vec::new())),
         vec![a_symbol.clone(), b_symbol.clone()],
         Vec::new()
     ));
@@ -274,15 +275,15 @@ fn test_parse_sum_n() {
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse).expect("Parsing failed");
 
-    let n_symbol = Rc::new(VariableSymbol::new("n".to_string(), ("s32".to_string(), Vec::new())));
+    let n_symbol = Rc::new(VariableSymbol::new("n".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
     let sum_n_symbol = Rc::new(FunctionSymbol::new(
         "sum_n".to_string(),
-        Some(("s32".to_string(), Vec::new())),
+        Some(UntypedDataType::new("s32".to_string(), Vec::new())),
         vec![n_symbol.clone()],
         Vec::new()
     ));
 
-    let sum_symbol = Rc::new(VariableSymbol::new("sum".to_string(), ("s32".to_string(), Vec::new())));
+    let sum_symbol = Rc::new(VariableSymbol::new("sum".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
     let sum_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
@@ -290,7 +291,7 @@ fn test_parse_sum_n() {
         wrap(Expression::Literal("0".to_string())),
     )));
 
-    let i_symbol = Rc::new(VariableSymbol::new("i".to_string(), ("s32".to_string(), Vec::new())));
+    let i_symbol = Rc::new(VariableSymbol::new("i".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
     let init = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
@@ -365,10 +366,10 @@ fn test_parse_is_even() {
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse).expect("Parsing failed");
 
-    let n_symbol = Rc::new(VariableSymbol::new("n".to_string(), ("s32".to_string(), Vec::new())));
+    let n_symbol = Rc::new(VariableSymbol::new("n".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
     let is_even_symbol = Rc::new(FunctionSymbol::new(
         "is_even".to_string(),
-        Some(("bool".to_string(), Vec::new())),
+        Some(UntypedDataType::new("bool".to_string(), Vec::new())),
         vec![n_symbol.clone()],
         Vec::new()
     ));
@@ -435,12 +436,12 @@ fn test_parse_modular_arithmetic() {
         let to_parse = FileInformation::new(id, "test", &sm).unwrap();
         let parsed = parse(to_parse).expect("Parsing failed");
 
-        let a_symbol = Rc::new(VariableSymbol::new("a".to_string(), ("u32".to_string(), Vec::new())));
-        let b_symbol = Rc::new(VariableSymbol::new("b".to_string(), ("u32".to_string(), Vec::new())));
-        let m_symbol = Rc::new(VariableSymbol::new("m".to_string(), ("u32".to_string(), Vec::new())));
+        let a_symbol = Rc::new(VariableSymbol::new("a".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
+        let b_symbol = Rc::new(VariableSymbol::new("b".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
+        let m_symbol = Rc::new(VariableSymbol::new("m".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
         let mod_add_symbol = Rc::new(FunctionSymbol::new(
             "modular_add".to_string(),
-            Some(("u32".to_string(), Vec::new())),
+            Some(UntypedDataType::new("u32".to_string(), Vec::new())),
             vec![a_symbol, b_symbol, m_symbol],
             Vec::new()
         ));
@@ -483,12 +484,12 @@ fn test_parse_modular_arithmetic() {
             test_symbol,
         ));
 
-        let a_symbol = Rc::new(VariableSymbol::new("a".to_string(), ("u32".to_string(), Vec::new())));
-        let b_symbol = Rc::new(VariableSymbol::new("b".to_string(), ("u32".to_string(), Vec::new())));
-        let m_symbol = Rc::new(VariableSymbol::new("m".to_string(), ("u32".to_string(), Vec::new())));
+        let a_symbol = Rc::new(VariableSymbol::new("a".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
+        let b_symbol = Rc::new(VariableSymbol::new("b".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
+        let m_symbol = Rc::new(VariableSymbol::new("m".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
         let mod_mul_symbol = Rc::new(FunctionSymbol::new(
             "modular_mul".to_string(),
-            Some(("u32".to_string(), Vec::new())),
+            Some(UntypedDataType::new("u32".to_string(), Vec::new())),
             vec![a_symbol, b_symbol, m_symbol],
             Vec::new()
         ));
@@ -538,12 +539,12 @@ fn test_misc_features() {
     ));
 
     // 2. bitwise
-    let a = Rc::new(VariableSymbol::new("a".to_string(), ("u32".to_string(), Vec::new())));
-    let b = Rc::new(VariableSymbol::new("b".to_string(), ("u32".to_string(), Vec::new())));
+    let a = Rc::new(VariableSymbol::new("a".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
+    let b = Rc::new(VariableSymbol::new("b".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
     let bitwise_func = wrap(Function::new(
         Rc::new(FunctionSymbol::new(
             "bitwise".to_string(),
-            Some(("u32".to_string(), Vec::new())),
+            Some(UntypedDataType::new("u32".to_string(), Vec::new())),
             vec![a.clone(), b.clone()],
             Vec::new()
         )),
@@ -587,7 +588,7 @@ fn test_misc_features() {
     let chars_func = wrap(Function::new(
         Rc::new(FunctionSymbol::new(
             "chars".to_string(),
-            Some(("char".to_string(), Vec::new())),
+            Some(UntypedDataType::new("char".to_string(), Vec::new())),
             vec![],
             Vec::new()
         )),
@@ -600,11 +601,11 @@ fn test_misc_features() {
     ));
 
     // 5. unary
-    let bool_a = Rc::new(VariableSymbol::new("a".to_string(), ("bool".to_string(), Vec::new())));
+    let bool_a = Rc::new(VariableSymbol::new("a".to_string(), UntypedDataType::new("bool".to_string(), Vec::new())));
     let unary_func = wrap(Function::new(
         Rc::new(FunctionSymbol::new(
             "unary".to_string(),
-            Some(("bool".to_string(), Vec::new())),
+            Some(UntypedDataType::new("bool".to_string(), Vec::new())),
             vec![bool_a.clone()],
             Vec::new()
         )),
@@ -623,13 +624,13 @@ fn test_misc_features() {
     ));
 
     // 6. precedence
-    let u32_a = Rc::new(VariableSymbol::new("a".to_string(), ("u32".to_string(), Vec::new())));
-    let u32_b = Rc::new(VariableSymbol::new("b".to_string(), ("u32".to_string(), Vec::new())));
-    let u32_c = Rc::new(VariableSymbol::new("c".to_string(), ("u32".to_string(), Vec::new())));
+    let u32_a = Rc::new(VariableSymbol::new("a".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
+    let u32_b = Rc::new(VariableSymbol::new("b".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
+    let u32_c = Rc::new(VariableSymbol::new("c".to_string(), UntypedDataType::new("u32".to_string(), Vec::new())));
     let precedence_func = wrap(Function::new(
         Rc::new(FunctionSymbol::new(
             "precedence".to_string(),
-            Some(("u32".to_string(), Vec::new())),
+            Some(UntypedDataType::new("u32".to_string(), Vec::new())),
             vec![u32_a.clone(), u32_b.clone(), u32_c.clone()],
             Vec::new()
         )),
@@ -675,7 +676,7 @@ fn test_unary_on_typecast() {
 
     let main_symbol = Rc::new(FunctionSymbol::new(
         "main".to_string(),
-        Some(("f32".to_string(), Vec::new())),
+        Some(UntypedDataType::new("f32".to_string(), Vec::new())),
         vec![],
         Vec::new()
     ));
@@ -685,7 +686,7 @@ fn test_unary_on_typecast() {
             UnaryOp::<UntypedAST>::new(
                 UnaryOpType::Negative,
                 wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new(("f32".to_string(), Vec::new()))),
+                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new("f32".to_string(), Vec::new()))),
                     wrap(Expression::Literal("5".to_string())),
                 )))),
             ),
@@ -715,7 +716,7 @@ fn test_parse_if() {
         Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
             Rc::new(VariableSymbol::new(
                 "wasome".to_string(),
-                ("char".to_string(), Vec::new())
+                UntypedDataType::new("char".to_string(), Vec::new())
             )),
             wrap(Expression::FunctionCall(ast::expression::FunctionCall::<
                 UntypedAST,
@@ -730,7 +731,7 @@ fn test_parse_if() {
     // fn showcase_if_conditionals() -> char
     let showcase_symbol = Rc::new(FunctionSymbol::new(
         "showcase_if_conditionals".to_string(),
-        Some(("char".to_string(), Vec::new())),
+        Some(UntypedDataType::new("char".to_string(), Vec::new())),
         vec![],
         Vec::new()
     ));
@@ -741,7 +742,7 @@ fn test_parse_if() {
     >::new(
         Rc::new(VariableSymbol::new(
             "wasome_is_awesome".to_string(),
-            ("bool".to_string(), Vec::new()),
+            UntypedDataType::new("bool".to_string(), Vec::new()),
         )),
         wrap(Expression::Literal("true".to_string())),
     )));
@@ -799,7 +800,7 @@ fn test_parse_loop() {
     let decl1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
-        Rc::new(VariableSymbol::new("count1".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(VariableSymbol::new("count1".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         wrap(Expression::Literal("0".to_string())),
     )));
 
@@ -827,7 +828,7 @@ fn test_parse_loop() {
     let decl_sum = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
-        Rc::new(VariableSymbol::new("sum".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(VariableSymbol::new("sum".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         wrap(Expression::Literal("0".to_string())),
     )));
 
@@ -835,7 +836,7 @@ fn test_parse_loop() {
     let for_init = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
-        Rc::new(VariableSymbol::new("count2".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(VariableSymbol::new("count2".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         wrap(Expression::Literal("0".to_string())),
     )));
     let for_cond = wrap(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
@@ -878,7 +879,7 @@ fn test_parse_loop() {
     let decl3 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
-        Rc::new(VariableSymbol::new("count3".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(VariableSymbol::new("count3".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         wrap(Expression::Literal("0".to_string())),
     )));
 
@@ -944,7 +945,7 @@ fn test_parse_operator() {
     >::new(
         Rc::new(VariableSymbol::new(
             "math_showcase".to_string(),
-            ("s32".to_string(), Vec::new()),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
         )),
         expr_math,
     )));
@@ -953,7 +954,7 @@ fn test_parse_operator() {
     let decl_num = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
-        Rc::new(VariableSymbol::new("num".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(VariableSymbol::new("num".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         wrap(Expression::Literal("10".to_string())),
     )));
 
@@ -1053,11 +1054,11 @@ fn test_parse_struct() {
 
     let point_symbol = Rc::new(StructSymbol::new("Point".to_string(), Vec::new()));
     let x_field = wrap(StructField::new(
-        Rc::new(StructFieldSymbol::new("x".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(StructFieldSymbol::new("x".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         Visibility::Public,
     ));
     let y_field = wrap(StructField::new(
-        Rc::new(StructFieldSymbol::new("y".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(StructFieldSymbol::new("y".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         Visibility::Public,
     ));
 
@@ -1073,12 +1074,11 @@ fn test_parse_struct() {
     // Point point <- new Point { x <- 10, y <- 20 }
     let point_var = Rc::new(VariableSymbol::new(
         "point".to_string(),
-        ("Point".to_string(), Vec::new()),
+        UntypedDataType::new("Point".to_string(), Vec::new()),
     ));
     let new_point_expr = wrap(Expression::NewStruct(Box::new(
         NewStruct::<UntypedAST>::new(
-            ("Point".to_string(), Vec::new()),
-            vec![
+            ("Point".to_string(), Vec::new()),            vec![
                 (
                     wrap("x".to_string()),
                     wrap(Expression::Literal("10".to_string())),
@@ -1100,7 +1100,7 @@ fn test_parse_struct() {
     // s32 old_x_coordinate <- point.x
     let old_x_var = Rc::new(VariableSymbol::new(
         "old_x_coordinate".to_string(),
-        ("s32".to_string(), Vec::new()),
+        UntypedDataType::new("s32".to_string(), Vec::new()),
     ));
     let access_expr = wrap(Expression::StructFieldAccess(Box::new(
         StructFieldAccess::<UntypedAST>::new(
@@ -1175,7 +1175,7 @@ fn test_parse_enum() {
     // Weekday weekday <- Weekday::Saturday
     let weekday_var = Rc::new(VariableSymbol::new(
         "weekday".to_string(),
-        ("Weekday".to_string(), Vec::new()),
+        UntypedDataType::new("Weekday".to_string(), Vec::new()),
     ));
     let new_enum_expr = wrap(Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
         ("Weekday".to_string(), Vec::new()),
@@ -1215,7 +1215,7 @@ fn test_parse_exhaustive_defs() {
     ))));
     let err_variant = wrap(EnumVariant::new(Rc::new(EnumVariantSymbol::new(
         "Err".to_string(),
-        vec![("s32".to_string(), Vec::new())],
+        vec![UntypedDataType::new("s32".to_string(), Vec::new())],
     ))));
     let status_enum = wrap(Enum::new(
         status_symbol,
@@ -1225,11 +1225,11 @@ fn test_parse_exhaustive_defs() {
 
     let point_symbol = Rc::new(StructSymbol::new("Point".to_string(), Vec::new()));
     let x_field = wrap(StructField::new(
-        Rc::new(StructFieldSymbol::new("x".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(StructFieldSymbol::new("x".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         Visibility::Public,
     ));
     let y_field = wrap(StructField::new(
-        Rc::new(StructFieldSymbol::new("y".to_string(), ("s32".to_string(), Vec::new()))),
+        Rc::new(StructFieldSymbol::new("y".to_string(), UntypedDataType::new("s32".to_string(), Vec::new()))),
         Visibility::Public,
     ));
     let point_struct = wrap(Struct::new(
@@ -1239,19 +1239,18 @@ fn test_parse_exhaustive_defs() {
         Visibility::Public,
     ));
 
-    let x_param = Rc::new(VariableSymbol::new("x".to_string(), ("s32".to_string(), Vec::new())));
-    let y_param = Rc::new(VariableSymbol::new("y".to_string(), ("s32".to_string(), Vec::new())));
+    let x_param = Rc::new(VariableSymbol::new("x".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
+    let y_param = Rc::new(VariableSymbol::new("y".to_string(), UntypedDataType::new("s32".to_string(), Vec::new())));
     let create_point_symbol = Rc::new(FunctionSymbol::new(
         "create_point".to_string(),
-        Some(("Point".to_string(), Vec::new())),
+        Some(UntypedDataType::new("Point".to_string(), Vec::new())),
         vec![x_param, y_param],
         Vec::new()
     ));
     let create_point_body = wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
         Statement::Return(Return::new(Some(wrap(Expression::NewStruct(Box::new(
             NewStruct::<UntypedAST>::new(
-                ("Point".to_string(), Vec::new()),
-                vec![
+                ("Point".to_string(), Vec::new()),                vec![
                     (
                         wrap("x".to_string()),
                         wrap(Expression::Variable("x".to_string())),
@@ -1300,7 +1299,7 @@ fn test_parse_exhaustive_main() {
     >::new(
         Rc::new(VariableSymbol::new(
             "p".to_string(),
-            ("exhaustive.Point".to_string(), Vec::new()),
+            UntypedDataType::new("exhaustive.Point".to_string(), Vec::new()),
         )),
         wrap(Expression::FunctionCall(ast::expression::FunctionCall::<
             UntypedAST,
@@ -1325,7 +1324,7 @@ fn test_parse_exhaustive_main() {
             )))),
             vec![Rc::new(VariableSymbol::new(
                 "code".to_string(),
-                ("s32".to_string(), Vec::new()),
+                UntypedDataType::new("s32".to_string(), Vec::new()),
             ))],
             wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
                 Statement::StructFieldAssignment(StructFieldAssignment::<UntypedAST>::new(

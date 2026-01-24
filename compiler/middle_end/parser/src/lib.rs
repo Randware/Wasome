@@ -10,6 +10,7 @@ use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::path::PathBuf;
+use ast::visibility::Visibility;
 
 mod composite_parser;
 mod expression_parser;
@@ -225,6 +226,16 @@ impl<T: PartialEq + Debug + Clone, Pos: PartialEq + Debug + Clone> Clone
     fn clone(&self) -> Self {
         Self::new(self.inner.clone(), self.pos_info.clone())
     }
+}
+
+fn remove_pos_info_from_vec<T: PartialEq+Debug>(type_parameters: Vec<PosInfoWrapper<T>>) -> Vec<T> {
+    type_parameters.into_iter().map(|type_param| type_param.inner).collect::<Vec<_>>()
+}
+
+pub(crate) fn map_visibility(visibility: Option<&PosInfoWrapper<TokenType>>) -> Visibility {
+    visibility
+        .map(|_| Visibility::Public)
+        .unwrap_or(Visibility::Private)
 }
 
 #[cfg(test)]

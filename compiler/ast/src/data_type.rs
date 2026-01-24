@@ -1,6 +1,7 @@
 use crate::symbol::{EnumSymbol, StructSymbol};
 use crate::{SemanticEq, TypedAST};
 use std::rc::Rc;
+use crate::type_parameter::UntypedTypeParameter;
 
 /// A data type
 ///
@@ -46,5 +47,42 @@ impl SemanticEq for DataType {
             }
             _ => self == other,
         }
+    }
+}
+
+/// A data type in an untyped AST
+///
+///
+#[derive(Debug, PartialEq, Clone)]
+pub struct UntypedDataType {
+    name: String,
+    type_parameters: Vec<UntypedDataType>,
+}
+
+impl UntypedDataType {
+    pub fn new(
+        name: String,
+        type_parameters: Vec<UntypedDataType>,
+    ) -> Self {
+        Self {
+            name,
+            type_parameters,
+        }
+    }
+
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn type_parameters(&self) -> &[UntypedDataType] {
+        &self.type_parameters
+    }
+}
+
+impl SemanticEq for UntypedDataType {
+    fn semantic_eq(&self, other: &Self) -> bool {
+            self.name() == other.name()
+            && self.type_parameters().semantic_eq(other.type_parameters())
     }
 }

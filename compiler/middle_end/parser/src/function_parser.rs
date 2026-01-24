@@ -1,6 +1,6 @@
 use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, type_parameter_declaration_parser, visibility_parser};
 use crate::statement_parser::statement_parser;
-use crate::{combine_code_areas_succeeding, PosInfoWrapper};
+use crate::{combine_code_areas_succeeding, remove_pos_info_from_vec, PosInfoWrapper};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::Function;
 use ast::visibility::Visibility;
@@ -21,8 +21,8 @@ pub(crate) fn function_parser<'src>()
         .then(ident.clone())
         .map(|(data_type, name)| {
             PosInfoWrapper::new(
-                Rc::new(VariableSymbol::new(name.inner, (data_type.0.inner, data_type.1))),
-                combine_code_areas_succeeding(&data_type.0.pos_info, &name.pos_info),
+                Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
+                combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
             )
         });
 
@@ -62,9 +62,9 @@ pub(crate) fn function_parser<'src>()
                     Function::new(
                         Rc::new(FunctionSymbol::new(
                             name.inner,
-                            return_type.map(|to_map| (to_map.0.inner, to_map.1)),
+                            return_type.map(|to_map| to_map.inner),
                             params.into_iter().map(|param| param.inner).collect(),
-                            type_parameters
+                            remove_pos_info_from_vec(type_parameters)
                         )),
                         implementation,
                         visibility,
