@@ -9,8 +9,8 @@
 //!
 //! Each level can contain instances of the level below it and its own level.
 //!
-//! In addition to these main types, there are also five traversial helpers:
-//! DirectoryTraversalHelper, FileTraversalHelper, FunctionTraversalHelper, StatementTraversalHelper and StructTraversalHelper
+//! In addition to these main types, there are also six traversial helpers:
+//! DirectoryTraversalHelper, FileTraversalHelper, FunctionTraversalHelper, StatementTraversalHelper, StructTraversalHelper and EnumTraversalHelper
 //! They all contain references to an instance of Directory, File, Function, Statement or Struct and allow to list all
 //! symbols available to it.
 //!
