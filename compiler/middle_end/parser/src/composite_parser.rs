@@ -29,8 +29,7 @@ pub(crate) fn struct_parser<'src>()
                 .then_ignore(maybe_statement_separator())
                 .then_ignore(token_parser(TokenType::OpenScope))
                 .then(
-                    // Ensure that the field does not end in an open parenthesis (the start of a function)
-                    field //.then_ignore(token_parser(TokenType::OpenParen).not())
+                    field
                         .separated_by(statement_separator())
                         .allow_leading()
                         .allow_trailing()
@@ -41,7 +40,6 @@ pub(crate) fn struct_parser<'src>()
                 .then(
                     function
                         .separated_by(statement_separator())
-                        //.allow_leading()
                         .allow_trailing()
                         .collect::<Vec<_>>(),
                 )
