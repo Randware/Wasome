@@ -36,9 +36,10 @@ impl SemanticEq for UntypedTypeParameter {
 /// Unlike [`UntypedTypeParameter`], this is not used when defining composited, but instead
 /// when using them (e.g.: `Option<s32> test <- std.Option<s32>::Some(10)`)
 /// This is a data type that is available in the composite that uses it
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UntypedTypeParameterUsage {
     name: String,
+    /// `data_type` only exists in te typed AST, so it is not available
     data_type: String,
     type_parameters: Vec<UntypedTypeParameterUsage>,
 }

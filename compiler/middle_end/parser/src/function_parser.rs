@@ -1,4 +1,4 @@
-use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, visibility_parser};
+use crate::misc_parsers::{datatype_parser, identifier_parser, token_parser, type_parameter_declaration_parser, visibility_parser};
 use crate::statement_parser::statement_parser;
 use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
@@ -21,14 +21,15 @@ pub(crate) fn function_parser<'src>()
         .then(ident.clone())
         .map(|(data_type, name)| {
             PosInfoWrapper::new(
-                Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
-                combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
+                Rc::new(VariableSymbol::new(name.inner, (data_type.0.inner, data_type.1))),
+                combine_code_areas_succeeding(&data_type.0.pos_info, &name.pos_info),
             )
         });
 
     visibility_parser()
         .then(
-            token_parser(TokenType::Function).ignore_then(ident).then(
+            token_parser(TokenType::Function).ignore_then(ident).then(type_parameter_declaration_parser())
+                .then(
                 param
                     .clone()
                     .separated_by(token_parser(TokenType::ArgumentSeparator))
@@ -46,7 +47,7 @@ pub(crate) fn function_parser<'src>()
         )
         .then(statement)
         .map(
-            |(((visibility, (name, params)), return_type), implementation)| {
+            |(((visibility, ((name, type_parameters), params)), return_type), implementation)| {
                 let pos = combine_code_areas_succeeding(
                     visibility
                         .as_ref()
@@ -61,8 +62,9 @@ pub(crate) fn function_parser<'src>()
                     Function::new(
                         Rc::new(FunctionSymbol::new(
                             name.inner,
-                            return_type.map(|to_map| to_map.inner),
+                            return_type.map(|to_map| (to_map.0.inner, to_map.1)),
                             params.into_iter().map(|param| param.inner).collect(),
+                            type_parameters
                         )),
                         implementation,
                         visibility,

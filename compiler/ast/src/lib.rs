@@ -286,8 +286,8 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type EnumUse: Debug + PartialEq + SemanticEq;
     type EnumVariantUse: Debug + PartialEq + SemanticEq;
     type StructFieldUse: Debug + PartialEq + SemanticEq;
-    /// The type parameter on composite declaration, **not** usage
-    type TypeParameter: Debug + PartialEq;
+    /// The type parameter on declaration, **not** usage
+    type TypeParameterDeclaration: Debug + PartialEq;
     /// The minimal combination of data that identifies a symbol
     ///
     /// This is supposed to be only used for querying and similar and is therefore
@@ -334,7 +334,7 @@ impl ASTType for TypedAST {
     type EnumUse = Rc<EnumSymbol<TypedAST>>;
     type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
     type StructFieldUse = Rc<StructFieldSymbol<TypedAST>>;
-    type TypeParameter = TypedTypeParameter;
+    type TypeParameterDeclaration = TypedTypeParameter;
     type SymbolIdentifier<'a> = (&'a str, &'a [TypedTypeParameter]);
     fn type_parameter_symbols_of_symbol_with_type_parameter(
         _of: &impl SymbolWithTypeParameter<Self>,
@@ -358,14 +358,14 @@ pub struct UntypedAST {}
 
 impl ASTType for UntypedAST {
     type LiteralType = String;
-    type GeneralDataType = String;
+    type GeneralDataType = (String, Vec<UntypedTypeParameterUsage>);
     type FunctionCallSymbol = (String, Vec<UntypedTypeParameterUsage>);
     type VariableUse = String;
     type StructUse = (String, Vec<UntypedTypeParameterUsage>);
     type EnumUse = (String, Vec<UntypedTypeParameterUsage>);
     type EnumVariantUse = String;
     type StructFieldUse = String;
-    type TypeParameter = UntypedTypeParameter;
+    type TypeParameterDeclaration = UntypedTypeParameter;
     type SymbolIdentifier<'a> = &'a str;
     fn type_parameter_symbols_of_symbol_with_type_parameter(
         of: &impl SymbolWithTypeParameter<Self>,
@@ -866,21 +866,21 @@ mod tests {
         // The how manyth fibonacci number we want
         let nth = Rc::new(VariableSymbol::<UntypedAST>::new(
             "nth".to_string(),
-            "s32".to_string(),
+            ("s32".to_string(), Vec::new()),
         ));
         let current = Rc::new(VariableSymbol::new(
             "current".to_string(),
-            "s32".to_string(),
+            ("s32".to_string(), Vec::new()),
         ));
         let previous = Rc::new(VariableSymbol::new(
             "previous".to_string(),
-            "s32".to_string(),
+            ("s32".to_string(), Vec::new()),
         ));
-        let temp = Rc::new(VariableSymbol::new("temp".to_string(), "s32".to_string()));
+        let temp = Rc::new(VariableSymbol::new("temp".to_string(), ("s32".to_string(), Vec::new())));
 
         let fibonacci = Rc::new(FunctionSymbol::new(
             "fibonacci".to_string(),
-            Some("s32".to_string()),
+            Some(("s32".to_string(), Vec::new())),
             vec![nth.clone()],
             Vec::new(),
         ));

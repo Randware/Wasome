@@ -1,6 +1,4 @@
-use crate::misc_parsers::{
-    cross_module_capable_identifier_parser, datatype_parser, identifier_parser, token_parser,
-};
+use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, identifier_with_type_parameter_parser, token_parser};
 use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
@@ -41,7 +39,7 @@ pub(crate) fn expression_parser<'src>()
 
         let ident = identifier_parser();
 
-        let call = cross_module_capable_identifier_parser()
+        let call = identifier_with_type_parameter_parser()
             .clone()
             .then(
                 expr.clone()
@@ -52,21 +50,21 @@ pub(crate) fn expression_parser<'src>()
                         token_parser(TokenType::CloseParen),
                     ),
             )
-            .map(|(name, args)| {
+            .map(|(identifier, args)| {
                 let pos = combine_code_areas_succeeding(
-                    &name.pos_info,
+                    identifier.0.pos_info(),
                     args.last()
                         .map(|to_map| to_map.position())
-                        .unwrap_or(name.pos_info()),
+                        .unwrap_or(identifier.0.pos_info()),
                 );
                 ASTNode::new(
-                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new(name.inner, args)),
+                    Expression::FunctionCall(FunctionCall::<UntypedAST>::new((identifier.0.inner, identifier.1), args)),
                     pos,
                 )
             });
 
         let new_struct = token_parser(TokenType::New)
-            .then(cross_module_capable_identifier_parser())
+            .then(identifier_with_type_parameter_parser())
             .then_ignore(token_parser(TokenType::OpenScope))
             .then(
                 identifier_parser()
@@ -76,19 +74,19 @@ pub(crate) fn expression_parser<'src>()
                     .collect::<Vec<_>>(),
             )
             .then(token_parser(TokenType::CloseScope))
-            .map(|(((start, name), field_values), end)| {
+            .map(|(((start, identifier), field_values), end)| {
                 let pos = combine_code_areas_succeeding(start.pos_info(), end.pos_info());
                 let fields = field_values
                     .into_iter()
                     .map(|field| (field.0.into_ast_node(), field.1))
                     .collect::<Vec<_>>();
                 ASTNode::new(
-                    Expression::NewStruct(Box::new(NewStruct::new(name.inner, fields))),
+                    Expression::NewStruct(Box::new(NewStruct::new((identifier.0.inner, identifier.1), fields))),
                     pos,
                 )
             });
 
-        let new_enum = cross_module_capable_identifier_parser()
+        let new_enum = identifier_with_type_parameter_parser()
             .then_ignore(token_parser(TokenType::PathSeparator))
             .then(identifier_parser())
             .then(
@@ -102,9 +100,9 @@ pub(crate) fn expression_parser<'src>()
                     )
                     .or_not(),
             )
-            .map(|((enum_name, variant_name), field_values)| {
+            .map(|((identifier, variant_name), field_values)| {
                 let pos = combine_code_areas_succeeding(
-                    enum_name.pos_info(),
+                    identifier.0.pos_info(),
                     field_values
                         .as_ref()
                         .and_then(|fv| fv.last().map(|last_val| last_val.position()))
@@ -112,7 +110,7 @@ pub(crate) fn expression_parser<'src>()
                 );
                 ASTNode::new(
                     Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
-                        enum_name.inner,
+                        (identifier.0.inner, identifier.1),
                         variant_name.inner,
                         field_values.unwrap_or(Vec::new()),
                     ))),
@@ -154,10 +152,10 @@ pub(crate) fn expression_parser<'src>()
                 .then(datatype_parser())
                 .repeated(),
             |expr, (_, new_type)| {
-                let new_pos = combine_code_areas_succeeding(expr.position(), &new_type.pos_info);
+                let new_pos = combine_code_areas_succeeding(expr.position(), &new_type.0.pos_info);
                 ASTNode::new(
                     Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new(new_type.inner)),
+                        UnaryOpType::Typecast(Typecast::new((new_type.0.inner, new_type.1))),
                         expr,
                     ))),
                     new_pos,
@@ -343,10 +341,10 @@ mod tests {
 
         let parsed = parser.parse(&to_parse).unwrap();
         let expected = wrap_in_ast_node(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
-            "test".to_string(),
+            ("test".to_string(), Vec::new()),
             vec![
                 wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new("f32".to_string())),
+                    UnaryOpType::Typecast(Typecast::new(("f32".to_string(), Vec::new()))),
                     wrap_in_ast_node(Expression::Literal("5".to_string())),
                 )))),
                 wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
@@ -387,10 +385,10 @@ mod tests {
 
         let parsed = parser.parse(&to_parse).unwrap();
         let expected = wrap_in_ast_node(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
-            "test".to_string(),
+            ("test".to_string(), Vec::new()),
             vec![
                 wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new("f32".to_string())),
+                    UnaryOpType::Typecast(Typecast::new(("f32".to_string(), Vec::new()))),
                     wrap_in_ast_node(Expression::Literal("5".to_string())),
                 )))),
                 wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(

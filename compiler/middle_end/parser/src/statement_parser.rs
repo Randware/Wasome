@@ -1,8 +1,5 @@
 use crate::expression_parser::expression_parser;
-use crate::misc_parsers::{
-    cross_module_capable_identifier_parser, datatype_parser, identifier_parser,
-    maybe_statement_separator, statement_separator, token_parser,
-};
+use crate::misc_parsers::{cross_module_capable_identifier_parser, datatype_parser, identifier_parser, identifier_with_type_parameter_parser, maybe_statement_separator, statement_separator, token_parser};
 use crate::{combine_code_areas_succeeding, PosInfoWrapper};
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
@@ -37,7 +34,7 @@ pub(crate) fn statement_parser<'src>()
 
         let expression = expression_parser();
 
-        let call = cross_module_capable_identifier_parser()
+        let call = identifier_with_type_parameter_parser()
             .clone()
             .then(
                 expression
@@ -49,14 +46,14 @@ pub(crate) fn statement_parser<'src>()
                         token_parser(TokenType::CloseParen),
                     ),
             )
-            .map(|(name, args)| {
+            .map(|(identifier, args)| {
                 let pos = combine_code_areas_succeeding(
-                    &name.pos_info,
+                    identifier.0.pos_info(),
                     args.last()
                         .map(|to_map| to_map.position())
-                        .unwrap_or(name.pos_info()),
+                        .unwrap_or(identifier.0.pos_info()),
                 );
-                PosInfoWrapper::new(FunctionCall::<UntypedAST>::new(name.inner, args), pos)
+                PosInfoWrapper::new(FunctionCall::<UntypedAST>::new((identifier.0.inner, identifier.1), args), pos)
             });
 
         let variable_assignment = ident
@@ -114,10 +111,10 @@ pub(crate) fn statement_parser<'src>()
             .map(|((data_type, name), val)| {
                 PosInfoWrapper::new(
                     VariableDeclaration::<UntypedAST>::new(
-                        Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
+                        Rc::new(VariableSymbol::new(name.inner, (data_type.0.inner, data_type.1))),
                         val,
                     ),
-                    combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
+                    combine_code_areas_succeeding(&data_type.0.pos_info, &name.pos_info),
                 )
             });
 
@@ -165,7 +162,7 @@ pub(crate) fn statement_parser<'src>()
             .then(
                 token_parser(TokenType::Let)
                     .ignored()
-                    .then(cross_module_capable_identifier_parser().clone())
+                    .then(identifier_with_type_parameter_parser())
                     .then_ignore(token_parser(TokenType::PathSeparator))
                     .then(ident.clone())
                     .then(
@@ -189,10 +186,10 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(maybe_statement_separator())
             .then(statement.clone())
             .map(
-                |((
-                    (if_keyword, ((((_, enum_name), enum_variant), vars), source)),
+                |(
+                    (if_keyword, ((((_, enum_identifier), enum_variant), vars), source)),
                     then_statement,
-                ))| {
+                )| {
                     let pos = combine_code_areas_succeeding(
                         if_keyword.pos_info(),
                         then_statement.position(),
@@ -201,13 +198,13 @@ pub(crate) fn statement_parser<'src>()
                     let vars = vars
                         .into_iter()
                         .map(|var| {
-                            Rc::new(VariableSymbol::<UntypedAST>::new(var.1.inner, var.0.inner))
+                            Rc::new(VariableSymbol::<UntypedAST>::new(var.1.inner, (var.0.0.inner, var.0.1)))
                         })
                         .collect::<Vec<_>>();
 
                     PosInfoWrapper::new(
                         IfEnumVariant::<UntypedAST>::new(
-                            enum_name.inner,
+                            (enum_identifier.0.inner, enum_identifier.1),
                             enum_variant.inner,
                             source,
                             vars,
@@ -343,16 +340,16 @@ mod tests {
 
         let parsed = parser.parse(&to_parse).unwrap();
 
-        let symbol = Rc::new(VariableSymbol::new("var".to_string(), "bool".to_string()));
+        let symbol = Rc::new(VariableSymbol::new("var".to_string(), ("bool".to_string(), Vec::new())));
         let expected = wrap_in_ast_node(Statement::VariableDeclaration(VariableDeclaration::<
             UntypedAST,
         >::new(
             symbol,
             wrap_in_ast_node(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
-                "test".to_string(),
+                ("test".to_string(), Vec::new()),
                 vec![
                     wrap_in_ast_node(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new("f32".to_string())),
+                        UnaryOpType::Typecast(Typecast::new(("f32".to_string(), Vec::new()))),
                         wrap_in_ast_node(Expression::Literal("5".to_string())),
                     )))),
                     wrap_in_ast_node(Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(

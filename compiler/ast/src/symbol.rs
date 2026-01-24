@@ -158,7 +158,7 @@ pub trait SymbolWithTypeParameter<Type: ASTType>:
 {
     fn name(&self) -> &str;
     fn id(&self) -> &Id;
-    fn type_parameters(&self) -> &[Type::TypeParameter];
+    fn type_parameters(&self) -> &[Type::TypeParameterDeclaration];
 }
 
 /// A function symbol
@@ -174,7 +174,7 @@ pub struct FunctionSymbol<Type: ASTType> {
     // None = no return type/void
     return_type: Option<Type::GeneralDataType>,
     params: Vec<Rc<VariableSymbol<Type>>>,
-    type_parameters: Vec<Type::TypeParameter>,
+    type_parameters: Vec<Type::TypeParameterDeclaration>,
 }
 
 impl<Type: ASTType> FunctionSymbol<Type> {
@@ -182,7 +182,7 @@ impl<Type: ASTType> FunctionSymbol<Type> {
         name: String,
         return_type: Option<Type::GeneralDataType>,
         params: Vec<Rc<VariableSymbol<Type>>>,
-        type_parameters: Vec<Type::TypeParameter>,
+        type_parameters: Vec<Type::TypeParameterDeclaration>,
     ) -> Self {
         Self {
             id: Id::new(),
@@ -211,7 +211,7 @@ impl<Type: ASTType> SymbolWithTypeParameter<Type> for FunctionSymbol<Type> {
         &self.id
     }
 
-    fn type_parameters(&self) -> &[Type::TypeParameter] {
+    fn type_parameters(&self) -> &[Type::TypeParameterDeclaration] {
         &self.type_parameters
     }
 }
@@ -341,11 +341,11 @@ impl Hash for ModuleUsageNameSymbol {
 pub struct EnumSymbol<Type: ASTType> {
     id: Id,
     name: String,
-    type_parameters: Vec<Type::TypeParameter>,
+    type_parameters: Vec<Type::TypeParameterDeclaration>,
 }
 
 impl<Type: ASTType> EnumSymbol<Type> {
-    pub fn new(name: String, type_parameters: Vec<Type::TypeParameter>) -> Self {
+    pub fn new(name: String, type_parameters: Vec<Type::TypeParameterDeclaration>) -> Self {
         Self {
             id: Id::new(),
             name,
@@ -362,7 +362,7 @@ impl<Type: ASTType> SymbolWithTypeParameter<Type> for EnumSymbol<Type> {
         &self.id
     }
 
-    fn type_parameters(&self) -> &[Type::TypeParameter] {
+    fn type_parameters(&self) -> &[Type::TypeParameterDeclaration] {
         &self.type_parameters
     }
 }
@@ -391,11 +391,11 @@ impl<Type: ASTType> SemanticEq for EnumSymbol<Type> {
 pub struct StructSymbol<Type: ASTType> {
     id: Id,
     name: String,
-    type_parameters: Vec<Type::TypeParameter>,
+    type_parameters: Vec<Type::TypeParameterDeclaration>,
 }
 
 impl<Type: ASTType> StructSymbol<Type> {
-    pub fn new(name: String, type_parameters: Vec<Type::TypeParameter>) -> Self {
+    pub fn new(name: String, type_parameters: Vec<Type::TypeParameterDeclaration>) -> Self {
         Self {
             id: Id::new(),
             name,
@@ -412,7 +412,7 @@ impl<Type: ASTType> SymbolWithTypeParameter<Type> for StructSymbol<Type> {
         &self.id
     }
 
-    fn type_parameters(&self) -> &[Type::TypeParameter] {
+    fn type_parameters(&self) -> &[Type::TypeParameterDeclaration] {
         &self.type_parameters
     }
 }
