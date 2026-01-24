@@ -1,0 +1,31 @@
+struct Box<T> {
+    T value
+}
+
+enum Option<T> {
+    Some(T)
+    None
+}
+
+struct Pair<T, U> {
+    T first
+    U second
+}
+
+pub fn identity<T>(T val) -> T {
+    -> val
+}
+
+pub fn map<T, U>(Option<T> opt, Box<T> b) -> Option<U> {
+    // This is just a syntax test, logic doesn't have to make sense
+    Option<U> result <- Option<U>::None
+    -> result
+}
+
+fn main() {
+    Box<s32> b <- new Box<s32> { value <- 10 }
+    Option<f64> o <- Option<f64>::Some(5.5)
+    Pair<s32, bool> p <- new Pair<s32, bool> { first <- 1, second <- true }
+    
+    s32 id <- identity<s32>(b.value)
+}
