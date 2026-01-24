@@ -1,9 +1,10 @@
 use crate::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
+    TypeParameterSymbol,
 };
 use crate::top_level::Function;
 use crate::visibility::{Visibility, Visible};
-use crate::{ASTNode, ASTType, SemanticEq, TypedAST};
+use crate::{ASTNode, ASTType, SemanticEq};
 use std::rc::Rc;
 
 /// An enum

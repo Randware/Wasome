@@ -1,5 +1,7 @@
 use crate::composite::{Enum, Struct};
-use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol};
+use crate::symbol::{
+    DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, TypeParameterSymbol,
+};
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
 use crate::{ASTNode, ASTType, SemanticEq};
@@ -109,13 +111,23 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the struct with a specified identifier
-    pub fn struct_by_identfier(&self, identifier: Type::CompositeIdentifier<'_>) -> Option<&ASTNode<Struct<Type>>> {
-        self.structs().iter().find(|st| Type::composite_matches_identifier(identifier, st.symbol()))
+    pub fn struct_by_identfier(
+        &self,
+        identifier: Type::TypeParameterSymbolIdentifier<'_>,
+    ) -> Option<&ASTNode<Struct<Type>>> {
+        self.structs()
+            .iter()
+            .find(|st| Type::composite_matches_identifier(identifier, st.symbol()))
     }
 
     /// Gets the enum with the specified identifier
-    pub fn enum_by_identifier(&self, identifier: Type::CompositeIdentifier<'_>) -> Option<&ASTNode<Enum<Type>>> {
-        self.enums().iter().find(|en| Type::composite_matches_identifier(identifier, en.symbol()))
+    pub fn enum_by_identifier(
+        &self,
+        identifier: Type::TypeParameterSymbolIdentifier<'_>,
+    ) -> Option<&ASTNode<Enum<Type>>> {
+        self.enums()
+            .iter()
+            .find(|en| Type::composite_matches_identifier(identifier, en.symbol()))
     }
 
     /// Gets an iterator over all enums

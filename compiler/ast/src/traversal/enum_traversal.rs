@@ -1,8 +1,9 @@
-use crate::composite::{Enum, Struct};
-use crate::symbol::{CompositeSymbol, DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable};
+use crate::composite::Enum;
+use crate::symbol::{
+    DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable,
+};
 use crate::traversal::file_traversal::FileTraversalHelper;
-use crate::traversal::function_traversal::FunctionTraversalHelper;
-use crate::traversal::{FunctionContainer, HasSymbols};
+use crate::traversal::HasSymbols;
 use crate::{ASTNode, ASTType};
 
 #[derive(Debug)]
@@ -53,15 +54,16 @@ impl<'a, 'b, Type: ASTType> EnumSymbolTable<'a, 'b, Type> {
     pub(crate) fn new(symbol_source: &'a EnumTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
             symbols: Box::new(symbol_source.parent().symbols_trait_object().chain(
-                Type::type_parameter_symbols_of_composite(symbol_source.inner().symbol())
-               .map(|type_param| {
-                    (
-                        None,
-                        // For typed enums, there are never any type parameter symbols,
-                        // so this is fine
-                        DirectlyAvailableSymbol::UntypedTypeParameter(type_param),
-                    )
-                }),
+                Type::type_parameter_symbols_of_composite(symbol_source.inner().symbol()).map(
+                    |type_param| {
+                        (
+                            None,
+                            // For typed enums, there are never any type parameter symbols,
+                            // so this is fine
+                            DirectlyAvailableSymbol::UntypedTypeParameter(type_param),
+                        )
+                    },
+                ),
             )),
         }
     }

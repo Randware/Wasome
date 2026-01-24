@@ -1,14 +1,14 @@
-use crate::symbol::SymbolTable;
+use crate::symbol::{SymbolTable, TypeParameterSymbol};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::ASTType;
 use std::fmt::Debug;
 
 pub mod directory_traversal;
+pub mod enum_traversal;
 pub mod file_traversal;
 pub mod function_traversal;
 pub mod statement_traversal;
 pub mod struct_traversal;
-pub mod enum_traversal;
 
 /// Any type that includes symbols
 ///
@@ -40,6 +40,7 @@ pub trait FunctionContainer<'b, Type: ASTType> {
     /// Errors if `index > self.len_functions()`
     fn index_function(&self, index: usize) -> Option<FunctionTraversalHelper<'_, 'b, Type>>;
 
+    // TODO
     /// Gets the function with the specified name
     /// Returns None if it doesn't exist
     fn function_by_name(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {

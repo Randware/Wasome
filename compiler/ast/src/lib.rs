@@ -21,16 +21,18 @@ use crate::data_type::DataType;
 use crate::directory::Directory;
 use crate::expression::Literal;
 use crate::id::Id;
-use crate::symbol::{CompositeSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol, UntypedTypeParameterSymbol, VariableSymbol};
+use crate::symbol::{
+    EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
+    TypeParameterSymbol, UntypedTypeParameterSymbol, VariableSymbol,
+};
 use crate::top_level::{Import, ImportRoot};
+use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter, UntypedTypeParameterUsage};
 use shared::code_reference::CodeArea;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
-use crate::traversal::file_traversal::{FileSymbolTable, FileTraversalHelper};
-use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 
 pub mod composite;
 pub mod data_type;
@@ -42,8 +44,8 @@ pub mod statement;
 pub mod symbol;
 pub mod top_level;
 pub mod traversal;
-pub mod visibility;
 pub mod type_parameter;
+pub mod visibility;
 
 ///  Comparing semantics only.
 ///
@@ -286,13 +288,15 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type StructFieldUse: Debug + PartialEq + SemanticEq;
     /// The type parameter on composite declaration, **not** usage
     type TypeParameter: Debug + PartialEq;
-    /// The minimal combination of data that identifies a composite
-    /// 
+    /// The minimal combination of data that identifies a symbol that has type parameters
+    ///
+    /// This is either a struct, enum or function.
+    ///
     /// This is supposed to be only used for querying and similar and is therefore
     /// in its borrowed form (e.g.: `&str`)
-    /// 
-    /// This identifies the composite itself and not a usage
-    type CompositeIdentifier<'a>: Debug + PartialEq + Copy;
+    ///
+    /// In the untyped AST, this identifies the symbol itself and not a usage
+    type TypeParameterSymbolIdentifier<'a>: Debug + PartialEq + Copy;
 
     /// Gets all type parameter symbols of the provided composite
     ///
@@ -302,13 +306,13 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     /// Keep in mind that for typed structs, the type parameters are part of the identifier and
     /// not symbols that provide data types inside the composite
     fn type_parameter_symbols_of_composite(
-        of: &impl CompositeSymbol<Self>,
-    ) -> impl Iterator<Item=&UntypedTypeParameterSymbol>;
+        of: &impl TypeParameterSymbol<Self>,
+    ) -> impl Iterator<Item = &UntypedTypeParameterSymbol>;
 
     /// Checks wherever a given composite matches a given identifier
     fn composite_matches_identifier(
-        identifier: Self::CompositeIdentifier<'_>,
-        to_check: &impl CompositeSymbol<Self>,
+        identifier: Self::TypeParameterSymbolIdentifier<'_>,
+        to_check: &impl TypeParameterSymbol<Self>,
     ) -> bool;
 }
 
@@ -327,17 +331,17 @@ impl ASTType for TypedAST {
     type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
     type StructFieldUse = Rc<StructFieldSymbol<TypedAST>>;
     type TypeParameter = TypedTypeParameter;
-    type CompositeIdentifier<'a> = (&'a str, &'a [TypedTypeParameter]);
+    type TypeParameterSymbolIdentifier<'a> = (&'a str, &'a [TypedTypeParameter]);
     fn type_parameter_symbols_of_composite(
-        _of: &impl CompositeSymbol<Self>,
+        _of: &impl TypeParameterSymbol<Self>,
     ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
         // A typed struct has no type parameter symbols
         [].into_iter()
     }
 
     fn composite_matches_identifier(
-        identifier: Self::CompositeIdentifier<'_>,
-        to_check: &impl CompositeSymbol<Self>,
+        identifier: Self::TypeParameterSymbolIdentifier<'_>,
+        to_check: &impl TypeParameterSymbol<Self>,
     ) -> bool {
         to_check.type_parameters() == identifier.1 && to_check.name() == identifier.0
     }
@@ -351,16 +355,16 @@ pub struct UntypedAST {}
 impl ASTType for UntypedAST {
     type LiteralType = String;
     type GeneralDataType = String;
-    type FunctionCallSymbol = String;
+    type FunctionCallSymbol = (String, Vec<UntypedTypeParameterUsage>);
     type VariableUse = String;
-    type StructUse = (String, Vec<UntypedTypeParameter>);
-    type EnumUse = (String, Vec<UntypedTypeParameter>);
+    type StructUse = (String, Vec<UntypedTypeParameterUsage>);
+    type EnumUse = (String, Vec<UntypedTypeParameterUsage>);
     type EnumVariantUse = String;
     type StructFieldUse = String;
     type TypeParameter = UntypedTypeParameter;
-    type CompositeIdentifier<'a> = &'a str;
+    type TypeParameterSymbolIdentifier<'a> = &'a str;
     fn type_parameter_symbols_of_composite(
-        of: &impl CompositeSymbol<Self>,
+        of: &impl TypeParameterSymbol<Self>,
     ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
         of.type_parameters()
             .iter()
@@ -368,18 +372,17 @@ impl ASTType for UntypedAST {
     }
 
     fn composite_matches_identifier(
-        identifier: Self::CompositeIdentifier<'_>,
-        to_check: &impl CompositeSymbol<Self>,
+        identifier: Self::TypeParameterSymbolIdentifier<'_>,
+        to_check: &impl TypeParameterSymbol<Self>,
     ) -> bool {
         to_check.name() == identifier
     }
 }
 
 // Required to make the trait bounds of `UntypedAST` work
-impl SemanticEq for (String, Vec<UntypedTypeParameter>) {
+impl SemanticEq for (String, Vec<UntypedTypeParameterUsage>) {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.0 == other.0 &&
-            self.1 == other.1
+        self.0 == other.0 && self.1 == other.1
     }
 }
 
@@ -399,7 +402,8 @@ mod tests {
     };
     use crate::symbol::{
         DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol,
-        ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, VariableSymbol,
+        ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, TypeParameterSymbol,
+        VariableSymbol,
     };
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
@@ -455,7 +459,12 @@ mod tests {
         );
 
         let function = Function::new(
-            Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
+            Rc::new(FunctionSymbol::new(
+                "test".to_string(),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )),
             ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![statement])),
                 sample_codearea(),
@@ -526,7 +535,12 @@ mod tests {
         );
 
         let function = Function::new(
-            Rc::new(FunctionSymbol::new("test".to_string(), None, Vec::new())),
+            Rc::new(FunctionSymbol::new(
+                "test".to_string(),
+                None,
+                Vec::new(),
+                Vec::new(),
+            )),
             statement,
             Visibility::Public,
         );
@@ -615,6 +629,7 @@ mod tests {
             "fibonacci".to_string(),
             Some(DataType::S32),
             vec![nth.clone()],
+            Vec::new(),
         ));
         (nth, current, previous, temp, fibonacci)
     }
@@ -827,6 +842,7 @@ mod tests {
             "fibonacci".to_string(),
             Some("s32".to_string()),
             vec![nth.clone()],
+            Vec::new(),
         ));
         let ast = functions_into_ast(vec![ASTNode::new(
             Function::new(
@@ -1009,6 +1025,7 @@ mod tests {
             "main".to_string(),
             None,
             Vec::new(),
+            Vec::new(),
         ));
         let lhs_var = Rc::new(VariableSymbol::new("lhs".to_string(), DataType::S32));
         let rhs_var = Rc::new(VariableSymbol::new("rhs".to_string(), DataType::S32));
@@ -1016,6 +1033,7 @@ mod tests {
             "add".to_string(),
             Some(DataType::S32),
             vec![lhs_var.clone(), rhs_var.clone()],
+            Vec::new(),
         ));
 
         let testproject_symbol = Rc::new(ModuleUsageNameSymbol::new("testproject".to_string()));
@@ -1234,6 +1252,7 @@ mod tests {
             "new".to_string(),
             Some(DataType::Struct(warning_msg_symbol.clone())),
             vec![warning_msg_new_inner_param.clone()],
+            Vec::new(),
         ));
 
         let warning_msg_get_inner_self_param = Rc::new(VariableSymbol::new(
@@ -1244,6 +1263,7 @@ mod tests {
             "get_inner".to_string(),
             Some(DataType::Char),
             vec![warning_msg_get_inner_self_param.clone()],
+            Vec::new(),
         ));
 
         let error_msg_inner_symbol =
@@ -1256,6 +1276,7 @@ mod tests {
             "new".to_string(),
             Some(DataType::Struct(error_msg_symbol.clone())),
             vec![error_msg_new_inner_param.clone()],
+            Vec::new(),
         ));
 
         let error_msg_get_inner_self_param = Rc::new(VariableSymbol::new(
@@ -1266,6 +1287,7 @@ mod tests {
             "get_inner".to_string(),
             Some(DataType::Char),
             vec![error_msg_get_inner_self_param.clone()],
+            Vec::new(),
         ));
 
         let msg_warning_msg_symbol = Rc::new(EnumVariantSymbol::new(
@@ -1278,7 +1300,12 @@ mod tests {
         ));
         let msg_symbol = Rc::new(EnumSymbol::new("Message".to_string(), Vec::new()));
 
-        let main_fn_symbol = Rc::new(FunctionSymbol::new("main".to_string(), None, vec![]));
+        let main_fn_symbol = Rc::new(FunctionSymbol::new(
+            "main".to_string(),
+            None,
+            vec![],
+            Vec::new(),
+        ));
         let main_fn_warning_symbol = Rc::new(VariableSymbol::new(
             "warn".to_string(),
             DataType::Struct(warning_msg_symbol.clone()),
@@ -1755,7 +1782,9 @@ mod tests {
 
         let msg_dir = root.subdirectory_by_name("message").unwrap();
         let msg_file = msg_dir.file_by_name("message").unwrap();
-        let error_msg_struct = msg_file.struct_by_identifier(("Error", &Vec::new())).unwrap();
+        let error_msg_struct = msg_file
+            .struct_by_identifier(("Error", &Vec::new()))
+            .unwrap();
         let new_error_function = error_msg_struct.function_by_name("new").unwrap();
         let root_statement = new_error_function.ref_to_implementation();
         let symbols = root_statement
@@ -1783,8 +1812,8 @@ mod tests {
             Expression::<UntypedAST>::Literal("10".to_string()),
             sample_codearea(),
         );
-        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
-        assert_eq!("test", call.function());
+        let call = FunctionCall::<UntypedAST>::new((name, Vec::new()), vec![arg]);
+        assert_eq!("test", call.function().0);
         assert_eq!(1, call.args().len());
     }
 
@@ -1797,6 +1826,7 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(10)),
@@ -1818,6 +1848,7 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),

@@ -2,7 +2,6 @@ use crate::data_type::{DataType, Typed};
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol};
 use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
 use std::rc::Rc;
-use crate::type_parameter::UntypedTypeParameter;
 
 /// This represents an expression as per section 2 of the lang spec
 ///
@@ -600,7 +599,7 @@ impl<Type: ASTType> NewEnum<Type> {
 
 impl NewEnum<UntypedAST> {
     pub fn new(
-        to_create: (String, Vec<UntypedTypeParameter>),
+        to_create: <UntypedAST as ASTType>::EnumUse,
         variant: String,
         parameters: Vec<ASTNode<Expression<UntypedAST>>>,
     ) -> Self {
@@ -752,7 +751,10 @@ impl FunctionCall<TypedAST> {
 
 impl FunctionCall<UntypedAST> {
     /// Creates a new function call
-    pub fn new(function: String, args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
+    pub fn new(
+        function: <UntypedAST as ASTType>::FunctionCallSymbol,
+        args: Vec<ASTNode<Expression<UntypedAST>>>,
+    ) -> Self {
         Self { function, args }
     }
 }
@@ -760,7 +762,7 @@ impl FunctionCall<UntypedAST> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::symbol::VariableSymbol;
+    use crate::symbol::{TypeParameterSymbol, VariableSymbol};
     use crate::test_shared::sample_codearea;
 
     #[test]
@@ -1150,8 +1152,8 @@ mod tests {
             Expression::<UntypedAST>::Literal("10".to_string()),
             sample_codearea(),
         );
-        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
-        assert_eq!("test", call.function());
+        let call = FunctionCall::<UntypedAST>::new((name, Vec::new()), vec![arg]);
+        assert_eq!("test", call.function().0);
         assert_eq!(1, call.args().len());
     }
 
@@ -1164,6 +1166,7 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(10)),
@@ -1185,6 +1188,7 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),
@@ -1316,6 +1320,7 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(10)),

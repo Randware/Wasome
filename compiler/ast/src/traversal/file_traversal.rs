@@ -2,6 +2,7 @@ use crate::composite::Enum;
 use crate::file::File;
 use crate::symbol::{
     DirectlyAvailableSymbol, EnumSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable,
+    TypeParameterSymbol,
 };
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
@@ -76,7 +77,10 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /// Gets the enum with the specified identifier.
     ///
     /// Returns None if it doesn't exist
-    pub fn enum_by_identifier(&self, identifier: Type::CompositeIdentifier<'_>) -> Option<&'b ASTNode<Enum<Type>>> {
+    pub fn enum_by_identifier(
+        &self,
+        identifier: Type::TypeParameterSymbolIdentifier<'_>,
+    ) -> Option<&'b ASTNode<Enum<Type>>> {
         self.inner().enum_by_identifier(identifier)
     }
 
@@ -105,7 +109,10 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /// Gets the struct with the specified identifier.
     ///
     /// Returns None if it doesn't exist
-    pub fn struct_by_identifier(&self, identifier: Type::CompositeIdentifier<'_>) -> Option<StructTraversalHelper<'_, 'b, Type>> {
+    pub fn struct_by_identifier(
+        &self,
+        identifier: Type::TypeParameterSymbolIdentifier<'_>,
+    ) -> Option<StructTraversalHelper<'_, 'b, Type>> {
         self.inner()
             .struct_by_identfier(identifier)
             .map(|st| StructTraversalHelper::new(st, self))

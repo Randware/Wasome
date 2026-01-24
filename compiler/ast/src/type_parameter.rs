@@ -1,7 +1,7 @@
 use crate::data_type::DataType;
 use crate::symbol::UntypedTypeParameterSymbol;
-use std::rc::Rc;
 use crate::SemanticEq;
+use std::rc::Rc;
 
 /// A type parameter in an untyped AST
 ///
@@ -30,6 +30,53 @@ impl SemanticEq for UntypedTypeParameter {
         self.inner().semantic_eq(other.inner())
     }
 }
+
+/// A type parameter in an untyped AST
+///
+/// Unlike [`UntypedTypeParameter`], this is not used when defining composited, but instead
+/// when using them (e.g.: `Option<s32> test <- std.Option<s32>::Some(10)`)
+/// This is a data type that is available in the composite that uses it
+#[derive(Debug, PartialEq)]
+pub struct UntypedTypeParameterUsage {
+    name: String,
+    data_type: String,
+    type_parameters: Vec<UntypedTypeParameterUsage>,
+}
+
+impl UntypedTypeParameterUsage {
+    pub fn new(
+        name: String,
+        data_type: String,
+        type_parameters: Vec<UntypedTypeParameterUsage>,
+    ) -> Self {
+        Self {
+            name,
+            data_type,
+            type_parameters,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn data_type(&self) -> &str {
+        &self.data_type
+    }
+
+    pub fn type_parameters(&self) -> &[UntypedTypeParameterUsage] {
+        &self.type_parameters
+    }
+}
+
+impl SemanticEq for UntypedTypeParameterUsage {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.name() == other.name()
+            && self.data_type() == other.data_type()
+            && self.type_parameters().semantic_eq(other.type_parameters())
+    }
+}
+
 /// A type parameter in a typed AST
 ///
 /// This is part of the composite identifier
@@ -55,7 +102,6 @@ impl TypedTypeParameter {
 
 impl SemanticEq for TypedTypeParameter {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name() == other.name() &&
-            self.data_type().semantic_eq(other.data_type())
+        self.name() == other.name() && self.data_type().semantic_eq(other.data_type())
     }
 }

@@ -1,7 +1,7 @@
-use std::fmt::Debug;
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
 use crate::{ASTType, SemanticEq, TypedAST};
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
@@ -81,9 +81,10 @@ impl<Type: ASTType> Clone for DirectlyAvailableSymbol<'_, Type> {
             DirectlyAvailableSymbol::Struct(st) => DirectlyAvailableSymbol::Struct(st),
             DirectlyAvailableSymbol::ModuleUsageName(mun) => {
                 DirectlyAvailableSymbol::ModuleUsageName(mun)
-            },
-            DirectlyAvailableSymbol::UntypedTypeParameter(utp) =>
-            DirectlyAvailableSymbol::UntypedTypeParameter(utp)
+            }
+            DirectlyAvailableSymbol::UntypedTypeParameter(utp) => {
+                DirectlyAvailableSymbol::UntypedTypeParameter(utp)
+            }
         }
     }
 }
@@ -132,6 +133,17 @@ impl<Type: ASTType> PartialEq for DirectlyAvailableSymbol<'_, Type> {
 
 impl<Type: ASTType> Eq for DirectlyAvailableSymbol<'_, Type> {}
 
+/// A symbol that has type parameters
+///
+/// Either a struct, enum or function
+///
+/// This exists to allow code to work on all three as they are extremely similar
+pub trait TypeParameterSymbol<Type: ASTType>: Debug + PartialEq + SemanticEq + Eq + Hash {
+    fn name(&self) -> &str;
+    fn id(&self) -> &Id;
+    fn type_parameters(&self) -> &[Type::TypeParameter];
+}
+
 /// A function symbol
 ///
 /// # Equality
@@ -145,6 +157,7 @@ pub struct FunctionSymbol<Type: ASTType> {
     // None = no return type/void
     return_type: Option<Type::GeneralDataType>,
     params: Vec<Rc<VariableSymbol<Type>>>,
+    type_parameters: Vec<Type::TypeParameter>,
 }
 
 impl<Type: ASTType> FunctionSymbol<Type> {
@@ -152,17 +165,15 @@ impl<Type: ASTType> FunctionSymbol<Type> {
         name: String,
         return_type: Option<Type::GeneralDataType>,
         params: Vec<Rc<VariableSymbol<Type>>>,
+        type_parameters: Vec<Type::TypeParameter>,
     ) -> Self {
         Self {
             id: Id::new(),
             name,
             return_type,
             params,
+            type_parameters,
         }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
     }
 
     pub fn params(&self) -> &[Rc<VariableSymbol<Type>>] {
@@ -174,6 +185,19 @@ impl<Type: ASTType> FunctionSymbol<Type> {
     }
 }
 
+impl<Type: ASTType> TypeParameterSymbol<Type> for FunctionSymbol<Type> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn id(&self) -> &Id {
+        &self.id
+    }
+
+    fn type_parameters(&self) -> &[Type::TypeParameter] {
+        &self.type_parameters
+    }
+}
 impl<Type: ASTType> Hash for FunctionSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state)
@@ -193,6 +217,7 @@ impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
         self.name().semantic_eq(other.name())
             && self.return_type().semantic_eq(&other.return_type())
             && self.params().semantic_eq(self.params())
+            && self.type_parameters() == other.type_parameters()
     }
 }
 
@@ -294,14 +319,6 @@ impl Hash for ModuleUsageNameSymbol {
     }
 }
 
-/// Either a struct or an enum symbol
-/// 
-/// This exists to allow code to work on both as they are extremely similar
-pub trait CompositeSymbol<Type: ASTType>: Debug+PartialEq+SemanticEq+Eq+Hash {
-    fn name(&self) -> &str;
-    fn id(&self) -> &Id;
-    fn type_parameters(&self) -> &[Type::TypeParameter];
-}
 /// The symbol of an enum
 #[derive(Debug)]
 pub struct EnumSymbol<Type: ASTType> {
@@ -311,10 +328,7 @@ pub struct EnumSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> EnumSymbol<Type> {
-    pub fn new(
-        name: String,
-        type_parameters: Vec<Type::TypeParameter>,
-    ) -> Self {
+    pub fn new(name: String, type_parameters: Vec<Type::TypeParameter>) -> Self {
         Self {
             id: Id::new(),
             name,
@@ -322,7 +336,7 @@ impl<Type: ASTType> EnumSymbol<Type> {
         }
     }
 }
-impl<Type: ASTType> CompositeSymbol<Type> for EnumSymbol<Type> {
+impl<Type: ASTType> TypeParameterSymbol<Type> for EnumSymbol<Type> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -351,7 +365,7 @@ impl<Type: ASTType> Eq for EnumSymbol<Type> {}
 
 impl<Type: ASTType> SemanticEq for EnumSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name())
+        self.name().semantic_eq(other.name()) && self.type_parameters() == other.type_parameters()
     }
 }
 
@@ -365,11 +379,14 @@ pub struct StructSymbol<Type: ASTType> {
 
 impl<Type: ASTType> StructSymbol<Type> {
     pub fn new(name: String, type_parameters: Vec<Type::TypeParameter>) -> Self {
-        Self { id: Id::new(), name, type_parameters }
+        Self {
+            id: Id::new(),
+            name,
+            type_parameters,
+        }
     }
 }
-impl<Type: ASTType> CompositeSymbol<Type> for StructSymbol<Type> {
-
+impl<Type: ASTType> TypeParameterSymbol<Type> for StructSymbol<Type> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -399,7 +416,7 @@ impl<Type: ASTType> Eq for StructSymbol<Type> {}
 
 impl<Type: ASTType> SemanticEq for StructSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name())
+        self.name().semantic_eq(other.name()) && self.type_parameters() == other.type_parameters()
     }
 }
 
@@ -538,7 +555,7 @@ impl SemanticEq for UntypedTypeParameterSymbol {
 mod tests {
     use crate::data_type::DataType;
     use crate::expression::{Expression, FunctionCall, Literal};
-    use crate::symbol::{FunctionSymbol, VariableSymbol};
+    use crate::symbol::{FunctionSymbol, TypeParameterSymbol, VariableSymbol};
     use crate::test_shared::sample_codearea;
     use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST};
     use std::rc::Rc;
@@ -550,8 +567,8 @@ mod tests {
             Expression::<UntypedAST>::Literal("10".to_string()),
             sample_codearea(),
         );
-        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
-        assert_eq!("test", call.function());
+        let call = FunctionCall::<UntypedAST>::new((name, Vec::new()), vec![arg]);
+        assert_eq!("test", call.function().0);
         assert_eq!(1, call.args().len());
     }
 
@@ -564,6 +581,7 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(10)),
@@ -585,6 +603,7 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),

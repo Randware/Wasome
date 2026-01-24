@@ -77,23 +77,28 @@ struct StructSymbolTable<'a, 'b, Type: ASTType> {
 impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
     pub(crate) fn new(symbol_source: &'a StructTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
-            symbols: Box::new(symbol_source.parent().symbols_trait_object().chain(
-                symbol_source.function_iterator().map(|func| {
-                    (
-                        None,
-                        DirectlyAvailableSymbol::Function(func.inner().declaration()),
-                    )
-                }),
-            ).chain(
-                Type::type_parameter_symbols_of_composite(symbol_source.inner().symbol())
-                    .map(|type_param| {
+            symbols: Box::new(
+                symbol_source
+                    .parent()
+                    .symbols_trait_object()
+                    .chain(symbol_source.function_iterator().map(|func| {
                         (
                             None,
-                            // For typed enums, there are never any type parameter symbols,
-                            // so this is fine
-                            DirectlyAvailableSymbol::UntypedTypeParameter(type_param),
+                            DirectlyAvailableSymbol::Function(func.inner().declaration()),
                         )
-                    })))
+                    }))
+                    .chain(
+                        Type::type_parameter_symbols_of_composite(symbol_source.inner().symbol())
+                            .map(|type_param| {
+                                (
+                                    None,
+                                    // For typed enums, there are never any type parameter symbols,
+                                    // so this is fine
+                                    DirectlyAvailableSymbol::UntypedTypeParameter(type_param),
+                                )
+                            }),
+                    ),
+            ),
         }
     }
 }
