@@ -240,6 +240,8 @@ fn type_parameter_usage_parser_internal<'a>(
 mod tests {
     use crate::misc_parsers::datatype_parser;
     use crate::test_shared::wrap_token;
+    use ast::SemanticEq;
+    use ast::data_type::UntypedDataType;
     use chumsky::Parser;
     use lexer::TokenType;
 
@@ -255,6 +257,12 @@ mod tests {
             wrap_token(TokenType::GreaterThan),
         ];
         let res = datatype_parser().parse(&tokens).unwrap();
-        dbg!(res);
+        assert!(res.inner.semantic_eq(&UntypedDataType::new(
+            "Box".to_string(),
+            vec![UntypedDataType::new(
+                "Option".to_string(),
+                vec![UntypedDataType::new("u32".to_string(), vec![])]
+            )]
+        )))
     }
 }

@@ -1,8 +1,7 @@
 use crate::expression_parser::expression_parser;
 use crate::misc_parsers::{
-    datatype_parser, identifier_parser,
-    identifier_with_type_parameter_parser, maybe_statement_separator, statement_separator,
-    token_parser,
+    datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
+    maybe_statement_separator, statement_separator, token_parser,
 };
 use crate::{PosInfoWrapper, combine_code_areas_succeeding, remove_pos_info_from_vec};
 use ast::expression::{Expression, FunctionCall};

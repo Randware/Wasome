@@ -148,9 +148,7 @@ fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<To
     raw_tokens
         .into_iter()
         // Remove all comments
-        .filter(|token| {
-            !matches!(token.kind, TokenType::Comment(_))
-        })
+        .filter(|token| !matches!(token.kind, TokenType::Comment(_)))
         // End will never be before start
         .map(|token| {
             PosInfoWrapper::new(
