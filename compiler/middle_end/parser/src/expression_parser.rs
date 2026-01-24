@@ -10,7 +10,6 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
 use shared::code_reference::{CodeArea, CodeLocation};
-use std::fmt::Debug;
 
 /// Parses an expression
 pub(crate) fn expression_parser<'src>()
@@ -275,6 +274,7 @@ fn binary_operator_from_token_parser<'a>(
     binary_op_parser(input, ops)
 }
 
+/// `Ignored` can be arbitrary
 fn binary_op_parser<
     'src,
     Ignored,
@@ -286,7 +286,7 @@ fn binary_op_parser<
 ) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Expression<UntypedAST>>> + Clone {
     input.clone().foldl(
         choice(
-            ops.map(|(token, op)| token.map(move |a| binary_op_mapper(op)))
+            ops.map(|(token, op)| token.map(move |_| binary_op_mapper(op)))
                 .collect::<Vec<_>>(),
         )
         .then(input)

@@ -1,11 +1,10 @@
 use crate::expression_parser::expression_parser;
 use crate::misc_parsers::{
-    cross_module_capable_identifier_parser, datatype_parser, identifier_parser,
+    datatype_parser, identifier_parser,
     identifier_with_type_parameter_parser, maybe_statement_separator, statement_separator,
     token_parser,
 };
 use crate::{PosInfoWrapper, combine_code_areas_succeeding, remove_pos_info_from_vec};
-use ast::data_type::UntypedDataType;
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,

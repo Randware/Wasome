@@ -94,7 +94,7 @@ mod import_parser {
     /// # Parameter
     ///
     /// - **file_information**: Information about the file to be parsed. This is currently only used
-    /// in order to resolve import paths correctly
+    ///   in order to resolve import paths correctly
     pub(super) fn import_parser<'src>(
         file_information: &'src FileInformation,
     ) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>> {

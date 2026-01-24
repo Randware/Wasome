@@ -149,11 +149,7 @@ fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<To
         .into_iter()
         // Remove all comments
         .filter(|token| {
-            if let TokenType::Comment(_) = token.kind {
-                false
-            } else {
-                true
-            }
+            !matches!(token.kind, TokenType::Comment(_))
         })
         // End will never be before start
         .map(|token| {

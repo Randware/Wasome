@@ -4,7 +4,6 @@ use ast::symbol::UntypedTypeParameterSymbol;
 use ast::type_parameter::UntypedTypeParameter;
 use chumsky::prelude::*;
 use lexer::TokenType;
-use std::fmt::Debug;
 use std::rc::Rc;
 
 /// Parses data types
