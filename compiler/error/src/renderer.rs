@@ -9,6 +9,8 @@ use yansi::{Color, Paint};
 use crate::diagnostic::{Diagnostic, Level, Snippet};
 use crate::source::SourceLookup;
 
+/// DiagnosticStyling is used to group styling information for individual diagnostic elements
+/// together.
 struct DiagnosticStyling {
     type_heading: Color,
     help_heading: Color,
@@ -19,12 +21,15 @@ struct DiagnosticStyling {
     context_highlight: Color,
 }
 
+/// CachedSource is used to group together source data for caching after it was loaded.
 #[derive(Clone, Debug)]
 struct CachedSource {
     path: String,
     content: String,
 }
 
+/// Renderer is the primary piece of logic, responsible for constructing the diagnostic and
+/// rendering it.
 pub struct Renderer<'a> {
     diagnostic: &'a Diagnostic,
     writer: Box<dyn Write>,
@@ -33,6 +38,8 @@ pub struct Renderer<'a> {
 }
 
 impl<'a> Renderer<'a> {
+    /// This function is used to automatically construct a 'Render', that is responsible for
+    /// rendering a specific diagnostic.
     pub(crate) fn render(
         diagnostic: &'a Diagnostic,
         source: &'a impl SourceLookup,
@@ -50,7 +57,7 @@ impl<'a> Renderer<'a> {
         let unique: HashSet<_> = diagnostic.snippets.iter().map(|s| s.file).collect();
 
         // We add our files with None checks, since we always want the user to see at least something,
-        // even if we are missing sources
+        // even if we are missing sources.
         for id in unique {
             if let Some(path_buf) = source.get_path(id) {
                 let path = path_buf.to_string_lossy().to_string();
@@ -75,6 +82,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
+    /// Determines the appropriate output stream for a 'Diagnostic's 'Level'.
     fn resolve_output(level: Level) -> Box<dyn Write> {
         match level {
             Level::Error => Box::new(io::stderr()),
@@ -82,6 +90,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
+    /// Determines the appropriate styling for a 'Diagnostic's 'Level'.
     fn resolve_styling(level: Level) -> DiagnosticStyling {
         match level {
             Level::Error => DiagnosticStyling {
@@ -114,17 +123,19 @@ impl<'a> Renderer<'a> {
         }
     }
 
+    /// Determines the appropriate rendering config for a 'Diagnostic's 'Level'.
     fn resolve_config(level: Level) -> Config {
         match level {
             _ => Config::default(),
         }
     }
 
+    /// Prints all components of a diagnostic.
     fn print(&mut self) -> io::Result<()> {
         // Add an empty line before this diagnostic
         writeln!(self.writer)?;
 
-        self.render_header()?;
+        self.print_header()?;
 
         for snippet in &self.diagnostic.snippets {
             self.render_snippet(snippet)?;
@@ -138,7 +149,8 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    fn render_header(&mut self) -> io::Result<()> {
+    /// Formats and prints the header of our diagnostic.
+    fn print_header(&mut self) -> io::Result<()> {
         let title = match self.diagnostic.level {
             Level::Error => "Error",
             Level::Warning => "Warning",
@@ -175,6 +187,7 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
+    /// Formats and prints a specific code snippet.
     fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
         if let Some(path) = self
             .cache
@@ -197,6 +210,7 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
+    /// Formats and prints the help message of our diagnostic.
     fn render_help(&mut self) -> io::Result<()> {
         if let Some(help) = &self.diagnostic.help {
             writeln!(
@@ -210,6 +224,9 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
+    /// Strips all unwanted parts of the rendered 'Report' by 'ariadne'. This is where all the ugly
+    /// workaround code takes place. Ideally this would be cleaned up in the future, by utilizing crates that allow
+    /// us to do this by themselves.
     fn strip_report(
         &mut self,
         report: ReportBuilder<(String, std::ops::Range<usize>)>,
@@ -221,14 +238,18 @@ impl<'a> Renderer<'a> {
                 .map(|c| (c.path.clone(), c.content.clone())),
         );
 
+        // Render our ariadne report into our buffer
         report.finish().write(sources, &mut buffer)?;
 
         let s =
             String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
+        // We create a buffer for our output lines
         let mut output_lines = Vec::new();
 
+        // And then we write each (possibly modified) line into the buffer
         for (i, line) in s.lines().enumerate() {
+            // First line is skipped, it contains an unwanted header
             if i == 0 {
                 continue;
             }
@@ -246,17 +267,22 @@ impl<'a> Renderer<'a> {
             }
         }
 
+        // Convert output back to byte stream
         let mut output = output_lines.join("\n").into_bytes();
+
+        // Add back trailing newline, that was stripped by our 'lines()' call
         output.push(b'\n');
 
         Ok(output)
     }
 
+    /// Strip any string of all its ANSI escape sequences.
     fn strip_ansi(s: &str) -> String {
         let re = Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap();
         re.replace_all(s, "").to_string()
     }
 
+    /// Strip the primary error location inside a line of text.
     fn remove_primary_location(line: &str) -> String {
         if let Some(colon_idx) = line.find(':') {
             if let Some(space_offset) = line[colon_idx..].find(' ') {
@@ -269,6 +295,7 @@ impl<'a> Renderer<'a> {
         line.to_string()
     }
 
+    /// Label our report with all of our annotations.
     fn label_report<'b>(
         &self,
         mut builder: ReportBuilder<'b, (String, std::ops::Range<usize>)>,
@@ -276,6 +303,7 @@ impl<'a> Renderer<'a> {
     ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
         if let Some(cached) = self.cache.get(&snippet.file) {
             for ann in &snippet.annotations {
+                // Determine label color, based on if it's a primary or context annotation
                 let color = match ann.primary {
                     true => self.styling.primary_highlight,
                     false => self.styling.context_highlight,
