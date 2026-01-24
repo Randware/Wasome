@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+
+use crate::types::OptLevel;
 pub struct Cli {
     pub file: Option<PathBuf>,
 
@@ -9,14 +11,6 @@ pub struct Cli {
 
     /// When compiling a file, specifies an output file to write to
     pub output: PathBuf,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum OptLevel {
-    O0,
-    O1,
-    O2,
-    O3,
 }
 
 impl Cli {
@@ -41,16 +35,5 @@ impl Cli {
             "instcombine,reassociate,gvn,simplifycfg,mem2reg".to_string(),
             PathBuf::new(),
         )
-    }
-}
-
-impl Into<inkwell::OptimizationLevel> for OptLevel {
-    fn into(self) -> inkwell::OptimizationLevel {
-        match self {
-            OptLevel::O0 => inkwell::OptimizationLevel::None,
-            OptLevel::O1 => inkwell::OptimizationLevel::Less,
-            OptLevel::O2 => inkwell::OptimizationLevel::Default,
-            OptLevel::O3 => inkwell::OptimizationLevel::Aggressive,
-        }
     }
 }

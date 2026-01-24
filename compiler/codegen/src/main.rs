@@ -10,5 +10,5 @@ mod types;
 
 fn main() {
     let config = Cli::mockup();
-    context::LLVMContext::new(&Context::create(), config);
+    context::LLVMContext::new(&Context::create(), config.opt_level);
 }
