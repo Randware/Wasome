@@ -1,0 +1,113 @@
+:root {
+  --bg-dark: #050505;
+  --bg-card: #0A0A0A;
+  --bg-card-hover: #111111;
+  
+  --border-light: #222222;
+  --border-active: #333333;
+  
+  --primary: #FACC15; /* Wasome Yellow */
+  --primary-dim: #EAB308;
+  --primary-hover: #FDE047;
+  --primary-glow: rgba(250, 204, 21, 0.15);
+  
+  --text-main: #FFFFFF;
+  --text-secondary: #A1A1AA;
+  --text-muted: #52525B;
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  --container-width: 1200px;
+  --header-height: 80px; /* Increased slightly */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+::selection {
+  background: var(--primary);
+  color: #000;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.container {
+  max-width: var(--container-width);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Utilities */
+.text-gradient {
+  background: linear-gradient(135deg, #fff 0%, #aaa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-primary {
+  color: var(--primary);
+}
+
+/* Global Syntax Highlighting */
+.hl-keyword, .k { color: #FACC15; font-weight: bold; }
+.hl-type, .t { color: #2DD4BF; } /* Teal-400 */
+.hl-function, .f { color: #60A5FA; } /* Blue-400 */
+.hl-variable, .v { color: #F472B6; } /* Pink-400 */
+.hl-number, .n { color: #A78BFA; } /* Purple-400 */
+.hl-string, .s { color: #A3E635; } /* Lime-400 */
+.hl-comment, .c { color: #52525B; font-style: italic; }
+.hl-operator, .o { color: #E5E7EB; }
