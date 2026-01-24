@@ -7,53 +7,47 @@ use crate::{
     source::{NoSource, SourceLookup},
 };
 
-/// Level is used to assign certain styling and behaviour to a Diagnostic.
-/// Generally:
-/// - 'Error' should be used, when the compiler runs into any issues, that make it impossible to
-/// generate executable code.
-/// - 'Warning' should be used, when the compiler is able to detect anti-patterns,
-/// error-prone or deprecated code for example. The code compiles, but warnings should still be
-/// taken into consideration in most cases.
-/// - 'Info' should be used, when a message can be completely ignored by the user without any
-/// consequences. Things like updates regarding the compilation status for example.
+/// Defines the severity level of a [`Diagnostic`], affecting styling and output behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
+    /// Indicates issues that prevent code generation.
     Error,
+    /// Indicates anti-patterns, potential errors, or deprecated code.
     Warning,
+    /// Indicates informational messages that can be safely ignored, such as compilation status.
     Info,
 }
 
-/// Diagnostic is used for constructing diagnostics and gradually adding information to it using
-/// a builder pattern, which can be accessed using 'Diagnostic::builder()'.
+/// Represents a compiler diagnostic.
+///
+/// Constructed using the builder pattern via [`Diagnostic::builder()`].
 #[derive(Builder, Debug, Clone)]
 pub struct Diagnostic {
-    /// All snippets are stored here.
+    /// The list of code snippets attached to this diagnostic.
     #[builder(field)]
     pub(crate) snippets: Vec<Snippet>,
 
-    /// Set the 'Level' of the Diagnostic. If none is specified, it will default to 'Level::Error'
+    /// The severity level of the diagnostic. Defaults to [`Level::Error`].
     #[builder(default = Level::Error)]
     pub(crate) level: Level,
 
-    /// Set the primary error message displayed inside the header. This is required.
+    /// The primary error message displayed in the header.
     #[builder(into)]
     pub(crate) message: String,
 
-    /// Set a specific code that can be used to uniquely identify this error case. This is
-    /// optional.
+    /// An optional unique identifier code for this error case.
     #[builder(into)]
     pub(crate) code: Option<String>,
 
-    /// Set a general help message, that can push the user towards fixing the issue. This is
-    /// optional.
+    /// An optional help message to guide the user towards a solution.
     #[builder(into)]
     pub(crate) help: Option<String>,
 }
 
 impl<S: diagnostic_builder::State> DiagnosticBuilder<S> {
-    /// Add a 'Snippet' to this Diagnostic. Each snippet will be rendered as its own snippet block.
+    /// Adds a [`Snippet`] to this diagnostic.
     ///
-    /// Snippets will be rendered in the order of declaration.
+    /// Snippets are rendered in the order they are added.
     pub fn snippet(mut self, snippet: Snippet) -> Self {
         self.snippets.push(snippet);
         self
@@ -61,37 +55,38 @@ impl<S: diagnostic_builder::State> DiagnosticBuilder<S> {
 }
 
 impl Diagnostic {
-    /// Renders the diagnostic without any code snippets to stdout/stderr. If there are any
-    /// snippets attached, they will not be rendered.
+    /// Renders the diagnostic to `stdout` or `stderr` without source code snippets.
+    ///
+    /// Any attached snippets will be ignored.
     pub fn print(&self) -> io::Result<()> {
         self.print_snippets(&NoSource)
     }
 
-    /// Renders the diagnostic, including source code snippets to stdout/stderr. This requires a
-    /// reference to a 'SourceLookup' implementer. In case something goes wrong during source
-    /// lookup, the corresponding snippet will not be rendered.
+    /// Renders the diagnostic to `stdout` or `stderr`, including source code snippets.
+    ///
+    /// Requires a [`SourceLookup`] implementation to retrieve file content. If source lookup fails
+    /// for a specific file, that snippet will be omitted.
     pub fn print_snippets(&self, source: &impl SourceLookup) -> io::Result<()> {
         Renderer::render(self, source)
     }
 }
 
-/// Snippet is used for constructing and annotating code snippets. This can be done, by accessing
-/// the 'Snippet::builder()' and gradually adding information
+/// Represents a source code snippet attached to a [`Diagnostic`].
+///
+/// Constructed using the builder pattern via [`Snippet::builder()`].
 #[derive(Builder, Debug, Clone)]
 pub struct Snippet {
-    /// All snippet annoations are stored here. At least one annotation is required, for rendering
-    /// the snippet.
+    /// The list of annotations within this snippet.
     #[builder(field)]
     pub(crate) annotations: Vec<Annotation>,
 
-    /// The 'FileID' this code snippet resides in. This can be obtained from the source map. This
-    /// is required.
+    /// The [`FileID`] of the source file containing this snippet.
     pub(crate) file: FileID,
 }
 
-/// Annotation contains all information related to a code snippet annotation. It cannot be
-/// constructed directly and is only used internally for easier data handling. Annotation happens
-/// with simple wrapper functions instead.
+/// Internal representation of a snippet annotation.
+///
+/// This struct cannot be constructed directly; use the helper methods on [`SnippetBuilder`] instead.
 #[derive(Debug, Clone)]
 pub(crate) struct Annotation {
     pub(crate) range: Range<usize>,
@@ -100,15 +95,12 @@ pub(crate) struct Annotation {
 }
 
 impl<S: snippet_builder::State> SnippetBuilder<S> {
-    /// Adds a primary annotation to the snippet. Primary annotations should be used sparingly,
-    /// since they are meant to quickly direct the users attention to code that is directly
-    /// responsible. This is done by highlighting it in a unique color. All diagnostics should
-    /// usually have exactly one primary annotation in most cases, though it is possible to add
-    /// more primary annotations if needed.
+    /// Adds a primary annotation to the snippet.
     ///
-    /// Keep in mind, at least one annotation is required, for rendering the snippet.
+    /// Primary annotations highlight the code directly responsible for the error using a unique color.
+    /// Most diagnostics should have exactly one primary annotation, though multiple are supported.
     ///
-    /// Annotations will be rendered in the order of declaration.
+    /// **Note:** At least one annotation is required to render the snippet.
     pub fn primary(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
         self.annotations.push(Annotation {
             range,
@@ -118,17 +110,12 @@ impl<S: snippet_builder::State> SnippetBuilder<S> {
         self
     }
 
-    /// Adds a context annotation to the snippet. Context annotations should be used if further
-    /// context can be added. It is meant to help the user understand the circumstances that lead
-    /// to something. Keep in mind, that these context erros will probably require advanced code
-    /// understanding, but users might really appreciate that extra context.
+    /// Adds a context annotation to the snippet.
     ///
-    /// These context annoations should pretty much always be used in combination with primary
-    /// annotations.
+    /// Context annotations provide additional background information or trace the circumstances
+    /// leading to the error. They should be used in conjunction with a primary annotation.
     ///
-    /// Keep in mind, at least one annotation is required, for rendering the snippet.
-    ///
-    /// Annotations will be rendered in the order of declaration.
+    /// **Note:** At least one annotation is required to render the snippet.
     pub fn context(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
         self.annotations.push(Annotation {
             range,

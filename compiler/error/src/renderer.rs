@@ -9,8 +9,7 @@ use yansi::{Color, Paint};
 use crate::diagnostic::{Diagnostic, Level, Snippet};
 use crate::source::SourceLookup;
 
-/// DiagnosticStyling is used to group styling information for individual diagnostic elements
-/// together.
+/// Defines the color scheme for diagnostic elements.
 struct DiagnosticStyling {
     type_heading: Color,
     help_heading: Color,
@@ -21,15 +20,14 @@ struct DiagnosticStyling {
     context_highlight: Color,
 }
 
-/// CachedSource is used to group together source data for caching after it was loaded.
+/// Stores cached content and path information for a source file.
 #[derive(Clone, Debug)]
 struct CachedSource {
     path: String,
     content: String,
 }
 
-/// Renderer is the primary piece of logic, responsible for constructing the diagnostic and
-/// rendering it.
+/// Handles the construction and rendering of diagnostics.
 pub struct Renderer<'a> {
     diagnostic: &'a Diagnostic,
     writer: Box<dyn Write>,
@@ -38,8 +36,7 @@ pub struct Renderer<'a> {
 }
 
 impl<'a> Renderer<'a> {
-    /// This function is used to automatically construct a 'Render', that is responsible for
-    /// rendering a specific diagnostic.
+    /// Constructs a [`Renderer`] and renders the provided [`Diagnostic`].
     pub(crate) fn render(
         diagnostic: &'a Diagnostic,
         source: &'a impl SourceLookup,
@@ -56,8 +53,8 @@ impl<'a> Renderer<'a> {
         let mut cache = HashMap::new();
         let unique: HashSet<_> = diagnostic.snippets.iter().map(|s| s.file).collect();
 
-        // We add our files with None checks, since we always want the user to see at least something,
-        // even if we are missing sources.
+        // Populate cache with source content. Missing sources are skipped gracefully
+        // to ensure the diagnostic can still be rendered (albeit partially).
         for id in unique {
             if let Some(path_buf) = source.get_path(id) {
                 let path = path_buf.to_string_lossy().to_string();
@@ -82,7 +79,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    /// Determines the appropriate output stream for a 'Diagnostic's 'Level'.
+    /// Determines the appropriate output stream (`stdout` or `stderr`) based on the [`Level`].
     fn resolve_output(level: Level) -> Box<dyn Write> {
         match level {
             Level::Error => Box::new(io::stderr()),
@@ -90,7 +87,7 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    /// Determines the appropriate styling for a 'Diagnostic's 'Level'.
+    /// Determines the appropriate color styling based on the [`Level`].
     fn resolve_styling(level: Level) -> DiagnosticStyling {
         match level {
             Level::Error => DiagnosticStyling {
@@ -123,16 +120,16 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    /// Determines the appropriate rendering config for a 'Diagnostic's 'Level'.
+    /// Returns the rendering configuration based on the [`Level`].
     fn resolve_config(level: Level) -> Config {
         match level {
             _ => Config::default(),
         }
     }
 
-    /// Prints all components of a diagnostic.
+    /// Orchestrates the printing of all diagnostic components.
     fn print(&mut self) -> io::Result<()> {
-        // Add an empty line before this diagnostic
+        // Add padding before the diagnostic
         writeln!(self.writer)?;
 
         self.print_header()?;
@@ -143,13 +140,13 @@ impl<'a> Renderer<'a> {
 
         self.render_help()?;
 
-        // Add an empty line after this diagnostic
+        // Add padding after the diagnostic
         writeln!(self.writer)?;
 
         Ok(())
     }
 
-    /// Formats and prints the header of our diagnostic.
+    /// Formats and prints the diagnostic header.
     fn print_header(&mut self) -> io::Result<()> {
         let title = match self.diagnostic.level {
             Level::Error => "Error",
@@ -187,7 +184,7 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    /// Formats and prints a specific code snippet.
+    /// Formats and prints a single code [`Snippet`].
     fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
         if let Some(path) = self
             .cache
@@ -196,7 +193,7 @@ impl<'a> Renderer<'a> {
         {
             let kind = ReportKind::Custom("", self.styling.type_heading);
 
-            // Primary range is 0..0, since we strip it anyway
+            // Use a dummy range 0..0 for the primary location, as we strip it manually later.
             let report = Report::build(kind, (path.clone(), 0..0))
                 .with_config(Self::resolve_config(self.diagnostic.level));
 
@@ -210,7 +207,7 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    /// Formats and prints the help message of our diagnostic.
+    /// Formats and prints the help message footer.
     fn render_help(&mut self) -> io::Result<()> {
         if let Some(help) = &self.diagnostic.help {
             writeln!(
@@ -224,9 +221,10 @@ impl<'a> Renderer<'a> {
         Ok(())
     }
 
-    /// Strips all unwanted parts of the rendered 'Report' by 'ariadne'. This is where all the ugly
-    /// workaround code takes place. Ideally this would be cleaned up in the future, by utilizing crates that allow
-    /// us to do this by themselves.
+    /// Post-processes the `ariadne` [`Report`] to strip unwanted artifacts.
+    ///
+    /// This removes the default header lines and cleans up primary location indicators
+    /// that are not needed for this renderer's style.
     fn strip_report(
         &mut self,
         report: ReportBuilder<(String, std::ops::Range<usize>)>,
@@ -238,28 +236,25 @@ impl<'a> Renderer<'a> {
                 .map(|c| (c.path.clone(), c.content.clone())),
         );
 
-        // Render our ariadne report into our buffer
+        // Render the ariadne report into the buffer
         report.finish().write(sources, &mut buffer)?;
 
         let s =
             String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-        // We create a buffer for our output lines
         let mut output_lines = Vec::new();
 
-        // And then we write each (possibly modified) line into the buffer
         for (i, line) in s.lines().enumerate() {
-            // First line is skipped, it contains an unwanted header
+            // Skip the first line as it contains an unwanted header
             if i == 0 {
                 continue;
             }
 
-            // Strip ANSI color sequences from line, to detect the first actual character
+            // Strip ANSI sequences to safely check the start of the line
             let clean = Self::strip_ansi(line);
-            // Strip whitespace at the start of line
             let trimmed = clean.trim_start();
 
-            // If our line stars with one of these charactes, it is a header line
+            // Detect if this is a frame line and strip the location info if necessary
             if trimmed.starts_with('╭') || trimmed.starts_with('├') {
                 output_lines.push(Self::remove_primary_location(line));
             } else {
@@ -267,22 +262,22 @@ impl<'a> Renderer<'a> {
             }
         }
 
-        // Convert output back to byte stream
+        // Convert lines back to a byte stream
         let mut output = output_lines.join("\n").into_bytes();
 
-        // Add back trailing newline, that was stripped by our 'lines()' call
+        // Restore the trailing newline
         output.push(b'\n');
 
         Ok(output)
     }
 
-    /// Strip any string of all its ANSI escape sequences.
+    /// Removes ANSI escape sequences from a string.
     fn strip_ansi(s: &str) -> String {
         let re = Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap();
         re.replace_all(s, "").to_string()
     }
 
-    /// Strip the primary error location inside a line of text.
+    /// Removes the primary error location text (e.g., line/column numbers) from a line.
     fn remove_primary_location(line: &str) -> String {
         if let Some(colon_idx) = line.find(':') {
             if let Some(space_offset) = line[colon_idx..].find(' ') {
@@ -295,7 +290,7 @@ impl<'a> Renderer<'a> {
         line.to_string()
     }
 
-    /// Label our report with all of our annotations.
+    /// Applies annotations from the [`Snippet`] to the [`ReportBuilder`].
     fn label_report<'b>(
         &self,
         mut builder: ReportBuilder<'b, (String, std::ops::Range<usize>)>,
@@ -303,7 +298,6 @@ impl<'a> Renderer<'a> {
     ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
         if let Some(cached) = self.cache.get(&snippet.file) {
             for ann in &snippet.annotations {
-                // Determine label color, based on if it's a primary or context annotation
                 let color = match ann.primary {
                     true => self.styling.primary_highlight,
                     false => self.styling.context_highlight,

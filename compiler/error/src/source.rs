@@ -2,13 +2,15 @@ use std::path::PathBuf;
 
 use source::{SourceMap, loader::FileLoader, types::FileID};
 
-/// SourceLookup is an abstraction above any kind of file lookup, that allows us to get required information about a source file.
+/// Abstraction for retrieving source file content and metadata.
+///
+/// This trait decouples the diagnostic renderer from specific file loading implementations.
 pub trait SourceLookup {
     fn get_content(&self, id: FileID) -> Option<&str>;
     fn get_path(&self, id: FileID) -> Option<&PathBuf>;
 }
 
-/// We implement 'SourceLookup' for our 'SourceMap'
+/// Implementation of [`SourceLookup`] for the standard [`SourceMap`].
 impl<T: FileLoader> SourceLookup for SourceMap<T> {
     fn get_content(&self, id: FileID) -> Option<&str> {
         self.get_file(&id).map(|f| f.content())
@@ -19,8 +21,9 @@ impl<T: FileLoader> SourceLookup for SourceMap<T> {
     }
 }
 
-/// NoSource allows us to provide a 'SourceLookup', that does not provide any information about a
-/// source file on purpose.
+/// A dummy implementation of [`SourceLookup`] that provides no data.
+///
+/// Useful for testing or when source code is not available.
 pub struct NoSource;
 
 impl SourceLookup for NoSource {
