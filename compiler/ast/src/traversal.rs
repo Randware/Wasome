@@ -42,9 +42,16 @@ pub trait FunctionContainer<'b, Type: ASTType> {
 
     /// Gets the function with the specified identifier
     /// Returns None if it doesn't exist
-    fn function_by_identifier(&self, identifier: Type::SymbolIdentifier<'_>,) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
-        self.function_iterator()
-            .find(|function| Type::symbol_with_type_parameter_matches_identifier(identifier, function.inner().declaration()))
+    fn function_by_identifier(
+        &self,
+        identifier: Type::SymbolIdentifier<'_>,
+    ) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
+        self.function_iterator().find(|function| {
+            Type::symbol_with_type_parameter_matches_identifier(
+                identifier,
+                function.inner().declaration(),
+            )
+        })
     }
     /// Gets an iterator over all functions
     fn function_iterator<'c>(

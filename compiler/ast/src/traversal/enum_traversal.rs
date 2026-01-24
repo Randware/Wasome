@@ -1,7 +1,5 @@
 use crate::composite::Enum;
-use crate::symbol::{
-    DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable,
-};
+use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable};
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::HasSymbols;
 use crate::{ASTNode, ASTType};
@@ -53,18 +51,21 @@ struct EnumSymbolTable<'a, 'b, Type: ASTType> {
 impl<'a, 'b, Type: ASTType> EnumSymbolTable<'a, 'b, Type> {
     pub(crate) fn new(symbol_source: &'a EnumTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
-            symbols: Box::new(symbol_source.parent().symbols_trait_object().chain(
-                Type::type_parameter_symbols_of_symbol_with_type_parameter(symbol_source.inner().symbol()).map(
-                    |type_param| {
+            symbols: Box::new(
+                symbol_source.parent().symbols_trait_object().chain(
+                    Type::type_parameter_symbols_of_symbol_with_type_parameter(
+                        symbol_source.inner().symbol(),
+                    )
+                    .map(|type_param| {
                         (
                             None,
                             // For typed enums, there are never any type parameter symbols,
                             // so this is fine
                             DirectlyAvailableSymbol::UntypedTypeParameter(type_param),
                         )
-                    },
+                    }),
                 ),
-            )),
+            ),
         }
     }
 }

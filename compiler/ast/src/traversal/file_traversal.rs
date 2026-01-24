@@ -1,8 +1,8 @@
 use crate::composite::Enum;
 use crate::file::File;
 use crate::symbol::{
-    DirectlyAvailableSymbol, EnumSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable,
-    SymbolWithTypeParameter,
+    DirectlyAvailableSymbol, EnumSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable
+    ,
 };
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;

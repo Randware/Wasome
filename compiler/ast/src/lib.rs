@@ -433,19 +433,23 @@ mod tests {
         CodeBlock, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
         VariableAssignment, VariableDeclaration,
     };
-    use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, SymbolWithTypeParameter, UntypedTypeParameterSymbol, VariableSymbol};
+    use crate::symbol::{
+        DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol,
+        ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, SymbolWithTypeParameter,
+        UntypedTypeParameterSymbol, VariableSymbol,
+    };
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::traversal::{FunctionContainer, HasSymbols};
+    use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
     use crate::visibility::Visibility;
     use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST, AST};
     use shared::code_file::CodeFile;
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
     use std::rc::Rc;
-    use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 
     #[test]
     fn prove_identity_vs_semantic_eq() {
@@ -506,7 +510,9 @@ mod tests {
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
-        let function_ref = file_traversal_helper.function_by_identifier(("test", &[])).unwrap();
+        let function_ref = file_traversal_helper
+            .function_by_identifier(("test", &[]))
+            .unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let statement_ref = root.get_child(0).unwrap();
@@ -579,7 +585,9 @@ mod tests {
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
-        let function_ref = file_traversal_helper.function_by_identifier(("test", &[])).unwrap();
+        let function_ref = file_traversal_helper
+            .function_by_identifier(("test", &[]))
+            .unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let loop_statement = root.get_child(1).unwrap();
@@ -624,7 +632,9 @@ mod tests {
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
-        let function_ref = file_traversal_helper.function_by_identifier(("fibonacci", &[])).unwrap();
+        let function_ref = file_traversal_helper
+            .function_by_identifier(("fibonacci", &[]))
+            .unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.get_child(3).unwrap();
@@ -1030,7 +1040,9 @@ mod tests {
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
-        let function_ref = file_traversal_helper.function_by_identifier("fibonacci").unwrap();
+        let function_ref = file_traversal_helper
+            .function_by_identifier("fibonacci")
+            .unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.get_child(3).unwrap();
@@ -1815,7 +1827,9 @@ mod tests {
         let error_msg_struct = msg_file
             .struct_by_identifier(("Error", &Vec::new()))
             .unwrap();
-        let new_error_function = error_msg_struct.function_by_identifier(("new", &[])).unwrap();
+        let new_error_function = error_msg_struct
+            .function_by_identifier(("new", &[]))
+            .unwrap();
         let root_statement = new_error_function.ref_to_implementation();
         let symbols = root_statement
             .symbols()
@@ -1898,41 +1912,43 @@ mod tests {
 
     #[test]
     pub fn generic_untyped() {
-        let generic_test = Rc::new(StructSymbol::new("GenericTest".to_string(), vec![UntypedTypeParameter::new(Rc::new(UntypedTypeParameterSymbol::new("T".to_string())))]));
-        let ast = AST::<UntypedAST>::new(
-            ASTNode::new(
-                Directory::new(
-                    "src".to_string(),
-                    Vec::new(),
-                    vec![
-                        ASTNode::new(
-                            File::new(
-                                "main".to_string(),
+        let generic_test = Rc::new(StructSymbol::new(
+            "GenericTest".to_string(),
+            vec![UntypedTypeParameter::new(Rc::new(
+                UntypedTypeParameterSymbol::new("T".to_string()),
+            ))],
+        ));
+        let ast = AST::<UntypedAST>::new(ASTNode::new(
+            Directory::new(
+                "src".to_string(),
+                Vec::new(),
+                vec![ASTNode::new(
+                    File::new(
+                        "main".to_string(),
+                        Vec::new(),
+                        Vec::new(),
+                        Vec::new(),
+                        vec![ASTNode::new(
+                            Struct::new(
+                                generic_test.clone(),
                                 Vec::new(),
                                 Vec::new(),
-                                Vec::new(),
-                                vec![
-                                    ASTNode::new(
-                                        Struct::new(
-                                            generic_test.clone(),
-                                            Vec::new(),
-                                            Vec::new(),
-                                            Visibility::Public
-                                        ),
-                                        CodeArea::new(
-                                            CodeLocation::new(110,0),
-                                            CodeLocation::new(190, 1),
-                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
-                                    )
-                                ],
+                                Visibility::Public,
                             ),
-                            PathBuf::from("main.waso"),
-                        )
-                    ]
-                ),
-                PathBuf::from("src")
-            )
-        ).unwrap();
+                            CodeArea::new(
+                                CodeLocation::new(110, 0),
+                                CodeLocation::new(190, 1),
+                                CodeFile::new(PathBuf::from("main.waso")),
+                            )
+                            .unwrap(),
+                        )],
+                    ),
+                    PathBuf::from("main.waso"),
+                )],
+            ),
+            PathBuf::from("src"),
+        ))
+        .unwrap();
         let root = DirectoryTraversalHelper::new_from_ast(&ast);
         let main = root.file_by_name("main").unwrap();
         let generic_test = main.struct_by_identifier("GenericTest").unwrap();
@@ -1941,44 +1957,49 @@ mod tests {
 
     #[test]
     pub fn generic_typed() {
-        let generic_test = Rc::new(StructSymbol::new("GenericTest".to_string(), vec![TypedTypeParameter::new("T".to_string(), DataType::S16)]));
-        let ast = AST::<TypedAST>::new(
-            ASTNode::new(
-                Directory::new(
-                    "src".to_string(),
-                    Vec::new(),
-                    vec![
-                        ASTNode::new(
-                            File::new(
-                                "main".to_string(),
+        let generic_test = Rc::new(StructSymbol::new(
+            "GenericTest".to_string(),
+            vec![TypedTypeParameter::new("T".to_string(), DataType::S16)],
+        ));
+        let ast = AST::<TypedAST>::new(ASTNode::new(
+            Directory::new(
+                "src".to_string(),
+                Vec::new(),
+                vec![ASTNode::new(
+                    File::new(
+                        "main".to_string(),
+                        Vec::new(),
+                        Vec::new(),
+                        Vec::new(),
+                        vec![ASTNode::new(
+                            Struct::new(
+                                generic_test.clone(),
                                 Vec::new(),
                                 Vec::new(),
-                                Vec::new(),
-                                vec![
-                                    ASTNode::new(
-                                        Struct::new(
-                                            generic_test.clone(),
-                                            Vec::new(),
-                                            Vec::new(),
-                                            Visibility::Public
-                                        ),
-                                        CodeArea::new(
-                                            CodeLocation::new(110,0),
-                                            CodeLocation::new(190, 1),
-                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
-                                    )
-                                ],
+                                Visibility::Public,
                             ),
-                            PathBuf::from("main.waso"),
-                        )
-                    ]
-                ),
-                PathBuf::from("src")
-            )
-        ).unwrap();
+                            CodeArea::new(
+                                CodeLocation::new(110, 0),
+                                CodeLocation::new(190, 1),
+                                CodeFile::new(PathBuf::from("main.waso")),
+                            )
+                            .unwrap(),
+                        )],
+                    ),
+                    PathBuf::from("main.waso"),
+                )],
+            ),
+            PathBuf::from("src"),
+        ))
+        .unwrap();
         let root = DirectoryTraversalHelper::new_from_ast(&ast);
         let main = root.file_by_name("main").unwrap();
-        let generic_test = main.struct_by_identifier(("GenericTest", &[TypedTypeParameter::new("T".to_string(), DataType::S16)])).unwrap();
+        let generic_test = main
+            .struct_by_identifier((
+                "GenericTest",
+                &[TypedTypeParameter::new("T".to_string(), DataType::S16)],
+            ))
+            .unwrap();
         assert_eq!(generic_test.symbols().count(), 1);
     }
 }

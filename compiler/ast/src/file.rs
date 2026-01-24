@@ -62,12 +62,18 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the symbol with the specified identifier
-    pub fn symbol(&self, identifier: Type::SymbolIdentifier<'_>,) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+    pub fn symbol(
+        &self,
+        identifier: Type::SymbolIdentifier<'_>,
+    ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         self.symbol_chosen_public(identifier, true)
     }
 
     /// Gets the symbol with the specified identifier if it is public
-    pub fn symbol_public(&self, identifier: Type::SymbolIdentifier<'_>,) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+    pub fn symbol_public(
+        &self,
+        identifier: Type::SymbolIdentifier<'_>,
+    ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         self.symbol_chosen_public(identifier, false)
     }
 
@@ -94,9 +100,13 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the function with the specified name
-    pub fn function_by_identifier(&self, identifier: Type::SymbolIdentifier<'_>,) -> Option<&ASTNode<Function<Type>>> {
-        self.function_iterator()
-            .find(|function| Type::symbol_with_type_parameter_matches_identifier(identifier, function.declaration()))
+    pub fn function_by_identifier(
+        &self,
+        identifier: Type::SymbolIdentifier<'_>,
+    ) -> Option<&ASTNode<Function<Type>>> {
+        self.function_iterator().find(|function| {
+            Type::symbol_with_type_parameter_matches_identifier(identifier, function.declaration())
+        })
     }
 
     /// Gets an iterator over all functions inside this file

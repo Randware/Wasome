@@ -88,15 +88,17 @@ impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
                         )
                     }))
                     .chain(
-                        Type::type_parameter_symbols_of_symbol_with_type_parameter(symbol_source.inner().symbol())
-                            .map(|type_param| {
-                                (
-                                    None,
-                                    // For typed enums, there are never any type parameter symbols,
-                                    // so this is fine
-                                    DirectlyAvailableSymbol::UntypedTypeParameter(type_param),
-                                )
-                            }),
+                        Type::type_parameter_symbols_of_symbol_with_type_parameter(
+                            symbol_source.inner().symbol(),
+                        )
+                        .map(|type_param| {
+                            (
+                                None,
+                                // For typed enums, there are never any type parameter symbols,
+                                // so this is fine
+                                DirectlyAvailableSymbol::UntypedTypeParameter(type_param),
+                            )
+                        }),
                     ),
             ),
         }

@@ -140,14 +140,21 @@ impl<Type: ASTType> Struct<Type> {
     }
 
     /// Gets the function with the specified identifier
-    pub fn function_by_identifier(&self, identifier: Type::SymbolIdentifier<'_>) -> Option<&ASTNode<Function<Type>>> {
-        self.functions()
-            .iter()
-            .find(|function| Type::symbol_with_type_parameter_matches_identifier(identifier, function.declaration()))
+    pub fn function_by_identifier(
+        &self,
+        identifier: Type::SymbolIdentifier<'_>,
+    ) -> Option<&ASTNode<Function<Type>>> {
+        self.functions().iter().find(|function| {
+            Type::symbol_with_type_parameter_matches_identifier(identifier, function.declaration())
+        })
     }
 
     /// Gets the function with the specified identifier if it is public or only_public is false
-    pub fn function_symbol(&self, identifier: Type::SymbolIdentifier<'_>, only_public: bool) -> Option<&FunctionSymbol<Type>> {
+    pub fn function_symbol(
+        &self,
+        identifier: Type::SymbolIdentifier<'_>,
+        only_public: bool,
+    ) -> Option<&FunctionSymbol<Type>> {
         self.function_by_identifier(identifier)
             .filter(|function| !only_public || function.visibility() == Visibility::Public)
             .map(|function| function.declaration())
