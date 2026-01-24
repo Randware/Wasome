@@ -1,16 +1,17 @@
 <script>
-  import { route, navigate } from '../lib/router';
+  import { navigate } from '../lib/router';
   
-  export let activeRoute = '/';
+  let { activeRoute = '/' } = $props();
 
-  function go(path) {
+  function go(e, path) {
+    e.preventDefault();
     navigate(path);
   }
 </script>
 
 <header>
   <div class="container">
-    <a href="/" class="logo" on:click|preventDefault={() => go('/')}>
+    <a href="/" class="logo" onclick={(e) => go(e, '/')}>
       <img src="/logo.png" alt="Wasome Logo" />
       <span>Wasome</span>
     </a>
@@ -18,28 +19,28 @@
     <nav>
       <a href="/docs" 
          class:active={activeRoute === '/docs'} 
-         on:click|preventDefault={() => go('/docs')}>
+         onclick={(e) => go(e, '/docs')}>
         Docs
       </a>
       <a href="/walkthrough" 
          class:active={activeRoute === '/walkthrough'} 
-         on:click|preventDefault={() => go('/walkthrough')}>
+         onclick={(e) => go(e, '/walkthrough')}>
         Tour
       </a>
       <a href="/examples" 
          class:active={activeRoute === '/examples'} 
-         on:click|preventDefault={() => go('/examples')}>
+         onclick={(e) => go(e, '/examples')}>
         Examples
       </a>
       <a href="/playground" 
          class:active={activeRoute === '/playground'} 
-         on:click|preventDefault={() => go('/playground')}>
+         onclick={(e) => go(e, '/playground')}>
         Playground
       </a>
     </nav>
     
     <div class="cta">
-      <a href="/install" class="install-btn" on:click|preventDefault={() => go('/install')}>
+      <a href="/install" class="install-btn" onclick={(e) => go(e, '/install')}>
         Install
       </a>
       <a href="https://github.com/Randware/Wasome" target="_blank" class="github-btn">

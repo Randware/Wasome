@@ -35,10 +35,10 @@ fn main() -> s32 {
     </p>
     
     <div class="actions">
-      <button class="btn primary" on:click={() => navigate('/docs')}>
+      <button class="btn primary" onclick={() => navigate('/docs')}>
         Get Started
       </button>
-      <button class="btn secondary" on:click={() => navigate('/walkthrough')}>
+      <button class="btn secondary" onclick={() => navigate('/walkthrough')}>
         Take the Tour
       </button>
     </div>

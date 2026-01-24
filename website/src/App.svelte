@@ -9,38 +9,33 @@
   import Walkthrough from './pages/Walkthrough.svelte';
   import Install from './pages/Install.svelte';
 
-  let Component;
-
-  // Simple router logic
-  $: {
+  let Component = $derived.by(() => {
     switch ($route) {
       case '/':
       case '':
-        Component = Home;
-        break;
+        return Home;
       case '/docs':
-        Component = Docs;
-        break;
+        return Docs;
       case '/walkthrough':
-        Component = Walkthrough;
-        break;
+        return Walkthrough;
       case '/examples':
-        Component = Examples;
-        break;
+        return Examples;
       case '/playground':
-        Component = Playground;
-        break;
+        return Playground;
       case '/install':
-        Component = Install;
-        break;
+        return Install;
       default:
-        Component = Home; // Fallback to Home or 404
+        return Home;
     }
-    // Scroll to top on route change
+  });
+
+  $effect(() => {
+    // Track route for scrolling
+    $route;
     if (typeof window !== 'undefined') {
       window.scrollTo(0, 0);
     }
-  }
+  });
 
   onMount(() => {
     const cleanup = route.init();
@@ -52,7 +47,7 @@
 
 <main>
   {#if Component}
-    <svelte:component this={Component} />
+    <Component />
   {/if}
 </main>
 

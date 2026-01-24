@@ -1,7 +1,8 @@
 <script>
   import { highlight } from '../lib/highlighter';
 
-  function scrollTo(id) {
+  function scrollTo(e, id) {
+    e.preventDefault();
     const el = document.getElementById(id);
     if (el) {
       // Adjust for header height
@@ -16,14 +17,14 @@
     <div class="sidebar-inner">
       <h4>Contents</h4>
       <nav>
-        <a href="#datatypes" on:click|preventDefault={() => scrollTo('datatypes')}>Datatypes</a>
-        <a href="#expressions" on:click|preventDefault={() => scrollTo('expressions')}>Expressions</a>
-        <a href="#operators" on:click|preventDefault={() => scrollTo('operators')}>Operators</a>
-        <a href="#functions" on:click|preventDefault={() => scrollTo('functions')}>Functions</a>
-        <a href="#variables" on:click|preventDefault={() => scrollTo('variables')}>Variables</a>
-        <a href="#control-flow" on:click|preventDefault={() => scrollTo('control-flow')}>Control Flow</a>
-        <a href="#structs" on:click|preventDefault={() => scrollTo('structs')}>Structs</a>
-        <a href="#enums" on:click|preventDefault={() => scrollTo('enums')}>Enums</a>
+        <a href="#datatypes" onclick={(e) => scrollTo(e, 'datatypes')}>Datatypes</a>
+        <a href="#expressions" onclick={(e) => scrollTo(e, 'expressions')}>Expressions</a>
+        <a href="#operators" onclick={(e) => scrollTo(e, 'operators')}>Operators</a>
+        <a href="#functions" onclick={(e) => scrollTo(e, 'functions')}>Functions</a>
+        <a href="#variables" onclick={(e) => scrollTo(e, 'variables')}>Variables</a>
+        <a href="#control-flow" onclick={(e) => scrollTo(e, 'control-flow')}>Control Flow</a>
+        <a href="#structs" onclick={(e) => scrollTo(e, 'structs')}>Structs</a>
+        <a href="#enums" onclick={(e) => scrollTo(e, 'enums')}>Enums</a>
       </nav>
     </div>
   </aside>
