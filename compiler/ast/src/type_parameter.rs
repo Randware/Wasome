@@ -39,7 +39,7 @@ impl SemanticEq for UntypedTypeParameter {
 #[derive(Debug, PartialEq, Clone)]
 pub struct UntypedTypeParameterUsage {
     name: String,
-    /// `data_type` only exists in te typed AST, so it is not available
+    /// The [`DataType`] struct only exists in the typed AST, so it is not available
     data_type: String,
     type_parameters: Vec<UntypedTypeParameterUsage>,
 }
