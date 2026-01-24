@@ -1,4 +1,4 @@
-use crate::symbol::{SymbolTable, TypeParameterSymbol};
+use crate::symbol::{SymbolTable, SymbolWithTypeParameter};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::ASTType;
 use std::fmt::Debug;
@@ -40,12 +40,11 @@ pub trait FunctionContainer<'b, Type: ASTType> {
     /// Errors if `index > self.len_functions()`
     fn index_function(&self, index: usize) -> Option<FunctionTraversalHelper<'_, 'b, Type>>;
 
-    // TODO
-    /// Gets the function with the specified name
+    /// Gets the function with the specified identifier
     /// Returns None if it doesn't exist
-    fn function_by_name(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
+    fn function_by_identifier(&self, identifier: Type::SymbolIdentifier<'_>,) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
         self.function_iterator()
-            .find(|function| function.inner().declaration().name() == name)
+            .find(|function| Type::symbol_with_type_parameter_matches_identifier(identifier, function.inner().declaration()))
     }
     /// Gets an iterator over all functions
     fn function_iterator<'c>(

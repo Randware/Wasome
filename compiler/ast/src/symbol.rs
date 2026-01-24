@@ -1,6 +1,6 @@
 use crate::data_type::{DataType, Typed};
 use crate::id::Id;
-use crate::{ASTType, SemanticEq, TypedAST};
+use crate::{ASTType, SymbolIdentifier, SemanticEq, TypedAST};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -66,6 +66,15 @@ impl<'a, Type: ASTType> DirectlyAvailableSymbol<'a, Type> {
             DirectlyAvailableSymbol::Struct(st) => st.name(),
             DirectlyAvailableSymbol::ModuleUsageName(mun) => mun.name(),
             DirectlyAvailableSymbol::UntypedTypeParameter(mun) => mun.name(),
+        }
+    }
+    
+    pub fn matches_identifier(&self, identifier: Type::SymbolIdentifier<'_>) -> bool {
+        match self {
+            DirectlyAvailableSymbol::Function(func) => Type::symbol_with_type_parameter_matches_identifier(identifier, *func),
+            DirectlyAvailableSymbol::Enum(en) => Type::symbol_with_type_parameter_matches_identifier(identifier, *en),
+            DirectlyAvailableSymbol::Struct(st) => Type::symbol_with_type_parameter_matches_identifier(identifier, *st),
+            _ => self.name() == identifier.name() && identifier.count_type_parameters() == 0
         }
     }
 }
@@ -138,7 +147,7 @@ impl<Type: ASTType> Eq for DirectlyAvailableSymbol<'_, Type> {}
 /// Either a struct, enum or function
 ///
 /// This exists to allow code to work on all three as they are extremely similar
-pub trait TypeParameterSymbol<Type: ASTType>: Debug + PartialEq + SemanticEq + Eq + Hash {
+pub trait SymbolWithTypeParameter<Type: ASTType>: Debug + PartialEq + SemanticEq + Eq + Hash {
     fn name(&self) -> &str;
     fn id(&self) -> &Id;
     fn type_parameters(&self) -> &[Type::TypeParameter];
@@ -185,7 +194,7 @@ impl<Type: ASTType> FunctionSymbol<Type> {
     }
 }
 
-impl<Type: ASTType> TypeParameterSymbol<Type> for FunctionSymbol<Type> {
+impl<Type: ASTType> SymbolWithTypeParameter<Type> for FunctionSymbol<Type> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -336,7 +345,7 @@ impl<Type: ASTType> EnumSymbol<Type> {
         }
     }
 }
-impl<Type: ASTType> TypeParameterSymbol<Type> for EnumSymbol<Type> {
+impl<Type: ASTType> SymbolWithTypeParameter<Type> for EnumSymbol<Type> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -386,7 +395,7 @@ impl<Type: ASTType> StructSymbol<Type> {
         }
     }
 }
-impl<Type: ASTType> TypeParameterSymbol<Type> for StructSymbol<Type> {
+impl<Type: ASTType> SymbolWithTypeParameter<Type> for StructSymbol<Type> {
     fn name(&self) -> &str {
         &self.name
     }
@@ -555,7 +564,7 @@ impl SemanticEq for UntypedTypeParameterSymbol {
 mod tests {
     use crate::data_type::DataType;
     use crate::expression::{Expression, FunctionCall, Literal};
-    use crate::symbol::{FunctionSymbol, TypeParameterSymbol, VariableSymbol};
+    use crate::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
     use crate::test_shared::sample_codearea;
     use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST};
     use std::rc::Rc;

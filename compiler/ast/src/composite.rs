@@ -1,6 +1,6 @@
 use crate::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
-    TypeParameterSymbol,
+    SymbolWithTypeParameter,
 };
 use crate::top_level::Function;
 use crate::visibility::{Visibility, Visible};
@@ -139,16 +139,16 @@ impl<Type: ASTType> Struct<Type> {
         self.visibility
     }
 
-    /// Gets the function with the specified name
-    pub fn function_by_name(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
+    /// Gets the function with the specified identifier
+    pub fn function_by_identifier(&self, identifier: Type::SymbolIdentifier<'_>) -> Option<&ASTNode<Function<Type>>> {
         self.functions()
             .iter()
-            .find(|function| function.declaration().name() == name)
+            .find(|function| Type::symbol_with_type_parameter_matches_identifier(identifier, function.declaration()))
     }
 
-    /// Gets the function with the specified name if it is public or only_public is false
-    pub fn function_symbol(&self, name: &str, only_public: bool) -> Option<&FunctionSymbol<Type>> {
-        self.function_by_name(name)
+    /// Gets the function with the specified identifier if it is public or only_public is false
+    pub fn function_symbol(&self, identifier: Type::SymbolIdentifier<'_>, only_public: bool) -> Option<&FunctionSymbol<Type>> {
+        self.function_by_identifier(identifier)
             .filter(|function| !only_public || function.visibility() == Visibility::Public)
             .map(|function| function.declaration())
     }

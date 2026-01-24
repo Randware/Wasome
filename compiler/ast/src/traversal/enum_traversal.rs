@@ -54,7 +54,7 @@ impl<'a, 'b, Type: ASTType> EnumSymbolTable<'a, 'b, Type> {
     pub(crate) fn new(symbol_source: &'a EnumTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
             symbols: Box::new(symbol_source.parent().symbols_trait_object().chain(
-                Type::type_parameter_symbols_of_composite(symbol_source.inner().symbol()).map(
+                Type::type_parameter_symbols_of_symbol_with_type_parameter(symbol_source.inner().symbol()).map(
                     |type_param| {
                         (
                             None,

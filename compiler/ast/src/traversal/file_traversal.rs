@@ -2,7 +2,7 @@ use crate::composite::Enum;
 use crate::file::File;
 use crate::symbol::{
     DirectlyAvailableSymbol, EnumSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable,
-    TypeParameterSymbol,
+    SymbolWithTypeParameter,
 };
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
@@ -53,12 +53,6 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     pub fn index_function(&self, index: usize) -> FunctionTraversalHelper<'_, 'b, Type> {
         FunctionTraversalHelper::new(&self.inner.functions()[index], self)
     }
-    ///  Gets the function with the specified name
-    /// Returns None if it doesn't exist
-    pub fn function_by_name(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
-        self.function_iterator()
-            .find(|function| function.inner().declaration().name() == name)
-    }
 
     /// Gets the length of the enums
     pub fn len_enums(&self) -> usize {
@@ -79,7 +73,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /// Returns None if it doesn't exist
     pub fn enum_by_identifier(
         &self,
-        identifier: Type::TypeParameterSymbolIdentifier<'_>,
+        identifier: Type::SymbolIdentifier<'_>,
     ) -> Option<&'b ASTNode<Enum<Type>>> {
         self.inner().enum_by_identifier(identifier)
     }
@@ -111,10 +105,10 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /// Returns None if it doesn't exist
     pub fn struct_by_identifier(
         &self,
-        identifier: Type::TypeParameterSymbolIdentifier<'_>,
+        identifier: Type::SymbolIdentifier<'_>,
     ) -> Option<StructTraversalHelper<'_, 'b, Type>> {
         self.inner()
-            .struct_by_identfier(identifier)
+            .struct_by_identifier(identifier)
             .map(|st| StructTraversalHelper::new(st, self))
     }
 

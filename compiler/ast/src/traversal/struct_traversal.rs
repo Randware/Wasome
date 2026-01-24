@@ -88,7 +88,7 @@ impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
                         )
                     }))
                     .chain(
-                        Type::type_parameter_symbols_of_composite(symbol_source.inner().symbol())
+                        Type::type_parameter_symbols_of_symbol_with_type_parameter(symbol_source.inner().symbol())
                             .map(|type_param| {
                                 (
                                     None,

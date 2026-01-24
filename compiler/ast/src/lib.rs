@@ -23,7 +23,7 @@ use crate::expression::Literal;
 use crate::id::Id;
 use crate::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
-    TypeParameterSymbol, UntypedTypeParameterSymbol, VariableSymbol,
+    SymbolWithTypeParameter, UntypedTypeParameterSymbol, VariableSymbol,
 };
 use crate::top_level::{Import, ImportRoot};
 use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter, UntypedTypeParameterUsage};
@@ -288,31 +288,35 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     type StructFieldUse: Debug + PartialEq + SemanticEq;
     /// The type parameter on composite declaration, **not** usage
     type TypeParameter: Debug + PartialEq;
-    /// The minimal combination of data that identifies a symbol that has type parameters
-    ///
-    /// This is either a struct, enum or function.
+    /// The minimal combination of data that identifies a symbol
     ///
     /// This is supposed to be only used for querying and similar and is therefore
     /// in its borrowed form (e.g.: `&str`)
     ///
-    /// In the untyped AST, this identifies the symbol itself and not a usage
-    type TypeParameterSymbolIdentifier<'a>: Debug + PartialEq + Copy;
+    /// In the untyped AST, this identifies the symbol itself and not a usage.
+    ///     - In the types AST, usage works via symbol
+    /// 
+    /// This always has a name, which can be extracted via the [`SymbolIdentifier`] trait
+    /// 
+    /// Symbols without a type parameter (e.g.: variable) can only match if there are no 
+    /// type parameters on this
+    type SymbolIdentifier<'a>: Debug + PartialEq + Copy + SymbolIdentifier;
 
-    /// Gets all type parameter symbols of the provided composite
+    /// Gets all type parameter symbols of the provided symbol with type parameters
     ///
-    /// In practice, this means that for untyped structs all parameters will be returned and for typed
+    /// In practice, this means that for untyped symbols all parameters will be returned and for typed
     /// an empty iterator.
     ///
-    /// Keep in mind that for typed structs, the type parameters are part of the identifier and
+    /// Keep in mind that for typed symbols, the type parameters are part of the identifier and
     /// not symbols that provide data types inside the composite
-    fn type_parameter_symbols_of_composite(
-        of: &impl TypeParameterSymbol<Self>,
+    fn type_parameter_symbols_of_symbol_with_type_parameter(
+        of: &impl SymbolWithTypeParameter<Self>,
     ) -> impl Iterator<Item = &UntypedTypeParameterSymbol>;
 
-    /// Checks wherever a given composite matches a given identifier
-    fn composite_matches_identifier(
-        identifier: Self::TypeParameterSymbolIdentifier<'_>,
-        to_check: &impl TypeParameterSymbol<Self>,
+    /// Checks wherever a given symbol with type parameter matches a given identifier
+    fn symbol_with_type_parameter_matches_identifier(
+        identifier: Self::SymbolIdentifier<'_>,
+        to_check: &impl SymbolWithTypeParameter<Self>,
     ) -> bool;
 }
 
@@ -331,17 +335,17 @@ impl ASTType for TypedAST {
     type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
     type StructFieldUse = Rc<StructFieldSymbol<TypedAST>>;
     type TypeParameter = TypedTypeParameter;
-    type TypeParameterSymbolIdentifier<'a> = (&'a str, &'a [TypedTypeParameter]);
-    fn type_parameter_symbols_of_composite(
-        _of: &impl TypeParameterSymbol<Self>,
+    type SymbolIdentifier<'a> = (&'a str, &'a [TypedTypeParameter]);
+    fn type_parameter_symbols_of_symbol_with_type_parameter(
+        _of: &impl SymbolWithTypeParameter<Self>,
     ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
         // A typed struct has no type parameter symbols
         [].into_iter()
     }
 
-    fn composite_matches_identifier(
-        identifier: Self::TypeParameterSymbolIdentifier<'_>,
-        to_check: &impl TypeParameterSymbol<Self>,
+    fn symbol_with_type_parameter_matches_identifier(
+        identifier: Self::SymbolIdentifier<'_>,
+        to_check: &impl SymbolWithTypeParameter<Self>,
     ) -> bool {
         to_check.type_parameters() == identifier.1 && to_check.name() == identifier.0
     }
@@ -362,18 +366,18 @@ impl ASTType for UntypedAST {
     type EnumVariantUse = String;
     type StructFieldUse = String;
     type TypeParameter = UntypedTypeParameter;
-    type TypeParameterSymbolIdentifier<'a> = &'a str;
-    fn type_parameter_symbols_of_composite(
-        of: &impl TypeParameterSymbol<Self>,
+    type SymbolIdentifier<'a> = &'a str;
+    fn type_parameter_symbols_of_symbol_with_type_parameter(
+        of: &impl SymbolWithTypeParameter<Self>,
     ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
         of.type_parameters()
             .iter()
             .map(|type_param| type_param.inner())
     }
 
-    fn composite_matches_identifier(
-        identifier: Self::TypeParameterSymbolIdentifier<'_>,
-        to_check: &impl TypeParameterSymbol<Self>,
+    fn symbol_with_type_parameter_matches_identifier(
+        identifier: Self::SymbolIdentifier<'_>,
+        to_check: &impl SymbolWithTypeParameter<Self>,
     ) -> bool {
         to_check.name() == identifier
     }
@@ -383,6 +387,35 @@ impl ASTType for UntypedAST {
 impl SemanticEq for (String, Vec<UntypedTypeParameterUsage>) {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.0 == other.0 && self.1 == other.1
+    }
+}
+
+/// Used to get information out of a [`ASTType::SymbolIdentifier`]
+pub trait SymbolIdentifier {
+    fn name(&self) -> &str;
+    fn count_type_parameters(&self) -> usize;
+    fn has_type_parameters(&self) -> bool {
+        self.count_type_parameters() == 0
+    }
+}
+
+impl SymbolIdentifier for &str {
+    fn name(&self) -> &str {
+        self
+    }
+
+    fn count_type_parameters(&self) -> usize {
+        0
+    }
+}
+
+impl SymbolIdentifier for (&str, &[TypedTypeParameter]) {
+    fn name(&self) -> &str {
+        self.0
+    }
+
+    fn count_type_parameters(&self) -> usize {
+        self.1.len()
     }
 }
 
@@ -402,7 +435,7 @@ mod tests {
     };
     use crate::symbol::{
         DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol,
-        ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, TypeParameterSymbol,
+        ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, SymbolWithTypeParameter,
         VariableSymbol,
     };
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
@@ -476,7 +509,7 @@ mod tests {
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
-        let function_ref = file_traversal_helper.function_by_name("test").unwrap();
+        let function_ref = file_traversal_helper.function_by_identifier(("test", &[])).unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let statement_ref = root.get_child(0).unwrap();
@@ -549,7 +582,7 @@ mod tests {
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
-        let function_ref = file_traversal_helper.function_by_name("test").unwrap();
+        let function_ref = file_traversal_helper.function_by_identifier(("test", &[])).unwrap();
 
         let root = StatementTraversalHelper::new_root(&function_ref);
         let loop_statement = root.get_child(1).unwrap();
@@ -594,7 +627,7 @@ mod tests {
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
-        let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
+        let function_ref = file_traversal_helper.function_by_identifier(("fibonacci", &[])).unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.get_child(3).unwrap();
@@ -1000,7 +1033,7 @@ mod tests {
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
-        let function_ref = file_traversal_helper.function_by_name("fibonacci").unwrap();
+        let function_ref = file_traversal_helper.function_by_identifier("fibonacci").unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.get_child(3).unwrap();
@@ -1765,7 +1798,7 @@ mod tests {
 
         let root = DirectoryTraversalHelper::new_from_ast(&ast);
         let main = root.file_by_name("main").unwrap();
-        let main_func = main.function_by_name("main").unwrap();
+        let main_func = main.function_by_identifier(("main", &[])).unwrap();
         let root_statement = main_func.ref_to_implementation();
         let match_statement = root_statement.get_child(0).unwrap();
         let inner_function_call = match_statement.get_child(0).unwrap();
@@ -1785,7 +1818,7 @@ mod tests {
         let error_msg_struct = msg_file
             .struct_by_identifier(("Error", &Vec::new()))
             .unwrap();
-        let new_error_function = error_msg_struct.function_by_name("new").unwrap();
+        let new_error_function = error_msg_struct.function_by_identifier(("new", &[])).unwrap();
         let root_statement = new_error_function.ref_to_implementation();
         let symbols = root_statement
             .symbols()

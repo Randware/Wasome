@@ -762,7 +762,7 @@ impl FunctionCall<UntypedAST> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::symbol::{TypeParameterSymbol, VariableSymbol};
+    use crate::symbol::{SymbolWithTypeParameter, VariableSymbol};
     use crate::test_shared::sample_codearea;
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::composite::{Enum, Struct};
 use crate::symbol::{
-    DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, TypeParameterSymbol,
+    DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter,
 };
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
@@ -61,22 +61,23 @@ impl<Type: ASTType> File<Type> {
         &self.structs
     }
 
-    /// Gets the symbol with the specified name
-    pub fn symbol(&self, name: &str) -> Option<DirectlyAvailableSymbol<'_, Type>> {
-        self.symbol_chosen_public(name, true)
+    /// Gets the symbol with the specified identifier
+    pub fn symbol(&self, identifier: Type::SymbolIdentifier<'_>,) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+        self.symbol_chosen_public(identifier, true)
     }
 
-    /// Gets the symbol with the specified name if it is public
-    pub fn symbol_public(&self, name: &str) -> Option<DirectlyAvailableSymbol<'_, Type>> {
-        self.symbol_chosen_public(name, false)
+    /// Gets the symbol with the specified identifier if it is public
+    pub fn symbol_public(&self, identifier: Type::SymbolIdentifier<'_>,) -> Option<DirectlyAvailableSymbol<'_, Type>> {
+        self.symbol_chosen_public(identifier, false)
     }
 
     /// Gets the requested symbol. It does not differentiate between function- and non-function
     /// symbols.
-    /// - Note that currently, there are only function symbols
     ///
     /// # Parameter
     ///
+    /// - `identifier`: The identifier of the symbol
+    ///     - If the symbol has no type parameters, this may have neither
     /// - `only_public`: If true, the symbol is only returned if it is public. Otherwise, there is no filtering
     ///
     /// # Return
@@ -85,24 +86,17 @@ impl<Type: ASTType> File<Type> {
     /// - `Some(<Symbol>)`: If a symbol was found
     fn symbol_chosen_public(
         &self,
-        name: &str,
+        identifier: Type::SymbolIdentifier<'_>,
         only_public: bool,
     ) -> Option<DirectlyAvailableSymbol<'_, Type>> {
         self.symbols_chosen_public(only_public)
-            .find(|symbol| symbol.name() == name)
+            .find(|symbol| symbol.matches_identifier(identifier))
     }
 
     /// Gets the function with the specified name
-    pub fn specific_function(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
-        self.functions()
-            .iter()
-            .find(|function| function.declaration().name() == name)
-    }
-
-    /// Gets the function with the specified name
-    pub fn function_by_name(&self, name: &str) -> Option<&ASTNode<Function<Type>>> {
+    pub fn function_by_identifier(&self, identifier: Type::SymbolIdentifier<'_>,) -> Option<&ASTNode<Function<Type>>> {
         self.function_iterator()
-            .find(|function| function.declaration().name() == name)
+            .find(|function| Type::symbol_with_type_parameter_matches_identifier(identifier, function.declaration()))
     }
 
     /// Gets an iterator over all functions inside this file
@@ -111,23 +105,23 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the struct with a specified identifier
-    pub fn struct_by_identfier(
+    pub fn struct_by_identifier(
         &self,
-        identifier: Type::TypeParameterSymbolIdentifier<'_>,
+        identifier: Type::SymbolIdentifier<'_>,
     ) -> Option<&ASTNode<Struct<Type>>> {
         self.structs()
             .iter()
-            .find(|st| Type::composite_matches_identifier(identifier, st.symbol()))
+            .find(|st| Type::symbol_with_type_parameter_matches_identifier(identifier, st.symbol()))
     }
 
     /// Gets the enum with the specified identifier
     pub fn enum_by_identifier(
         &self,
-        identifier: Type::TypeParameterSymbolIdentifier<'_>,
+        identifier: Type::SymbolIdentifier<'_>,
     ) -> Option<&ASTNode<Enum<Type>>> {
         self.enums()
             .iter()
-            .find(|en| Type::composite_matches_identifier(identifier, en.symbol()))
+            .find(|en| Type::symbol_with_type_parameter_matches_identifier(identifier, en.symbol()))
     }
 
     /// Gets an iterator over all enums
