@@ -295,10 +295,10 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     ///
     /// In the untyped AST, this identifies the symbol itself and not a usage.
     ///     - In the types AST, usage works via symbol
-    /// 
+    ///
     /// This always has a name, which can be extracted via the [`SymbolIdentifier`] trait
-    /// 
-    /// Symbols without a type parameter (e.g.: variable) can only match if there are no 
+    ///
+    /// Symbols without a type parameter (e.g.: variable) can only match if there are no
     /// type parameters on this
     type SymbolIdentifier<'a>: Debug + PartialEq + Copy + SymbolIdentifier;
 
@@ -433,11 +433,7 @@ mod tests {
         CodeBlock, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
         VariableAssignment, VariableDeclaration,
     };
-    use crate::symbol::{
-        DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol,
-        ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, SymbolWithTypeParameter,
-        VariableSymbol,
-    };
+    use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, SymbolWithTypeParameter, UntypedTypeParameterSymbol, VariableSymbol};
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
@@ -449,6 +445,7 @@ mod tests {
     use shared::code_reference::{CodeArea, CodeLocation};
     use std::path::PathBuf;
     use std::rc::Rc;
+    use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 
     #[test]
     fn prove_identity_vs_semantic_eq() {
@@ -1897,6 +1894,92 @@ mod tests {
         );
         let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
         assert!(call.semantic_eq(&call2));
+    }
+
+    #[test]
+    pub fn generic_untyped() {
+        let generic_test = Rc::new(StructSymbol::new("GenericTest".to_string(), vec![UntypedTypeParameter::new(Rc::new(UntypedTypeParameterSymbol::new("T".to_string())))]));
+        let ast = AST::<UntypedAST>::new(
+            ASTNode::new(
+                Directory::new(
+                    "src".to_string(),
+                    Vec::new(),
+                    vec![
+                        ASTNode::new(
+                            File::new(
+                                "main".to_string(),
+                                Vec::new(),
+                                Vec::new(),
+                                Vec::new(),
+                                vec![
+                                    ASTNode::new(
+                                        Struct::new(
+                                            generic_test.clone(),
+                                            Vec::new(),
+                                            Vec::new(),
+                                            Visibility::Public
+                                        ),
+                                        CodeArea::new(
+                                            CodeLocation::new(110,0),
+                                            CodeLocation::new(190, 1),
+                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                    )
+                                ],
+                            ),
+                            PathBuf::from("main.waso"),
+                        )
+                    ]
+                ),
+                PathBuf::from("src")
+            )
+        ).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let main = root.file_by_name("main").unwrap();
+        let generic_test = main.struct_by_identifier("GenericTest").unwrap();
+        assert_eq!(generic_test.symbols().count(), 2);
+    }
+
+    #[test]
+    pub fn generic_typed() {
+        let generic_test = Rc::new(StructSymbol::new("GenericTest".to_string(), vec![TypedTypeParameter::new("T".to_string(), DataType::S16)]));
+        let ast = AST::<TypedAST>::new(
+            ASTNode::new(
+                Directory::new(
+                    "src".to_string(),
+                    Vec::new(),
+                    vec![
+                        ASTNode::new(
+                            File::new(
+                                "main".to_string(),
+                                Vec::new(),
+                                Vec::new(),
+                                Vec::new(),
+                                vec![
+                                    ASTNode::new(
+                                        Struct::new(
+                                            generic_test.clone(),
+                                            Vec::new(),
+                                            Vec::new(),
+                                            Visibility::Public
+                                        ),
+                                        CodeArea::new(
+                                            CodeLocation::new(110,0),
+                                            CodeLocation::new(190, 1),
+                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                    )
+                                ],
+                            ),
+                            PathBuf::from("main.waso"),
+                        )
+                    ]
+                ),
+                PathBuf::from("src")
+            )
+        ).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let main = root.file_by_name("main").unwrap();
+        let generic_test = main.struct_by_identifier(("GenericTest", &[TypedTypeParameter::new("T".to_string(), DataType::S16)])).unwrap();
+        assert_eq!(generic_test.symbols().count(), 1);
     }
 }
 
