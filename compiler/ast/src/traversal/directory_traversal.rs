@@ -1,5 +1,5 @@
 use crate::directory::Directory;
-use crate::symbol::Symbol;
+use crate::symbol::DirectlyAvailableSymbol;
 use crate::top_level::{Import, ImportRoot};
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::{AST, ASTNode, ASTType};
@@ -119,12 +119,13 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
             .files_iterator()
             .map(|file| FileTraversalHelper::new(file, self))
     }
+
     /// Gets the symbol imported by a specific import
     /// Returns None if it doesn't exist or is not visible
     pub(crate) fn resolve_import(
         &self,
         to_resolve: &Import,
-    ) -> Option<impl Iterator<Item = Symbol<'b, Type>>> {
+    ) -> Option<impl Iterator<Item = DirectlyAvailableSymbol<'b, Type>>> {
         let root = match to_resolve.root() {
             ImportRoot::CurrentModule => self,
             ImportRoot::Root => self.get_root(),
@@ -135,7 +136,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     fn get_symbols_for_path(
         &self,
         path: &[String],
-    ) -> Option<impl Iterator<Item = Symbol<'b, Type>>> {
+    ) -> Option<impl Iterator<Item = DirectlyAvailableSymbol<'b, Type>>> {
         self.inner().get_symbols_for_path(path)
     }
 

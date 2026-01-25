@@ -55,7 +55,6 @@ impl Ord for CodeLocation {
 The start is inclusive
 The line of the end is inclusive, the char exclusive
 */
-
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[deprecated(
     note = "Superseded by the `source` crate. The new implementation handles path canonicalization correctly and should be preferred."

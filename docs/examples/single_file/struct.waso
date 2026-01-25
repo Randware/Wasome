@@ -1,0 +1,13 @@
+struct Point {
+    s32 x
+    s32 y
+}
+
+fn main() {
+
+    Point point <- new Point { x <- 10, y <- 20 }
+
+    s32 old_x_coordinate <- point.x
+    
+    point.x <- 15
+}

@@ -1,9 +1,11 @@
 use crate::statement::Statement;
-use crate::symbol::{ModuleUsageNameSymbol, Symbol, SymbolTable};
+use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
+use crate::traversal::HasSymbols;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
 use std::ops::Index;
+use std::vec::IntoIter;
 
 /// This struct helps with traversing statements
 ///
@@ -35,6 +37,10 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
             location: StatementLocation::new_root(root.inner().implementation()),
             root,
         }
+    }
+
+    pub fn child_len(&self) -> usize {
+        self.inner.amount_children()
     }
 
     pub fn root_helper(&self) -> &'a FunctionTraversalHelper<'a, 'b, Type> {
@@ -108,22 +114,28 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     pub fn symbols_defined_directly_in_before_index(
         &self,
         index: usize,
-    ) -> Option<Vec<Symbol<'b, Type>>> {
+    ) -> Option<Vec<DirectlyAvailableSymbol<'b, Type>>> {
         if index > self.amount_children() {
             return None;
         }
-        let statement_to_symbol = Statement::get_direct_symbol_reference_struct;
         Some(match &**self.inner {
             Statement::ControlStructure(control) => Self::indexable_into_vec(
                 |index| control.child_statement_at(index),
                 index,
-                statement_to_symbol,
+                Self::symbol_mapper,
             ),
             Statement::Codeblock(codeblock) => {
-                Self::indexable_into_vec(|index| &codeblock[index], index, statement_to_symbol)
+                Self::indexable_into_vec(|index| &codeblock[index], index, Self::symbol_mapper)
             }
             _ => Vec::new(),
         })
+    }
+
+    /// Extracts symbols from a statement
+    fn symbol_mapper(
+        input: &Statement<Type>,
+    ) -> impl Iterator<Item = DirectlyAvailableSymbol<'_, Type>> {
+        input.get_direct_symbols().into_iter()
     }
     /// Gets a vec of all symbols declared in a direct child of self
     /// Symbols declared by self directly are not included
@@ -132,10 +144,12 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ///
     /// # Return
     ///
-    /// - `None` if `location >= self.amount_children()`
-    /// - `Some(<The requested symbols>)` otherwise
-    pub fn symbols_defined_directly_in(&self) -> Option<Vec<Symbol<'b, Type>>> {
+    /// The requested symbols
+    pub fn symbols_defined_directly_in(&self) -> Vec<DirectlyAvailableSymbol<'b, Type>> {
+        // self.amount_children() can never be > self.amount_children()
+        // So unwrapping can never panic
         self.symbols_defined_directly_in_before_index(self.amount_children())
+            .unwrap()
     }
 
     /// Gets the amount of direct child statements
@@ -150,23 +164,33 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     }
 
     /// This takes an indexable to_convert, reads the first len elements from it, converts them with
-    /// map_with and returns the inner values of the somes in a vec
-    fn indexable_into_vec<'c, T, U, F>(
+    /// map_with and returns the inner values of the slices in a vec
+    fn indexable_into_vec<'c, T, U, F, I>(
         to_convert: impl Fn(usize) -> &'c T + 'c,
         len: usize,
         mut map_with: F,
     ) -> Vec<U>
     where
-        F: FnMut(&'c T) -> Option<U>,
+        F: FnMut(&'c T) -> I,
+        I: Iterator<Item = U>,
         T: 'c,
+        U: 'c,
     {
         let mut result = Vec::with_capacity(len);
         for index in 0..len {
-            if let Some(converted) = map_with(to_convert(index)) {
-                result.push(converted)
-            }
+            map_with(to_convert(index)).for_each(|elem| result.push(elem));
         }
         result
+    }
+}
+
+impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StatementTraversalHelper<'a, 'b, Type> {
+    fn symbols<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
+        StatementSymbolTable::new_available_to_statement(self)
+    }
+
+    fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_> {
+        Box::new(self.symbols())
     }
 }
 
@@ -183,6 +207,7 @@ struct StatementSymbolTable<'a, 'b, Type: ASTType> {
     root_symbols: Box<dyn SymbolTable<'b, Type> + 'a>,
     /// Deduplicates variables for variable shadowing
     found_variables: HashSet<&'b str>,
+    current_statement_symbols: IntoIter<&'b VariableSymbol<Type>>,
 }
 
 impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
@@ -195,7 +220,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     pub(crate) fn new_available_to_statement(
         source: &'a StatementTraversalHelper<'a, 'b, Type>,
     ) -> Self {
-        Self {
+        let mut to_ret = Self {
             current: source.inner,
             current_location: source.location(),
             // Setting this to zero will make the next call to
@@ -203,7 +228,13 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
             prev_index: 0,
             root_symbols: Box::new(source.root.symbols()),
             found_variables: HashSet::new(),
-        }
+            current_statement_symbols: Vec::new().into_iter(),
+        };
+        // Don't have the referenced statement act as the first container
+        // statement
+        // This might fail, but then there are no symbols anyway
+        to_ret.go_up_statement_tree();
+        to_ret
     }
 
     /// Creates a symbol table that iterates over all symbols available after the current statement
@@ -219,7 +250,6 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
         source: &'a StatementTraversalHelper<'a, 'b, Type>,
     ) -> Option<Self> {
         let mut to_ret = Self::new_available_to_statement(source);
-        to_ret.go_up_statement_tree()?;
         to_ret.prev_index += 1;
         Some(to_ret)
     }
@@ -237,20 +267,32 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     ///     - If there are no more variable symbols available
     /// - Some(The variable symbol)
     ///     - If there are still variable symbols available
-    fn next_variable_symbol(&mut self) -> Option<Symbol<'b, Type>> {
-        // Attempts to get a child symbol from the current symbol
-        // If all child statements were traversed, this loop ends
-        while self.prev_index > 0 {
-            self.prev_index -= 1;
-            if let Some(symbol) = self.current.index(self.prev_index).get_direct_symbol() {
-                // Insert the symbol into the set
-                // Only return it if its new
-                if self.found_variables.insert(symbol.name()) {
-                    // Symbol found, return it
-                    return Some(Symbol::Variable(symbol));
-                }
+    fn next_variable_symbol(&mut self) -> Option<DirectlyAvailableSymbol<'b, Type>> {
+        if let Some(symbol) = self.current_statement_symbols.next() {
+            // Insert the symbol into the set
+            // Only return it if its new
+            if self.found_variables.insert(symbol.name()) {
+                // Symbol found, return it
+                return Some(DirectlyAvailableSymbol::Variable(symbol));
             }
         }
+        // Attempts to get a child symbol from the current symbol
+        // If all child statements were traversed, this loop ends
+        if self.prev_index > 0 {
+            self.prev_index -= 1;
+            self.current_statement_symbols = self
+                .current
+                .index(self.prev_index)
+                .get_direct_variable_symbols()
+                .into_iter();
+            return self.next_variable_symbol();
+        }
+        // These symbols will not be returned until the next recursion
+        // But this is completely fine
+        self.current_statement_symbols = self
+            .current
+            .get_direct_child_only_variable_symbols()
+            .into_iter();
         // Attempts to go up the statement tree to get symbols from the layer above the current one
         // It fails if there are no more layers
         // In this case, we return None
@@ -289,7 +331,10 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
 
 impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
     /// A tuple of prefix and symbol as required by  [`SymbolTable`]
-    type Item = (Option<&'b ModuleUsageNameSymbol>, Symbol<'b, Type>);
+    type Item = (
+        Option<&'b ModuleUsageNameSymbol>,
+        DirectlyAvailableSymbol<'b, Type>,
+    );
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_variable_symbol()

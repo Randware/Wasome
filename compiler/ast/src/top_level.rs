@@ -46,8 +46,12 @@ impl<Type: ASTType> Function<Type> {
 
 impl<Type: ASTType> SemanticEq for Function<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.declaration().semantic_eq(other.declaration())
-            && self.implementation.semantic_eq(&other.implementation)
+        let res = self.declaration().semantic_eq(other.declaration())
+            && self.implementation.semantic_eq(&other.implementation);
+        if !res {
+            dbg!(res);
+        }
+        res
     }
 }
 
@@ -104,8 +108,9 @@ impl Import {
 
 impl SemanticEq for Import {
     fn semantic_eq(&self, other: &Self) -> bool {
-        // Semantic equality is equal to regular equality
-        self == other
+        self.root() == other.root()
+            && self.path() == other.path()
+            && self.usage_name().semantic_eq(other.usage_name())
     }
 }
 

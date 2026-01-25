@@ -1,6 +1,8 @@
 use crate::data_type::{DataType, Typed};
 use crate::expression::{Expression, FunctionCall};
-use crate::symbol::{Symbol, VariableSymbol};
+use crate::symbol::{
+    DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, StructFieldSymbol, VariableSymbol,
+};
 use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
 use std::ops::{Deref, Index};
@@ -16,6 +18,8 @@ use std::rc::Rc;
 pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
     VariableAssignment(VariableAssignment<Type>),
+    // Assignment to a struct field
+    StructFieldAssignment(StructFieldAssignment<Type>),
     // Creation of new variable
     VariableDeclaration(VariableDeclaration<Type>),
     Expression(ASTNode<Expression<Type>>),
@@ -36,17 +40,19 @@ impl<Type: ASTType> SemanticEq for Statement<Type> {
             (St::VariableAssignment(inner), St::VariableAssignment(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
+            (St::StructFieldAssignment(inner), St::StructFieldAssignment(other_inner)) => {
+                inner.semantic_eq(other_inner)
+            }
             (St::VariableDeclaration(inner), St::VariableDeclaration(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::Expression(inner), St::Expression(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (St::Expression(inner), St::Expression(other_inner)) => inner.semantic_eq(other_inner),
             (St::Return(inner), St::Return(other_inner)) => inner.semantic_eq(other_inner),
             (St::ControlStructure(inner), St::ControlStructure(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::Codeblock(inner), St::Codeblock(other_inner)) => {
+            (St::Codeblock(inner), St::Codeblock(other_inner)) => inner.semantic_eq(other_inner),
+            (St::VoidFunctionCall(inner), St::VoidFunctionCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
             // All cases where equality == semantic equality
@@ -58,22 +64,50 @@ impl<Type: ASTType> SemanticEq for Statement<Type> {
 impl<Type: ASTType> Statement<Type> {
     /// Gets the symbol defined in this statement
     /// Only symbols that can be accessed by following statements in the
-    /// following scope are considered. For example, variables
+    /// current scope are considered. For example, variables
+    ///
+    /// Due to the above rules, symbol introduced by [`IfEnumVariant`] are
+    /// *not* considered
     ///
     /// # Return
     ///
-    /// - Some(symbol) if symbol is defined here
-    /// - None if no symbols are defined here
-    pub fn get_direct_symbol(&self) -> Option<&VariableSymbol<Type>> {
+    /// A vec with the symbols. It will be empty if there are no symbols
+    pub fn get_direct_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
         match self {
-            Statement::VariableDeclaration(inner) => Some(inner.variable()),
-            _ => None,
+            Statement::VariableDeclaration(inner) => vec![inner.variable()],
+            _ => Vec::new(),
         }
     }
 
-    /// Same as `get_direct_symbol`, except that the [`Symbol`] struct is used
-    pub fn get_direct_symbol_reference_struct(&self) -> Option<Symbol<'_, Type>> {
-        self.get_direct_symbol().map(Symbol::Variable)
+    /// Gets all symbols defined in self and only available to child statements
+    ///
+    /// Currently, only IfEnumBlocks return anything but an empty vec
+    pub fn get_direct_child_only_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
+        match self {
+            Statement::ControlStructure(inner) => match inner.deref() {
+                ControlStructure::IfEnumVariant(mat) => {
+                    mat.variables.iter().map(|var| var.deref()).collect()
+                }
+                _ => Vec::new(),
+            },
+            _ => Vec::new(),
+        }
+    }
+
+    /// Same as [`Self::get_direct_child_only_variable_symbols`], except that the [`DirectlyAvailableSymbol`] struct is used
+    pub fn get_direct_child_only_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
+        self.get_direct_child_only_variable_symbols()
+            .into_iter()
+            .map(|var| DirectlyAvailableSymbol::Variable(var))
+            .collect()
+    }
+
+    /// Same as [`Self::get_direct_variable_symbols`], except that the [`DirectlyAvailableSymbol`] struct is used
+    pub fn get_direct_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
+        self.get_direct_variable_symbols()
+            .into_iter()
+            .map(DirectlyAvailableSymbol::Variable)
+            .collect()
     }
 
     /// Gets the length of the child statements
@@ -100,11 +134,11 @@ impl<Type: ASTType> Index<usize> for Statement<Type> {
     }
 }
 
-/// This represents an assignement to a variable. If this variable doesn't exist previously, it is created
+/// This represents an assignment to a variable. If this variable doesn't exist previously, it is created
 ///
 /// # Equality
 ///
-/// Two different VariableAssignement are never equal.
+/// Two different VariableAssignment are never equal.
 /// Use semantic_equals from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct VariableDeclaration<Type: ASTType> {
@@ -119,22 +153,26 @@ impl<Type: ASTType> SemanticEq for VariableDeclaration<Type> {
 }
 
 impl VariableDeclaration<TypedAST> {
-    /** Tries to create a new instance
-          returns None if the type of the variable symbol and the return type of the expression doesn't
-          match
-    */
+    /// Tries to create a new instance
+    /// returns None if the type of the variable symbol and the return type of the expression doesn't
+    /// match
     pub fn new(
         variable: Rc<VariableSymbol<TypedAST>>,
         value: ASTNode<Expression<TypedAST>>,
     ) -> Option<Self> {
-        eq_return_option(*variable.data_type(), value.data_type())?;
+        eq_return_option(variable.data_type(), &value.data_type())?;
         Some(Self { variable, value })
     }
 }
 
+impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.variable().semantic_eq(other.variable()) && self.value.semantic_eq(&other.value)
+    }
+}
+
 impl VariableDeclaration<UntypedAST> {
-    /** Creates a new instance
-     */
+    /// Creates a new instance
     pub fn new(
         variable: Rc<VariableSymbol<UntypedAST>>,
         value: ASTNode<Expression<UntypedAST>>,
@@ -148,8 +186,7 @@ impl<Type: ASTType> VariableDeclaration<Type> {
         &self.variable
     }
 
-    /** Gets the variable symbol by cloning the underlying RC
-     */
+    /// Gets the variable symbol by cloning the underlying RC
     pub fn variable_owned(&self) -> Rc<VariableSymbol<Type>> {
         self.variable.clone()
     }
@@ -159,8 +196,7 @@ impl<Type: ASTType> VariableDeclaration<Type> {
     }
 }
 
-/** This represents an assignment to a variable.
-*/
+/// This represents an assignment to a variable.
 #[derive(Debug, PartialEq)]
 pub struct VariableAssignment<Type: ASTType> {
     variable: Type::VariableUse,
@@ -175,17 +211,14 @@ impl VariableAssignment<TypedAST> {
         variable: Rc<VariableSymbol<TypedAST>>,
         value: ASTNode<Expression<TypedAST>>,
     ) -> Option<Self> {
-        eq_return_option(*variable.data_type(), value.data_type())?;
+        eq_return_option(variable.data_type(), &value.data_type())?;
         Some(Self { variable, value })
     }
 }
 
 impl VariableAssignment<UntypedAST> {
     /// Creates a new instance
-    pub fn new(
-        variable: String,
-        value: ASTNode<Expression<UntypedAST>>,
-    ) -> Self {
+    pub fn new(variable: String, value: ASTNode<Expression<UntypedAST>>) -> Self {
         Self { variable, value }
     }
 }
@@ -194,15 +227,86 @@ impl<Type: ASTType> VariableAssignment<Type> {
     pub fn variable(&self) -> &Type::VariableUse {
         &self.variable
     }
-    
+
     pub fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
 }
 
-impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
+/// This represents an assignment to a field of a struct
+///
+/// This is not combined with [`VariableAssignment`] as assignment does not make sense for the
+/// result of other expressions
+#[derive(Debug, PartialEq)]
+pub struct StructFieldAssignment<Type: ASTType> {
+    struct_source: ASTNode<Expression<Type>>,
+    struct_field: Type::StructFieldUse,
+    value: ASTNode<Expression<Type>>,
+}
+
+impl<Type: ASTType> SemanticEq for StructFieldAssignment<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.variable().semantic_eq(other.variable()) && self.value.semantic_eq(&other.value)
+        self.struct_source().semantic_eq(other.struct_source())
+            && self.struct_field().semantic_eq(other.struct_field())
+            && self.value().semantic_eq(other.value())
+    }
+}
+
+impl StructFieldAssignment<TypedAST> {
+    /// Tries to create a new instance
+    ///
+    /// # Errors
+    ///
+    /// - The data type of `struct_field` and `value` mismatch
+    /// - `struct_source` doesn't evaluate to a struct
+
+    pub fn new(
+        struct_source: ASTNode<Expression<TypedAST>>,
+        struct_field: Rc<StructFieldSymbol<TypedAST>>,
+        value: ASTNode<Expression<TypedAST>>,
+    ) -> Option<Self> {
+        if struct_field.data_type() != &value.data_type() {
+            return None;
+        }
+        match struct_source.data_type() {
+            DataType::Struct(_) => (),
+            _ => return None,
+        }
+        Some(Self {
+            struct_source,
+            struct_field,
+            value,
+        })
+    }
+}
+
+impl StructFieldAssignment<UntypedAST> {
+    /// Creates a new instance
+
+    pub fn new(
+        struct_source: ASTNode<Expression<UntypedAST>>,
+        struct_field: String,
+        value: ASTNode<Expression<UntypedAST>>,
+    ) -> Self {
+        Self {
+            struct_source,
+            struct_field,
+            value,
+        }
+    }
+}
+
+impl<Type: ASTType> StructFieldAssignment<Type> {
+    pub fn struct_source(&self) -> &ASTNode<Expression<Type>> {
+        &self.struct_source
+    }
+
+    pub fn struct_field(&self) -> &Type::StructFieldUse {
+        &self.struct_field
+    }
+
+    pub fn value(&self) -> &ASTNode<Expression<Type>> {
+        &self.value
     }
 }
 
@@ -215,6 +319,7 @@ impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
+    IfEnumVariant(IfEnumVariant<Type>),
     Loop(Loop<Type>),
 }
 
@@ -227,6 +332,10 @@ impl<Type: ASTType> SemanticEq for ControlStructure<Type> {
             (ControlStructure::Loop(inner), ControlStructure::Loop(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
+            (
+                ControlStructure::IfEnumVariant(inner),
+                ControlStructure::IfEnumVariant(other_inner),
+            ) => inner.semantic_eq(other_inner),
             _ => false,
         }
     }
@@ -239,6 +348,7 @@ impl<Type: ASTType> ControlStructure<Type> {
     pub fn child_len(&self) -> usize {
         match self {
             ControlStructure::Conditional(inner) => inner.len(),
+            ControlStructure::IfEnumVariant(inner) => inner.child_len(),
             ControlStructure::Loop(inner) => inner.len(),
         }
     }
@@ -249,6 +359,11 @@ impl<Type: ASTType> ControlStructure<Type> {
     pub(crate) fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match self {
             ControlStructure::Conditional(cond) => cond.child_statement_at(index),
+            ControlStructure::IfEnumVariant(mat) => {
+                assert_eq!(index, 0);
+                // A match has only one child statement
+                &mat.then_statement
+            }
             ControlStructure::Loop(inner) => inner.child_statement_at(index),
         }
     }
@@ -327,6 +442,116 @@ impl<Type: ASTType> SemanticEq for Conditional<Type> {
             && self.else_statement.as_ref().zip(other.else_statement.as_ref())
             .map(|(a,b)| a.semantic_eq(b))
             .unwrap_or(self.else_statement.is_none() && other.else_statement.is_none())
+    }
+}
+
+/// Checks if an enum is a specific variant
+///
+/// If yes, the inner values of the enum are assigned to variables and code is executed
+///
+/// Comparable to an if let in rust
+///
+/// # Equality
+///
+/// Two different [`IfEnumVariant`]s are never equal.
+/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+#[derive(Debug, PartialEq)]
+pub struct IfEnumVariant<Type: ASTType> {
+    condition_enum: Type::EnumUse,
+    condition_enum_variant: Type::EnumVariantUse,
+    assignment_expression: ASTNode<Expression<Type>>,
+    variables: Vec<Rc<VariableSymbol<Type>>>,
+    then_statement: ASTNode<Statement<Type>>,
+}
+
+impl IfEnumVariant<UntypedAST> {
+    /// Creates a new IfEnumVariant
+    pub fn new(
+        condition_enum: <UntypedAST as ASTType>::EnumUse,
+        condition_enum_variant: String,
+        assignment_expression: ASTNode<Expression<UntypedAST>>,
+        variables: Vec<Rc<VariableSymbol<UntypedAST>>>,
+        then_statement: ASTNode<Statement<UntypedAST>>,
+    ) -> Self {
+        Self {
+            condition_enum,
+            condition_enum_variant,
+            assignment_expression,
+            variables,
+            then_statement,
+        }
+    }
+}
+
+/// Attempts to create a new IfEnumVariant
+///
+/// Returns None if the amount or data types of variables doesn't match the data types on the enum variant
+impl IfEnumVariant<TypedAST> {
+    pub fn new(
+        condition_enum: Rc<EnumSymbol<TypedAST>>,
+        condition_enum_variant: Rc<EnumVariantSymbol<TypedAST>>,
+        assignment_expression: ASTNode<Expression<TypedAST>>,
+        variables: Vec<Rc<VariableSymbol<TypedAST>>>,
+        then_statement: ASTNode<Statement<TypedAST>>,
+    ) -> Option<Self> {
+        if condition_enum_variant.fields().len() != variables.len()
+            || condition_enum_variant
+                .fields()
+                .iter()
+                .zip(variables.iter().map(|var| var.data_type()))
+                .any(|(enum_data_type, variable_data_type)| enum_data_type != variable_data_type)
+            || assignment_expression.data_type() != DataType::Enum(condition_enum.clone())
+        {
+            return None;
+        }
+        Some(Self {
+            condition_enum,
+            condition_enum_variant,
+            assignment_expression,
+            variables,
+            then_statement,
+        })
+    }
+}
+impl<Type: ASTType> IfEnumVariant<Type> {
+    pub fn condition_enum(&self) -> &Type::EnumUse {
+        &self.condition_enum
+    }
+
+    pub fn condition_enum_variant(&self) -> &Type::EnumVariantUse {
+        &self.condition_enum_variant
+    }
+
+    pub fn assignment_expression(&self) -> &Expression<Type> {
+        &self.assignment_expression
+    }
+
+    pub fn variables(&self) -> &[Rc<VariableSymbol<Type>>] {
+        &self.variables
+    }
+
+    pub fn then_statement(&self) -> &ASTNode<Statement<Type>> {
+        &self.then_statement
+    }
+
+    pub fn child_len(&self) -> usize {
+        // A IfEnumVariant has one child statement
+        // The then statement
+        1
+    }
+}
+
+impl<Type: ASTType> SemanticEq for IfEnumVariant<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.condition_enum().semantic_eq(other.condition_enum())
+            && self
+                .condition_enum_variant()
+                .semantic_eq(other.condition_enum_variant())
+            && self
+                .assignment_expression()
+                .semantic_eq(other.assignment_expression())
+            && self.variables().semantic_eq(other.variables())
+            && self.then_statement().semantic_eq(other.then_statement())
     }
 }
 
@@ -544,7 +769,7 @@ mod tests {
     use crate::test_shared::{basic_test_variable, sample_codearea};
 
     #[test]
-    fn variable_assignement() {
+    fn variable_assignment() {
         basic_test_variable(Rc::new(VariableSymbol::new(
             "test".to_string(),
             DataType::F64,

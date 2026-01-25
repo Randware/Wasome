@@ -1,0 +1,13 @@
+struct Box<T> {
+    T value
+}
+
+enum Option<T> {
+    Some(T)
+    None
+}
+
+fn main() {
+    Box<Option<s32>> nested <- new Box<Option<s32>> { value <- Option<s32>::Some(10) }
+    Option<Box<f64>> opt_box <- Option<Box<f64>>::Some(new Box<f64> { value <- 5.5 })
+}

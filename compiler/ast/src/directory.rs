@@ -1,5 +1,5 @@
 use crate::file::File;
-use crate::symbol::Symbol;
+use crate::symbol::DirectlyAvailableSymbol;
 use crate::top_level::Import;
 use crate::{ASTNode, ASTType, SemanticEq};
 use std::ops::Deref;
@@ -113,7 +113,7 @@ impl<Type: ASTType> Directory<Type> {
     pub(crate) fn get_symbols_for_path(
         &self,
         path: &[String],
-    ) -> Option<impl Iterator<Item = Symbol<'_, Type>>> {
+    ) -> Option<impl Iterator<Item = DirectlyAvailableSymbol<'_, Type>>> {
         match path.len() {
             0 => Some(self.files().iter().flat_map(|file| file.symbols_public())),
             len => self
@@ -150,9 +150,7 @@ impl<Type: ASTType> Directory<Type> {
 impl<Type: ASTType> SemanticEq for Directory<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.name() == other.name()
-            && self
-                .subdirectories()
-                .semantic_eq(other.subdirectories())
+            && self.subdirectories().semantic_eq(other.subdirectories())
             && self.files().semantic_eq(other.files())
     }
 }

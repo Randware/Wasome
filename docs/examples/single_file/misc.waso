@@ -1,0 +1,25 @@
+// The leading blank lines are intentional
+
+
+
+pub fn public_func() {}
+
+fn bitwise(u32 a, u32 b) -> u32 {
+    -> (a & b) | ((a << 1) >> 1)
+}
+
+fn infinite() {
+    loop {}
+}
+
+fn chars() -> char {
+    -> 'c'
+}
+
+fn unary(bool a) -> bool {
+    -> !!a
+}
+
+fn precedence(u32 a, u32 b, u32 c) -> u32 {
+    -> a + b * c
+}

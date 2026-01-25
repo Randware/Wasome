@@ -62,6 +62,10 @@ pub enum TokenType {
     Integer(i64),
     #[regex(r"'(\\.|[^\\'])'", char_callback)]
     CharLiteral(char),
+    #[token("true")]
+    True,
+    #[token("false")]
+    False,
 
     // Math Operators
     #[token("+")]
@@ -72,11 +76,11 @@ pub enum TokenType {
     Multiplication,
     #[token("%")]
     Modulo,
-    
+
     // '/' is a bit extra, since we will be using it for both Math and Filepaths.
     #[token("/")]
     Slash,
-    
+
     // Logic Operators
     #[token("<")]
     LessThan,
@@ -90,10 +94,8 @@ pub enum TokenType {
     NotEqual,
     #[token("==")]
     Comparison,
-    #[token("<<")]
-    LShift,
-    #[token(">>")]
-    RShift,
+    // L and R Shift is just < or > twice
+    // Having it as its own token would interfere with the parsing of generics
     #[token("|")]
     BitOr,
     #[token("||")]
@@ -136,7 +138,9 @@ pub enum TokenType {
     New,
     #[token("import")]
     Import,
-    
+    #[token("let")]
+    Let,
+
     // Symbols
     #[token("->")]
     Return,
