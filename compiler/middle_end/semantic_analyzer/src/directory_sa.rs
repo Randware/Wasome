@@ -17,7 +17,7 @@ use std::path::PathBuf;
 ///
 /// # Returns
 /// * `Result<ASTNode<Directory<TypedAST>, PathBuf>, String>` - The typed directory node on success, or an error string.
-fn analyze_directory(
+pub(crate) fn analyze_directory(
     dir_helper: &DirectoryTraversalHelper<UntypedAST>,
     global_map: &GlobalSymbolMap,
 ) -> Result<ASTNode<Directory<TypedAST>, PathBuf>, String> {

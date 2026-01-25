@@ -24,7 +24,7 @@ pub type GlobalSymbolMap<'a> = HashMap<&'a FunctionSymbol<UntypedAST>, Rc<Functi
 /// # Returns
 /// * `Ok(GlobalSymbolMap)` - The populated map of symbols.
 /// * `Err(String)` - If a semantic error occurs during type conversion (e.g., unknown types).
-pub fn collect_global_symbols(ast: &AST<UntypedAST>) -> Result<GlobalSymbolMap, String> {
+pub fn collect_global_symbols(ast: &'_ AST<UntypedAST>) -> Result<GlobalSymbolMap<'_>, String> {
     let mut map = GlobalSymbolMap::new();
     collect_from_directory(ast, &mut map)?;
     Ok(map)

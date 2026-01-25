@@ -8,9 +8,18 @@ mod symbol_translation;
 
 use ast::{TypedAST, UntypedAST, AST};
 use ast::symbol::{Symbol, SymbolTable};
+use ast::traversal::directory_traversal::DirectoryTraversalHelper;
+use crate::directory_sa::analyze_directory;
+use crate::symbol_translation::global_system_collector::collect_global_symbols;
 
 pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
-    todo!()
+    let global_symbols = collect_global_symbols(&to_analyze).ok()?;
+    let root = DirectoryTraversalHelper::new_from_ast(&to_analyze);
+    analyze_directory(&root, &global_symbols).ok().map(|root_dir| {
+        // The typed AST has the same constraints as the untyped AST
+        // Therefore, this can never error
+        AST::new(root_dir).unwrap()
+    })
 }
 
 pub(crate) fn symbol_by_name<'a>(name: &str, mut from: impl SymbolTable<'a, UntypedAST>) -> Option<Symbol<'a, UntypedAST>> {
