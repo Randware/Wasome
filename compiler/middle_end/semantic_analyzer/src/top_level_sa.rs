@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use crate::statement_sa::analyze_statement;
 use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
@@ -8,7 +9,7 @@ use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::visibility::Visible;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
-
+use ast::statement::{ControlStructure, Statement};
 // I think that this is now obsolete
 /*
 /// Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
@@ -71,6 +72,10 @@ pub(crate) fn analyze_function(
     let impl_helper = StatementTraversalHelper::new_root(root_helper);
     let typed_implementation_statement = analyze_statement(impl_helper, &mut func_mapper)?;
 
+    if typed_declaration.return_type() != None && !always_return(&typed_implementation_statement) {
+        // We have to return a value but don't
+        return None;
+    }
     let code_area = untyped_function.implementation().position().clone();
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
 
@@ -79,6 +84,34 @@ pub(crate) fn analyze_function(
         implementation_node,
         untyped_function.visibility(),
     ))
+}
+
+/// Checks wherever a statement will always encounter a return statement before finishing execution
+///
+/// Note that due to the
+/// [halting problem](https://www.geeksforgeeks.org/theory-of-computation/halting-problem-in-theory-of-computation/),
+/// a perfect solution is impossible
+///
+/// Instead, an approximation is used that accepts false-negatives, but not false-positives. This
+/// means that in cases where a return will always be encountered, false might be returned but never the
+/// other way around
+///
+/// The exact cases where a false-negative happens may change over time, but cases may only be
+/// resolved and not added.
+fn always_return(to_check: &Statement<TypedAST>) -> bool {
+    match to_check {
+        Statement::Return(_) => true,
+        Statement::Codeblock(codeblock) => codeblock.last().map(|statement| always_return(statement.deref())).unwrap_or(false),
+        Statement::ControlStructure(crtl) => {
+            match crtl.deref() {
+                ControlStructure::Conditional(cond) => {
+                    always_return(cond.then_statement()) && cond.else_statement().map(|else_statement| always_return(else_statement)).unwrap_or(false)
+                }
+                _ => false
+            }
+        }
+        _ => false
+    }
 }
 
 #[cfg(test)]
