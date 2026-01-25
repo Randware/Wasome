@@ -25,7 +25,6 @@ impl<'a, 'b> FunctionSymbolMapper<'a, 'b> {
     ///
     /// # Returns
     /// * A new `FunctionSymbolMapper` with initialized fields and an active base scope.
-    /// // TODO: Make this private
     pub fn new(file_mapper: &'a FileSymbolMapper<'a, 'b>) -> Self {
         let mut mapper = Self {
             scope_stack: Vec::new(),
