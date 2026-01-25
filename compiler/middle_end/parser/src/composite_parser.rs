@@ -101,6 +101,8 @@ pub(crate) fn enum_parser<'src>()
             .ignore_then(
                 data_type
                     .separated_by(token_parser(TokenType::ArgumentSeparator))
+                    // Don't allow e.g.: `Monday()`
+                    .at_least(1)
                     .collect::<Vec<_>>()
                     .then(token_parser(TokenType::CloseParen)),
             )
@@ -116,7 +118,7 @@ pub(crate) fn enum_parser<'src>()
                 .then(
                     variant
                         .separated_by(statement_separator())
-                        // Don't allow e.g.: `Monday()`
+                        // Don't allow empty enums
                         .at_least(1)
                         .allow_leading()
                         .allow_trailing()

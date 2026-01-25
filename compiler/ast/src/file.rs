@@ -252,24 +252,3 @@ impl<Type: ASTType> SemanticEq for File<Type> {
             && self.structs().semantic_eq(other.structs())
     }
 }
-
-/// This represents all composites
-/// inside a [File]
-pub struct Composites<Type: ASTType> {
-    enums: Vec<ASTNode<Enum<Type>>>,
-    structs: Vec<ASTNode<Struct<Type>>>,
-}
-
-impl<Type: ASTType> Composites<Type> {
-    pub fn new(enums: Vec<ASTNode<Enum<Type>>>, structs: Vec<ASTNode<Struct<Type>>>) -> Self {
-        Self { enums, structs }
-    }
-
-    pub fn enums(&self) -> &Vec<ASTNode<Enum<Type>>> {
-        &self.enums
-    }
-
-    pub fn structs(&self) -> &Vec<ASTNode<Struct<Type>>> {
-        &self.structs
-    }
-}
