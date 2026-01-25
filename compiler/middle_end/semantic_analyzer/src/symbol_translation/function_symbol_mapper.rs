@@ -1,7 +1,7 @@
 use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
-use ast::{TypedAST, UntypedAST};
 use ast::data_type::DataType;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
+use ast::{TypedAST, UntypedAST};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -80,7 +80,10 @@ impl<'a, 'b> FunctionSymbolMapper<'a, 'b> {
     /// # Returns
     /// * `Some(Rc<FunctionSymbol<TypedAST>>)` if found.
     /// * `None` otherwise.
-    pub fn lookup_function(&self, function: &FunctionSymbol<UntypedAST>) -> Option<Rc<FunctionSymbol<TypedAST>>> {
+    pub fn lookup_function(
+        &self,
+        function: &FunctionSymbol<UntypedAST>,
+    ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
         self.file_mapper.lookup_function_rc(function)
     }
 

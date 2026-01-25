@@ -3,45 +3,48 @@ mod expression_sa;
 mod file_sa;
 mod mics_sa;
 mod statement_sa;
-mod top_level_sa;
 mod symbol_translation;
+mod top_level_sa;
 
-use ast::{TypedAST, UntypedAST, AST};
-use ast::symbol::{Symbol, SymbolTable};
-use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::directory_sa::analyze_directory;
 use crate::symbol_translation::global_system_collector::collect_global_symbols;
+use ast::symbol::{Symbol, SymbolTable};
+use ast::traversal::directory_traversal::DirectoryTraversalHelper;
+use ast::{AST, TypedAST, UntypedAST};
 
 pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
     let global_symbols = collect_global_symbols(&to_analyze).ok()?;
     let root = DirectoryTraversalHelper::new_from_ast(&to_analyze);
-    analyze_directory(&root, &global_symbols).ok().map(|root_dir| {
-        // The typed AST has the same constraints as the untyped AST
-        // Therefore, this can never error
-        AST::new(root_dir).unwrap()
-    })
+    analyze_directory(&root, &global_symbols)
+        .ok()
+        .map(|root_dir| {
+            // The typed AST has the same constraints as the untyped AST
+            // Therefore, this can never error
+            AST::new(root_dir).unwrap()
+        })
 }
 
-pub(crate) fn symbol_by_name<'a>(name: &str, mut from: impl SymbolTable<'a, UntypedAST>) -> Option<Symbol<'a, UntypedAST>> {
+pub(crate) fn symbol_by_name<'a>(
+    name: &str,
+    mut from: impl SymbolTable<'a, UntypedAST>,
+) -> Option<Symbol<'a, UntypedAST>> {
     let mut parts = name.split('.');
 
     let first = parts.next()?;
-    let (prefix_name, name) =
-        if let Some(second) = parts.next() {
-            // If there are three parts, error
-            if matches!(parts.next(), Some(_)) {
-                return None;
-            }
-            (Some(first), second)
+    let (prefix_name, name) = if let Some(second) = parts.next() {
+        // If there are three parts, error
+        if matches!(parts.next(), Some(_)) {
+            return None;
         }
-        else {
-            (None, first)
-        };
+        (Some(first), second)
+    } else {
+        (None, first)
+    };
 
-    from.find(|symbol|
-        symbol.0.as_ref().map(|mun| mun.name()) == prefix_name
-        && symbol.1.name() == name
-    ).map(|symbol| symbol.1)
+    from.find(|symbol| {
+        symbol.0.as_ref().map(|mun| mun.name()) == prefix_name && symbol.1.name() == name
+    })
+    .map(|symbol| symbol.1)
 }
 #[cfg(test)]
 mod tests {}

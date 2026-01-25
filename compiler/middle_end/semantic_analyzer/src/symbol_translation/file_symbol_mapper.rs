@@ -1,9 +1,9 @@
-use ast::{TypedAST, UntypedAST};
+use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use ast::symbol::{FunctionSymbol, Symbol};
+use ast::top_level::Function;
+use ast::{TypedAST, UntypedAST};
 use std::collections::HashMap;
 use std::rc::Rc;
-use ast::top_level::Function;
-use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 
 /// Acts as a bridge between the local file scope and global function definitions.
 pub struct FileSymbolMapper<'a, 'b> {
@@ -13,9 +13,7 @@ pub struct FileSymbolMapper<'a, 'b> {
 impl<'a, 'b> FileSymbolMapper<'a, 'b> {
     /// Creates a new `FileSymbolMapper`.
     pub fn new(global_functions: &'a GlobalSymbolMap<'b>) -> Self {
-        Self {
-            global_functions, 
-        }
+        Self { global_functions }
     }
 
     /// Looks up a function symbol based on its name within the code.
@@ -24,8 +22,13 @@ impl<'a, 'b> FileSymbolMapper<'a, 'b> {
     /// 1. **Module Imports**: "math.cos" -> resolves "math" alias.
     /// 2. **Local Definition**: "my_func" -> checks "current_package::my_func".
     /// 3. **Global/Absolute**: "print" -> checks global "print".
-    pub fn lookup_function(&self, function: &FunctionSymbol<UntypedAST>) -> Option<Symbol<'a, TypedAST>> {
-        self.global_functions.get(function).map(|res| Symbol::Function(res.as_ref()))
+    pub fn lookup_function(
+        &self,
+        function: &FunctionSymbol<UntypedAST>,
+    ) -> Option<Symbol<'a, TypedAST>> {
+        self.global_functions
+            .get(function)
+            .map(|res| Symbol::Function(res.as_ref()))
     }
 
     /// Looks up a function symbol by its name and returns a shared pointer (`Rc`) to it.
@@ -39,9 +42,11 @@ impl<'a, 'b> FileSymbolMapper<'a, 'b> {
     /// 1. **Module Imports**: "math.cos" -> resolves "math" alias.
     /// 2. **Local Definition**: "my_func" -> checks "current_package::my_func".
     /// 3. **Global/Absolute**: "print" -> checks global "print".
-    pub fn lookup_function_rc(&self, function: &FunctionSymbol<UntypedAST>) -> Option<Rc<FunctionSymbol<TypedAST>>> {
-        self.global_functions.get(function).map(|res|res.clone())
-
+    pub fn lookup_function_rc(
+        &self,
+        function: &FunctionSymbol<UntypedAST>,
+    ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
+        self.global_functions.get(function).map(|res| res.clone())
     }
 }
 

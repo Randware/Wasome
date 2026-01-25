@@ -1,7 +1,7 @@
+use crate::statement_sa::analyze_statement;
 use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
-use crate::statement_sa::analyze_statement;
 use ast::symbol::FunctionSymbol;
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -57,7 +57,8 @@ pub(crate) fn analyze_function(
     file_mapper: &mut FileSymbolMapper,
 ) -> Option<Function<TypedAST>> {
     let untyped_symbol = untyped_function.declaration();
-    let typed_declaration: Rc<FunctionSymbol<TypedAST>> = file_mapper.lookup_function_rc(untyped_symbol)?.clone();
+    let typed_declaration: Rc<FunctionSymbol<TypedAST>> =
+        file_mapper.lookup_function_rc(untyped_symbol)?.clone();
 
     let mut func_mapper = FunctionSymbolMapper::new(file_mapper);
     func_mapper.set_current_function_return_type(typed_declaration.return_type().cloned());
@@ -69,8 +70,7 @@ pub(crate) fn analyze_function(
     }
 
     let impl_helper = StatementTraversalHelper::new_root(root_helper);
-    let typed_implementation_statement =
-        analyze_statement(impl_helper, &mut func_mapper)?;
+    let typed_implementation_statement = analyze_statement(impl_helper, &mut func_mapper)?;
 
     let code_area = untyped_function.implementation().position().clone();
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);

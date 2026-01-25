@@ -1,6 +1,7 @@
+use crate::mics_sa::{analyze_data_type, analyze_function_call};
+use crate::symbol_by_name;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
-use crate::mics_sa::{analyze_function_call, analyze_data_type};
 use ast::expression::{
     BinaryOp, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
 };
@@ -8,7 +9,6 @@ use ast::symbol::{FunctionSymbol, Symbol, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
-use crate::symbol_by_name;
 
 /// Analyzes an untyped expression and converts it into a typed `Expression`.
 ///
@@ -22,12 +22,11 @@ use crate::symbol_by_name;
 pub(crate) fn analyze_expression(
     to_analyze: &Expression<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>
+    helper: &StatementTraversalHelper<UntypedAST>,
 ) -> Option<Expression<TypedAST>> {
     Some(match to_analyze {
         Expression::FunctionCall(inner) => {
-            let typed_call =
-                analyze_non_void_function_call(inner, function_symbol_mapper, helper)?;
+            let typed_call = analyze_non_void_function_call(inner, function_symbol_mapper, helper)?;
             if typed_call.function().return_type().is_none() {
                 return None;
             }
@@ -35,16 +34,12 @@ pub(crate) fn analyze_expression(
         }
         Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper)?,
         Expression::Literal(inner) => Expression::Literal(analyze_literal(&inner)?),
-        Expression::UnaryOp(inner) => Expression::UnaryOp(analyze_unary_op(
-            inner,
-            function_symbol_mapper,
-            helper,
-        )?),
-        Expression::BinaryOp(inner) => Expression::BinaryOp(analyze_binary_op(
-            inner,
-            function_symbol_mapper,
-            helper,
-        )?),
+        Expression::UnaryOp(inner) => {
+            Expression::UnaryOp(analyze_unary_op(inner, function_symbol_mapper, helper)?)
+        }
+        Expression::BinaryOp(inner) => {
+            Expression::BinaryOp(analyze_binary_op(inner, function_symbol_mapper, helper)?)
+        }
     })
 }
 

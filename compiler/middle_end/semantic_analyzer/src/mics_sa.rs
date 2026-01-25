@@ -1,12 +1,12 @@
-use std::rc::Rc;
-use ast::data_type::DataType;
-use ast::expression::{Expression, FunctionCall};
-use ast::traversal::statement_traversal::StatementTraversalHelper;
-use ast::{ASTNode, TypedAST, UntypedAST};
-use ast::symbol::{FunctionSymbol, Symbol};
 use crate::expression_sa::analyze_expression;
 use crate::symbol_by_name;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
+use ast::data_type::DataType;
+use ast::expression::{Expression, FunctionCall};
+use ast::symbol::{FunctionSymbol, Symbol};
+use ast::traversal::statement_traversal::StatementTraversalHelper;
+use ast::{ASTNode, TypedAST, UntypedAST};
+use std::rc::Rc;
 
 /// A helper function that resolves the type names into the right types.
 ///
@@ -35,9 +35,13 @@ pub(crate) fn analyze_data_type(to_analyze: &str) -> Option<DataType> {
 }
 
 /// Analyzes a function call
-/// 
+///
 /// Does not care if the function call is void or not
-pub(crate) fn analyze_function_call(to_analyze: &FunctionCall<UntypedAST>, mapper: &mut FunctionSymbolMapper, helper: &StatementTraversalHelper<UntypedAST>) -> Option<FunctionCall<TypedAST>> {
+pub(crate) fn analyze_function_call(
+    to_analyze: &FunctionCall<UntypedAST>,
+    mapper: &mut FunctionSymbolMapper,
+    helper: &StatementTraversalHelper<UntypedAST>,
+) -> Option<FunctionCall<TypedAST>> {
     let call_name = to_analyze.function();
 
     let found_symbol = symbol_by_name(call_name, helper.symbols_available_at())?;

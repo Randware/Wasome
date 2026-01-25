@@ -1,8 +1,8 @@
-use std::ops::Deref;
 use crate::expression_sa::{analyze_expression, analyze_non_void_function_call};
+use crate::mics_sa::{analyze_data_type, analyze_function_call};
+use crate::symbol_by_name;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
-use crate::mics_sa::{analyze_function_call, analyze_data_type};
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
@@ -12,8 +12,8 @@ use ast::statement::{
 use ast::symbol::{Symbol, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
+use std::ops::Deref;
 use std::rc::Rc;
-use crate::symbol_by_name;
 
 /// Analyzes a statement referenced by a traversal helper and converts it into a typed statement node.
 ///
@@ -35,33 +35,26 @@ pub(crate) fn analyze_statement(
 ) -> Option<Statement<TypedAST>> {
     match &**to_analyze.inner() {
         Statement::VariableAssignment(inner) => {
-            let assigned = analyze_variable_assignment(
-                inner,
-                function_symbol_mapper,
-                &to_analyze,
-            )?;
+            let assigned = analyze_variable_assignment(inner, function_symbol_mapper, &to_analyze)?;
             Some(Statement::VariableAssignment(assigned))
         }
         Statement::VariableDeclaration(inner) => {
-            let declared = analyze_variable_declaration(
-                inner,
-                function_symbol_mapper,
-                &to_analyze,
-            )?;
+            let declared =
+                analyze_variable_declaration(inner, function_symbol_mapper, &to_analyze)?;
             Some(Statement::VariableDeclaration(declared))
         }
         Statement::Expression(inner) => {
             try_analyze_void_function_call(&to_analyze, function_symbol_mapper)
                 .map(|call| Statement::VoidFunctionCall(call))
-            .or_else(|| {
-                // We pass the helper as context so the expression can resolve symbols valid at this location
-                let typed_expr =
-                    analyze_expression(inner, function_symbol_mapper, &to_analyze)?;
-                Some(Statement::Expression(ASTNode::new(
-                    typed_expr,
-                    inner.position().clone(),
-                )))
-            })
+                .or_else(|| {
+                    // We pass the helper as context so the expression can resolve symbols valid at this location
+                    let typed_expr =
+                        analyze_expression(inner, function_symbol_mapper, &to_analyze)?;
+                    Some(Statement::Expression(ASTNode::new(
+                        typed_expr,
+                        inner.position().clone(),
+                    )))
+                })
         }
         Statement::Return(inner) => {
             let typed_ret = analyze_return(inner, function_symbol_mapper, &to_analyze)?;
@@ -78,7 +71,9 @@ pub(crate) fn analyze_statement(
             let analyzed_cb = analyze_codeblock(to_analyze, function_symbol_mapper)?;
             Some(Statement::Codeblock(analyzed_cb))
         }
-        Statement::VoidFunctionCall(_) => panic!("Void function calls are not allowed in the untyped AST"),
+        Statement::VoidFunctionCall(_) => {
+            panic!("Void function calls are not allowed in the untyped AST")
+        }
         Statement::Break => analyze_break(to_analyze),
     }
 }
@@ -89,23 +84,25 @@ fn try_analyze_void_function_call(
 ) -> Option<FunctionCall<TypedAST>> {
     let expr = if let Statement::Expression(inner) = to_analyze.inner().deref() {
         inner
-    }
-    else {
+    } else {
         return None;
     };
     let call = match expr.deref() {
-        Expression::FunctionCall(call ) => call,
-        _ => return None
+        Expression::FunctionCall(call) => call,
+        _ => return None,
     };
 
-    let symbol = if let Some(inner) = symbol_by_name(call.function(), to_analyze.symbols_available_at()) {
-        inner
-    }
-    // Function not found, syntax error
-    else { return None };
+    let symbol =
+        if let Some(inner) = symbol_by_name(call.function(), to_analyze.symbols_available_at()) {
+            inner
+        }
+        // Function not found, syntax error
+        else {
+            return None;
+        };
 
-    if let Symbol::Function(func) = symbol {}
-    else {
+    if let Symbol::Function(func) = symbol {
+    } else {
         return None;
     };
     analyze_function_call(call, function_symbol_mapper, to_analyze)
@@ -132,8 +129,7 @@ fn analyze_variable_assignment(
     let typed_variable_symbol = function_symbol_mapper.lookup_variable(var_name)?;
 
     let untyped_val = to_analyze.value();
-    let typed_value_expr =
-        analyze_expression(untyped_val, function_symbol_mapper, helper)?;
+    let typed_value_expr = analyze_expression(untyped_val, function_symbol_mapper, helper)?;
 
     if typed_variable_symbol.data_type() != &typed_value_expr.data_type() {
         return None;
@@ -164,8 +160,7 @@ fn analyze_variable_declaration(
 ) -> Option<VariableDeclaration<TypedAST>> {
     let untyped_val = to_analyze.value();
 
-    let typed_value_expr =
-        analyze_expression(untyped_val, function_symbol_mapper, helper)?;
+    let typed_value_expr = analyze_expression(untyped_val, function_symbol_mapper, helper)?;
 
     let declared_type_name = to_analyze.variable().data_type();
     let resolved_declared_type = analyze_data_type(declared_type_name)?;
@@ -213,8 +208,7 @@ fn analyze_return(
         (None, None) => Some(Return::new(None)),
 
         (Some(expected), Some(expr_node)) => {
-            let typed_expr =
-                analyze_expression(expr_node, function_symbol_mapper, helper)?;
+            let typed_expr = analyze_expression(expr_node, function_symbol_mapper, helper)?;
 
             if typed_expr.data_type() != expected {
                 return None;
@@ -255,8 +249,7 @@ fn analyze_control_structure(
                 .map(ControlStructure::Conditional)
         }
         ControlStructure::Loop(_) => {
-            analyze_loop(to_analyze_helper, function_symbol_mapper)
-                .map(ControlStructure::Loop)
+            analyze_loop(to_analyze_helper, function_symbol_mapper).map(ControlStructure::Loop)
         }
     }
 }
@@ -360,11 +353,8 @@ fn analyze_loop(
         LoopType::Infinite => LoopType::Infinite,
 
         LoopType::While(condition) => {
-            let typed_condition_expr = analyze_expression(
-                condition,
-                function_symbol_mapper,
-                &to_analyze_helper,
-            )?;
+            let typed_condition_expr =
+                analyze_expression(condition, function_symbol_mapper, &to_analyze_helper)?;
             let typed_condition = ASTNode::new(typed_condition_expr, condition.position().clone());
 
             if typed_condition.data_type() != DataType::Bool {
@@ -383,8 +373,7 @@ fn analyze_loop(
             let start_helper = to_analyze_helper.get_child(0).unwrap();
             let start_pos = start_helper.inner().position().clone();
 
-            let typed_start_stmt =
-                analyze_statement(start_helper, function_symbol_mapper)?;
+            let typed_start_stmt = analyze_statement(start_helper, function_symbol_mapper)?;
             let typed_start_node = ASTNode::new(typed_start_stmt, start_pos);
 
             let typed_cond_expr =
@@ -420,8 +409,7 @@ fn analyze_loop(
     let to_loop_on_helper = to_analyze_helper.get_child(body_index).unwrap();
     let loop_body_pos = to_loop_on_helper.inner().position().clone();
 
-    let typed_to_loop_on_stmt =
-        analyze_statement(to_loop_on_helper, function_symbol_mapper)?;
+    let typed_to_loop_on_stmt = analyze_statement(to_loop_on_helper, function_symbol_mapper)?;
     let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, loop_body_pos);
 
     function_symbol_mapper.exit_scope();

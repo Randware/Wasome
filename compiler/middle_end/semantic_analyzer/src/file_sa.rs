@@ -26,7 +26,7 @@ pub(crate) fn analyze_file(
     global_map: &GlobalSymbolMap,
 ) -> Result<ASTNode<File<TypedAST>, PathBuf>, String> {
     let untyped_file = file_helper.inner();
-    
+
     let mut file_mapper = FileSymbolMapper::new(global_map);
 
     let mut typed_functions = Vec::new();

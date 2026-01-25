@@ -10,7 +10,8 @@ use std::rc::Rc;
 /// It maps an `UntypedAST` symbol (used as the key) to its corresponding `TypedAST` symbol (the value).
 /// We use the symbol itself as the key. Thanks to our custom `Hash` implementation (which only hashes the ID),
 /// this is very efficient.
-pub type GlobalSymbolMap<'a> = HashMap<&'a FunctionSymbol<UntypedAST>, Rc<FunctionSymbol<TypedAST>>>;
+pub type GlobalSymbolMap<'a> =
+    HashMap<&'a FunctionSymbol<UntypedAST>, Rc<FunctionSymbol<TypedAST>>>;
 
 /// Entry Point: Collects all global symbols from the AST.
 ///
