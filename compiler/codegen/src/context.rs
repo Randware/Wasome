@@ -75,4 +75,20 @@ impl<'ctx> LLVMContext<'ctx> {
     pub fn get_module(&self, name: impl AsRef<str>) -> Option<&Module<'ctx>> {
         self.modules.get(name.as_ref())
     }
+
+    pub fn context(&self) -> &'ctx Context {
+        self.context
+    }
+
+    pub fn builder(&self) -> &Builder<'ctx> {
+        &self.builder
+    }
+
+    pub fn machine(&self) -> &TargetMachine {
+        &self.machine
+    }
+
+    pub fn types(&self) -> &CodegenTypes<'ctx> {
+        &self.types
+    }
 }
