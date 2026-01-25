@@ -4,6 +4,7 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
+    passes::PassBuilderOptions,
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
 };
 
@@ -15,6 +16,7 @@ pub struct LLVMContext<'ctx> {
     modules: HashMap<String, Module<'ctx>>,
     machine: TargetMachine,
     types: CodegenTypes<'ctx>,
+    opt_level: OptLevel,
 }
 
 impl<'ctx> LLVMContext<'ctx> {
@@ -45,6 +47,7 @@ impl<'ctx> LLVMContext<'ctx> {
             modules: HashMap::new(),
             machine,
             types,
+            opt_level,
         }
     }
 
@@ -69,6 +72,26 @@ impl<'ctx> LLVMContext<'ctx> {
         let module = self.context.create_module(&name);
         module.set_triple(&self.machine.get_triple());
         module.set_data_layout(&self.machine.get_target_data().get_data_layout());
+
+        let passes = PassBuilderOptions::create();
+
+        match self.opt_level {
+            OptLevel::O0 => {
+                // This ensures compilation is fast
+                passes.set_loop_vectorization(false);
+                passes.set_loop_unrolling(false);
+            }
+            _ => {
+                // Trust string pipeline
+            }
+        }
+        module
+            .run_passes(
+                self.opt_level.to_pass_builder_string(),
+                &self.machine,
+                passes,
+            )
+            .expect("Could not run passes");
         self.modules.insert(name, module)
     }
 
