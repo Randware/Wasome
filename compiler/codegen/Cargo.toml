@@ -10,3 +10,4 @@ thiserror = "2"
 # (crate also gets used by error handling -> error handling is not merged yet)
 bon = "3"
 source = { path = "../source" }
+ast = { path = "../ast" }
