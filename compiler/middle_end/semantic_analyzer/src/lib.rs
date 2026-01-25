@@ -33,7 +33,7 @@ pub(crate) fn symbol_by_name<'a>(
     let first = parts.next()?;
     let (prefix_name, name) = if let Some(second) = parts.next() {
         // If there are three parts, error
-        if matches!(parts.next(), Some(_)) {
+        if parts.next().is_some() {
             return None;
         }
         (Some(first), second)

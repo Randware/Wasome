@@ -1,8 +1,7 @@
-use crate::expression_sa::{analyze_expression, analyze_non_void_function_call};
+use crate::expression_sa::analyze_expression;
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
 use crate::symbol_by_name;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
-use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
@@ -45,7 +44,7 @@ pub(crate) fn analyze_statement(
         }
         Statement::Expression(inner) => {
             try_analyze_void_function_call(&to_analyze, function_symbol_mapper)
-                .map(|call| Statement::VoidFunctionCall(call))
+                .map(Statement::VoidFunctionCall)
                 .or_else(|| {
                     // We pass the helper as context so the expression can resolve symbols valid at this location
                     let typed_expr =
@@ -93,15 +92,9 @@ fn try_analyze_void_function_call(
     };
 
     let symbol =
-        if let Some(inner) = symbol_by_name(call.function(), to_analyze.symbols_available_at()) {
-            inner
-        }
-        // Function not found, syntax error
-        else {
-            return None;
-        };
+        symbol_by_name(call.function(), to_analyze.symbols_available_at())?;
 
-    if let Symbol::Function(func) = symbol {
+    if let Symbol::Function(_) = symbol {
     } else {
         return None;
     };
@@ -460,30 +453,6 @@ fn analyze_codeblock(
     Some(CodeBlock::new(typed_statements))
 }
 
-/// Analyzes a call to a function that returns void (used as a statement).
-///
-/// # Parameters
-/// * `to_analyze` - The untyped function call node.
-/// * `function_symbol_mapper` - Context (not typically used for call dispatch, but required by API).
-/// * `helper` - Context for argument analysis and scope lookup.
-/// * `global_map` - Used to resolve the function signature.
-///
-/// # Returns
-/// * `Some(Statement<TypedAST>)` if the call is valid and the function returns void.
-/// * `None` if the function has a return value (should be an expression) or analysis fails.
-fn analyze_void_function_call(
-    to_analyze: &FunctionCall<UntypedAST>,
-    mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
-) -> Option<Statement<TypedAST>> {
-    let typed_call = analyze_non_void_function_call(to_analyze, mapper, helper)?;
-
-    if typed_call.function().return_type().is_some() {
-        return None;
-    }
-    Some(Statement::VoidFunctionCall(typed_call))
-}
-
 /// Analyzes a break statement.
 ///
 /// Traverses up the AST using the helper to ensure the break statement is inside a loop.
@@ -498,11 +467,10 @@ fn analyze_break(to_analyze: StatementTraversalHelper<UntypedAST>) -> Option<Sta
     let mut current_loc_opt = Some(to_analyze.location());
 
     while let Some(current_loc) = current_loc_opt {
-        if let Statement::ControlStructure(crtl) = current_loc.referenced_statement() {
-            if let ControlStructure::Loop(_) = crtl.as_ref() {
+        if let Statement::ControlStructure(crtl) = current_loc.referenced_statement()
+            && let ControlStructure::Loop(_) = crtl.as_ref() {
                 return Some(Statement::Break);
             }
-        }
         current_loc_opt = current_loc.parent_statement();
     }
     None

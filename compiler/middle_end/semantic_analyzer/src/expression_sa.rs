@@ -1,11 +1,9 @@
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
-use crate::symbol_by_name;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
-use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use ast::expression::{
     BinaryOp, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
 };
-use ast::symbol::{FunctionSymbol, Symbol, VariableSymbol};
+use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
@@ -27,13 +25,11 @@ pub(crate) fn analyze_expression(
     Some(match to_analyze {
         Expression::FunctionCall(inner) => {
             let typed_call = analyze_non_void_function_call(inner, function_symbol_mapper, helper)?;
-            if typed_call.function().return_type().is_none() {
-                return None;
-            }
+            typed_call.function().return_type()?;
             Expression::FunctionCall(typed_call)
         }
         Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper)?,
-        Expression::Literal(inner) => Expression::Literal(analyze_literal(&inner)?),
+        Expression::Literal(inner) => Expression::Literal(analyze_literal(inner)?),
         Expression::UnaryOp(inner) => {
             Expression::UnaryOp(analyze_unary_op(inner, function_symbol_mapper, helper)?)
         }
@@ -53,7 +49,6 @@ pub(crate) fn analyze_expression(
 /// # Returns
 /// * `Some(FunctionCall<TypedAST>)` on success.
 /// * `None` on semantic error (undeclared function, argument mismatch, or argument analysis failure).
-/// // TODO: Split into void and non-void
 pub(crate) fn analyze_non_void_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     mapper: &mut FunctionSymbolMapper,
@@ -110,16 +105,15 @@ fn analyze_literal(to_analyze: &str) -> Option<Literal> {
 
     if to_analyze.starts_with('\'') && to_analyze.ends_with('\'') {
         let inner = &to_analyze[1..to_analyze.len() - 1];
-        if let Some(c) = inner.parse::<char>().ok() {
+        if let Ok(c) = inner.parse::<char>() {
             return Some(Literal::Char(c as u32));
         }
     }
 
-    if to_analyze.contains('.') {
-        if let Ok(f64_val) = to_analyze.parse::<f64>() {
+    if to_analyze.contains('.')
+        && let Ok(f64_val) = to_analyze.parse::<f64>() {
             return Some(Literal::F64(f64_val));
         }
-    }
 
     if let Ok(s32_val) = to_analyze.parse::<i32>() {
         return Some(Literal::S32(s32_val));
@@ -138,13 +132,13 @@ fn analyze_literal(to_analyze: &str) -> Option<Literal> {
 /// * `Some(Box<UnaryOp<TypedAST>>)` if the unary operation and its operand can be analyzed and converted to a typed form.
 /// * `None` if analysis or conversion fails.
 fn analyze_unary_op(
-    to_analyze: &Box<UnaryOp<UntypedAST>>,
+    to_analyze: &UnaryOp<UntypedAST>,
     mapper: &mut FunctionSymbolMapper,
     helper: &StatementTraversalHelper<UntypedAST>,
 ) -> Option<Box<UnaryOp<TypedAST>>> {
     let (op_type, expression) = (to_analyze.op_type(), to_analyze.input());
 
-    let converted_input = analyze_expression(&expression, mapper, helper)?;
+    let converted_input = analyze_expression(expression, mapper, helper)?;
 
     let converted_unary_op_type = match op_type {
         UnaryOpType::Typecast(inner) => {
@@ -176,7 +170,7 @@ fn analyze_unary_op(
 /// * `Some(Box<BinaryOp<TypedAST>>)` if the Binary operation and its operand can be analyzed and converted to a typed form.
 /// * `None` if analysis or conversion fails.
 fn analyze_binary_op(
-    to_analyze: &Box<BinaryOp<UntypedAST>>,
+    to_analyze: &BinaryOp<UntypedAST>,
     symbol_mapper: &mut FunctionSymbolMapper,
     helper: &StatementTraversalHelper<UntypedAST>,
 ) -> Option<Box<BinaryOp<TypedAST>>> {

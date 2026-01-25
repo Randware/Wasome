@@ -1,8 +1,6 @@
 use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use ast::symbol::{FunctionSymbol, Symbol};
-use ast::top_level::Function;
 use ast::{TypedAST, UntypedAST};
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Acts as a bridge between the local file scope and global function definitions.
@@ -46,7 +44,7 @@ impl<'a, 'b> FileSymbolMapper<'a, 'b> {
         &self,
         function: &FunctionSymbol<UntypedAST>,
     ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
-        self.global_functions.get(function).map(|res| res.clone())
+        self.global_functions.get(function).cloned()
     }
 }
 

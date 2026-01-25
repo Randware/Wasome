@@ -3,10 +3,9 @@ use crate::symbol_by_name;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use ast::data_type::DataType;
 use ast::expression::{Expression, FunctionCall};
-use ast::symbol::{FunctionSymbol, Symbol};
+use ast::symbol::Symbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
-use std::rc::Rc;
 
 /// A helper function that resolves the type names into the right types.
 ///

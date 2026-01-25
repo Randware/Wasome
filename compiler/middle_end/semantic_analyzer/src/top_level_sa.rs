@@ -1,7 +1,6 @@
 use crate::statement_sa::analyze_statement;
 use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
-use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use ast::symbol::FunctionSymbol;
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
