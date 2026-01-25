@@ -19,7 +19,8 @@ pub(crate) fn symbol_by_name<'a>(name: &str, mut from: impl SymbolTable<'a, Unty
     let first = parts.next()?;
     let (prefix_name, name) =
         if let Some(second) = parts.next() {
-            if !matches!(parts.next(), Some(_)) {
+            // If there are three parts, error
+            if matches!(parts.next(), Some(_)) {
                 return None;
             }
             (Some(first), second)
