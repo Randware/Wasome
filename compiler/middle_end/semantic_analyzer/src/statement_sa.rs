@@ -1,17 +1,19 @@
-use crate::expression_sa::{analyze_expression, analyze_function_call};
+use std::ops::Deref;
+use crate::expression_sa::{analyze_expression, analyze_non_void_function_call};
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
-use crate::mics_sa::analyze_data_type;
+use crate::mics_sa::{analyze_function_call, analyze_data_type};
 use ast::data_type::{DataType, Typed};
-use ast::expression::FunctionCall;
+use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
     VariableAssignment, VariableDeclaration,
 };
-use ast::symbol::VariableSymbol;
+use ast::symbol::{Symbol, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
+use crate::symbol_by_name;
 
 /// Analyzes a statement referenced by a traversal helper and converts it into a typed statement node.
 ///
@@ -49,13 +51,17 @@ pub(crate) fn analyze_statement(
             Some(Statement::VariableDeclaration(declared))
         }
         Statement::Expression(inner) => {
-            // We pass the helper as context so the expression can resolve symbols valid at this location
-            let typed_expr =
-                analyze_expression(inner, function_symbol_mapper, &to_analyze)?;
-            Some(Statement::Expression(ASTNode::new(
-                typed_expr,
-                inner.position().clone(),
-            )))
+            try_analyze_void_function_call(&to_analyze, function_symbol_mapper)
+                .map(|call| Statement::VoidFunctionCall(call))
+            .or_else(|| {
+                // We pass the helper as context so the expression can resolve symbols valid at this location
+                let typed_expr =
+                    analyze_expression(inner, function_symbol_mapper, &to_analyze)?;
+                Some(Statement::Expression(ASTNode::new(
+                    typed_expr,
+                    inner.position().clone(),
+                )))
+            })
         }
         Statement::Return(inner) => {
             let typed_ret = analyze_return(inner, function_symbol_mapper, &to_analyze)?;
@@ -72,13 +78,38 @@ pub(crate) fn analyze_statement(
             let analyzed_cb = analyze_codeblock(to_analyze, function_symbol_mapper)?;
             Some(Statement::Codeblock(analyzed_cb))
         }
-        Statement::VoidFunctionCall(inner) => {
-            analyze_void_function_call(inner, function_symbol_mapper, &to_analyze)
-        }
+        Statement::VoidFunctionCall(_) => panic!("Void function calls are not allowed in the untyped AST"),
         Statement::Break => analyze_break(to_analyze),
     }
 }
 
+fn try_analyze_void_function_call(
+    to_analyze: &StatementTraversalHelper<UntypedAST>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<FunctionCall<TypedAST>> {
+    let expr = if let Statement::Expression(inner) = to_analyze.inner().deref() {
+        inner
+    }
+    else {
+        return None;
+    };
+    let call = match expr.deref() {
+        Expression::FunctionCall(call ) => call,
+        _ => return None
+    };
+
+    let symbol = if let Some(inner) = symbol_by_name(call.function(), to_analyze.symbols_available_at()) {
+        inner
+    }
+    // Function not found, syntax error
+    else { return None };
+
+    if let Symbol::Function(func) = symbol {}
+    else {
+        return None;
+    };
+    analyze_function_call(call, function_symbol_mapper, to_analyze)
+}
 /// Analyzes a variable assignment (re-assignment of an existing variable).
 ///
 /// It checks if the variable exists in the current scope and if the type of the assigned value matches.
@@ -457,7 +488,7 @@ fn analyze_void_function_call(
     mapper: &mut FunctionSymbolMapper,
     helper: &StatementTraversalHelper<UntypedAST>,
 ) -> Option<Statement<TypedAST>> {
-    let typed_call = analyze_function_call(to_analyze, mapper, helper)?;
+    let typed_call = analyze_non_void_function_call(to_analyze, mapper, helper)?;
 
     if typed_call.function().return_type().is_some() {
         return None;

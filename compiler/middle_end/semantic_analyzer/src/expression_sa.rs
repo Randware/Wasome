@@ -1,6 +1,6 @@
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
-use crate::mics_sa::analyze_data_type;
+use crate::mics_sa::{analyze_function_call, analyze_data_type};
 use ast::expression::{
     BinaryOp, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
 };
@@ -27,7 +27,7 @@ pub(crate) fn analyze_expression(
     Some(match to_analyze {
         Expression::FunctionCall(inner) => {
             let typed_call =
-                analyze_function_call(inner, function_symbol_mapper, helper)?;
+                analyze_non_void_function_call(inner, function_symbol_mapper, helper)?;
             if typed_call.function().return_type().is_none() {
                 return None;
             }
@@ -59,35 +59,20 @@ pub(crate) fn analyze_expression(
 /// * `Some(FunctionCall<TypedAST>)` on success.
 /// * `None` on semantic error (undeclared function, argument mismatch, or argument analysis failure).
 /// // TODO: Split into void and non-void
-pub(crate) fn analyze_function_call(
+pub(crate) fn analyze_non_void_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     mapper: &mut FunctionSymbolMapper,
     helper: &StatementTraversalHelper<UntypedAST>,
 ) -> Option<FunctionCall<TypedAST>> {
-    let call_name = to_analyze.function();
+    let typed_call = analyze_function_call(to_analyze, mapper, helper)?;
 
-    let found_symbol = symbol_by_name(call_name, helper.symbols_available_at())?;
-
-    let untyped_func_symbol = match found_symbol {
-        Symbol::Function(f) => f,
-        _ => return None,
-    };
-
-    let typed_func_symbol = mapper
-        .lookup_function(untyped_func_symbol)
-        .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");
-
-    let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();
-    for untyped_arg_node in to_analyze.args().iter() {
-        let position = untyped_arg_node.position().clone();
-
-        // Rekursiv analyze_expression aufrufen (mit allen Parametern!)
-        let typed_expr = analyze_expression(untyped_arg_node, mapper, helper)?;
-
-        typed_args.push(ASTNode::new(typed_expr, position));
+    // Non-void function calls must return something
+    // We should never be here with a void function call
+    // So panic to prevent hard-to-find errors later down the line
+    if typed_call.function().return_type().is_none() {
+        panic!()
     }
-
-    FunctionCall::<TypedAST>::new(typed_func_symbol.clone(), typed_args)
+    Some(typed_call)
 }
 
 /// Analyzes the use of a variable within an expression.

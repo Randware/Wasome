@@ -1,4 +1,12 @@
+use std::rc::Rc;
 use ast::data_type::DataType;
+use ast::expression::{Expression, FunctionCall};
+use ast::traversal::statement_traversal::StatementTraversalHelper;
+use ast::{ASTNode, TypedAST, UntypedAST};
+use ast::symbol::{FunctionSymbol, Symbol};
+use crate::expression_sa::analyze_expression;
+use crate::symbol_by_name;
+use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 
 /// A helper function that resolves the type names into the right types.
 ///
@@ -24,4 +32,33 @@ pub(crate) fn analyze_data_type(to_analyze: &str) -> Option<DataType> {
         "f64" => Some(DataType::F64),
         _ => None,
     }
+}
+
+/// Analyzes a function call
+/// 
+/// Does not care if the function call is void or not
+pub(crate) fn analyze_function_call(to_analyze: &FunctionCall<UntypedAST>, mapper: &mut FunctionSymbolMapper, helper: &StatementTraversalHelper<UntypedAST>) -> Option<FunctionCall<TypedAST>> {
+    let call_name = to_analyze.function();
+
+    let found_symbol = symbol_by_name(call_name, helper.symbols_available_at())?;
+
+    let untyped_func_symbol = match found_symbol {
+        Symbol::Function(f) => f,
+        _ => return None,
+    };
+
+    let typed_func_symbol = mapper
+        .lookup_function(untyped_func_symbol)
+        .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");
+
+    let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();
+    for untyped_arg_node in to_analyze.args().iter() {
+        let position = untyped_arg_node.position().clone();
+
+        // Rekursiv analyze_expression aufrufen (mit allen Parametern!)
+        let typed_expr = analyze_expression(untyped_arg_node, mapper, helper)?;
+
+        typed_args.push(ASTNode::new(typed_expr, position));
+    }
+    FunctionCall::<TypedAST>::new(typed_func_symbol, typed_args)
 }
