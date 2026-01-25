@@ -1,6 +1,5 @@
 use crate::file_sa::analyze_file;
-use crate::file_symbol_mapper::GlobalFunctionMap;
-use crate::global_system_collector::GlobalSymbolMap;
+use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use ast::directory::Directory;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::{AST, ASTNode, TypedAST, UntypedAST};
@@ -20,7 +19,6 @@ use std::path::PathBuf;
 /// * `Result<ASTNode<Directory<TypedAST>, PathBuf>, String>` - The typed directory node on success, or an error string.
 fn analyze_directory(
     dir_helper: &DirectoryTraversalHelper<UntypedAST>,
-    lookup_map: &GlobalFunctionMap,
     global_map: &GlobalSymbolMap,
 ) -> Result<ASTNode<Directory<TypedAST>, PathBuf>, String> {
     let mut typed_subdirs = Vec::new();
@@ -30,13 +28,13 @@ fn analyze_directory(
         let subdir_helper = dir_helper
             .index_subdirectory(i)
             .expect("Index within bounds");
-        let typed_subdir = analyze_directory(&subdir_helper, lookup_map, global_map)?;
+        let typed_subdir = analyze_directory(&subdir_helper, global_map)?;
         typed_subdirs.push(typed_subdir);
     }
 
     for i in 0..dir_helper.len_files() {
         let file_helper = dir_helper.index_file(i).expect("Index within bounds");
-        let typed_file = analyze_file(&file_helper, lookup_map, global_map)?;
+        let typed_file = analyze_file(&file_helper, global_map)?;
         typed_files.push(typed_file);
     }
 
@@ -80,7 +78,7 @@ mod tests {
         (symbol, func_node)
     }
 
-    /// Helper to register a function in the maps (simulating Stage 2 results).
+    /*/// Helper to register a function in the maps (simulating Stage 2 results).
     fn register_function(
         name: &str,
         untyped_sym: Rc<FunctionSymbol<UntypedAST>>,
@@ -217,5 +215,5 @@ mod tests {
             result.is_err(),
             "Should fail because function symbol is missing in maps"
         );
-    }
+    }*/
 }

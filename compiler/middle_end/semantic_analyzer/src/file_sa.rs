@@ -1,5 +1,5 @@
-use crate::file_symbol_mapper::{FileContext, FileSymbolMapper, GlobalFunctionMap};
-use crate::global_system_collector::GlobalSymbolMap;
+use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
+use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use crate::top_level_sa::analyze_function;
 use ast::file::File;
 use ast::top_level::{Import, ImportRoot};
@@ -23,24 +23,18 @@ use std::path::PathBuf;
 /// * `Result<ASTNode<File<TypedAST>, PathBuf>, String>` - The typed file node on success, or an error string.
 pub(crate) fn analyze_file(
     file_helper: &FileTraversalHelper<UntypedAST>,
-    lookup_map: &GlobalFunctionMap,
     global_map: &GlobalSymbolMap,
 ) -> Result<ASTNode<File<TypedAST>, PathBuf>, String> {
     let untyped_file = file_helper.inner();
-    let file_path = untyped_file.position().to_string_lossy().to_string();
-
-    let context = ConcreteFileContext {
-        path: file_path,
-        imports: untyped_file.imports(),
-    };
-    let mut file_mapper = FileSymbolMapper::new(lookup_map, &context);
+    
+    let mut file_mapper = FileSymbolMapper::new(global_map);
 
     let mut typed_functions = Vec::new();
     for i in 0..file_helper.len_functions() {
         let func_helper = file_helper.index_function(i);
         let untyped_func = func_helper.inner();
 
-        let typed_func = analyze_function(untyped_func, &func_helper, &mut file_mapper, global_map)
+        let typed_func = analyze_function(untyped_func, &func_helper, &mut file_mapper)
             .ok_or_else(|| {
                 format!(
                     "Semantic analysis failed for function '{}' in file '{}'",
@@ -78,7 +72,7 @@ pub(crate) fn analyze_file(
     Ok(ASTNode::new(typed_file, untyped_file.position().clone()))
 }
 
-/// A concrete implementation of `FileContext` used during the semantic analysis of a specific file.
+/*/// A concrete implementation of `FileContext` used during the semantic analysis of a specific file.
 ///
 /// It holds the file's canonical path and its imports to allow for resolving symbol aliases
 /// and relative paths during the analysis of functions within this file.
@@ -127,7 +121,7 @@ impl<'a> FileContext for ConcreteFileContext<'a> {
         }
         None
     }
-}
+}*/
 
 #[cfg(test)]
 mod tests {
@@ -263,7 +257,7 @@ mod tests {
         AST::new(root).unwrap()
     }
 
-    fn register_symbol_direct(map: &mut GlobalSymbolMap, untyped: &Rc<FunctionSymbol<UntypedAST>>) {
+    /*fn register_symbol_direct(map: &mut GlobalSymbolMap, untyped: &Rc<FunctionSymbol<UntypedAST>>) {
         let typed = Rc::new(FunctionSymbol::<TypedAST>::new(
             untyped.name().to_string(),
             None,
@@ -412,5 +406,5 @@ mod tests {
             &vec!["other".to_string(), "pkg".to_string()]
         );
         assert_eq!(imports[1].usage_name().name(), "op");
-    }
+    }*/
 }

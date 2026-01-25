@@ -10,7 +10,7 @@ use std::rc::Rc;
 /// It maps an `UntypedAST` symbol (used as the key) to its corresponding `TypedAST` symbol (the value).
 /// We use the symbol itself as the key. Thanks to our custom `Hash` implementation (which only hashes the ID),
 /// this is very efficient.
-pub type GlobalSymbolMap = HashMap<FunctionSymbol<UntypedAST>, Rc<FunctionSymbol<TypedAST>>>;
+pub type GlobalSymbolMap<'a> = HashMap<&'a FunctionSymbol<UntypedAST>, Rc<FunctionSymbol<TypedAST>>>;
 
 /// Entry Point: Collects all global symbols from the AST.
 ///
@@ -38,19 +38,17 @@ pub fn collect_global_symbols(ast: &AST<UntypedAST>) -> Result<GlobalSymbolMap, 
 /// # Parameters
 /// * `dir` - The current directory to traverse.
 /// * `map` - The mutable reference to the global symbol map being populated.
-fn collect_from_directory(
-    dir: &Directory<UntypedAST>,
-    map: &mut GlobalSymbolMap,
+fn collect_from_directory<'a>(
+    dir: &'a Directory<UntypedAST>,
+    map: &mut GlobalSymbolMap<'a>,
 ) -> Result<(), String> {
     for file in dir.files_iterator() {
         for function in file.functions() {
             let untyped_symbol = function.declaration();
 
-            let key = untyped_symbol.clone();
-
             let typed_symbol = convert_function_symbol(untyped_symbol)?;
 
-            map.insert(key, typed_symbol);
+            map.insert(untyped_symbol, typed_symbol);
         }
     }
 
@@ -199,10 +197,10 @@ mod tests {
         let map = result.unwrap();
 
         assert!(
-            map.contains_key(&sym_add),
+            map.contains_key(sym_add.as_ref()),
             "Map should contain 'add' symbol"
         );
-        let typed_add = map.get(&sym_add).unwrap();
+        let typed_add = map.get(sym_add.as_ref()).unwrap();
 
         assert_eq!(typed_add.name(), "add");
         assert_eq!(typed_add.return_type(), Some(&DataType::S32));
@@ -210,10 +208,10 @@ mod tests {
         assert_eq!(*typed_add.params()[0].data_type(), DataType::S32);
 
         assert!(
-            map.contains_key(&sym_start),
+            map.contains_key(sym_start.as_ref()),
             "Map should contain 'start' symbol"
         );
-        let typed_start = map.get(&sym_start).unwrap();
+        let typed_start = map.get(sym_start.as_ref()).unwrap();
         assert_eq!(typed_start.return_type(), None);
     }
 

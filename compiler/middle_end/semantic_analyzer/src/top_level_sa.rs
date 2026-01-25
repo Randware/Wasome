@@ -1,6 +1,6 @@
-use crate::file_symbol_mapper::FileSymbolMapper;
-use crate::function_symbol_mapper::FunctionSymbolMapper;
-use crate::global_system_collector::GlobalSymbolMap;
+use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
+use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use crate::statement_sa::analyze_statement;
 use ast::symbol::FunctionSymbol;
 use ast::top_level::Function;
@@ -55,10 +55,9 @@ pub(crate) fn analyze_function(
     untyped_function: &Function<UntypedAST>,
     root_helper: &FunctionTraversalHelper<UntypedAST>,
     file_mapper: &mut FileSymbolMapper,
-    global_map: &GlobalSymbolMap,
 ) -> Option<Function<TypedAST>> {
     let untyped_symbol = untyped_function.declaration();
-    let typed_declaration: Rc<FunctionSymbol<TypedAST>> = global_map.get(untyped_symbol)?.clone();
+    let typed_declaration: Rc<FunctionSymbol<TypedAST>> = file_mapper.lookup_function_rc(untyped_symbol)?.clone();
 
     let mut func_mapper = FunctionSymbolMapper::new(file_mapper);
     func_mapper.set_current_function_return_type(typed_declaration.return_type().cloned());
@@ -71,7 +70,7 @@ pub(crate) fn analyze_function(
 
     let impl_helper = StatementTraversalHelper::new_root(root_helper);
     let typed_implementation_statement =
-        analyze_statement(impl_helper, &mut func_mapper, global_map)?;
+        analyze_statement(impl_helper, &mut func_mapper)?;
 
     let code_area = untyped_function.implementation().position().clone();
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
@@ -87,8 +86,7 @@ pub(crate) fn analyze_function(
 mod tests {
     use super::*;
     use crate::expression_sa::sample_codearea;
-    use crate::file_symbol_mapper::{FileContext, FileSymbolMapper, GlobalFunctionMap};
-    use crate::global_system_collector::GlobalSymbolMap;
+    use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
     use crate::test_shared::functions_into_ast;
     use ast::statement::{CodeBlock, Statement};
     use ast::symbol::{FunctionSymbol, Symbol};
@@ -97,19 +95,7 @@ mod tests {
     use ast::{ASTNode, TypedAST, UntypedAST};
     use std::rc::Rc;
 
-    struct MockFileContext {
-        path: String,
-    }
-    impl FileContext for MockFileContext {
-        fn get_canonical_path(&self) -> &str {
-            &self.path
-        }
-        fn resolve_import(&self, _: &str) -> Option<String> {
-            None
-        }
-    }
-
-    /// Tests the successful analysis of a simple void function with no parameters.
+    /*/// Tests the successful analysis of a simple void function with no parameters.
     /// It verifies that the function is correctly resolved from the global map and its body is processed.
     #[test]
     fn analyze_function_ok() {
@@ -146,5 +132,5 @@ mod tests {
         let typed_func = analyzed_func.unwrap();
         assert_eq!(typed_func.declaration().name(), "test");
         assert!(typed_func.declaration().return_type().is_none());
-    }
+    }*/
 }

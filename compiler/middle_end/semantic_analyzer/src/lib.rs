@@ -1,23 +1,40 @@
 mod directory_sa;
 mod expression_sa;
 mod file_sa;
-mod file_symbol_mapper;
-mod function_symbol_mapper;
-mod global_system_collector;
 mod mics_sa;
 mod statement_sa;
 mod top_level_sa;
+mod symbol_translation;
 
-use ast::{AST, TypedAST, UntypedAST};
+use ast::{TypedAST, UntypedAST, AST};
+use ast::symbol::{Symbol, SymbolTable};
 
 pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
     todo!()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub(crate) fn symbol_by_name<'a>(name: &str, mut from: impl SymbolTable<'a, UntypedAST>) -> Option<Symbol<'a, UntypedAST>> {
+    let mut parts = name.split('.');
+
+    let first = parts.next()?;
+    let (prefix_name, name) =
+        if let Some(second) = parts.next() {
+            if !matches!(parts.next(), Some(_)) {
+                return None;
+            }
+            (Some(first), second)
+        }
+        else {
+            (None, first)
+        };
+
+    from.find(|symbol|
+        symbol.0.as_ref().map(|mun| mun.name()) == prefix_name
+        && symbol.1.name() == name
+    ).map(|symbol| symbol.1)
 }
+#[cfg(test)]
+mod tests {}
 
 #[cfg(test)]
 mod test_shared {
