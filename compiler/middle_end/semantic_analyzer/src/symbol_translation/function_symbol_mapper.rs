@@ -144,8 +144,8 @@ impl<'a, 'b> FunctionSymbolMapper<'a, 'b> {
     ///
     /// # Returns
     /// * `Option<DataType>` - The recorded return type for the current function, or `None` if not set.
-    pub fn get_current_function_return_type(&self) -> Option<DataType> {
-        self.current_function_return_type
+    pub fn get_current_function_return_type(&self) -> Option<&DataType> {
+        self.current_function_return_type.as_ref()
     }
 
     pub fn get_file_mapper(&self) -> &FileSymbolMapper<'a, 'b> {

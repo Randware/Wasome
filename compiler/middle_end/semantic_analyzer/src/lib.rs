@@ -8,9 +8,9 @@ mod top_level_sa;
 
 use crate::directory_sa::analyze_directory;
 use crate::symbol_translation::global_system_collector::collect_global_symbols;
-use ast::symbol::{Symbol, SymbolTable};
+use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
-use ast::{AST, TypedAST, UntypedAST};
+use ast::{AST, TypedAST, UntypedAST, ASTType, SymbolIdentifier};
 
 pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
     let global_symbols = collect_global_symbols(&to_analyze).ok()?;
@@ -27,10 +27,11 @@ pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
 pub(crate) fn symbol_by_name<'a>(
     name: &str,
     mut from: impl SymbolTable<'a, UntypedAST>,
-) -> Option<Symbol<'a, UntypedAST>> {
+) -> Option<DirectlyAvailableSymbol<'a, UntypedAST>> {
     let mut parts = name.split('.');
 
     let first = parts.next()?;
+    // TODO: Support structs
     let (prefix_name, name) = if let Some(second) = parts.next() {
         // If there are three parts, error
         if parts.next().is_some() {
@@ -70,7 +71,7 @@ mod test_shared {
                 "src".to_string(),
                 Vec::new(),
                 vec![ASTNode::new(
-                    File::new("main.waso".to_string(), Vec::new(), functions),
+                    File::new("main.waso".to_string(), Vec::new(), functions, Vec::new(), Vec::new()),
                     main_path,
                 )],
             ),

@@ -121,7 +121,6 @@ mod tests {
     use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
     use crate::test_shared::functions_into_ast;
     use ast::statement::{CodeBlock, Statement};
-    use ast::symbol::{FunctionSymbol, Symbol};
     use ast::traversal::directory_traversal::DirectoryTraversalHelper;
     use ast::visibility::Visibility;
     use ast::{ASTNode, TypedAST, UntypedAST};

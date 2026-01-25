@@ -305,16 +305,16 @@ impl<Type: ASTType> SemanticEq for BinaryOp<Type> {
 }
 
 impl<Type: ASTType> BinaryOp<Type> {
-    pub fn left(&self) -> &Expression<Type> {
+    pub fn left(&self) -> &ASTNode<Expression<Type>> {
         &self.left
     }
 
-    pub fn right(&self) -> &Expression<Type> {
+    pub fn right(&self) -> &ASTNode<Expression<Type>> {
         &self.right
     }
 
-    pub fn op_type(&self) -> &BinaryOpType {
-        &self.op_type
+    pub fn op_type(&self) -> BinaryOpType {
+        self.op_type
     }
 }
 

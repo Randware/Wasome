@@ -52,7 +52,7 @@ impl SemanticEq for DataType {
 /// A data type in an untyped AST
 ///
 ///
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct UntypedDataType {
     name: String,
     type_parameters: Vec<UntypedDataType>,

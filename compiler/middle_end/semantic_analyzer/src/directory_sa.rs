@@ -66,7 +66,7 @@ mod tests {
         Rc<FunctionSymbol<UntypedAST>>,
         ASTNode<Function<UntypedAST>>,
     ) {
-        let symbol = Rc::new(FunctionSymbol::new(name.to_string(), None, vec![]));
+        let symbol = Rc::new(FunctionSymbol::new(name.to_string(), None, vec![], Vec::new()));
         let body = ASTNode::new(
             Statement::Codeblock(CodeBlock::new(vec![])),
             sample_codearea(),

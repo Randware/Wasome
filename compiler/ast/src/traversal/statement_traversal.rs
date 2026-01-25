@@ -19,7 +19,7 @@ use std::vec::IntoIter;
 /// | ------------- | ------------- |
 /// | 'a | How long the traversal helper may life |
 /// | 'b | How long the underlying data may life |
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StatementTraversalHelper<'a, 'b, Type: ASTType> {
     /// The referenced statement
     inner: &'b ASTNode<Statement<Type>>,
@@ -357,7 +357,7 @@ impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for StatementSymbolTable<'a, '
 /// The root node has no position.
 /// The first step is at the beginning of the list
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct StatementLocation<'a, 'b, Type: ASTType> {
     /// None means that this references to a root statement that has no parent
     ///

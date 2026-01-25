@@ -299,7 +299,10 @@ pub trait ASTType: Sized + PartialEq + 'static + Debug {
     /// This always has a name, which can be extracted via the [`SymbolIdentifier`] trait
     ///
     /// Symbols without a type parameter (e.g.: variable) can only match if there are no
-    /// type parameters on this
+    /// type parameters on this.
+    ///
+    /// This can only be used to distinguish between symbols in a single symbol container
+    /// (e.g.: File, Struct)
     type SymbolIdentifier<'a>: Debug + PartialEq + Copy + SymbolIdentifier;
 
     /// Gets all type parameter symbols of the provided symbol with type parameters

@@ -36,6 +36,7 @@ pub(crate) fn analyze_expression(
         Expression::BinaryOp(inner) => {
             Expression::BinaryOp(analyze_binary_op(inner, function_symbol_mapper, helper)?)
         }
+        _ => todo!()
     })
 }
 
@@ -214,7 +215,6 @@ mod tests {
     use ast::data_type::{DataType, Typed};
     use ast::expression::{BinaryOp, BinaryOpType, Expression, Literal, UnaryOp, UnaryOpType};
     use ast::statement::{CodeBlock, Statement};
-    use ast::symbol::{FunctionSymbol, Symbol, VariableSymbol};
     use ast::top_level::Function;
     use ast::traversal::directory_traversal::DirectoryTraversalHelper;
     use ast::visibility::Visibility;

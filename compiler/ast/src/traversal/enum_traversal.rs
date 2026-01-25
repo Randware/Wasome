@@ -4,7 +4,7 @@ use crate::traversal::HasSymbols;
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::{ASTNode, ASTType};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumTraversalHelper<'a, 'b, Type: ASTType> {
     inner: &'b ASTNode<Enum<Type>>,
     parent: &'a FileTraversalHelper<'a, 'b, Type>,

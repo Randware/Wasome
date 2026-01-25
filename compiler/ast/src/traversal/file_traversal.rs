@@ -21,7 +21,7 @@ use std::path::PathBuf;
 /// | ------------- | ------------- |
 /// | 'a | How long the traversal helper may life |
 /// | 'b | How long the underlying data may life |
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileTraversalHelper<'a, 'b, Type: ASTType> {
     inner: &'b ASTNode<File<Type>, PathBuf>,
     parent: &'a DirectoryTraversalHelper<'a, 'b, Type>,

@@ -5,7 +5,7 @@ use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructTraversalHelper<'a, 'b, Type: ASTType> {
     inner: &'b ASTNode<Struct<Type>>,
     parent: &'a FileTraversalHelper<'a, 'b, Type>,

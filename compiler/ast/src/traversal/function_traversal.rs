@@ -16,7 +16,7 @@ use std::rc::Rc;
 /// | ------------- | ------------- |
 /// | 'a | How long the traversal helper may life |
 /// | 'b | How long the underlying data may life |
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionTraversalHelper<'a, 'b, Type: ASTType> {
     // The referenced function
     inner: &'b ASTNode<Function<Type>>,

@@ -1,5 +1,5 @@
 use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
-use ast::symbol::{FunctionSymbol, Symbol};
+use ast::symbol::{FunctionSymbol, DirectlyAvailableSymbol};
 use ast::{TypedAST, UntypedAST};
 use std::rc::Rc;
 
@@ -23,10 +23,10 @@ impl<'a, 'b> FileSymbolMapper<'a, 'b> {
     pub fn lookup_function(
         &self,
         function: &FunctionSymbol<UntypedAST>,
-    ) -> Option<Symbol<'a, TypedAST>> {
+    ) -> Option<DirectlyAvailableSymbol<'a, TypedAST>> {
         self.global_functions
             .get(function)
-            .map(|res| Symbol::Function(res.as_ref()))
+            .map(|res| DirectlyAvailableSymbol::Function(res.as_ref()))
     }
 
     /// Looks up a function symbol by its name and returns a shared pointer (`Rc`) to it.
@@ -86,6 +86,7 @@ mod tests {
                 "p1".to_string(),
                 DataType::S32,
             ))],
+            Vec::new()
         ))
     }
 

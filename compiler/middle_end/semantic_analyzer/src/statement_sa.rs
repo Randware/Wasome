@@ -1,6 +1,6 @@
 use crate::expression_sa::analyze_expression;
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
-use crate::symbol_by_name;
+use crate::symbol_by_identifier;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
@@ -8,7 +8,7 @@ use ast::statement::{
     CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
     VariableAssignment, VariableDeclaration,
 };
-use ast::symbol::{Symbol, VariableSymbol};
+use ast::symbol::{DirectlyAvailableSymbol, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::ops::Deref;
@@ -74,6 +74,7 @@ pub(crate) fn analyze_statement(
             panic!("Void function calls are not allowed in the untyped AST")
         }
         Statement::Break => analyze_break(to_analyze),
+        _ => todo!()
     }
 }
 
@@ -92,9 +93,9 @@ fn try_analyze_void_function_call(
     };
 
     let symbol =
-        symbol_by_name(call.function(), to_analyze.symbols_available_at())?;
+        symbol_by_identifier(call.function(), to_analyze.symbols_available_at())?;
 
-    if let Symbol::Function(_) = symbol {
+    if let DirectlyAvailableSymbol::Function(_) = symbol {
     } else {
         return None;
     };

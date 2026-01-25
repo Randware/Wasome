@@ -10,6 +10,7 @@ use std::rc::Rc;
 /// It maps an `UntypedAST` symbol (used as the key) to its corresponding `TypedAST` symbol (the value).
 /// We use the symbol itself as the key. Thanks to our custom `Hash` implementation (which only hashes the ID),
 /// this is very efficient.
+/// // TODO
 pub type GlobalSymbolMap<'a> =
     HashMap<&'a FunctionSymbol<UntypedAST>, Rc<FunctionSymbol<TypedAST>>>;
 
@@ -58,57 +59,6 @@ fn collect_from_directory<'a>(
     }
 
     Ok(())
-}
-
-/// Converts an untyped function symbol (with String types) into a typed symbol (with Enum types).
-///
-/// This function validates that the types used in the return type and parameters actually exist
-/// and converts them from their string representation to `DataType`.
-///
-/// # Parameters
-/// * `untyped` - The untyped function symbol from the parser.
-///
-/// # Returns
-/// * `Ok(Rc<FunctionSymbol<TypedAST>>)` - The newly created typed symbol wrapped in an Rc.
-/// * `Err(String)` - If a type name cannot be resolved.
-fn convert_function_symbol(
-    untyped: &FunctionSymbol<UntypedAST>,
-) -> Result<Rc<FunctionSymbol<TypedAST>>, String> {
-    let return_type = match untyped.return_type() {
-        Some(type_name) => {
-            let dt = analyze_data_type(type_name).ok_or_else(|| {
-                format!(
-                    "Semantic Error: Unknown return type '{}' in function '{}'",
-                    type_name,
-                    untyped.name()
-                )
-            })?;
-            Some(dt)
-        }
-        None => None,
-    };
-
-    let mut typed_params = Vec::new();
-    for param in untyped.params() {
-        let param_type_name = param.data_type();
-        let dt = analyze_data_type(param_type_name).ok_or_else(|| {
-            format!(
-                "Semantic Error: Unknown parameter type '{}' for parameter '{}' in function '{}'",
-                param_type_name,
-                param.name(),
-                untyped.name()
-            )
-        })?;
-
-        let typed_param = Rc::new(VariableSymbol::new(param.name().to_string(), dt));
-        typed_params.push(typed_param);
-    }
-
-    Ok(Rc::new(FunctionSymbol::new(
-        untyped.name().to_string(),
-        return_type,
-        typed_params,
-    )))
 }
 
 #[cfg(test)]

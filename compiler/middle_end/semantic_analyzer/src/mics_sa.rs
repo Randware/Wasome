@@ -1,9 +1,9 @@
 use crate::expression_sa::analyze_expression;
-use crate::symbol_by_name;
+use crate::{symbol_by_name};
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use ast::data_type::DataType;
 use ast::expression::{Expression, FunctionCall};
-use ast::symbol::Symbol;
+use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 
@@ -43,10 +43,11 @@ pub(crate) fn analyze_function_call(
 ) -> Option<FunctionCall<TypedAST>> {
     let call_name = to_analyze.function();
 
-    let found_symbol = symbol_by_name(call_name, helper.symbols_available_at())?;
+    // TODO
+    let found_symbol = symbol_by_name(&call_name.0, helper.symbols_available_at())?;
 
     let untyped_func_symbol = match found_symbol {
-        Symbol::Function(f) => f,
+        DirectlyAvailableSymbol::Function(f) => f,
         _ => return None,
     };
 
