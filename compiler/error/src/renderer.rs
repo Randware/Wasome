@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
+use std::marker::PhantomData;
 use std::sync::OnceLock;
 
 use ariadne::{Config, Label, Report, ReportBuilder, ReportKind};
@@ -8,6 +9,7 @@ use source::types::FileID;
 use yansi::{Color, Paint};
 
 use crate::diagnostic::{Diagnostic, Level, Snippet};
+use crate::source::NoSource;
 use crate::source::SourceLookup;
 
 /// Defines the color scheme for diagnostic elements.
@@ -30,10 +32,6 @@ struct CachedSource {
     path: String,
     content: String,
 }
-
-/// Handles the construction and rendering of diagnostics.
-use crate::source::NoSource;
-use std::marker::PhantomData;
 
 /// Handles the construction and rendering of diagnostics.
 pub struct Renderer<'a, S: ?Sized> {
