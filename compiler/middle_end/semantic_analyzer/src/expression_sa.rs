@@ -1,5 +1,5 @@
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
-use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::expression::{
     BinaryOp, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
 };
@@ -7,7 +7,7 @@ use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
-use crate::symbol_translation::{SyntaxContext, TypeParameterContext};
+use crate::symbol::{SyntaxContext, TypeParameterContext};
 
 /// Analyzes an untyped expression and converts it into a typed `Expression`.
 ///
@@ -206,8 +206,7 @@ pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
-    use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
+    use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
     use crate::test_shared::functions_into_ast;
     use ast::data_type::{DataType, Typed};
     use ast::expression::{BinaryOp, BinaryOpType, Expression, Literal, UnaryOp, UnaryOpType};

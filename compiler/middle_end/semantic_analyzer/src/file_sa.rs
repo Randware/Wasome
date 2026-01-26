@@ -1,4 +1,3 @@
-use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use crate::top_level_sa::analyze_function;
 use ast::file::File;
 use ast::top_level::{Import, ImportRoot};

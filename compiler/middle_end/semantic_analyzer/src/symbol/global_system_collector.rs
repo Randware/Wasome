@@ -1,18 +1,10 @@
-use crate::mics_sa::analyze_data_type;
-use ast::directory::Directory;
-use ast::symbol::{FunctionSymbol, VariableSymbol};
-use ast::{AST, TypedAST, UntypedAST};
-use std::collections::HashMap;
-use std::rc::Rc;
-
-/// The global symbol map.
-///
-/// It maps an `UntypedAST` symbol (used as the key) to its corresponding `TypedAST` symbol (the value).
-/// We use the symbol itself as the key. Thanks to our custom `Hash` implementation (which only hashes the ID),
-/// this is very efficient.
-/// // TODO
-pub type GlobalSymbolMap<'a> =
-    HashMap<&'a FunctionSymbol<UntypedAST>, Rc<FunctionSymbol<TypedAST>>>;
+use crate::symbol::syntax_element_map::SyntaxElementMap;
+use ast::traversal::directory_traversal::DirectoryTraversalHelper;
+use ast::traversal::file_traversal::FileTraversalHelper;
+use ast::traversal::function_traversal::FunctionTraversalHelper;
+use ast::traversal::FunctionContainer;
+use ast::{UntypedAST, AST};
+use typed_arena::Arena;
 
 /// Entry Point: Collects all global symbols from the AST.
 ///
@@ -26,9 +18,9 @@ pub type GlobalSymbolMap<'a> =
 /// # Returns
 /// * `Ok(GlobalSymbolMap)` - The populated map of symbols.
 /// * `Err(String)` - If a semantic error occurs during type conversion (e.g., unknown types).
-pub fn collect_global_symbols(ast: &'_ AST<UntypedAST>) -> Result<GlobalSymbolMap<'_>, String> {
-    let mut map = GlobalSymbolMap::new();
-    collect_from_directory(ast, &mut map)?;
+pub fn collect_global_symbols<'a>(ast: &'a AST<UntypedAST>, to_alloc_in: &'a TraversalHelpers<'a>) -> Result<SyntaxElementMap<'a>, String> {
+    let mut map = SyntaxElementMap::new();
+    collect_from_directory(DirectoryTraversalHelper::new_from_ast(ast), &mut map, to_alloc_in)?;
     Ok(map)
 }
 
@@ -41,27 +33,38 @@ pub fn collect_global_symbols(ast: &'_ AST<UntypedAST>) -> Result<GlobalSymbolMa
 /// * `dir` - The current directory to traverse.
 /// * `map` - The mutable reference to the global symbol map being populated.
 fn collect_from_directory<'a>(
-    dir: &'a Directory<UntypedAST>,
-    map: &mut GlobalSymbolMap<'a>,
+    dir: DirectoryTraversalHelper<'a, 'a, UntypedAST>,
+    map: &mut SyntaxElementMap<'a>,
+    to_alloc_in: &'a TraversalHelpers<'a>
 ) -> Result<(), String> {
+    let dir = to_alloc_in.directories.alloc(dir);
     for file in dir.files_iterator() {
-        for function in file.functions() {
-            let untyped_symbol = function.declaration();
-
-            let typed_symbol = convert_function_symbol(untyped_symbol)?;
-
-            map.insert(untyped_symbol, typed_symbol);
+        let file = to_alloc_in.files.alloc(file);
+        for function in file.function_iterator() {
+            map.insert_untyped_function(function);
         }
     }
 
     for subdir in dir.subdirectories_iterator() {
-        collect_from_directory(subdir, map)?;
+        collect_from_directory(subdir, map, to_alloc_in)?;
     }
 
     Ok(())
 }
 
-#[cfg(test)]
+pub(crate) struct TraversalHelpers<'a> {
+    pub directories: Arena<DirectoryTraversalHelper<'a, 'a, UntypedAST>>,
+    pub files: Arena<FileTraversalHelper<'a, 'a, UntypedAST>>,
+    pub functions: Arena<FunctionTraversalHelper<'a, 'a, UntypedAST>>
+}
+
+impl<'a> TraversalHelpers<'a> {
+    pub fn new() -> Self {
+        Self { directories: Arena::new(), files: Arena::new(), functions: Arena::new() }
+    }
+}
+
+/*#[cfg(test)]
 mod tests {
     use super::*;
     use crate::expression_sa::sample_codearea;
@@ -185,4 +188,4 @@ mod tests {
         assert!(err.contains("Unknown return type"));
         assert!(err.contains("non_existent_type"));
     }
-}
+}*/

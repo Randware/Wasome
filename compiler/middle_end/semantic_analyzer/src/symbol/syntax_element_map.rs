@@ -5,8 +5,8 @@ use ast::{TypedAST, UntypedAST};
 use ast::symbol::FunctionSymbol;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
-use crate::symbol_translation::{AnalyzableFunction, AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext, SyntaxContext};
-use crate::symbol_translation::syntax_element_with_type_parameter_guard::{SyntaxElementWithTypeParameterGuard, TypedSyntaxElement};
+use crate::symbol::{AnalyzableFunction, AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext, SyntaxContext};
+use crate::symbol::syntax_element_with_type_parameter_guard::{SyntaxElementWithTypeParameterGuard, TypedSyntaxElement};
 
 pub(crate) struct SyntaxElementMap<'a> {
     functions: SingleSyntaxElementMap<'a, AnalyzableFunction>

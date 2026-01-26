@@ -3,11 +3,11 @@ mod expression_sa;
 mod file_sa;
 mod mics_sa;
 mod statement_sa;
-mod symbol_translation;
+mod symbol;
 mod top_level_sa;
 
 use crate::directory_sa::analyze_directory;
-use crate::symbol_translation::global_system_collector::collect_global_symbols;
+use crate::symbol::global_system_collector::collect_global_symbols;
 use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::{AST, TypedAST, UntypedAST, ASTType, SymbolIdentifier};

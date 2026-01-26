@@ -1,11 +1,12 @@
 use std::rc::Rc;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use ast::data_type::UntypedDataType;
-use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter};
+use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
-use crate::symbol_translation::syntax_element_map::SyntaxElementMap;
+use crate::mics_sa::{analyze_data_type, analyze_type_parameter_full};
+use crate::symbol::syntax_element_map::SyntaxElementMap;
 
 pub mod file_symbol_mapper;
 pub mod function_symbol_mapper;
@@ -103,4 +104,51 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
     fn generate_implementation<'a, 'b, Context: TypeParameterContext>(pre_implementation: Self::PreImplementation, context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>) -> Option<Self::Implementation> {
         todo!()
     }
+}
+
+/// Converts an untyped function symbol (with String types) into a typed symbol (with Enum types).
+///
+/// This function validates that the types used in the return type and parameters actually exist
+/// and converts them from their string representation to `DataType`.
+///
+/// # Parameters
+/// * `untyped` - The untyped function symbol from the parser.
+///
+/// # Returns
+/// * `Ok(Rc<FunctionSymbol<TypedAST>>)` - The newly created typed symbol wrapped in an Rc.
+/// * `Err(String)` - If a type name cannot be resolved.
+fn convert_function_symbol(
+    untyped: &FunctionSymbol<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, impl AnalyzableSyntaxElementWithTypeParameter>
+) -> Result<Rc<FunctionSymbol<TypedAST>>, String> {
+    let return_type = match untyped.return_type() {
+        Some(type_name) => {
+            let dt = analyze_data_type(type_name, context).ok_or_else(|| {
+                "Semantic Error: Unknown return type".to_string()
+            })?;
+            Some(dt)
+        }
+        None => None,
+    };
+
+    let mut typed_params = Vec::new();
+    for param in untyped.params() {
+        let param_type_name = param.data_type();
+        let dt = analyze_data_type(param_type_name, context).ok_or_else(|| {
+            "Semantic Error: Unknown parameter type".to_string()
+        })?;
+
+        let typed_param = Rc::new(VariableSymbol::new(param.name().to_string(), dt));
+        typed_params.push(typed_param);
+    }
+
+    let typed_type_params = untyped.type_parameters().iter()
+        .map(|tp| analyze_type_parameter_full(tp, context).cloned()).collect::<Option<Vec<_>>>().ok_or_else(|| "Unknown type parameter".to_string())?;
+
+    Ok(Rc::new(FunctionSymbol::new(
+        untyped.name().to_string(),
+        return_type,
+        typed_params,
+        typed_type_params
+    )))
 }

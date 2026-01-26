@@ -1,5 +1,4 @@
 use crate::file_sa::analyze_file;
-use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use ast::directory::Directory;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};

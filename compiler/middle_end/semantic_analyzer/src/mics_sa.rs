@@ -1,14 +1,14 @@
 use std::any::Any;
 use crate::expression_sa::analyze_expression;
 use crate::{symbol_by_name};
-use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::data_type::{DataType, UntypedDataType};
 use ast::expression::{Expression, FunctionCall};
 use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
-use crate::symbol_translation::{AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext};
+use crate::symbol::{AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext};
 
 /// A helper function that resolves the type names into the right types.
 ///
@@ -81,7 +81,7 @@ pub(crate) fn analyze_function_call(
         let position = untyped_arg_node.position().clone();
 
         // Rekursiv analyze_expression aufrufen (mit allen Parametern!)
-        let typed_expr = analyze_expression(untyped_arg_node, mapper, helper)?;
+        let typed_expr = analyze_expression(untyped_arg_node, context, mapper)?;
 
         typed_args.push(ASTNode::new(typed_expr, position));
     }

@@ -1,6 +1,6 @@
 use std::ops::Deref;
 use crate::statement_sa::analyze_statement;
-use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::symbol::FunctionSymbol;
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -9,7 +9,7 @@ use ast::visibility::Visible;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 use ast::statement::{ControlStructure, Statement};
-use crate::symbol_translation::{SyntaxContext, TypeParameterContext};
+use crate::symbol::{SyntaxContext, TypeParameterContext};
 // I think that this is now obsolete
 /*
 /// Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
@@ -118,7 +118,6 @@ fn always_return(to_check: &Statement<TypedAST>) -> bool {
 mod tests {
     use super::*;
     use crate::expression_sa::sample_codearea;
-    use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
     use crate::test_shared::functions_into_ast;
     use ast::statement::{CodeBlock, Statement};
     use ast::traversal::directory_traversal::DirectoryTraversalHelper;

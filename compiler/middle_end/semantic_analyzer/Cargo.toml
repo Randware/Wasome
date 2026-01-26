@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 ast = { path = "../../ast"}
 shared = { path = "../../shared" }
+typed-arena = "2.0.2"

@@ -1,6 +1,6 @@
 use crate::expression_sa::analyze_expression;
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
-use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{
@@ -14,7 +14,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use crate::symbol_by_name;
-use crate::symbol_translation::{SyntaxContext, TypeParameterContext};
+use crate::symbol::{SyntaxContext, TypeParameterContext};
 
 /// Analyzes a statement referenced by a traversal helper and converts it into a typed statement node.
 ///
@@ -38,7 +38,7 @@ pub(crate) fn analyze_statement(
     let statement_to_analyze = to_analyze.inner();
     match statement_to_analyze.deref() {
         Statement::VariableAssignment(inner) => {
-            let assigned = analyze_variable_assignment(inner, function_symbol_mapper, &to_analyze)?;
+            let assigned = analyze_variable_assignment(inner, function_symbol_mapper, context)?;
             Some(Statement::VariableAssignment(assigned))
         }
         Statement::VariableDeclaration(inner) => {
@@ -54,7 +54,7 @@ pub(crate) fn analyze_statement(
             else {
                 // We pass the helper as context so the expression can resolve symbols valid at this location
                 let typed_expr =
-                    analyze_expression(inner, function_symbol_mapper, &to_analyze)?;
+                    analyze_expression(inner, context, function_symbol_mapper)?;
                 Some(Statement::Expression(ASTNode::new(
                     typed_expr,
                     inner.position().clone(),
@@ -127,13 +127,13 @@ fn try_analyze_void_function_call(
 fn analyze_variable_assignment(
     to_analyze: &VariableAssignment<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
 ) -> Option<VariableAssignment<TypedAST>> {
     let var_name = to_analyze.variable();
     let typed_variable_symbol = function_symbol_mapper.lookup_variable(var_name)?;
 
     let untyped_val = to_analyze.value();
-    let typed_value_expr = analyze_expression(untyped_val, function_symbol_mapper, helper)?;
+    let typed_value_expr = analyze_expression(untyped_val, context, function_symbol_mapper)?;
 
     if typed_variable_symbol.data_type() != &typed_value_expr.data_type() {
         return None;
@@ -164,7 +164,7 @@ fn analyze_variable_declaration(
 ) -> Option<VariableDeclaration<TypedAST>> {
     let untyped_val = to_analyze.value();
 
-    let typed_value_expr = analyze_expression(untyped_val, function_symbol_mapper, context)?;
+    let typed_value_expr = analyze_expression(untyped_val, context, function_symbol_mapper)?;
 
     let declared_type_name = to_analyze.variable().data_type();
     let resolved_declared_type = analyze_data_type(declared_type_name, context)?;
@@ -205,16 +205,16 @@ fn analyze_return(
     context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Return<TypedAST>> {
-    let expected_return_type = function_symbol_mapper.get_current_function_return_type();
+    let expected_return_type = function_symbol_mapper.get_current_function_return_type().cloned();
     let untyped_return_value = to_analyze.to_return();
 
     match (expected_return_type, untyped_return_value) {
         (None, None) => Some(Return::new(None)),
 
         (Some(expected), Some(expr_node)) => {
-            let typed_expr = analyze_expression(expr_node, function_symbol_mapper, context)?;
+            let typed_expr = analyze_expression(expr_node, context, function_symbol_mapper)?;
 
-            if &typed_expr.data_type() != expected {
+            if typed_expr.data_type() != expected {
                 return None;
             }
 
@@ -244,12 +244,12 @@ fn analyze_control_structure(
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<ControlStructure<TypedAST>> {
     match to_analyze {
-        ControlStructure::Conditional(_) => {
-            analyze_conditional(to_analyze_helper, function_symbol_mapper)
+        ControlStructure::Conditional(cond) => {
+            analyze_conditional(cond, context, function_symbol_mapper)
                 .map(ControlStructure::Conditional)
         }
-        ControlStructure::Loop(_) => {
-            analyze_loop(to_analyze_helper, function_symbol_mapper).map(ControlStructure::Loop)
+        ControlStructure::Loop(lp) => {
+            analyze_loop(lp, context, function_symbol_mapper).map(ControlStructure::Loop)
         }
         _ => todo!()
     }
@@ -276,8 +276,8 @@ fn analyze_conditional(
 
     let typed_condition_expr = analyze_expression(
         untyped_condition,
-        function_symbol_mapper,
         context,
+        function_symbol_mapper,
     )?;
 
     let typed_condition = ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
@@ -342,7 +342,7 @@ fn analyze_loop(
 
         LoopType::While(condition) => {
             let typed_condition_expr =
-                analyze_expression(condition, function_symbol_mapper, &to_analyze_helper)?;
+                analyze_expression(condition, context, function_symbol_mapper)?;
             let typed_condition = ASTNode::new(typed_condition_expr, condition.position().clone());
 
             if typed_condition.data_type() != DataType::Bool {
@@ -367,7 +367,7 @@ fn analyze_loop(
             let typed_start_node = ASTNode::new(typed_start_stmt, start_position);
 
             let typed_cond_expr =
-                analyze_expression(cond, function_symbol_mapper, &to_analyze_helper)?;
+                analyze_expression(cond, context, function_symbol_mapper)?;
             let typed_cond_node = ASTNode::new(typed_cond_expr, cond.position().clone());
 
             if typed_cond_node.data_type() != DataType::Bool {
@@ -483,8 +483,7 @@ fn analyze_break(context: &mut SyntaxContext<impl TypeParameterContext, Statemen
 mod tests {
     use super::*;
     use crate::expression_sa::sample_codearea;
-    use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
-    use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
+    use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
     use crate::test_shared::functions_into_ast;
     use ast::data_type::DataType;
     use ast::expression::{Expression, Literal};
