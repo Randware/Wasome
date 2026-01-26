@@ -1,6 +1,5 @@
 use crate::expression_sa::analyze_expression;
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
-use crate::symbol_by_identifier;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
@@ -13,6 +12,9 @@ use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::ops::Deref;
 use std::rc::Rc;
+use ast::traversal::function_traversal::FunctionTraversalHelper;
+use crate::symbol_by_name;
+use crate::symbol_translation::{SyntaxContext, TypeParameterContext};
 
 /// Analyzes a statement referenced by a traversal helper and converts it into a typed statement node.
 ///
@@ -29,10 +31,11 @@ use std::rc::Rc;
 /// * `Some(Statement<TypedAST>)` if the statement and its children were successfully analyzed.
 /// * `None` if a semantic error occurs (e.g., type mismatch, unknown variable).
 pub(crate) fn analyze_statement(
-    to_analyze: StatementTraversalHelper<UntypedAST>,
-    function_symbol_mapper: &mut FunctionSymbolMapper,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
 ) -> Option<Statement<TypedAST>> {
-    match &**to_analyze.inner() {
+    let to_analyze= &context.ast_reference;
+    let statement_to_analyze = to_analyze.inner();
+    match statement_to_analyze.deref() {
         Statement::VariableAssignment(inner) => {
             let assigned = analyze_variable_assignment(inner, function_symbol_mapper, &to_analyze)?;
             Some(Statement::VariableAssignment(assigned))
@@ -79,10 +82,11 @@ pub(crate) fn analyze_statement(
 }
 
 fn try_analyze_void_function_call(
-    to_analyze: &StatementTraversalHelper<UntypedAST>,
-    function_symbol_mapper: &mut FunctionSymbolMapper,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
 ) -> Option<FunctionCall<TypedAST>> {
-    let expr = if let Statement::Expression(inner) = to_analyze.inner().deref() {
+    let to_analyze= &context.ast_reference;
+    let statement_to_analyze = to_analyze.inner();
+    let expr = if let Statement::Expression(inner) = statement_to_analyze.deref() {
         inner
     } else {
         return None;
@@ -93,7 +97,7 @@ fn try_analyze_void_function_call(
     };
 
     let symbol =
-        symbol_by_identifier(call.function(), to_analyze.symbols_available_at())?;
+        symbol_by_name(&call.function().0, to_analyze.symbols_available_at())?;
 
     if let DirectlyAvailableSymbol::Function(_) = symbol {
     } else {
@@ -149,15 +153,15 @@ fn analyze_variable_assignment(
 /// * `None` if the type cannot be inferred or resolved, or if registration fails.
 fn analyze_variable_declaration(
     to_analyze: &VariableDeclaration<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
 ) -> Option<VariableDeclaration<TypedAST>> {
     let untyped_val = to_analyze.value();
 
-    let typed_value_expr = analyze_expression(untyped_val, function_symbol_mapper, helper)?;
+    let typed_value_expr = analyze_expression(untyped_val, function_symbol_mapper, context)?;
 
     let declared_type_name = to_analyze.variable().data_type();
-    let resolved_declared_type = analyze_data_type(declared_type_name)?;
+    let resolved_declared_type = analyze_data_type(declared_type_name, context)?;
 
     // Type Check
     if resolved_declared_type != typed_value_expr.data_type() {
@@ -192,8 +196,8 @@ fn analyze_variable_declaration(
 /// * `None` if types mismatch or the return value is invalid.
 fn analyze_return(
     to_analyze: &Return<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
 ) -> Option<Return<TypedAST>> {
     let expected_return_type = function_symbol_mapper.get_current_function_return_type();
     let untyped_return_value = to_analyze.to_return();
@@ -202,9 +206,9 @@ fn analyze_return(
         (None, None) => Some(Return::new(None)),
 
         (Some(expected), Some(expr_node)) => {
-            let typed_expr = analyze_expression(expr_node, function_symbol_mapper, helper)?;
+            let typed_expr = analyze_expression(expr_node, function_symbol_mapper, context)?;
 
-            if typed_expr.data_type() != expected {
+            if &typed_expr.data_type() != expected {
                 return None;
             }
 
@@ -229,15 +233,11 @@ fn analyze_return(
 /// * `Some(ControlStructure<TypedAST>)` if the structure and its blocks are valid.
 /// * `None` if analysis fails.
 fn analyze_control_structure(
-    to_analyze_helper: StatementTraversalHelper<UntypedAST>,
+    to_analyze: &ControlStructure<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<ControlStructure<TypedAST>> {
-    let inner_control_structure = match &**to_analyze_helper.inner() {
-        Statement::ControlStructure(cs) => cs,
-        _ => return None,
-    };
-
-    match **inner_control_structure {
+    match to_analyze {
         ControlStructure::Conditional(_) => {
             analyze_conditional(to_analyze_helper, function_symbol_mapper)
                 .map(ControlStructure::Conditional)
@@ -245,6 +245,7 @@ fn analyze_control_structure(
         ControlStructure::Loop(_) => {
             analyze_loop(to_analyze_helper, function_symbol_mapper).map(ControlStructure::Loop)
         }
+        _ => todo!()
     }
 }
 
@@ -261,20 +262,11 @@ fn analyze_control_structure(
 /// * `Some(Conditional<TypedAST>)` if the condition is boolean and blocks are valid.
 /// * `None` if analysis fails.
 fn analyze_conditional(
-    to_analyze_helper: StatementTraversalHelper<UntypedAST>,
+    to_analyze: &Conditional<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Conditional<TypedAST>> {
-    let inner_box_ref = match &**to_analyze_helper.inner() {
-        Statement::ControlStructure(b) => b,
-        _ => return None,
-    };
-
-    let untyped_conditional_ref: &Conditional<UntypedAST> = match **inner_box_ref {
-        ControlStructure::Conditional(ref c) => c,
-        ControlStructure::Loop(_) => return None,
-    };
-
-    let untyped_condition = untyped_conditional_ref.condition();
+    let untyped_condition = to_analyze.condition();
 
     let typed_condition_expr = analyze_expression(
         untyped_condition,

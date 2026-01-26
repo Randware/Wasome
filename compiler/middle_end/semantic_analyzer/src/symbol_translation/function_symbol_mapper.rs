@@ -1,4 +1,3 @@
-use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
 use ast::data_type::DataType;
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::{TypedAST, UntypedAST};
@@ -9,13 +8,12 @@ pub struct Scope {
     variables: HashMap<String, Rc<VariableSymbol<TypedAST>>>,
 }
 
-pub struct FunctionSymbolMapper<'a, 'b> {
+pub struct FunctionSymbolMapper {
     scope_stack: Vec<Scope>,
     current_function_return_type: Option<DataType>,
-    file_mapper: &'a FileSymbolMapper<'a, 'b>,
 }
 
-impl<'a, 'b> FunctionSymbolMapper<'a, 'b> {
+impl FunctionSymbolMapper {
     /// Creates a new instance of `FunctionSymbolMapper`.
     ///
     /// Initializes with a reference to the global file scope and establishes the base scope.
@@ -25,11 +23,10 @@ impl<'a, 'b> FunctionSymbolMapper<'a, 'b> {
     ///
     /// # Returns
     /// * A new `FunctionSymbolMapper` with initialized fields and an active base scope.
-    pub fn new(file_mapper: &'a FileSymbolMapper<'a, 'b>) -> Self {
+    pub fn new() -> Self {
         let mut mapper = Self {
             scope_stack: Vec::new(),
             current_function_return_type: None,
-            file_mapper,
         };
         mapper.enter_scope();
         mapper
@@ -69,23 +66,6 @@ impl<'a, 'b> FunctionSymbolMapper<'a, 'b> {
         Ok(())
     }
 
-    /// Looks up a function symbol by name.
-    ///
-    /// Delegates the lookup to the associated `FileSymbolMapper` (global scope).
-    ///
-    /// # Parameters
-    /// * `name` - The identifier of the function to search for (`&str`).
-    ///
-    /// # Returns
-    /// * `Some(Rc<FunctionSymbol<TypedAST>>)` if found.
-    /// * `None` otherwise.
-    pub fn lookup_function(
-        &self,
-        function: &FunctionSymbol<UntypedAST>,
-    ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
-        self.file_mapper.lookup_function_rc(function)
-    }
-
     /// Adds a variable symbol to the current scope.
     ///
     /// # Parameters
@@ -102,6 +82,7 @@ impl<'a, 'b> FunctionSymbolMapper<'a, 'b> {
 
         let name = symbol.name().to_string();
 
+        // TODO: Variable shadowing
         if current_scope.variables.contains_key(&name) {
             return Err(format!(
                 "Error: Variable '{}' is already defined in the current scope.",
@@ -147,16 +128,11 @@ impl<'a, 'b> FunctionSymbolMapper<'a, 'b> {
     pub fn get_current_function_return_type(&self) -> Option<&DataType> {
         self.current_function_return_type.as_ref()
     }
-
-    pub fn get_file_mapper(&self) -> &FileSymbolMapper<'a, 'b> {
-        self.file_mapper
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::FunctionSymbolMapper;
-    use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
     use ast::data_type::DataType;
     use std::collections::HashMap;
 

@@ -1,4 +1,4 @@
-use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
+/*use crate::symbol_translation::global_system_collector::GlobalSymbolMap;
 use ast::symbol::{FunctionSymbol, DirectlyAvailableSymbol};
 use ast::{TypedAST, UntypedAST};
 use std::rc::Rc;
@@ -178,4 +178,4 @@ mod tests {
 
         assert!(mapper.lookup_function("m.cos").is_none());
     }*/
-}
+}*/

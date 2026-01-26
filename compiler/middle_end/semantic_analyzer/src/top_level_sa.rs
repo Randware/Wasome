@@ -1,6 +1,5 @@
 use std::ops::Deref;
 use crate::statement_sa::analyze_statement;
-use crate::symbol_translation::file_symbol_mapper::FileSymbolMapper;
 use crate::symbol_translation::function_symbol_mapper::FunctionSymbolMapper;
 use ast::symbol::FunctionSymbol;
 use ast::top_level::Function;
@@ -10,6 +9,7 @@ use ast::visibility::Visible;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 use ast::statement::{ControlStructure, Statement};
+use crate::symbol_translation::{SyntaxContext, TypeParameterContext};
 // I think that this is now obsolete
 /*
 /// Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
@@ -52,15 +52,14 @@ pub(crate) fn analyze_top_level(
 /// * `Some(Function<TypedAST>)` if the body is semantically correct.
 /// * `None` if analysis fails (e.g., type or scope errors, or symbol missing in global map).
 pub(crate) fn analyze_function(
-    untyped_function: &Function<UntypedAST>,
-    root_helper: &FunctionTraversalHelper<UntypedAST>,
-    file_mapper: &mut FileSymbolMapper,
+    context: &mut SyntaxContext<impl TypeParameterContext, FunctionTraversalHelper<UntypedAST>>,
 ) -> Option<Function<TypedAST>> {
-    let untyped_symbol = untyped_function.declaration();
+    let to_analyze = &context.ast_reference;
+    let untyped_symbol = to_analyze.inner().declaration();
     let typed_declaration: Rc<FunctionSymbol<TypedAST>> =
-        file_mapper.lookup_function_rc(untyped_symbol)?.clone();
+        context.global_elements.get_typed_function_symbol(untyped_symbol, context.type_parameter_context.untyped_type_parameters())?;
 
-    let mut func_mapper = FunctionSymbolMapper::new(file_mapper);
+    let mut func_mapper = FunctionSymbolMapper::new();
     func_mapper.set_current_function_return_type(typed_declaration.return_type().cloned());
 
     for param_symbol in typed_declaration.params().iter() {
@@ -69,20 +68,21 @@ pub(crate) fn analyze_function(
             .expect("Internal error: Function parameters should not conflict.");
     }
 
-    let impl_helper = StatementTraversalHelper::new_root(root_helper);
-    let typed_implementation_statement = analyze_statement(impl_helper, &mut func_mapper)?;
+    let mut new_context = context.with_ast_reference(|to_analyze| StatementTraversalHelper::new_root(&to_analyze));
+    let typed_implementation_statement = analyze_statement(&mut new_context)?;
 
     if typed_declaration.return_type() != None && !always_return(&typed_implementation_statement) {
         // We have to return a value but don't
         return None;
     }
-    let code_area = untyped_function.implementation().position().clone();
+    let to_analyze = &context.ast_reference;
+    let code_area = to_analyze.inner().implementation().position().clone();
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
 
     Some(Function::new(
         typed_declaration,
         implementation_node,
-        untyped_function.visibility(),
+        to_analyze.inner().visibility(),
     ))
 }
 
