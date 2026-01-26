@@ -7,6 +7,7 @@ use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
+use crate::top_level_sa::analyze_function;
 
 pub mod file_symbol_mapper;
 pub mod function_symbol_mapper;
@@ -106,7 +107,7 @@ pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
     /// This uses a direct symbol as it is generated
     fn generate_typed_symbol<'a, 'b, Context: TypeParameterContext>(
         context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'_, 'b>>,
-    ) -> Option<Self::Symbol<TypedAST>>;
+    ) -> Option<Rc<Self::Symbol<TypedAST>>>;
     fn generate_pre_implementation<'a, 'b, Context: TypeParameterContext>(
         context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'_, 'b>>,
     ) -> Option<Self::PreImplementation>;
@@ -132,22 +133,22 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
     }
 
     fn generate_typed_symbol<'a, 'b, Context: TypeParameterContext>(
-        context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
-    ) -> Option<Self::Symbol<TypedAST>> {
-        todo!()
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Rc<Self::Symbol<TypedAST>>> {
+        convert_function_symbol(&mut context).ok()
     }
 
     fn generate_pre_implementation<'a, 'b, Context: TypeParameterContext>(
-        context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+        _context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::PreImplementation> {
         Some(())
     }
 
     fn generate_implementation<'a, 'b, Context: TypeParameterContext>(
-        pre_implementation: Self::PreImplementation,
-        context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+        _pre_implementation: Self::PreImplementation,
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::Implementation> {
-        todo!()
+        analyze_function(&mut context)
     }
 }
 
@@ -163,12 +164,12 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
 /// * `Ok(Rc<FunctionSymbol<TypedAST>>)` - The newly created typed symbol wrapped in an Rc.
 /// * `Err(String)` - If a type name cannot be resolved.
 fn convert_function_symbol(
-    untyped: &FunctionSymbol<UntypedAST>,
     context: &mut SyntaxContext<
         impl TypeParameterContext,
-        impl AnalyzableSyntaxElementWithTypeParameter,
+        FunctionTraversalHelper<UntypedAST>,
     >,
 ) -> Result<Rc<FunctionSymbol<TypedAST>>, String> {
+    let untyped = context.ast_reference.inner().declaration();
     let return_type = match untyped.return_type() {
         Some(type_name) => {
             let dt = analyze_data_type(type_name, context)

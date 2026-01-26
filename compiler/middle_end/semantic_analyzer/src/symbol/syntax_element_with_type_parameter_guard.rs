@@ -112,7 +112,7 @@ impl<Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<Eleme
             untyped_type_parameters.clone(),
         );
         let context = SyntaxContext::new(global_elements, type_parameter_context, from);
-        let symbol = Rc::new(Element::generate_typed_symbol(context)?);
+        let symbol = Element::generate_typed_symbol(context)?;
         Some(Self {
             typed_type_parameters,
             untyped_type_parameters,

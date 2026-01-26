@@ -53,7 +53,7 @@ pub(crate) fn analyze_top_level(
 /// * `None` if analysis fails (e.g., type or scope errors, or symbol missing in global map).
 pub(crate) fn analyze_function(
     context: &mut SyntaxContext<impl TypeParameterContext, FunctionTraversalHelper<UntypedAST>>,
-) -> Option<Function<TypedAST>> {
+) -> Option<ASTNode<Function<TypedAST>>> {
     let to_analyze = &context.ast_reference;
     let untyped_symbol = to_analyze.inner().declaration();
     let typed_declaration: Rc<FunctionSymbol<TypedAST>> =
@@ -83,11 +83,11 @@ pub(crate) fn analyze_function(
     let code_area = to_analyze.inner().implementation().position().clone();
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
 
-    Some(Function::new(
+    Some(ASTNode::new(Function::new(
         typed_declaration,
         implementation_node,
-        to_analyze.inner().visibility(),
-    ))
+        to_analyze.inner().visibility()
+    ), to_analyze.inner().position().clone()))
 }
 
 /// Checks wherever a statement will always encounter a return statement before finishing execution
