@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::rc::Rc;
 use ast::data_type::UntypedDataType;
-use ast::{TypedAST, UntypedAST};
-use ast::symbol::FunctionSymbol;
+use ast::{ASTNode, TypedAST, UntypedAST};
+use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter};
+use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
 use crate::symbol::{AnalyzableFunction, AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext, SyntaxContext};
@@ -24,6 +26,25 @@ impl<'a> SyntaxElementMap<'a> {
 
     pub fn insert_untyped_function(&mut self, to_insert: FunctionTraversalHelper<'a, 'a, UntypedAST>) -> Option<()> {
         self.functions.insert_untyped_element(to_insert)
+    }
+
+    pub fn fill(&mut self) -> Option<()> {
+        let mut ok = Some(());
+        // Collect to break off the borrow chain
+        let funcs = self.functions.untyped_elements().collect::<Vec<_>>();
+        funcs.iter().filter(|func| func.as_ref().type_parameters().len() == 0)
+            .for_each(|func| {
+                // Mutable borrow required here
+                let typed_symbol = self.get_typed_function_symbol(&func, &[]);
+                if typed_symbol.is_none() {
+                    ok = None;
+                }
+            });
+        ok
+    }
+
+    pub fn function_implementations_for_untyped_symbol(&mut self, symbol: &FunctionSymbol<UntypedAST>) -> Option<impl Iterator<Item=ASTNode<Function<TypedAST>>>> {
+        self.functions.implementations_for_untyped_symbol(symbol)
     }
 }
 
@@ -50,6 +71,10 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         let guard = SyntaxElementWithTypeParameterGuard::new(untyped_symbol.clone(), to_insert);
         self.elements.insert(untyped_symbol, guard);
         Some(())
+    }
+
+    pub fn untyped_elements(&self) -> impl Iterator<Item=Rc<Element::Symbol<UntypedAST>>> {
+        self.elements.keys().cloned()
     }
 
     pub fn get_typed_symbol(root: &mut SingleAndRoot<Element>, symbol: &Element::Symbol<UntypedAST>, type_parameters: &[UntypedDataType]) -> Option<Rc<Element::Symbol<TypedAST>>>{
@@ -91,6 +116,10 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         let typed_variant = guard.typed_variant_mut(type_parameters)?;
         typed_variant.set_implementation(implementation);
         Some(())
+    }
+
+    pub fn implementations_for_untyped_symbol(&mut self, symbol: &Element::Symbol<UntypedAST>) -> Option<impl Iterator<Item=Element::Implementation>> {
+        self.elements.remove(symbol).map(|implement| implement.into_implementations())
     }
 }
 

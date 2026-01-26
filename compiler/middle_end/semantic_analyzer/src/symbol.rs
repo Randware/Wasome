@@ -12,7 +12,7 @@ pub mod file_symbol_mapper;
 pub mod function_symbol_mapper;
 pub mod global_system_collector;
 mod syntax_element_with_type_parameter_guard;
-mod syntax_element_map;
+pub(crate) mod syntax_element_map;
 
 pub(crate) trait TypeParameterContext: Clone {
     fn lookup_type_parameter(&self, to_lookup: &str) -> Option<&TypedTypeParameter>;

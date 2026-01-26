@@ -3,6 +3,10 @@ use ast::directory::Directory;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
+use ast::file::File;
+use ast::traversal::function_traversal::FunctionTraversalHelper;
+use crate::symbol::{SyntaxContext, TypeParameterContext};
+use crate::symbol::syntax_element_map::SyntaxElementMap;
 
 /// Recursively analyzes a directory and its contents.
 ///
@@ -17,32 +21,27 @@ use std::path::PathBuf;
 /// # Returns
 /// * `Result<ASTNode<Directory<TypedAST>, PathBuf>, String>` - The typed directory node on success, or an error string.
 pub(crate) fn analyze_directory(
-    dir_helper: &DirectoryTraversalHelper<UntypedAST>,
-    global_map: &GlobalSymbolMap,
+    untyped_directory: &ASTNode<Directory<UntypedAST>, PathBuf>,
+    global_elements: &mut SyntaxElementMap,
 ) -> Result<ASTNode<Directory<TypedAST>, PathBuf>, String> {
     let mut typed_subdirs = Vec::new();
     let mut typed_files = Vec::new();
 
-    for i in 0..dir_helper.len_subdirectories() {
-        let subdir_helper = dir_helper
-            .index_subdirectory(i)
-            .expect("Index within bounds");
-        let typed_subdir = analyze_directory(&subdir_helper, global_map)?;
+    for subdir in untyped_directory.subdirectories_iterator() {
+        let typed_subdir = analyze_directory(subdir, global_elements)?;
         typed_subdirs.push(typed_subdir);
     }
 
-    for i in 0..dir_helper.len_files() {
-        let file_helper = dir_helper.index_file(i).expect("Index within bounds");
-        let typed_file = analyze_file(&file_helper, global_map)?;
+    for file in untyped_directory.files_iterator() {
+        let typed_file = analyze_file(file, global_elements)?;
         typed_files.push(typed_file);
     }
 
-    let untyped_dir = dir_helper.inner();
-    let typed_dir = Directory::new(untyped_dir.name().to_string(), typed_subdirs, typed_files);
+    let typed_dir = Directory::new(untyped_directory.name().to_string(), typed_subdirs, typed_files);
 
     Ok(ASTNode::new(
         typed_dir,
-        dir_helper.inner().position().clone(),
+        untyped_directory.position().clone(),
     ))
 }
 

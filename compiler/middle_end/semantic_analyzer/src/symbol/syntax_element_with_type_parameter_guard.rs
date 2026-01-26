@@ -59,9 +59,11 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter> SyntaxElemen
     pub fn ast_reference(&self) -> &Element::ASTReference<'a, 'b> {
         &self.ast_reference
     }
+
+    pub fn into_implementations(self) -> impl Iterator<Item=Element::Implementation> {
+        self.typed.into_iter().filter_map(|typed| typed.1.into_implementation())
+    }
 }
-
-
 
 pub(crate) struct TypedSyntaxElement<Element: AnalyzableSyntaxElementWithTypeParameter> {
     typed_type_parameters: Rc<[TypedTypeParameter]>,
@@ -137,5 +139,9 @@ impl<Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<Eleme
 
     pub fn untyped_type_parameters_owned(&self) -> Rc<[UntypedDataType]> {
         self.untyped_type_parameters.clone()
+    }
+
+    pub fn into_implementation(self) -> Option<Element::Implementation> {
+        self.implementation
     }
 }

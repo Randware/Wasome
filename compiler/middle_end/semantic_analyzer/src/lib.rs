@@ -6,16 +6,19 @@ mod statement_sa;
 mod symbol;
 mod top_level_sa;
 
+use std::ops::Deref;
 use crate::directory_sa::analyze_directory;
-use crate::symbol::global_system_collector::collect_global_symbols;
+use crate::symbol::global_system_collector::{collect_global_symbols, TraversalHelpers};
 use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::{AST, TypedAST, UntypedAST, ASTType, SymbolIdentifier};
 
 pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
-    let global_symbols = collect_global_symbols(&to_analyze).ok()?;
-    let root = DirectoryTraversalHelper::new_from_ast(&to_analyze);
-    analyze_directory(&root, &global_symbols)
+    let to_alloc_in = TraversalHelpers::new();
+    let mut global_symbols = collect_global_symbols(&to_analyze, &to_alloc_in).ok()?;
+    global_symbols.fill()?;
+    
+    analyze_directory(to_analyze.deref(), &mut global_symbols)
         .ok()
         .map(|root_dir| {
             // The typed AST has the same constraints as the untyped AST

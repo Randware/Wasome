@@ -4,7 +4,11 @@ use ast::top_level::{Import, ImportRoot};
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
+use std::task::Context;
 use ast::symbol::SymbolWithTypeParameter;
+use ast::traversal::function_traversal::FunctionTraversalHelper;
+use crate::symbol::{SyntaxContext, TypeParameterContext};
+use crate::symbol::syntax_element_map::SyntaxElementMap;
 
 /// Analyzes a single file and converts it into its typed representation.
 ///
@@ -21,30 +25,12 @@ use ast::symbol::SymbolWithTypeParameter;
 /// # Returns
 /// * `Result<ASTNode<File<TypedAST>, PathBuf>, String>` - The typed file node on success, or an error string.
 pub(crate) fn analyze_file(
-    file_helper: &FileTraversalHelper<UntypedAST>,
-    global_map: &GlobalSymbolMap,
+    untyped_file: &ASTNode<File<UntypedAST>, PathBuf>,
+    global_elements: &mut SyntaxElementMap,
 ) -> Result<ASTNode<File<TypedAST>, PathBuf>, String> {
-    let untyped_file = file_helper.inner();
-
-    let mut file_mapper = FileSymbolMapper::new(global_map);
-
     let mut typed_functions = Vec::new();
-    for i in 0..file_helper.len_functions() {
-        let func_helper = file_helper.index_function(i);
-        let untyped_func = func_helper.inner();
-
-        let typed_func = analyze_function(untyped_func, &func_helper, &mut file_mapper)
-            .ok_or_else(|| {
-                format!(
-                    "Semantic analysis failed for function '{}' in file '{}'",
-                    untyped_func.declaration().name(),
-                    untyped_file.position().display()
-                )
-            })?;
-
-        let code_area = untyped_func.implementation().position().clone();
-        let typed_node = ASTNode::new(typed_func, code_area);
-        typed_functions.push(typed_node);
+    for func in untyped_file.function_iterator() {
+        global_elements.function_implementations_for_untyped_symbol(func.declaration()).into_iter().flatten().for_each(|func_impl| typed_functions.push(func_impl));
     }
 
     let typed_imports: Vec<ASTNode<Import>> = untyped_file
