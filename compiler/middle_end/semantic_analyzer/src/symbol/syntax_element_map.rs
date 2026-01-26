@@ -28,11 +28,17 @@ impl<'a> SyntaxElementMap<'a> {
     pub fn get_typed_function_symbol(
         &mut self,
         symbol: &FunctionSymbol<UntypedAST>,
-        type_parameters: &[UntypedDataType], typed_type_parameters: impl FnOnce(&mut SyntaxElementMap) -> Option<Vec<TypedTypeParameter>>
+        type_parameters: &[UntypedDataType],
+        typed_type_parameters: impl FnOnce(&mut SyntaxElementMap) -> Option<Vec<TypedTypeParameter>>,
     ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
         let mut single_and_root =
             SingleAndRoot::new(|root| &root.functions, |root| &mut root.functions, self);
-        SingleSyntaxElementMap::get_typed_symbol(&mut single_and_root, symbol, type_parameters, typed_type_parameters)
+        SingleSyntaxElementMap::get_typed_symbol(
+            &mut single_and_root,
+            symbol,
+            type_parameters,
+            typed_type_parameters,
+        )
     }
 
     pub fn insert_untyped_function(
@@ -107,7 +113,8 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     pub fn get_typed_symbol(
         root: &mut SingleAndRoot<Element>,
         symbol: &Element::Symbol<UntypedAST>,
-        type_parameters: &[UntypedDataType], typed_type_parameters: impl FnOnce(&mut SyntaxElementMap) -> Option<Vec<TypedTypeParameter>>
+        type_parameters: &[UntypedDataType],
+        typed_type_parameters: impl FnOnce(&mut SyntaxElementMap) -> Option<Vec<TypedTypeParameter>>,
     ) -> Option<Rc<Element::Symbol<TypedAST>>> {
         let guard = root.single_mut().elements.get_mut(symbol)?;
         if guard.typed_variant(type_parameters).is_none() {
@@ -124,7 +131,8 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     fn insert_typed_variant(
         root: &mut SingleAndRoot<Element>,
         symbol: &<Element as AnalyzableSyntaxElementWithTypeParameter>::Symbol<UntypedAST>,
-        untyped_type_parameters: &[UntypedDataType], typed_type_parameters: Vec<TypedTypeParameter>
+        untyped_type_parameters: &[UntypedDataType],
+        typed_type_parameters: Vec<TypedTypeParameter>,
     ) -> Option<()> {
         let guard = root.single_mut().elements.get_mut(symbol)?;
         let ast_reference = guard.ast_reference().clone();

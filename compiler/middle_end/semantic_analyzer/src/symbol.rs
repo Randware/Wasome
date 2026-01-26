@@ -1,5 +1,8 @@
-use crate::mics_sa::{analyze_data_type, analyze_type_parameter_full, analyze_type_parameter_providing};
+use crate::mics_sa::{
+    analyze_data_type, analyze_type_parameter_full, analyze_type_parameter_providing,
+};
 use crate::symbol::syntax_element_map::{SingleSyntaxElementMap, SyntaxElementMap};
+use crate::top_level_sa::analyze_function;
 use ast::data_type::UntypedDataType;
 use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::top_level::Function;
@@ -7,7 +10,6 @@ use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
-use crate::top_level_sa::analyze_function;
 
 pub mod file_symbol_mapper;
 pub mod function_symbol_mapper;
@@ -87,19 +89,29 @@ impl<'a, 'b, Context: TypeParameterContext, ASTReference: Clone>
         &'c mut self,
         symbol: &FunctionSymbol<UntypedAST>,
         type_parameters: &[UntypedTypeParameter],
-        type_parameters_fillings: impl FnOnce(&'c Context) -> &'c [UntypedDataType]
+        type_parameters_fillings: impl FnOnce(&'c Context) -> &'c [UntypedDataType],
     ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
         let fillings = type_parameters_fillings(&self.type_parameter_context);
-        self.global_elements.get_typed_function_symbol(symbol, fillings, |global_elements| {
-
-            let mut context = SyntaxContext::new(global_elements, self.type_parameter_context.clone(), self.ast_reference.clone());
-            let typed_type_params = fillings.iter().zip(type_parameters.iter()).map(|(filling, param)| analyze_type_parameter_providing(param, filling, &mut context)).collect::<Option<Vec<_>>>();
-            typed_type_params
-        })
+        self.global_elements
+            .get_typed_function_symbol(symbol, fillings, |global_elements| {
+                let mut context = SyntaxContext::new(
+                    global_elements,
+                    self.type_parameter_context.clone(),
+                    self.ast_reference.clone(),
+                );
+                let typed_type_params = fillings
+                    .iter()
+                    .zip(type_parameters.iter())
+                    .map(|(filling, param)| {
+                        analyze_type_parameter_providing(param, filling, &mut context)
+                    })
+                    .collect::<Option<Vec<_>>>();
+                typed_type_params
+            })
     }
 }
 
-impl<'a, 'b, 'c: 'd, 'd, Context: TypeParameterContext, ASTReference: 'c+Clone>
+impl<'a, 'b, 'c: 'd, 'd, Context: TypeParameterContext, ASTReference: 'c + Clone>
     SyntaxContext<'a, 'b, Context, ASTReference>
 {
     pub fn with_ast_reference<NewElement: Clone>(
@@ -186,10 +198,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
 /// * `Ok(Rc<FunctionSymbol<TypedAST>>)` - The newly created typed symbol wrapped in an Rc.
 /// * `Err(String)` - If a type name cannot be resolved.
 fn convert_function_symbol(
-    context: &mut SyntaxContext<
-        impl TypeParameterContext,
-        FunctionTraversalHelper<UntypedAST>,
-    >,
+    context: &mut SyntaxContext<impl TypeParameterContext, FunctionTraversalHelper<UntypedAST>>,
 ) -> Result<Rc<FunctionSymbol<TypedAST>>, String> {
     let untyped = context.ast_reference.inner().declaration();
     let return_type = match untyped.return_type() {

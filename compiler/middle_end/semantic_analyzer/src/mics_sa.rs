@@ -1,8 +1,6 @@
 use crate::expression_sa::analyze_expression;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
-use crate::symbol::{
-    SyntaxContext, TypeParameterContext,
-};
+use crate::symbol::{SyntaxContext, TypeParameterContext};
 use crate::symbol_by_name;
 use ast::data_type::{DataType, UntypedDataType};
 use ast::expression::{Expression, FunctionCall};
@@ -71,7 +69,10 @@ pub(crate) fn analyze_type_parameter_providing<T: Clone>(
     with: &UntypedDataType,
     context: &mut SyntaxContext<impl TypeParameterContext, T>,
 ) -> Option<TypedTypeParameter> {
-    Some(TypedTypeParameter::new(to_analyze.inner().name().to_owned(), analyze_data_type(with, context)?))
+    Some(TypedTypeParameter::new(
+        to_analyze.inner().name().to_owned(),
+        analyze_data_type(with, context)?,
+    ))
 }
 
 /// Analyzes a function call
@@ -93,7 +94,11 @@ pub(crate) fn analyze_function_call(
     };
 
     let typed_func_symbol = context
-        .get_typed_function_symbol(untyped_func_symbol, &untyped_func_symbol.type_parameters(), |_| &to_analyze.function().1)
+        .get_typed_function_symbol(
+            untyped_func_symbol,
+            &untyped_func_symbol.type_parameters(),
+            |_| &to_analyze.function().1,
+        )
         .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");
 
     let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();

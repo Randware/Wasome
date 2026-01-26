@@ -56,12 +56,11 @@ pub(crate) fn analyze_function(
 ) -> Option<ASTNode<Function<TypedAST>>> {
     let to_analyze = &context.ast_reference;
     let untyped_symbol = to_analyze.inner().declaration();
-    let typed_declaration: Rc<FunctionSymbol<TypedAST>> =
-        context.get_typed_function_symbol(
-            untyped_symbol,
-            untyped_symbol.type_parameters(),
-            |context|context.untyped_type_parameters(),
-        )?;
+    let typed_declaration: Rc<FunctionSymbol<TypedAST>> = context.get_typed_function_symbol(
+        untyped_symbol,
+        untyped_symbol.type_parameters(),
+        |context| context.untyped_type_parameters(),
+    )?;
 
     let mut func_mapper = FunctionSymbolMapper::new();
     func_mapper.set_current_function_return_type(typed_declaration.return_type().cloned());
@@ -76,7 +75,8 @@ pub(crate) fn analyze_function(
         context.with_ast_reference(|to_analyze| StatementTraversalHelper::new_root(to_analyze));
     let typed_implementation_statement = analyze_statement(&mut new_context, &mut func_mapper)?;
 
-    if typed_declaration.return_type().is_some() && !always_return(&typed_implementation_statement) {
+    if typed_declaration.return_type().is_some() && !always_return(&typed_implementation_statement)
+    {
         // We have to return a value but don't
         return None;
     }
@@ -84,11 +84,14 @@ pub(crate) fn analyze_function(
     let code_area = to_analyze.inner().implementation().position().clone();
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
 
-    Some(ASTNode::new(Function::new(
-        typed_declaration,
-        implementation_node,
-        to_analyze.inner().visibility()
-    ), to_analyze.inner().position().clone()))
+    Some(ASTNode::new(
+        Function::new(
+            typed_declaration,
+            implementation_node,
+            to_analyze.inner().visibility(),
+        ),
+        to_analyze.inner().position().clone(),
+    ))
 }
 
 /// Checks wherever a statement will always encounter a return statement before finishing execution
