@@ -1,10 +1,10 @@
-use crate::mics_sa::{analyze_data_type, analyze_type_parameter_full};
-use crate::symbol::syntax_element_map::SyntaxElementMap;
+use crate::mics_sa::{analyze_data_type, analyze_type_parameter_full, analyze_type_parameter_providing};
+use crate::symbol::syntax_element_map::{SingleSyntaxElementMap, SyntaxElementMap};
 use ast::data_type::UntypedDataType;
 use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
-use ast::type_parameter::TypedTypeParameter;
+use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
 use crate::top_level_sa::analyze_function;
@@ -16,7 +16,8 @@ pub(crate) mod syntax_element_map;
 mod syntax_element_with_type_parameter_guard;
 
 pub(crate) trait TypeParameterContext: Clone {
-    fn lookup_type_parameter(&self, to_lookup: &str) -> Option<&TypedTypeParameter>;
+    fn lookup_typed_type_parameter(&self, to_lookup: &str) -> Option<&TypedTypeParameter>;
+    fn lookup_untyped_type_parameter(&self, to_lookup: &str) -> Option<&UntypedDataType>;
     fn typed_type_parameters(&self) -> &[TypedTypeParameter];
     fn untyped_type_parameters(&self) -> &[UntypedDataType];
 }
@@ -40,8 +41,14 @@ impl RegularTypeParameterContext {
 }
 
 impl TypeParameterContext for RegularTypeParameterContext {
-    fn lookup_type_parameter(&self, to_lookup: &str) -> Option<&TypedTypeParameter> {
+    fn lookup_typed_type_parameter(&self, to_lookup: &str) -> Option<&TypedTypeParameter> {
         self.typed_type_parameters
+            .iter()
+            .find(|type_parameter| type_parameter.name() == to_lookup)
+    }
+
+    fn lookup_untyped_type_parameter(&self, to_lookup: &str) -> Option<&UntypedDataType> {
+        self.untyped_type_parameters
             .iter()
             .find(|type_parameter| type_parameter.name() == to_lookup)
     }
@@ -51,17 +58,17 @@ impl TypeParameterContext for RegularTypeParameterContext {
     }
 
     fn untyped_type_parameters(&self) -> &[UntypedDataType] {
-        todo!()
+        &self.untyped_type_parameters
     }
 }
 
-pub(crate) struct SyntaxContext<'a, 'b, Context: TypeParameterContext, ASTReference> {
+pub(crate) struct SyntaxContext<'a, 'b, Context: TypeParameterContext, ASTReference: Clone> {
     pub global_elements: &'a mut SyntaxElementMap<'b>,
     pub type_parameter_context: Context,
     pub ast_reference: ASTReference,
 }
 
-impl<'a, 'b, Context: TypeParameterContext, ASTReference>
+impl<'a, 'b, Context: TypeParameterContext, ASTReference: Clone>
     SyntaxContext<'a, 'b, Context, ASTReference>
 {
     pub fn new(
@@ -75,12 +82,27 @@ impl<'a, 'b, Context: TypeParameterContext, ASTReference>
             ast_reference,
         }
     }
+
+    pub fn get_typed_function_symbol<'c>(
+        &'c mut self,
+        symbol: &FunctionSymbol<UntypedAST>,
+        type_parameters: &[UntypedTypeParameter],
+        type_parameters_fillings: impl FnOnce(&'c Context) -> &'c [UntypedDataType]
+    ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
+        let fillings = type_parameters_fillings(&self.type_parameter_context);
+        self.global_elements.get_typed_function_symbol(symbol, fillings, |global_elements| {
+
+            let mut context = SyntaxContext::new(global_elements, self.type_parameter_context.clone(), self.ast_reference.clone());
+            let typed_type_params = fillings.iter().zip(type_parameters.iter()).map(|(filling, param)| analyze_type_parameter_providing(param, filling, &mut context)).collect::<Option<Vec<_>>>();
+            typed_type_params
+        })
+    }
 }
 
-impl<'a, 'b, 'c: 'd, 'd, Context: TypeParameterContext, ASTReference: 'c>
+impl<'a, 'b, 'c: 'd, 'd, Context: TypeParameterContext, ASTReference: 'c+Clone>
     SyntaxContext<'a, 'b, Context, ASTReference>
 {
-    pub fn with_ast_reference<NewElement>(
+    pub fn with_ast_reference<NewElement: Clone>(
         &'c mut self,
         ref_gen: impl FnOnce(&'d ASTReference) -> NewElement,
     ) -> SyntaxContext<'c, 'b, Context, NewElement> {

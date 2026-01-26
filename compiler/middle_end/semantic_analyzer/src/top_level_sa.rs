@@ -2,7 +2,7 @@ use crate::statement_sa::analyze_statement;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::{SyntaxContext, TypeParameterContext};
 use ast::statement::{ControlStructure, Statement};
-use ast::symbol::FunctionSymbol;
+use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter};
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
@@ -57,9 +57,10 @@ pub(crate) fn analyze_function(
     let to_analyze = &context.ast_reference;
     let untyped_symbol = to_analyze.inner().declaration();
     let typed_declaration: Rc<FunctionSymbol<TypedAST>> =
-        context.global_elements.get_typed_function_symbol(
+        context.get_typed_function_symbol(
             untyped_symbol,
-            context.type_parameter_context.untyped_type_parameters(),
+            untyped_symbol.type_parameters(),
+            |context|context.untyped_type_parameters(),
         )?;
 
     let mut func_mapper = FunctionSymbolMapper::new();

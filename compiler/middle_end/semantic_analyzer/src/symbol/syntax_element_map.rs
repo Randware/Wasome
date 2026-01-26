@@ -5,7 +5,7 @@ use crate::symbol::{
     AnalyzableFunction, AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext,
     SyntaxContext,
 };
-use ast::data_type::UntypedDataType;
+use ast::data_type::{DataType, UntypedDataType};
 use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter};
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -28,11 +28,11 @@ impl<'a> SyntaxElementMap<'a> {
     pub fn get_typed_function_symbol(
         &mut self,
         symbol: &FunctionSymbol<UntypedAST>,
-        type_parameters: &[UntypedDataType],
+        type_parameters: &[UntypedDataType], typed_type_parameters: impl FnOnce(&mut SyntaxElementMap) -> Option<Vec<TypedTypeParameter>>
     ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
         let mut single_and_root =
             SingleAndRoot::new(|root| &root.functions, |root| &mut root.functions, self);
-        SingleSyntaxElementMap::get_typed_symbol(&mut single_and_root, symbol, type_parameters)
+        SingleSyntaxElementMap::get_typed_symbol(&mut single_and_root, symbol, type_parameters, typed_type_parameters)
     }
 
     pub fn insert_untyped_function(
@@ -51,7 +51,7 @@ impl<'a> SyntaxElementMap<'a> {
             .filter(|func| func.as_ref().type_parameters().is_empty())
             .for_each(|func| {
                 // Mutable borrow required here
-                let typed_symbol = self.get_typed_function_symbol(func, &[]);
+                let typed_symbol = self.get_typed_function_symbol(func, &[], |_| Some(Vec::new()));
                 if typed_symbol.is_none() {
                     ok = None;
                 }
@@ -107,11 +107,12 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     pub fn get_typed_symbol(
         root: &mut SingleAndRoot<Element>,
         symbol: &Element::Symbol<UntypedAST>,
-        type_parameters: &[UntypedDataType],
+        type_parameters: &[UntypedDataType], typed_type_parameters: impl FnOnce(&mut SyntaxElementMap) -> Option<Vec<TypedTypeParameter>>
     ) -> Option<Rc<Element::Symbol<TypedAST>>> {
         let guard = root.single_mut().elements.get_mut(symbol)?;
         if guard.typed_variant(type_parameters).is_none() {
-            Self::insert_typed_variant(root, symbol, type_parameters)?;
+            let typed_type_parameters = typed_type_parameters(root.root())?;
+            Self::insert_typed_variant(root, symbol, type_parameters, typed_type_parameters)?;
         }
         // Recreate guard to prevent borrowing issues
         let guard = root.single_mut().elements.get_mut(symbol)?;
@@ -123,44 +124,43 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     fn insert_typed_variant(
         root: &mut SingleAndRoot<Element>,
         symbol: &<Element as AnalyzableSyntaxElementWithTypeParameter>::Symbol<UntypedAST>,
-        type_parameters: &[UntypedDataType],
+        untyped_type_parameters: &[UntypedDataType], typed_type_parameters: Vec<TypedTypeParameter>
     ) -> Option<()> {
         let guard = root.single_mut().elements.get_mut(symbol)?;
-        let typed_type_parameters: Vec<TypedTypeParameter> = gen_t(); // TODO
         let ast_reference = guard.ast_reference().clone();
         let typed_variant = TypedSyntaxElement::new(
             &typed_type_parameters,
-            type_parameters,
+            untyped_type_parameters,
             ast_reference.clone(),
             root.root(),
         )?;
-        let untyped_type_parameters = typed_variant.untyped_type_parameters_owned();
+        let untyped_type_parameters_owned = typed_variant.untyped_type_parameters_owned();
         let typed_type_parameters = typed_variant.typed_type_parameters_owned();
 
         let guard = root.single_mut().elements.get_mut(symbol)?;
-        guard.insert_typed_variant(typed_variant, type_parameters.to_vec());
+        guard.insert_typed_variant(typed_variant, untyped_type_parameters.to_vec());
 
         let type_parameter_context = RegularTypeParameterContext::new(
             typed_type_parameters.clone(),
-            untyped_type_parameters.clone(),
+            untyped_type_parameters_owned.clone(),
         );
         let context =
             SyntaxContext::new(root.root(), type_parameter_context, ast_reference.clone());
         let pre_implementation = Element::generate_pre_implementation(context)?;
 
         let guard = root.single_mut().elements.get_mut(symbol)?;
-        let typed_variant = guard.typed_variant_mut(type_parameters)?;
+        let typed_variant = guard.typed_variant_mut(untyped_type_parameters)?;
         typed_variant.set_pre_implementation(pre_implementation.clone());
 
         let type_parameter_context = RegularTypeParameterContext::new(
             typed_type_parameters.clone(),
-            untyped_type_parameters,
+            untyped_type_parameters_owned,
         );
         let context = SyntaxContext::new(root.root(), type_parameter_context, ast_reference);
         let implementation = Element::generate_implementation(pre_implementation, context)?;
 
         let guard = root.single_mut().elements.get_mut(symbol)?;
-        let typed_variant = guard.typed_variant_mut(type_parameters)?;
+        let typed_variant = guard.typed_variant_mut(untyped_type_parameters)?;
         typed_variant.set_implementation(implementation);
         Some(())
     }
@@ -183,10 +183,6 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> Default
     }
 }
 
-// Temp to make code readable
-fn gen_t<T>() -> T {
-    todo!()
-}
 type SingleFromMap<'b, Element> =
     for<'a> fn(&'a SyntaxElementMap<'b>) -> &'a SingleSyntaxElementMap<'b, Element>;
 type SingleFromMapMut<'b, Element> =

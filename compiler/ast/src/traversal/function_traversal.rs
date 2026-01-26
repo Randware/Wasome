@@ -31,7 +31,7 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
         }
     }
 
-    pub fn inner(&self) -> &'b Function<Type> {
+    pub fn inner(&self) -> &'b ASTNode<Function<Type>> {
         self.inner
     }
 

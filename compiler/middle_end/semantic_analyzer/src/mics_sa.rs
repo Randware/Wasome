@@ -6,7 +6,7 @@ use crate::symbol::{
 use crate::symbol_by_name;
 use ast::data_type::{DataType, UntypedDataType};
 use ast::expression::{Expression, FunctionCall};
-use ast::symbol::DirectlyAvailableSymbol;
+use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, TypedAST, UntypedAST};
@@ -19,7 +19,7 @@ use ast::{ASTNode, TypedAST, UntypedAST};
 /// # Returns
 /// * `Some(DataType)` if the string matches a known type.
 /// * `None` otherwise.
-pub(crate) fn analyze_data_type<T>(
+pub(crate) fn analyze_data_type<T: Clone>(
     to_analyze: &UntypedDataType,
     context: &mut SyntaxContext<impl TypeParameterContext, T>,
 ) -> Option<DataType> {
@@ -50,20 +50,28 @@ fn analyze_primitive_data_type(to_analyze: &UntypedDataType) -> Option<DataType>
     })
 }
 
-pub(crate) fn analyze_type_parameter_full<'a, T>(
+pub(crate) fn analyze_type_parameter_full<'a, T: Clone>(
     to_analyze: &UntypedTypeParameter,
     context: &'a mut SyntaxContext<impl TypeParameterContext, T>,
 ) -> Option<&'a TypedTypeParameter> {
     analyze_type_parameter(to_analyze.inner().name(), context)
 }
 
-pub(crate) fn analyze_type_parameter<'a, T>(
+pub(crate) fn analyze_type_parameter<'a, T: Clone>(
     to_analyze: &str,
     context: &'a mut SyntaxContext<impl TypeParameterContext, T>,
 ) -> Option<&'a TypedTypeParameter> {
     context
         .type_parameter_context
-        .lookup_type_parameter(to_analyze)
+        .lookup_typed_type_parameter(to_analyze)
+}
+
+pub(crate) fn analyze_type_parameter_providing<T: Clone>(
+    to_analyze: &UntypedTypeParameter,
+    with: &UntypedDataType,
+    context: &mut SyntaxContext<impl TypeParameterContext, T>,
+) -> Option<TypedTypeParameter> {
+    Some(TypedTypeParameter::new(to_analyze.inner().name().to_owned(), analyze_data_type(with, context)?))
 }
 
 /// Analyzes a function call
@@ -85,8 +93,7 @@ pub(crate) fn analyze_function_call(
     };
 
     let typed_func_symbol = context
-        .global_elements
-        .get_typed_function_symbol(untyped_func_symbol, &to_analyze.function().1)
+        .get_typed_function_symbol(untyped_func_symbol, &untyped_func_symbol.type_parameters(), |_| &to_analyze.function().1)
         .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");
 
     let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();
