@@ -1,6 +1,6 @@
 use bon::Builder;
-use source::types::FileID;
-use std::{io, ops::Range};
+use source::types::{BytePos, FileID};
+use std::{io, ops::Range, usize};
 
 use crate::{
     renderer::Renderer,
@@ -86,8 +86,26 @@ pub struct Snippet {
     pub(crate) file: FileID,
 }
 
-/// Internal representation of a snippet annotation.
+/// Helper trait to convert various range types into [`Range<usize>`].
 ///
+/// This allows passing both [`Range<usize>`] and [`Range<BytePos>`] to the builder methods,
+/// avoiding the need for manual conversion by the caller.
+pub trait IntoRange {
+    fn into_range(self) -> Range<usize>;
+}
+
+impl IntoRange for Range<usize> {
+    fn into_range(self) -> Range<usize> {
+        self
+    }
+}
+
+impl IntoRange for Range<BytePos> {
+    fn into_range(self) -> Range<usize> {
+        (self.start.0 as usize)..(self.end.0 as usize)
+    }
+}
+
 /// This struct cannot be constructed directly, use the helper methods on [`SnippetBuilder`] instead.
 #[derive(Debug, Clone)]
 pub(crate) struct Annotation {
@@ -109,9 +127,9 @@ impl<S: snippet_builder::State> SnippetBuilder<S> {
     /// Most diagnostics should have exactly one primary annotation, though multiple are supported.
     ///
     /// **Note:** At least one annotation is required to render the snippet.
-    pub fn primary(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
+    pub fn primary(mut self, range: impl IntoRange, message: impl Into<String>) -> Self {
         self.annotations.push(Annotation {
-            range,
+            range: range.into_range(),
             message: message.into(),
             primary: true,
         });
@@ -124,9 +142,9 @@ impl<S: snippet_builder::State> SnippetBuilder<S> {
     /// leading to the error. They should be used in conjunction with a primary annotation.
     ///
     /// **Note:** At least one annotation is required to render the snippet.
-    pub fn context(mut self, range: Range<usize>, message: impl Into<String>) -> Self {
+    pub fn context(mut self, range: impl IntoRange, message: impl Into<String>) -> Self {
         self.annotations.push(Annotation {
-            range,
+            range: range.into_range(),
             message: message.into(),
             primary: false,
         });

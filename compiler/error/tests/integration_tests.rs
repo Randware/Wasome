@@ -33,6 +33,33 @@ fn test_single_file_fixture() {
 }
 
 #[test]
+fn test_bytepos_conversion() {
+    MockLoader::reset();
+
+    MockLoader::load_from_disk("/src/main.waso", "main.waso");
+
+    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let main_id = sm.load_file("main.waso").expect("Failed to load file");
+
+    let span = main_id.span(88, 89);
+
+    let error = Diagnostic::builder()
+        .level(Level::Error)
+        .message("Expected identifier")
+        .code("E0023")
+        .snippet(
+            Snippet::builder()
+                .file(main_id)
+                .primary(span.start()..span.end(), "Identifier expected here")
+                .build(),
+        )
+        .help("Assign name to variable")
+        .build();
+
+    error.print_snippets(&sm).unwrap();
+}
+
+#[test]
 fn test_with_context() {
     MockLoader::reset();
 
