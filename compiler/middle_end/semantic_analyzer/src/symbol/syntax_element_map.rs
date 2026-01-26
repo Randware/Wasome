@@ -12,7 +12,6 @@ use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
 
 pub(crate) struct SyntaxElementMap<'a> {
@@ -49,10 +48,10 @@ impl<'a> SyntaxElementMap<'a> {
         let funcs = self.functions.untyped_elements().collect::<Vec<_>>();
         funcs
             .iter()
-            .filter(|func| func.as_ref().type_parameters().len() == 0)
+            .filter(|func| func.as_ref().type_parameters().is_empty())
             .for_each(|func| {
                 // Mutable borrow required here
-                let typed_symbol = self.get_typed_function_symbol(&func, &[]);
+                let typed_symbol = self.get_typed_function_symbol(func, &[]);
                 if typed_symbol.is_none() {
                     ok = None;
                 }
@@ -217,10 +216,10 @@ impl<'a, 'b, Element: AnalyzableSyntaxElementWithTypeParameter> SingleAndRoot<'a
     }
 
     pub fn single(&self) -> &SingleSyntaxElementMap<'b, Element> {
-        (self.single)(&self.root)
+        (self.single)(self.root)
     }
 
     pub fn single_mut(&mut self) -> &mut SingleSyntaxElementMap<'b, Element> {
-        (self.single_mut)(&mut self.root)
+        (self.single_mut)(self.root)
     }
 }

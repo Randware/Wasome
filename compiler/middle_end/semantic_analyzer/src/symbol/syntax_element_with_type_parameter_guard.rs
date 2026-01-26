@@ -1,15 +1,12 @@
-use crate::mics_sa::{analyze_data_type, analyze_type_parameter_full};
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use crate::symbol::{
     AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext, SyntaxContext,
     TypeParameterContext,
 };
 use ast::data_type::UntypedDataType;
-use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
-use ast::top_level::Function;
-use ast::traversal::function_traversal::FunctionTraversalHelper;
+use ast::symbol::SymbolWithTypeParameter;
 use ast::type_parameter::TypedTypeParameter;
-use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
+use ast::{TypedAST, UntypedAST};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -49,14 +46,14 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
         &self,
         type_parameter: &[UntypedDataType],
     ) -> Option<&TypedSyntaxElement<Element>> {
-        Some(self.typed.get(type_parameter)?)
+        self.typed.get(type_parameter)
     }
 
     pub fn typed_variant_mut(
         &mut self,
         type_parameter: &[UntypedDataType],
     ) -> Option<&mut TypedSyntaxElement<Element>> {
-        Some(self.typed.get_mut(type_parameter)?)
+        self.typed.get_mut(type_parameter)
     }
 
     pub fn insert_typed_variant(

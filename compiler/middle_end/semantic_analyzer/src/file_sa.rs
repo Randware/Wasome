@@ -1,14 +1,9 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
-use crate::top_level_sa::analyze_function;
 use ast::file::File;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::{Import, ImportRoot};
-use ast::traversal::file_traversal::FileTraversalHelper;
-use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
-use std::task::Context;
 
 /// Analyzes a single file and converts it into its typed representation.
 ///

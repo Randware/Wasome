@@ -10,7 +10,6 @@ use ast::statement::{
     VariableAssignment, VariableDeclaration,
 };
 use ast::symbol::{DirectlyAvailableSymbol, VariableSymbol};
-use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::ops::Deref;
@@ -407,7 +406,7 @@ fn analyze_loop(
     let typed_to_loop_on_stmt = analyze_statement(&mut to_loop_on_context, function_symbol_mapper)?;
     let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, to_loop_on_position);
 
-    function_symbol_mapper.exit_scope();
+    let _ = function_symbol_mapper.exit_scope();
 
     Some(Loop::new(typed_to_loop_on, typed_loop_type))
 }

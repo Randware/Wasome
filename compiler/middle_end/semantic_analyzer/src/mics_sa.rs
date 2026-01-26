@@ -1,7 +1,7 @@
 use crate::expression_sa::analyze_expression;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::{
-    AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext,
+    SyntaxContext, TypeParameterContext,
 };
 use crate::symbol_by_name;
 use ast::data_type::{DataType, UntypedDataType};
@@ -10,7 +10,6 @@ use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, TypedAST, UntypedAST};
-use std::any::Any;
 
 /// A helper function that resolves the type names into the right types.
 ///
@@ -31,7 +30,7 @@ pub(crate) fn analyze_data_type<T>(
 }
 
 fn analyze_primitive_data_type(to_analyze: &UntypedDataType) -> Option<DataType> {
-    if to_analyze.type_parameters().len() != 0 {
+    if !to_analyze.type_parameters().is_empty() {
         return None;
     }
     Some(match to_analyze.name() {

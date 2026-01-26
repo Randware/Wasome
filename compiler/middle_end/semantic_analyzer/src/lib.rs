@@ -9,8 +9,7 @@ mod top_level_sa;
 use crate::directory_sa::analyze_directory;
 use crate::symbol::global_system_collector::{TraversalHelpers, collect_global_symbols};
 use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
-use ast::traversal::directory_traversal::DirectoryTraversalHelper;
-use ast::{AST, ASTType, SymbolIdentifier, TypedAST, UntypedAST};
+use ast::{AST, SymbolIdentifier, TypedAST, UntypedAST};
 use std::ops::Deref;
 
 pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {

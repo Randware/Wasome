@@ -1,10 +1,6 @@
 use crate::file_sa::analyze_file;
 use crate::symbol::syntax_element_map::SyntaxElementMap;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
 use ast::directory::Directory;
-use ast::file::File;
-use ast::traversal::directory_traversal::DirectoryTraversalHelper;
-use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
 
