@@ -54,33 +54,35 @@ impl<'a> Renderer<'a> {
         let writer = Self::resolve_output(diagnostic.level);
         let styling = Self::resolve_styling(diagnostic.level);
 
-        let mut cache = HashMap::new();
-        let unique: HashSet<_> = diagnostic.snippets.iter().map(|s| s.file).collect();
-
-        // Populate cache with source content. Missing sources are skipped gracefully
-        // to ensure the diagnostic can still be rendered (albeit partially).
-        for id in unique {
-            if let Some(path_buf) = source.get_path(id) {
-                let path = path_buf.to_string_lossy().to_string();
-
-                if let Some(content) = source.get_content(id) {
-                    cache.insert(
-                        id,
-                        CachedSource {
-                            path,
-                            content: content.to_string(),
-                        },
-                    );
-                }
-            }
-        }
-
         Self {
             diagnostic,
             writer,
             styling,
-            cache,
+            cache: Self::populate_cache(diagnostic, source),
         }
+    }
+
+    /// Populate our source cache.
+    fn populate_cache(
+        diagnostic: &Diagnostic,
+        source: &dyn SourceLookup,
+    ) -> HashMap<FileID, CachedSource> {
+        diagnostic
+            .snippets
+            .iter()
+            .map(|s| s.file)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .filter_map(|id| {
+                Some((
+                    id,
+                    CachedSource {
+                        path: source.get_path(id)?.to_string_lossy().to_string(),
+                        content: source.get_content(id)?.to_string(),
+                    },
+                ))
+            })
+            .collect()
     }
 
     /// Determines the appropriate output stream (`stdout` or `stderr`) based on the [`Level`].
