@@ -61,15 +61,15 @@ impl Diagnostic {
     ///
     /// Any attached snippets will be ignored.
     pub fn print(&self) -> io::Result<()> {
-        self.print_snippets(&NoSource)
+        Renderer::<NoSource>::render(self, &NoSource)
     }
 
     /// Renders the diagnostic to `stdout` or `stderr`, including source code snippets.
     ///
     /// Requires a [`SourceLookup`] implementation to retrieve file content. If source lookup fails
     /// for a specific file, that snippet will be omitted.
-    pub fn print_snippets(&self, source: &impl SourceLookup) -> io::Result<()> {
-        Renderer::render(self, source)
+    pub fn print_snippets<S: SourceLookup>(&self, source: &S) -> io::Result<()> {
+        Renderer::<S>::render(self, source)
     }
 }
 

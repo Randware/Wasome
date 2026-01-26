@@ -33,12 +33,4 @@ impl<T: FileLoader> SourceLookup for SourceMap<T> {
 /// Useful for testing or when source code is not available.
 pub struct NoSource;
 
-impl SourceLookup for NoSource {
-    fn get_content(&self, _id: FileID) -> Option<&str> {
-        None
-    }
 
-    fn get_path(&self, _id: FileID) -> Option<&PathBuf> {
-        None
-    }
-}

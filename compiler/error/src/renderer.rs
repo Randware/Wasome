@@ -32,25 +32,53 @@ struct CachedSource {
 }
 
 /// Handles the construction and rendering of diagnostics.
-pub struct Renderer<'a> {
+use crate::source::NoSource;
+use std::marker::PhantomData;
+
+/// Handles the construction and rendering of diagnostics.
+pub struct Renderer<'a, S: ?Sized> {
     diagnostic: &'a Diagnostic,
     writer: Box<dyn Write>,
     styling: DiagnosticStyling,
     cache: HashMap<FileID, CachedSource>,
+    _marker: PhantomData<S>,
 }
 
-impl<'a> Renderer<'a> {
-    /// Constructs a [`Renderer`] and renders the provided [`Diagnostic`].
-    pub(crate) fn render(
-        diagnostic: &'a Diagnostic,
-        source: &'a impl SourceLookup,
-    ) -> io::Result<()> {
+impl<'a> Renderer<'a, NoSource> {
+    /// Render without source lookup.
+    pub(crate) fn render(diagnostic: &'a Diagnostic, _source: &'a NoSource) -> io::Result<()> {
+        let mut renderer = Self::new(diagnostic, _source);
+        renderer.print()
+    }
+
+    /// Constructor for rendering without source lookup.
+    fn new(diagnostic: &'a Diagnostic, _source: &'a NoSource) -> Self {
+        let writer = Self::resolve_output(diagnostic.level);
+        let styling = Self::resolve_styling(diagnostic.level);
+
+        // No sources available, so we keep the cache empty
+        let cache = HashMap::new();
+
+        Self {
+            diagnostic,
+            writer,
+            styling,
+            cache,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, S: SourceLookup + ?Sized> Renderer<'a, S> {
+    /// Render with source lookup.
+    pub(crate) fn render(diagnostic: &'a Diagnostic, source: &'a S) -> io::Result<()> {
         let mut renderer = Self::new(diagnostic, source);
 
         renderer.print()
     }
 
-    fn new(diagnostic: &'a Diagnostic, source: &'a dyn SourceLookup) -> Self {
+    /// Constructor for rendering with source lookup.
+    fn new(diagnostic: &'a Diagnostic, source: &'a S) -> Self {
         let writer = Self::resolve_output(diagnostic.level);
         let styling = Self::resolve_styling(diagnostic.level);
 
@@ -59,32 +87,36 @@ impl<'a> Renderer<'a> {
             writer,
             styling,
             cache: Self::populate_cache(diagnostic, source),
+            _marker: PhantomData,
         }
     }
 
-    /// Populate our source cache.
-    fn populate_cache(
-        diagnostic: &Diagnostic,
-        source: &dyn SourceLookup,
-    ) -> HashMap<FileID, CachedSource> {
+    /// Populate our source cache. Panics if sources are missing.
+    fn populate_cache(diagnostic: &Diagnostic, source: &S) -> HashMap<FileID, CachedSource> {
         diagnostic
             .snippets
             .iter()
             .map(|s| s.file)
             .collect::<HashSet<_>>()
             .into_iter()
-            .filter_map(|id| {
-                Some((
-                    id,
-                    CachedSource {
-                        path: source.get_path(id)?.to_string_lossy().to_string(),
-                        content: source.get_content(id)?.to_string(),
-                    },
-                ))
+            .map(|id| {
+                let path = source
+                    .get_path(id)
+                    .expect("Failed to load file path")
+                    .to_string_lossy()
+                    .to_string();
+                let content = source
+                    .get_content(id)
+                    .expect("Failed to load file content")
+                    .to_string();
+
+                (id, CachedSource { path, content })
             })
             .collect()
     }
+}
 
+impl<'a, S: ?Sized> Renderer<'a, S> {
     /// Determines the appropriate output stream (`stdout` or `stderr`) based on the [`Level`].
     fn resolve_output(level: Level) -> Box<dyn Write> {
         match level {
