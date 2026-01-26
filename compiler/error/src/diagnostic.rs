@@ -88,11 +88,17 @@ pub struct Snippet {
 
 /// Internal representation of a snippet annotation.
 ///
-/// This struct cannot be constructed directly; use the helper methods on [`SnippetBuilder`] instead.
+/// This struct cannot be constructed directly, use the helper methods on [`SnippetBuilder`] instead.
 #[derive(Debug, Clone)]
 pub(crate) struct Annotation {
+    /// The character range to annotate. If the range is out of bounds, the annotation will not be
+    /// displayed. If ranges are reversed, the renderer will panic.
     pub(crate) range: Range<usize>,
+
+    /// The message for this annotation.
     pub(crate) message: String,
+
+    /// Whether this annotation is a primary annotation.
     pub(crate) primary: bool,
 }
 

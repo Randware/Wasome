@@ -191,7 +191,7 @@ impl<'a> Renderer<'a> {
             let kind = ReportKind::Custom("", self.styling.type_heading);
 
             // Use a dummy range 0..0 for the primary location, as we strip it manually later.
-            let report = Report::build(kind, (path.clone(), 0..0))
+            let report = Report::build(kind, (path, 0..0))
                 .with_config(Self::resolve_config(self.diagnostic.level));
 
             let report = self.label_report(report, snippet);
@@ -283,7 +283,9 @@ impl<'a> Renderer<'a> {
     /// everything after the first colon up to the next space. This allows us to
     /// hide the raw line numbers from the report frame for a cleaner look.
     fn remove_primary_location(line: &str) -> String {
-        if let Some(colon_idx) = line.find(':') {
+        // Find the second last colon to correctly identify the start of the location info, this
+        // avoids issues, in case the file name contains a colon.
+        if let Some((colon_idx, _)) = line.rmatch_indices(':').nth(1) {
             if let Some(space_offset) = line[colon_idx..].find(' ') {
                 let space_idx = colon_idx + space_offset;
 
