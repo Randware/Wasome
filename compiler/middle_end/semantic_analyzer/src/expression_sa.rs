@@ -7,6 +7,7 @@ use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
+use crate::symbol_translation::{SyntaxContext, TypeParameterContext};
 
 /// Analyzes an untyped expression and converts it into a typed `Expression`.
 ///
@@ -19,22 +20,22 @@ use std::rc::Rc;
 /// * `None` if analysis or conversion fails for the expression or any of its sub-expressions.
 pub(crate) fn analyze_expression(
     to_analyze: &Expression<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
 ) -> Option<Expression<TypedAST>> {
     Some(match to_analyze {
         Expression::FunctionCall(inner) => {
-            let typed_call = analyze_non_void_function_call(inner, function_symbol_mapper, helper)?;
+            let typed_call = analyze_non_void_function_call(inner, context, function_symbol_mapper)?;
             typed_call.function().return_type()?;
             Expression::FunctionCall(typed_call)
         }
         Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper)?,
         Expression::Literal(inner) => Expression::Literal(analyze_literal(inner)?),
         Expression::UnaryOp(inner) => {
-            Expression::UnaryOp(analyze_unary_op(inner, function_symbol_mapper, helper)?)
+            Expression::UnaryOp(analyze_unary_op(inner, context, function_symbol_mapper)?)
         }
         Expression::BinaryOp(inner) => {
-            Expression::BinaryOp(analyze_binary_op(inner, function_symbol_mapper, helper)?)
+            Expression::BinaryOp(analyze_binary_op(inner, context, function_symbol_mapper)?)
         }
         _ => todo!()
     })
@@ -52,17 +53,13 @@ pub(crate) fn analyze_expression(
 /// * `None` on semantic error (undeclared function, argument mismatch, or argument analysis failure).
 pub(crate) fn analyze_non_void_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
-    mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<FunctionCall<TypedAST>> {
-    let typed_call = analyze_function_call(to_analyze, mapper, helper)?;
+    let typed_call = analyze_function_call(to_analyze, function_symbol_mapper, context)?;
 
     // Non-void function calls must return something
-    // We should never be here with a void function call
-    // So panic to prevent hard-to-find errors later down the line
-    if typed_call.function().return_type().is_none() {
-        panic!()
-    }
+    typed_call.function().return_type()?;
     Some(typed_call)
 }
 
@@ -134,17 +131,17 @@ fn analyze_literal(to_analyze: &str) -> Option<Literal> {
 /// * `None` if analysis or conversion fails.
 fn analyze_unary_op(
     to_analyze: &UnaryOp<UntypedAST>,
-    mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<UnaryOp<TypedAST>>> {
     let (op_type, expression) = (to_analyze.op_type(), to_analyze.input());
 
-    let converted_input = analyze_expression(expression, mapper, helper)?;
+    let converted_input = analyze_expression(expression, context, function_symbol_mapper)?;
 
     let converted_unary_op_type = match op_type {
         UnaryOpType::Typecast(inner) => {
             let data_type = inner.target();
-            let analyzed_data_type = analyze_data_type(data_type)?;
+            let analyzed_data_type = analyze_data_type(data_type, context)?;
             let typed_typecast = Typecast::<TypedAST>::new(analyzed_data_type);
             UnaryOpType::Typecast(typed_typecast)
         }
@@ -172,14 +169,14 @@ fn analyze_unary_op(
 /// * `None` if analysis or conversion fails.
 fn analyze_binary_op(
     to_analyze: &BinaryOp<UntypedAST>,
-    symbol_mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<BinaryOp<TypedAST>>> {
     let (op_type, left_expr, right_expr) =
         (to_analyze.op_type(), to_analyze.left(), to_analyze.right());
 
-    let converted_left = analyze_expression(left_expr, symbol_mapper, helper)?;
-    let converted_right = analyze_expression(right_expr, symbol_mapper, helper)?;
+    let converted_left = analyze_expression(left_expr, context, function_symbol_mapper)?;
+    let converted_right = analyze_expression(right_expr, context, function_symbol_mapper)?;
 
     let left_position = left_expr.position().clone();
     let right_position = right_expr.position().clone();

@@ -69,7 +69,7 @@ pub(crate) fn analyze_function(
     }
 
     let mut new_context = context.with_ast_reference(|to_analyze| StatementTraversalHelper::new_root(&to_analyze));
-    let typed_implementation_statement = analyze_statement(&mut new_context)?;
+    let typed_implementation_statement = analyze_statement(&mut new_context, &mut func_mapper)?;
 
     if typed_declaration.return_type() != None && !always_return(&typed_implementation_statement) {
         // We have to return a value but don't

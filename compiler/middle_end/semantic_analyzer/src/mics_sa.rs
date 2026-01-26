@@ -59,20 +59,21 @@ pub(crate) fn analyze_type_parameter<'a, T>(to_analyze: &str, context: &'a mut S
 pub(crate) fn analyze_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     mapper: &mut FunctionSymbolMapper,
-    helper: &StatementTraversalHelper<UntypedAST>,
+    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
 ) -> Option<FunctionCall<TypedAST>> {
     let call_name = to_analyze.function();
 
     // TODO
-    let found_symbol = symbol_by_name(&call_name.0, helper.symbols_available_at())?;
+    let found_symbol = symbol_by_name(&call_name.0, context.ast_reference.symbols_available_at())?;
 
     let untyped_func_symbol = match found_symbol {
         DirectlyAvailableSymbol::Function(f) => f,
         _ => return None,
     };
 
-    let typed_func_symbol = mapper
-        .lookup_function(untyped_func_symbol)
+    let typed_func_symbol = context
+        .global_elements
+        .get_typed_function_symbol(untyped_func_symbol, &to_analyze.function().1)
         .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");
 
     let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();
