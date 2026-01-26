@@ -71,6 +71,9 @@ pub(crate) fn analyze_function(
             .expect("Internal error: Function parameters should not conflict.");
     }
 
+    // It's a false positive
+    // Replacing the closure causes lifetime problems
+    #[allow(clippy::redundant_closure)]
     let mut new_context =
         context.with_ast_reference(|to_analyze| StatementTraversalHelper::new_root(to_analyze));
     let typed_implementation_statement = analyze_statement(&mut new_context, &mut func_mapper)?;

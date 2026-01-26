@@ -1,6 +1,5 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use ast::file::File;
-use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::{Import, ImportRoot};
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;

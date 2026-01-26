@@ -288,7 +288,7 @@ fn analyze_conditional(
 
     let typed_then_statement = analyze_statement(&mut then_context, function_symbol_mapper)?;
     let typed_then_node = ASTNode::new(typed_then_statement, then_position);
-    function_symbol_mapper.exit_scope();
+    let _ = function_symbol_mapper.exit_scope();
 
     let typed_else_statement = if to_analyze.else_statement().is_some() {
         function_symbol_mapper.enter_scope();
@@ -300,7 +300,7 @@ fn analyze_conditional(
 
         let typed_block = analyze_statement(&mut else_context, function_symbol_mapper)?;
         let typed_block_node = ASTNode::new(typed_block, else_position);
-        function_symbol_mapper.exit_scope();
+        let _ = function_symbol_mapper.exit_scope();
         Some(typed_block_node)
     } else {
         None

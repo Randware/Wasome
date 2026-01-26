@@ -1,7 +1,7 @@
 use crate::mics_sa::{
     analyze_data_type, analyze_type_parameter_full, analyze_type_parameter_providing,
 };
-use crate::symbol::syntax_element_map::{SingleSyntaxElementMap, SyntaxElementMap};
+use crate::symbol::syntax_element_map::SyntaxElementMap;
 use crate::top_level_sa::analyze_function;
 use ast::data_type::UntypedDataType;
 use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
@@ -99,14 +99,13 @@ impl<'a, 'b, Context: TypeParameterContext, ASTReference: Clone>
                     self.type_parameter_context.clone(),
                     self.ast_reference.clone(),
                 );
-                let typed_type_params = fillings
+                fillings
                     .iter()
                     .zip(type_parameters.iter())
                     .map(|(filling, param)| {
                         analyze_type_parameter_providing(param, filling, &mut context)
                     })
-                    .collect::<Option<Vec<_>>>();
-                typed_type_params
+                    .collect::<Option<Vec<_>>>()
             })
     }
 }
@@ -139,15 +138,15 @@ pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
         from: &Self::ASTReference<'a, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>>;
     /// This uses a direct symbol as it is generated
-    fn generate_typed_symbol<'a, 'b, Context: TypeParameterContext>(
+    fn generate_typed_symbol<'b, Context: TypeParameterContext>(
         context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'_, 'b>>,
     ) -> Option<Rc<Self::Symbol<TypedAST>>>;
-    fn generate_pre_implementation<'a, 'b, Context: TypeParameterContext>(
+    fn generate_pre_implementation<'b, Context: TypeParameterContext>(
         context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'_, 'b>>,
     ) -> Option<Self::PreImplementation>;
-    fn generate_implementation<'a, 'b, Context: TypeParameterContext>(
+    fn generate_implementation<'b, Context: TypeParameterContext>(
         pre_implementation: Self::PreImplementation,
-        context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+        context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'_, 'b>>,
     ) -> Option<Self::Implementation>;
 }
 

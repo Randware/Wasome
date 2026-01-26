@@ -96,7 +96,7 @@ pub(crate) fn analyze_function_call(
     let typed_func_symbol = context
         .get_typed_function_symbol(
             untyped_func_symbol,
-            &untyped_func_symbol.type_parameters(),
+            untyped_func_symbol.type_parameters(),
             |_| &to_analyze.function().1,
         )
         .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");

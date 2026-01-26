@@ -5,7 +5,7 @@ use crate::symbol::{
     AnalyzableFunction, AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext,
     SyntaxContext,
 };
-use ast::data_type::{DataType, UntypedDataType};
+use ast::data_type::UntypedDataType;
 use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter};
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -110,7 +110,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         self.elements.keys().cloned()
     }
 
-    pub fn get_typed_symbol(
+    fn get_typed_symbol(
         root: &mut SingleAndRoot<Element>,
         symbol: &Element::Symbol<UntypedAST>,
         type_parameters: &[UntypedDataType],
