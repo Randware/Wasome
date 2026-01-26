@@ -132,15 +132,6 @@ fn always_return(to_check: &Statement<TypedAST>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::expression_sa::sample_codearea;
-    use crate::test_shared::functions_into_ast;
-    use ast::statement::{CodeBlock, Statement};
-    use ast::traversal::directory_traversal::DirectoryTraversalHelper;
-    use ast::visibility::Visibility;
-    use ast::{ASTNode, TypedAST, UntypedAST};
-    use std::rc::Rc;
-
     /*/// Tests the successful analysis of a simple void function with no parameters.
     /// It verifies that the function is correctly resolved from the global map and its body is processed.
     #[test]

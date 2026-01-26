@@ -479,20 +479,6 @@ fn analyze_break(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::expression_sa::sample_codearea;
-    use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
-    use crate::test_shared::functions_into_ast;
-    use ast::data_type::DataType;
-    use ast::expression::{Expression, Literal};
-    use ast::statement::{Return, Statement};
-    use ast::top_level::Function;
-    use ast::traversal::directory_traversal::DirectoryTraversalHelper;
-    use ast::visibility::Visibility;
-    use ast::{ASTNode, UntypedAST};
-    use std::collections::HashMap;
-    use std::rc::Rc;
-
     /*/// Tests that a return statement with no value (void) is successfully analyzed.
     /// It verifies that the analyzer accepts `return;` when the function signature expects void.
     #[test]

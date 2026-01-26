@@ -114,13 +114,11 @@ mod tests {
     use super::*;
     use crate::expression_sa::sample_codearea;
     use ast::directory::Directory;
-    use ast::expression::FunctionCall;
     use ast::statement::{CodeBlock, Statement};
     use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol};
     use ast::top_level::{Function, Import, ImportRoot};
-    use ast::traversal::directory_traversal::DirectoryTraversalHelper;
     use ast::visibility::Visibility;
-    use ast::{AST, ASTNode, UntypedAST};
+    use ast::{ASTNode, UntypedAST, AST};
     use std::collections::HashMap;
     use std::rc::Rc;
 

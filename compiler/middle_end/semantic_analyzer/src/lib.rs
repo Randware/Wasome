@@ -7,9 +7,9 @@ mod symbol;
 mod top_level_sa;
 
 use crate::directory_sa::analyze_directory;
-use crate::symbol::global_system_collector::{TraversalHelpers, collect_global_symbols};
+use crate::symbol::global_system_collector::{collect_global_symbols, TraversalHelpers};
 use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
-use ast::{AST, TypedAST, UntypedAST};
+use ast::{TypedAST, UntypedAST, AST};
 use std::ops::Deref;
 
 pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {

@@ -208,17 +208,7 @@ pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
-    use crate::test_shared::functions_into_ast;
-    use ast::data_type::{DataType, Typed};
-    use ast::expression::{BinaryOp, BinaryOpType, Expression, Literal, UnaryOp, UnaryOpType};
-    use ast::statement::{CodeBlock, Statement};
-    use ast::top_level::Function;
-    use ast::traversal::directory_traversal::DirectoryTraversalHelper;
-    use ast::visibility::Visibility;
-    use ast::{ASTNode, UntypedAST};
-    use std::collections::HashMap;
-    use std::rc::Rc;
+    use ast::expression::Literal;
 
     struct MockFileContext {
         path: String,

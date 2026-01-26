@@ -1,9 +1,9 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
-use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
-use ast::{AST, UntypedAST};
+use ast::traversal::FunctionContainer;
+use ast::{UntypedAST, AST};
 use typed_arena::Arena;
 
 /// Entry Point: Collects all global symbols from the AST.

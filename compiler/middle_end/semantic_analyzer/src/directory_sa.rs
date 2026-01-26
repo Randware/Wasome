@@ -49,12 +49,11 @@ pub(crate) fn analyze_directory(
 mod tests {
     use super::*;
     use crate::expression_sa::sample_codearea;
-    use ast::file::File;
     use ast::statement::{CodeBlock, Statement};
     use ast::symbol::FunctionSymbol;
     use ast::top_level::Function;
     use ast::visibility::Visibility;
-    use ast::{AST, ASTNode, UntypedAST};
+    use ast::{ASTNode, UntypedAST};
     use std::rc::Rc;
 
     /// Helper to create a dummy function symbol and node.
