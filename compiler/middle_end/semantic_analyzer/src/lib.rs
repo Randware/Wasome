@@ -6,18 +6,18 @@ mod statement_sa;
 mod symbol;
 mod top_level_sa;
 
-use std::ops::Deref;
 use crate::directory_sa::analyze_directory;
-use crate::symbol::global_system_collector::{collect_global_symbols, TraversalHelpers};
+use crate::symbol::global_system_collector::{TraversalHelpers, collect_global_symbols};
 use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
-use ast::{AST, TypedAST, UntypedAST, ASTType, SymbolIdentifier};
+use ast::{AST, ASTType, SymbolIdentifier, TypedAST, UntypedAST};
+use std::ops::Deref;
 
 pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
     let to_alloc_in = TraversalHelpers::new();
     let mut global_symbols = collect_global_symbols(&to_analyze, &to_alloc_in).ok()?;
     global_symbols.fill()?;
-    
+
     analyze_directory(to_analyze.deref(), &mut global_symbols)
         .ok()
         .map(|root_dir| {
@@ -74,7 +74,13 @@ mod test_shared {
                 "src".to_string(),
                 Vec::new(),
                 vec![ASTNode::new(
-                    File::new("main.waso".to_string(), Vec::new(), functions, Vec::new(), Vec::new()),
+                    File::new(
+                        "main.waso".to_string(),
+                        Vec::new(),
+                        functions,
+                        Vec::new(),
+                        Vec::new(),
+                    ),
                     main_path,
                 )],
             ),

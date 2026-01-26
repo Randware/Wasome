@@ -1,14 +1,14 @@
+use crate::symbol::syntax_element_map::SyntaxElementMap;
+use crate::symbol::{SyntaxContext, TypeParameterContext};
 use crate::top_level_sa::analyze_function;
 use ast::file::File;
+use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::{Import, ImportRoot};
 use ast::traversal::file_traversal::FileTraversalHelper;
+use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
 use std::task::Context;
-use ast::symbol::SymbolWithTypeParameter;
-use ast::traversal::function_traversal::FunctionTraversalHelper;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
-use crate::symbol::syntax_element_map::SyntaxElementMap;
 
 /// Analyzes a single file and converts it into its typed representation.
 ///
@@ -30,7 +30,11 @@ pub(crate) fn analyze_file(
 ) -> Result<ASTNode<File<TypedAST>, PathBuf>, String> {
     let mut typed_functions = Vec::new();
     for func in untyped_file.function_iterator() {
-        global_elements.function_implementations_for_untyped_symbol(func.declaration()).into_iter().flatten().for_each(|func_impl| typed_functions.push(func_impl));
+        global_elements
+            .function_implementations_for_untyped_symbol(func.declaration())
+            .into_iter()
+            .flatten()
+            .for_each(|func_impl| typed_functions.push(func_impl));
     }
 
     let typed_imports: Vec<ASTNode<Import>> = untyped_file
@@ -54,7 +58,7 @@ pub(crate) fn analyze_file(
         typed_functions,
         // TODO
         Vec::new(),
-        Vec::new()
+        Vec::new(),
     );
 
     Ok(ASTNode::new(typed_file, untyped_file.position().clone()))
@@ -132,7 +136,12 @@ mod tests {
         Rc<FunctionSymbol<UntypedAST>>,
         ASTNode<Function<UntypedAST>>,
     ) {
-        let symbol = Rc::new(FunctionSymbol::new(name.to_string(), None, vec![], Vec::new()));
+        let symbol = Rc::new(FunctionSymbol::new(
+            name.to_string(),
+            None,
+            vec![],
+            Vec::new(),
+        ));
         let body = ASTNode::new(
             Statement::Codeblock(CodeBlock::new(vec![])),
             sample_codearea(),
@@ -195,7 +204,13 @@ mod tests {
                 .collect();
 
             let dummy_file = ASTNode::new(
-                File::new("mod.wa".to_string(), vec![], self.functions, Vec::new(), Vec::new()),
+                File::new(
+                    "mod.wa".to_string(),
+                    vec![],
+                    self.functions,
+                    Vec::new(),
+                    Vec::new(),
+                ),
                 my_path.join("mod.wa"),
             );
 
@@ -213,7 +228,13 @@ mod tests {
         dependencies: Vec<(Vec<&str>, Vec<ASTNode<Function<UntypedAST>>>)>,
     ) -> AST<UntypedAST> {
         let main_file = ASTNode::new(
-            File::new(main_filename.to_string(), imports, functions, Vec::new(), Vec::new()),
+            File::new(
+                main_filename.to_string(),
+                imports,
+                functions,
+                Vec::new(),
+                Vec::new(),
+            ),
             PathBuf::from(format!("root/{}", main_filename)),
         );
 

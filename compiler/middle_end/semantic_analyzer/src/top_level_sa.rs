@@ -1,15 +1,15 @@
-use std::ops::Deref;
 use crate::statement_sa::analyze_statement;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol::{SyntaxContext, TypeParameterContext};
+use ast::statement::{ControlStructure, Statement};
 use ast::symbol::FunctionSymbol;
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::visibility::Visible;
 use ast::{ASTNode, TypedAST, UntypedAST};
+use std::ops::Deref;
 use std::rc::Rc;
-use ast::statement::{ControlStructure, Statement};
-use crate::symbol::{SyntaxContext, TypeParameterContext};
 // I think that this is now obsolete
 /*
 /// Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
@@ -57,7 +57,10 @@ pub(crate) fn analyze_function(
     let to_analyze = &context.ast_reference;
     let untyped_symbol = to_analyze.inner().declaration();
     let typed_declaration: Rc<FunctionSymbol<TypedAST>> =
-        context.global_elements.get_typed_function_symbol(untyped_symbol, context.type_parameter_context.untyped_type_parameters())?;
+        context.global_elements.get_typed_function_symbol(
+            untyped_symbol,
+            context.type_parameter_context.untyped_type_parameters(),
+        )?;
 
     let mut func_mapper = FunctionSymbolMapper::new();
     func_mapper.set_current_function_return_type(typed_declaration.return_type().cloned());
@@ -68,7 +71,8 @@ pub(crate) fn analyze_function(
             .expect("Internal error: Function parameters should not conflict.");
     }
 
-    let mut new_context = context.with_ast_reference(|to_analyze| StatementTraversalHelper::new_root(&to_analyze));
+    let mut new_context =
+        context.with_ast_reference(|to_analyze| StatementTraversalHelper::new_root(&to_analyze));
     let typed_implementation_statement = analyze_statement(&mut new_context, &mut func_mapper)?;
 
     if typed_declaration.return_type() != None && !always_return(&typed_implementation_statement) {
@@ -101,16 +105,21 @@ pub(crate) fn analyze_function(
 fn always_return(to_check: &Statement<TypedAST>) -> bool {
     match to_check {
         Statement::Return(_) => true,
-        Statement::Codeblock(codeblock) => codeblock.last().map(|statement| always_return(statement.deref())).unwrap_or(false),
-        Statement::ControlStructure(crtl) => {
-            match crtl.deref() {
-                ControlStructure::Conditional(cond) => {
-                    always_return(cond.then_statement()) && cond.else_statement().map(|else_statement| always_return(else_statement)).unwrap_or(false)
-                }
-                _ => false
+        Statement::Codeblock(codeblock) => codeblock
+            .last()
+            .map(|statement| always_return(statement.deref()))
+            .unwrap_or(false),
+        Statement::ControlStructure(crtl) => match crtl.deref() {
+            ControlStructure::Conditional(cond) => {
+                always_return(cond.then_statement())
+                    && cond
+                        .else_statement()
+                        .map(|else_statement| always_return(else_statement))
+                        .unwrap_or(false)
             }
-        }
-        _ => false
+            _ => false,
+        },
+        _ => false,
     }
 }
 

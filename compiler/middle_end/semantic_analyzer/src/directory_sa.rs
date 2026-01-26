@@ -1,12 +1,12 @@
 use crate::file_sa::analyze_file;
+use crate::symbol::syntax_element_map::SyntaxElementMap;
+use crate::symbol::{SyntaxContext, TypeParameterContext};
 use ast::directory::Directory;
+use ast::file::File;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
+use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
-use ast::file::File;
-use ast::traversal::function_traversal::FunctionTraversalHelper;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
-use crate::symbol::syntax_element_map::SyntaxElementMap;
 
 /// Recursively analyzes a directory and its contents.
 ///
@@ -37,7 +37,11 @@ pub(crate) fn analyze_directory(
         typed_files.push(typed_file);
     }
 
-    let typed_dir = Directory::new(untyped_directory.name().to_string(), typed_subdirs, typed_files);
+    let typed_dir = Directory::new(
+        untyped_directory.name().to_string(),
+        typed_subdirs,
+        typed_files,
+    );
 
     Ok(ASTNode::new(
         typed_dir,
@@ -64,7 +68,12 @@ mod tests {
         Rc<FunctionSymbol<UntypedAST>>,
         ASTNode<Function<UntypedAST>>,
     ) {
-        let symbol = Rc::new(FunctionSymbol::new(name.to_string(), None, vec![], Vec::new()));
+        let symbol = Rc::new(FunctionSymbol::new(
+            name.to_string(),
+            None,
+            vec![],
+            Vec::new(),
+        ));
         let body = ASTNode::new(
             Statement::Codeblock(CodeBlock::new(vec![])),
             sample_codearea(),

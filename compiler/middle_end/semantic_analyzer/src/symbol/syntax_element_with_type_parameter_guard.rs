@@ -1,43 +1,69 @@
-use std::collections::HashMap;
-use std::rc::Rc;
-use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
+use crate::mics_sa::{analyze_data_type, analyze_type_parameter_full};
+use crate::symbol::syntax_element_map::SyntaxElementMap;
+use crate::symbol::{
+    AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext, SyntaxContext,
+    TypeParameterContext,
+};
 use ast::data_type::UntypedDataType;
 use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::top_level::Function;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
-use crate::mics_sa::{analyze_data_type, analyze_type_parameter_full};
-use crate::symbol::{AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext, SyntaxContext, TypeParameterContext};
-use crate::symbol::syntax_element_map::SyntaxElementMap;
+use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
+use std::collections::HashMap;
+use std::rc::Rc;
 
-pub(crate) struct SyntaxElementWithTypeParameterGuard<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter> {
+pub(crate) struct SyntaxElementWithTypeParameterGuard<
+    'a,
+    'b: 'a,
+    Element: AnalyzableSyntaxElementWithTypeParameter,
+> {
     untyped_symbol: Rc<Element::Symbol<UntypedAST>>,
     // We could use typed, this would be quicker to create and consume less memory, but would
     // require translating from untyped for each lookup
     // Potential performance improvement: Use a different HashMap for translating from untyped to typed
     // and then lookup with that
     typed: HashMap<Vec<UntypedDataType>, TypedSyntaxElement<Element>>,
-    ast_reference: Element::ASTReference<'a, 'b>
+    ast_reference: Element::ASTReference<'a, 'b>,
 }
 
-impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter> SyntaxElementWithTypeParameterGuard<'a, 'b, Element> {
-    pub fn new(untyped_symbol: Rc<Element::Symbol<UntypedAST>>, ast_reference: Element::ASTReference<'a, 'b>) -> Self {
-        Self { untyped_symbol, typed: HashMap::new(), ast_reference }
+impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
+    SyntaxElementWithTypeParameterGuard<'a, 'b, Element>
+{
+    pub fn new(
+        untyped_symbol: Rc<Element::Symbol<UntypedAST>>,
+        ast_reference: Element::ASTReference<'a, 'b>,
+    ) -> Self {
+        Self {
+            untyped_symbol,
+            typed: HashMap::new(),
+            ast_reference,
+        }
     }
 
     pub fn untyped_symbol(&self) -> &Rc<Element::Symbol<UntypedAST>> {
         &self.untyped_symbol
     }
 
-    pub fn typed_variant(&self, type_parameter: &[UntypedDataType]) -> Option<&TypedSyntaxElement<Element>> {
+    pub fn typed_variant(
+        &self,
+        type_parameter: &[UntypedDataType],
+    ) -> Option<&TypedSyntaxElement<Element>> {
         Some(self.typed.get(type_parameter)?)
     }
 
-    pub fn typed_variant_mut(&mut self, type_parameter: &[UntypedDataType]) -> Option<&mut TypedSyntaxElement<Element>> {
+    pub fn typed_variant_mut(
+        &mut self,
+        type_parameter: &[UntypedDataType],
+    ) -> Option<&mut TypedSyntaxElement<Element>> {
         Some(self.typed.get_mut(type_parameter)?)
     }
 
-    pub fn insert_typed_variant(&mut self, to_insert: TypedSyntaxElement<Element>, untyped_type_parameters: Vec<UntypedDataType>) -> Option<()> {
+    pub fn insert_typed_variant(
+        &mut self,
+        to_insert: TypedSyntaxElement<Element>,
+        untyped_type_parameters: Vec<UntypedDataType>,
+    ) -> Option<()> {
         let to_insert_type_parameters = to_insert.symbol().type_parameters();
         if self.cnt_type_params() != to_insert_type_parameters.len() {
             return None;
@@ -60,8 +86,10 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter> SyntaxElemen
         &self.ast_reference
     }
 
-    pub fn into_implementations(self) -> impl Iterator<Item=Element::Implementation> {
-        self.typed.into_iter().filter_map(|typed| typed.1.into_implementation())
+    pub fn into_implementations(self) -> impl Iterator<Item = Element::Implementation> {
+        self.typed
+            .into_iter()
+            .filter_map(|typed| typed.1.into_implementation())
     }
 }
 
@@ -70,14 +98,22 @@ pub(crate) struct TypedSyntaxElement<Element: AnalyzableSyntaxElementWithTypePar
     untyped_type_parameters: Rc<[UntypedDataType]>,
     symbol: Rc<Element::Symbol<TypedAST>>,
     pre_implementation: Option<Element::PreImplementation>,
-    implementation: Option<Element::Implementation>
+    implementation: Option<Element::Implementation>,
 }
 
 impl<Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<Element> {
-    pub fn new<'c, 'a: 'c, 'b: 'a>(typed_type_parameters: &'c [TypedTypeParameter], untyped_typed_parameters: &'c [UntypedDataType], from: <Element as AnalyzableSyntaxElementWithTypeParameter>::ASTReference<'a, 'b>, global_elements: &'c mut SyntaxElementMap<'b>) -> Option<Self> {
+    pub fn new<'c, 'a: 'c, 'b: 'a>(
+        typed_type_parameters: &'c [TypedTypeParameter],
+        untyped_typed_parameters: &'c [UntypedDataType],
+        from: <Element as AnalyzableSyntaxElementWithTypeParameter>::ASTReference<'a, 'b>,
+        global_elements: &'c mut SyntaxElementMap<'b>,
+    ) -> Option<Self> {
         let typed_type_parameters: Rc<[TypedTypeParameter]> = Rc::from(typed_type_parameters);
         let untyped_type_parameters: Rc<[UntypedDataType]> = Rc::from(untyped_typed_parameters);
-        let type_parameter_context = RegularTypeParameterContext::new(typed_type_parameters.clone(), untyped_type_parameters.clone());
+        let type_parameter_context = RegularTypeParameterContext::new(
+            typed_type_parameters.clone(),
+            untyped_type_parameters.clone(),
+        );
         let context = SyntaxContext::new(global_elements, type_parameter_context, from);
         let symbol = Rc::new(Element::generate_typed_symbol(context)?);
         Some(Self {
@@ -89,12 +125,14 @@ impl<Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<Eleme
         })
     }
 
-    pub fn set_pre_implementation(&mut self, pre_implementation: Element::PreImplementation) -> Option<()> {
+    pub fn set_pre_implementation(
+        &mut self,
+        pre_implementation: Element::PreImplementation,
+    ) -> Option<()> {
         if self.pre_implementation.is_none() {
             self.pre_implementation.replace(pre_implementation);
             Some(())
-        }
-        else {
+        } else {
             None
         }
     }
@@ -103,8 +141,7 @@ impl<Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<Eleme
         if self.implementation.is_none() {
             self.implementation.replace(implementation);
             Some(())
-        }
-        else {
+        } else {
             None
         }
     }

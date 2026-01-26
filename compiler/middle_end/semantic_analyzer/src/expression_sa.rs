@@ -1,5 +1,6 @@
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol::{SyntaxContext, TypeParameterContext};
 use ast::expression::{
     BinaryOp, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
 };
@@ -7,7 +8,6 @@ use ast::symbol::VariableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
 
 /// Analyzes an untyped expression and converts it into a typed `Expression`.
 ///
@@ -25,7 +25,8 @@ pub(crate) fn analyze_expression(
 ) -> Option<Expression<TypedAST>> {
     Some(match to_analyze {
         Expression::FunctionCall(inner) => {
-            let typed_call = analyze_non_void_function_call(inner, context, function_symbol_mapper)?;
+            let typed_call =
+                analyze_non_void_function_call(inner, context, function_symbol_mapper)?;
             typed_call.function().return_type()?;
             Expression::FunctionCall(typed_call)
         }
@@ -37,7 +38,7 @@ pub(crate) fn analyze_expression(
         Expression::BinaryOp(inner) => {
             Expression::BinaryOp(analyze_binary_op(inner, context, function_symbol_mapper)?)
         }
-        _ => todo!()
+        _ => todo!(),
     })
 }
 
@@ -109,9 +110,10 @@ fn analyze_literal(to_analyze: &str) -> Option<Literal> {
     }
 
     if to_analyze.contains('.')
-        && let Ok(f64_val) = to_analyze.parse::<f64>() {
-            return Some(Literal::F64(f64_val));
-        }
+        && let Ok(f64_val) = to_analyze.parse::<f64>()
+    {
+        return Some(Literal::F64(f64_val));
+    }
 
     if let Ok(s32_val) = to_analyze.parse::<i32>() {
         return Some(Literal::S32(s32_val));

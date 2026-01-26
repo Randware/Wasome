@@ -1,9 +1,9 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
+use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
-use ast::traversal::FunctionContainer;
-use ast::{UntypedAST, AST};
+use ast::{AST, UntypedAST};
 use typed_arena::Arena;
 
 /// Entry Point: Collects all global symbols from the AST.
@@ -18,9 +18,16 @@ use typed_arena::Arena;
 /// # Returns
 /// * `Ok(GlobalSymbolMap)` - The populated map of symbols.
 /// * `Err(String)` - If a semantic error occurs during type conversion (e.g., unknown types).
-pub fn collect_global_symbols<'a>(ast: &'a AST<UntypedAST>, to_alloc_in: &'a TraversalHelpers<'a>) -> Result<SyntaxElementMap<'a>, String> {
+pub fn collect_global_symbols<'a>(
+    ast: &'a AST<UntypedAST>,
+    to_alloc_in: &'a TraversalHelpers<'a>,
+) -> Result<SyntaxElementMap<'a>, String> {
     let mut map = SyntaxElementMap::new();
-    collect_from_directory(DirectoryTraversalHelper::new_from_ast(ast), &mut map, to_alloc_in)?;
+    collect_from_directory(
+        DirectoryTraversalHelper::new_from_ast(ast),
+        &mut map,
+        to_alloc_in,
+    )?;
     Ok(map)
 }
 
@@ -35,7 +42,7 @@ pub fn collect_global_symbols<'a>(ast: &'a AST<UntypedAST>, to_alloc_in: &'a Tra
 fn collect_from_directory<'a>(
     dir: DirectoryTraversalHelper<'a, 'a, UntypedAST>,
     map: &mut SyntaxElementMap<'a>,
-    to_alloc_in: &'a TraversalHelpers<'a>
+    to_alloc_in: &'a TraversalHelpers<'a>,
 ) -> Result<(), String> {
     let dir = to_alloc_in.directories.alloc(dir);
     for file in dir.files_iterator() {
@@ -55,12 +62,16 @@ fn collect_from_directory<'a>(
 pub(crate) struct TraversalHelpers<'a> {
     pub directories: Arena<DirectoryTraversalHelper<'a, 'a, UntypedAST>>,
     pub files: Arena<FileTraversalHelper<'a, 'a, UntypedAST>>,
-    pub functions: Arena<FunctionTraversalHelper<'a, 'a, UntypedAST>>
+    pub functions: Arena<FunctionTraversalHelper<'a, 'a, UntypedAST>>,
 }
 
 impl<'a> TraversalHelpers<'a> {
     pub fn new() -> Self {
-        Self { directories: Arena::new(), files: Arena::new(), functions: Arena::new() }
+        Self {
+            directories: Arena::new(),
+            files: Arena::new(),
+            functions: Arena::new(),
+        }
     }
 }
 

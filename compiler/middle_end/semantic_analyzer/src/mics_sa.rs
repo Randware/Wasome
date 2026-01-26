@@ -1,14 +1,16 @@
-use std::any::Any;
 use crate::expression_sa::analyze_expression;
-use crate::{symbol_by_name};
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol::{
+    AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext,
+};
+use crate::symbol_by_name;
 use ast::data_type::{DataType, UntypedDataType};
 use ast::expression::{Expression, FunctionCall};
 use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use ast::{ASTNode, TypedAST, UntypedAST};
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
-use crate::symbol::{AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext};
+use ast::{ASTNode, TypedAST, UntypedAST};
+use std::any::Any;
 
 /// A helper function that resolves the type names into the right types.
 ///
@@ -18,10 +20,14 @@ use crate::symbol::{AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, Typ
 /// # Returns
 /// * `Some(DataType)` if the string matches a known type.
 /// * `None` otherwise.
-pub(crate) fn analyze_data_type<T>(to_analyze: &UntypedDataType, context: &mut SyntaxContext<impl TypeParameterContext, T>) -> Option<DataType> {
+pub(crate) fn analyze_data_type<T>(
+    to_analyze: &UntypedDataType,
+    context: &mut SyntaxContext<impl TypeParameterContext, T>,
+) -> Option<DataType> {
     // TODO: Add Composites
-    analyze_primitive_data_type(to_analyze)
-        .or_else(|| analyze_type_parameter(to_analyze.name(), context).map(|tp| tp.data_type().clone()))
+    analyze_primitive_data_type(to_analyze).or_else(|| {
+        analyze_type_parameter(to_analyze.name(), context).map(|tp| tp.data_type().clone())
+    })
 }
 
 fn analyze_primitive_data_type(to_analyze: &UntypedDataType) -> Option<DataType> {
@@ -45,12 +51,20 @@ fn analyze_primitive_data_type(to_analyze: &UntypedDataType) -> Option<DataType>
     })
 }
 
-pub(crate) fn analyze_type_parameter_full<'a, T>(to_analyze: &UntypedTypeParameter, context: &'a mut SyntaxContext<impl TypeParameterContext, T>) -> Option<&'a TypedTypeParameter> {
+pub(crate) fn analyze_type_parameter_full<'a, T>(
+    to_analyze: &UntypedTypeParameter,
+    context: &'a mut SyntaxContext<impl TypeParameterContext, T>,
+) -> Option<&'a TypedTypeParameter> {
     analyze_type_parameter(to_analyze.inner().name(), context)
 }
 
-pub(crate) fn analyze_type_parameter<'a, T>(to_analyze: &str, context: &'a mut SyntaxContext<impl TypeParameterContext, T>) -> Option<&'a TypedTypeParameter> {
-    context .type_parameter_context.lookup_type_parameter(to_analyze)
+pub(crate) fn analyze_type_parameter<'a, T>(
+    to_analyze: &str,
+    context: &'a mut SyntaxContext<impl TypeParameterContext, T>,
+) -> Option<&'a TypedTypeParameter> {
+    context
+        .type_parameter_context
+        .lookup_type_parameter(to_analyze)
 }
 
 /// Analyzes a function call
