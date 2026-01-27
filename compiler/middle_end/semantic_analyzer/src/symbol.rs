@@ -1,14 +1,10 @@
 use crate::mics_sa::{
-    analyze_data_type, analyze_type_parameter_full, analyze_type_parameter_providing,
+    analyze_data_type,
     analyze_type_parameters_declaration,
 };
 use crate::symbol::syntax_element_map::{SingleSyntaxElementMap, SyntaxElementMap};
-use crate::symbol::syntax_element_with_type_parameter_guard::{
-    SyntaxElementWithTypeParameterGuard, TypedSyntaxElement,
-};
 use crate::top_level_sa::{analyze_enum, analyze_function};
 use ast::composite::{Enum, Struct};
-use ast::data_type::UntypedDataType;
 use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
     SymbolWithTypeParameter, VariableSymbol,
@@ -18,10 +14,9 @@ use ast::traversal::FunctionContainer;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
-use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
+use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
-use std::task::Context;
 
 pub mod file_symbol_mapper;
 pub mod function_symbol_mapper;
@@ -89,7 +84,7 @@ impl<'a, 'b, ASTReference: Clone> SyntaxContext<'a, 'b, ASTReference> {
     }
 }
 
-impl<'a, 'b, 'c: 'd, 'd, ASTReference: 'c + Clone> SyntaxContext<'a, 'b, ASTReference> {
+impl<'a, 'b, 'c, ASTReference: 'c + Clone> SyntaxContext<'a, 'b, ASTReference> {
     pub fn with_ast_reference<NewElement: Clone>(
         &'c self,
         new: NewElement,
@@ -163,15 +158,15 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
     fn generate_implementation<'a, 'b>(
         symbol: Rc<Self::Symbol<TypedAST>>,
         _pre_implementation: Self::PreImplementation,
-        mut context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
+        context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::Implementation> {
-        analyze_function(symbol, &mut context)
+        analyze_function(symbol, context)
     }
 
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
     ) -> Self::SubAnalyzables<'b> {
-        ()
+        
     }
 }
 
@@ -192,15 +187,15 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
     }
 
     fn generate_typed_symbol<'a, 'b>(
-        mut context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
+        context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Rc<Self::Symbol<TypedAST>>> {
-        convert_enum_symbol(&mut context).ok()
+        convert_enum_symbol(context).ok()
     }
 
     fn generate_pre_implementation<'a, 'b>(
-        mut context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
+        context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::PreImplementation> {
-        convert_enum_pre_implementation(&mut context)
+        convert_enum_pre_implementation(context)
     }
 
     fn generate_implementation<'a, 'b>(
@@ -213,7 +208,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
     ) -> Self::SubAnalyzables<'b> {
-        ()
+        
     }
 }
 
@@ -234,21 +229,21 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
     }
 
     fn generate_typed_symbol<'a, 'b>(
-        mut context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
+        context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Rc<Self::Symbol<TypedAST>>> {
-        convert_struct_symbol(&mut context).ok()
+        convert_struct_symbol(context).ok()
     }
 
     fn generate_pre_implementation<'a, 'b>(
-        mut context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
+        context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::PreImplementation> {
-        convert_struct_pre_implementation(&mut context)
+        convert_struct_pre_implementation(context)
     }
 
     fn generate_implementation<'a, 'b>(
         symbol: Rc<Self::Symbol<TypedAST>>,
         _pre_implementation: Self::PreImplementation,
-        mut context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
+        context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::Implementation> {
         todo!()
         //analyze_function(&mut context)
@@ -297,7 +292,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     fn generate_implementation<'a, 'b>(
         symbol: Rc<Self::Symbol<TypedAST>>,
         _pre_implementation: Self::PreImplementation,
-        mut context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
+        context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::Implementation> {
         todo!()
         //analyze_function(symbol, &mut context)
@@ -306,7 +301,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
     ) -> Self::SubAnalyzables<'b> {
-        ()
+        
     }
 }
 

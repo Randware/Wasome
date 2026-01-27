@@ -1,11 +1,10 @@
 use crate::expression_sa::analyze_expression;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
+use crate::symbol::SyntaxContext;
 use crate::symbol_by_name;
 use ast::data_type::{DataType, UntypedDataType};
 use ast::expression::{Expression, FunctionCall};
-use ast::symbol::{DirectlyAvailableSymbol, FunctionSymbol, SymbolWithTypeParameter};
-use ast::traversal::function_traversal::FunctionTraversalHelper;
+use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, TypedAST, UntypedAST};
@@ -122,7 +121,7 @@ pub(crate) fn analyze_function_call(
             untyped_func_symbol,
             &to_analyze.function().1,
             |from| {
-                let mut context = SyntaxContext::new(
+                let context = SyntaxContext::new(
                     from,
                     context.type_parameter_context.clone(),
                     context.ast_reference.clone(),
@@ -130,7 +129,7 @@ pub(crate) fn analyze_function_call(
                 analyze_type_parameters_providing(
                     untyped_func_symbol.type_parameters(),
                     &to_analyze.function().1,
-                    &mut context,
+                    &context,
                 )
             },
         )

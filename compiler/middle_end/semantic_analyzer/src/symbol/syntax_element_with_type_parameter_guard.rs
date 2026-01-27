@@ -186,7 +186,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<'
     }
 
     pub fn typed_type_parameters(&self) -> &[TypedTypeParameter] {
-        &self.type_parameters.current()
+        self.type_parameters.current()
     }
 
     pub fn into_implementation(self) -> Option<Element::Implementation> {

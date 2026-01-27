@@ -1,9 +1,9 @@
 use crate::statement_sa::analyze_statement;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
+use crate::symbol::SyntaxContext;
 use ast::composite::{Enum, EnumVariant};
 use ast::statement::{ControlStructure, Statement};
-use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, SymbolWithTypeParameter};
+use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol};
 use ast::top_level::Function;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -67,8 +67,8 @@ pub(crate) fn analyze_function(
     }
 
     let sth = StatementTraversalHelper::new_root(context.ast_reference);
-    let mut new_context = context.with_ast_reference(&sth);
-    let typed_implementation_statement = analyze_statement(&mut new_context, &mut func_mapper)?;
+    let new_context = context.with_ast_reference(&sth);
+    let typed_implementation_statement = analyze_statement(&new_context, &mut func_mapper)?;
 
     if symbol.return_type().is_some() && !always_return(&typed_implementation_statement) {
         // We have to return a value but don't

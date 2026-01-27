@@ -3,7 +3,7 @@ use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
-use ast::{AST, UntypedAST};
+use ast::UntypedAST;
 use typed_arena::Arena;
 
 /// Entry Point: Collects all global symbols from the AST.
@@ -44,7 +44,7 @@ fn collect_from_directory<'a>(
         let file = to_alloc_in.files.alloc(file);
         for function in file.function_iterator() {
             let function: &'a _ = to_alloc_in.functions.alloc(function);
-            map.insert_untyped_function(&function);
+            map.insert_untyped_function(function);
         }
     }
 

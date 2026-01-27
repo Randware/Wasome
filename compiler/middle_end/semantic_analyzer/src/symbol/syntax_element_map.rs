@@ -15,7 +15,6 @@ use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 
 pub(crate) struct SyntaxElementMap<'a> {
@@ -204,7 +203,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         &'b self,
         symbol: &<Element as AnalyzableSyntaxElementWithTypeParameter>::Symbol<UntypedAST>,
         type_parameters: &[UntypedDataType],
-    ) -> Option<Ref<TypedSyntaxElement<'a, Element>>> {
+    ) -> Option<Ref<'b, TypedSyntaxElement<'a, Element>>> {
         Ref::filter_map(self.elements.get(symbol)?.borrow(), |guard| {
             guard.typed_variant(type_parameters)
         })
@@ -215,7 +214,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         &'b self,
         symbol: &<Element as AnalyzableSyntaxElementWithTypeParameter>::Symbol<UntypedAST>,
         type_parameters: &[UntypedDataType],
-    ) -> Option<RefMut<TypedSyntaxElement<'a, Element>>> {
+    ) -> Option<RefMut<'b, TypedSyntaxElement<'a, Element>>> {
         RefMut::<'_, SyntaxElementWithTypeParameterGuard<'a, 'a, Element>>::filter_map(
             self.elements.get(symbol)?.borrow_mut(),
             |guard| guard.typed_variant_mut(type_parameters),

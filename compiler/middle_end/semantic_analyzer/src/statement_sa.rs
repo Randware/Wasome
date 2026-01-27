@@ -1,7 +1,7 @@
 use crate::expression_sa::analyze_expression;
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
+use crate::symbol::SyntaxContext;
 use crate::symbol_by_name;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
@@ -283,10 +283,10 @@ fn analyze_conditional(
     // Unwrap:
     // A conditional always has a 0th statement (then-statement)
     let sth = context.ast_reference.get_child(0).unwrap();
-    let mut then_context = context.with_ast_reference(&sth);
+    let then_context = context.with_ast_reference(&sth);
     let then_position = then_context.ast_reference.inner().position().clone();
 
-    let typed_then_statement = analyze_statement(&mut then_context, function_symbol_mapper)?;
+    let typed_then_statement = analyze_statement(&then_context, function_symbol_mapper)?;
     let typed_then_node = ASTNode::new(typed_then_statement, then_position);
     let _ = function_symbol_mapper.exit_scope();
 
@@ -295,10 +295,10 @@ fn analyze_conditional(
         // Unwrap:
         // We checked that the conditional has a 1st statement (else-statement)
         let sth = context.ast_reference.get_child(1).unwrap();
-        let mut else_context = context.with_ast_reference(&sth);
+        let else_context = context.with_ast_reference(&sth);
         let else_position = else_context.ast_reference.inner().position().clone();
 
-        let typed_block = analyze_statement(&mut else_context, function_symbol_mapper)?;
+        let typed_block = analyze_statement(&else_context, function_symbol_mapper)?;
         let typed_block_node = ASTNode::new(typed_block, else_position);
         let _ = function_symbol_mapper.exit_scope();
         Some(typed_block_node)
@@ -356,10 +356,10 @@ fn analyze_loop(
             // Unwrap:
             // A for loop always has a 0th substatement (before)
             let sth = context.ast_reference.get_child(0).unwrap();
-            let mut start_context = context.with_ast_reference(&sth);
+            let start_context = context.with_ast_reference(&sth);
             let start_position = start_context.ast_reference.inner().position().clone();
 
-            let typed_start_stmt = analyze_statement(&mut start_context, function_symbol_mapper)?;
+            let typed_start_stmt = analyze_statement(&start_context, function_symbol_mapper)?;
             let typed_start_node = ASTNode::new(typed_start_stmt, start_position);
 
             let typed_cond_expr = analyze_expression(cond, context, function_symbol_mapper)?;
@@ -373,11 +373,11 @@ fn analyze_loop(
             // Unwrap:
             // A for loop always has a 2nd substatement (after)
             let sth = context.ast_reference.get_child(2).unwrap();
-            let mut after_each_context = context.with_ast_reference(&sth);
+            let after_each_context = context.with_ast_reference(&sth);
             let after_each_position = after_each_context.ast_reference.inner().position().clone();
 
             let typed_after_each_stmt =
-                analyze_statement(&mut after_each_context, function_symbol_mapper)?;
+                analyze_statement(&after_each_context, function_symbol_mapper)?;
             let typed_after_each_node = ASTNode::new(typed_after_each_stmt, after_each_position);
 
             LoopType::For {
@@ -400,10 +400,10 @@ fn analyze_loop(
     // 2. The statement is the last child statement
     // Both of these must exist
     let sth = context.ast_reference.get_child(body_index).unwrap();
-    let mut to_loop_on_context = context.with_ast_reference(&sth);
+    let to_loop_on_context = context.with_ast_reference(&sth);
     let to_loop_on_position = to_loop_on_context.ast_reference.inner().position().clone();
 
-    let typed_to_loop_on_stmt = analyze_statement(&mut to_loop_on_context, function_symbol_mapper)?;
+    let typed_to_loop_on_stmt = analyze_statement(&to_loop_on_context, function_symbol_mapper)?;
     let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, to_loop_on_position);
 
     let _ = function_symbol_mapper.exit_scope();
@@ -436,10 +436,10 @@ fn analyze_codeblock(
         // Unwrap:
         // This can never panic as we never reach or exceed the length of child statements
         let sth = context.ast_reference.get_child(i).unwrap();
-        let mut child_context = context.with_ast_reference(&sth);
+        let child_context = context.with_ast_reference(&sth);
         let child_position = child_context.ast_reference.inner().position().clone();
         // Recursively analyze each statement
-        if let Some(stmt) = analyze_statement(&mut child_context, function_symbol_mapper) {
+        if let Some(stmt) = analyze_statement(&child_context, function_symbol_mapper) {
             typed_statements.push(ASTNode::new(stmt, child_position));
         } else {
             let _ = function_symbol_mapper.exit_scope();

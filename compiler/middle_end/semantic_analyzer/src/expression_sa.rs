@@ -1,6 +1,6 @@
 use crate::mics_sa::{analyze_data_type, analyze_function_call};
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
-use crate::symbol::{SyntaxContext, TypeParameterContext};
+use crate::symbol::SyntaxContext;
 use ast::expression::{
     BinaryOp, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
 };
