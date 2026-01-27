@@ -19,15 +19,11 @@ use typed_arena::Arena;
 /// * `Ok(GlobalSymbolMap)` - The populated map of symbols.
 /// * `Err(String)` - If a semantic error occurs during type conversion (e.g., unknown types).
 pub fn collect_global_symbols<'a>(
-    ast: &'a AST<UntypedAST>,
+    dir: &'a DirectoryTraversalHelper<'a, 'a, UntypedAST>,
     to_alloc_in: &'a TraversalHelpers<'a>,
 ) -> Result<SyntaxElementMap<'a>, String> {
     let mut map = SyntaxElementMap::new();
-    collect_from_directory(
-        DirectoryTraversalHelper::new_from_ast(ast),
-        &mut map,
-        to_alloc_in,
-    )?;
+    collect_from_directory(dir, &mut map, to_alloc_in)?;
     Ok(map)
 }
 
@@ -40,19 +36,21 @@ pub fn collect_global_symbols<'a>(
 /// * `dir` - The current directory to traverse.
 /// * `map` - The mutable reference to the global symbol map being populated.
 fn collect_from_directory<'a>(
-    dir: DirectoryTraversalHelper<'a, 'a, UntypedAST>,
+    dir: &'a DirectoryTraversalHelper<'a, 'a, UntypedAST>,
     map: &mut SyntaxElementMap<'a>,
     to_alloc_in: &'a TraversalHelpers<'a>,
 ) -> Result<(), String> {
-    let dir = to_alloc_in.directories.alloc(dir);
     for file in dir.files_iterator() {
         let file = to_alloc_in.files.alloc(file);
         for function in file.function_iterator() {
-            map.insert_untyped_function(function);
+            let function: &'a _ = to_alloc_in.functions.alloc(function);
+            map.insert_untyped_function(&function);
         }
     }
 
     for subdir in dir.subdirectories_iterator() {
+        let subdir = to_alloc_in.directories.alloc(subdir);
+
         collect_from_directory(subdir, map, to_alloc_in)?;
     }
 

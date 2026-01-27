@@ -30,7 +30,7 @@ use std::rc::Rc;
 /// * `Some(Statement<TypedAST>)` if the statement and its children were successfully analyzed.
 /// * `None` if a semantic error occurs (e.g., type mismatch, unknown variable).
 pub(crate) fn analyze_statement(
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Statement<TypedAST>> {
     let to_analyze = context.ast_reference.clone();
@@ -82,7 +82,7 @@ pub(crate) fn analyze_statement(
 }
 
 fn try_analyze_void_function_call(
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<FunctionCall<TypedAST>> {
     let to_analyze = &context.ast_reference;
@@ -121,7 +121,7 @@ fn try_analyze_void_function_call(
 fn analyze_variable_assignment(
     to_analyze: &VariableAssignment<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
 ) -> Option<VariableAssignment<TypedAST>> {
     let var_name = to_analyze.variable();
     let typed_variable_symbol = function_symbol_mapper.lookup_variable(var_name)?;
@@ -153,7 +153,7 @@ fn analyze_variable_assignment(
 /// * `None` if the type cannot be inferred or resolved, or if registration fails.
 fn analyze_variable_declaration(
     to_analyze: &VariableDeclaration<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<VariableDeclaration<TypedAST>> {
     let untyped_val = to_analyze.value();
@@ -196,7 +196,7 @@ fn analyze_variable_declaration(
 /// * `None` if types mismatch or the return value is invalid.
 fn analyze_return(
     to_analyze: &Return<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Return<TypedAST>> {
     let expected_return_type = function_symbol_mapper
@@ -236,7 +236,7 @@ fn analyze_return(
 /// * `None` if analysis fails.
 fn analyze_control_structure(
     to_analyze: &ControlStructure<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<ControlStructure<TypedAST>> {
     match to_analyze {
@@ -265,7 +265,7 @@ fn analyze_control_structure(
 /// * `None` if analysis fails.
 fn analyze_conditional(
     to_analyze: &Conditional<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Conditional<TypedAST>> {
     let untyped_condition = to_analyze.condition();
@@ -282,8 +282,8 @@ fn analyze_conditional(
     function_symbol_mapper.enter_scope();
     // Unwrap:
     // A conditional always has a 0th statement (then-statement)
-    let mut then_context =
-        context.with_ast_reference(|ast_reference| ast_reference.get_child(0).unwrap());
+    let sth = context.ast_reference.get_child(0).unwrap();
+    let mut then_context = context.with_ast_reference(&sth);
     let then_position = then_context.ast_reference.inner().position().clone();
 
     let typed_then_statement = analyze_statement(&mut then_context, function_symbol_mapper)?;
@@ -294,8 +294,8 @@ fn analyze_conditional(
         function_symbol_mapper.enter_scope();
         // Unwrap:
         // We checked that the conditional has a 1st statement (else-statement)
-        let mut else_context =
-            context.with_ast_reference(|ast_reference| ast_reference.get_child(1).unwrap());
+        let sth = context.ast_reference.get_child(1).unwrap();
+        let mut else_context = context.with_ast_reference(&sth);
         let else_position = else_context.ast_reference.inner().position().clone();
 
         let typed_block = analyze_statement(&mut else_context, function_symbol_mapper)?;
@@ -327,7 +327,7 @@ fn analyze_conditional(
 /// * `None` if analysis fails.
 fn analyze_loop(
     to_analyze: &Loop<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Loop<TypedAST>> {
     function_symbol_mapper.enter_scope();
@@ -355,8 +355,8 @@ fn analyze_loop(
         } => {
             // Unwrap:
             // A for loop always has a 0th substatement (before)
-            let mut start_context =
-                context.with_ast_reference(|ast_reference| ast_reference.get_child(0).unwrap());
+            let sth = context.ast_reference.get_child(0).unwrap();
+            let mut start_context = context.with_ast_reference(&sth);
             let start_position = start_context.ast_reference.inner().position().clone();
 
             let typed_start_stmt = analyze_statement(&mut start_context, function_symbol_mapper)?;
@@ -371,9 +371,9 @@ fn analyze_loop(
             }
 
             // Unwrap:
-            // A for loop always has a 0th substatement (before)
-            let mut after_each_context =
-                context.with_ast_reference(|ast_reference| ast_reference.get_child(0).unwrap());
+            // A for loop always has a 2nd substatement (after)
+            let sth = context.ast_reference.get_child(2).unwrap();
+            let mut after_each_context = context.with_ast_reference(&sth);
             let after_each_position = after_each_context.ast_reference.inner().position().clone();
 
             let typed_after_each_stmt =
@@ -399,8 +399,8 @@ fn analyze_loop(
     // 1. The statement is at position 1 of a foor loop
     // 2. The statement is the last child statement
     // Both of these must exist
-    let mut to_loop_on_context =
-        context.with_ast_reference(|ast_reference| ast_reference.get_child(body_index).unwrap());
+    let sth = context.ast_reference.get_child(body_index).unwrap();
+    let mut to_loop_on_context = context.with_ast_reference(&sth);
     let to_loop_on_position = to_loop_on_context.ast_reference.inner().position().clone();
 
     let typed_to_loop_on_stmt = analyze_statement(&mut to_loop_on_context, function_symbol_mapper)?;
@@ -425,7 +425,7 @@ fn analyze_loop(
 /// * `Some(CodeBlock<TypedAST>)` if all statements in the block are valid.
 /// * `None` if any statement fails analysis.
 fn analyze_codeblock(
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<CodeBlock<TypedAST>> {
     function_symbol_mapper.enter_scope();
@@ -435,8 +435,8 @@ fn analyze_codeblock(
     for i in 0..count {
         // Unwrap:
         // This can never panic as we never reach or exceed the length of child statements
-        let mut child_context =
-            context.with_ast_reference(|ast_reference| ast_reference.get_child(i).unwrap());
+        let sth = context.ast_reference.get_child(i).unwrap();
+        let mut child_context = context.with_ast_reference(&sth);
         let child_position = child_context.ast_reference.inner().position().clone();
         // Recursively analyze each statement
         if let Some(stmt) = analyze_statement(&mut child_context, function_symbol_mapper) {
@@ -461,7 +461,7 @@ fn analyze_codeblock(
 /// * `Some(Statement::Break)` if inside a loop.
 /// * `None` if used outside a loop.
 fn analyze_break(
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
 ) -> Option<Statement<TypedAST>> {
     let to_analyze = &context.ast_reference;
     let mut current_loc_opt = Some(to_analyze.location());

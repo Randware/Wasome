@@ -20,7 +20,7 @@ use std::rc::Rc;
 /// * `None` if analysis or conversion fails for the expression or any of its sub-expressions.
 pub(crate) fn analyze_expression(
     to_analyze: &Expression<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Expression<TypedAST>> {
     Some(match to_analyze {
@@ -54,7 +54,7 @@ pub(crate) fn analyze_expression(
 /// * `None` on semantic error (undeclared function, argument mismatch, or argument analysis failure).
 pub(crate) fn analyze_non_void_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<FunctionCall<TypedAST>> {
     let typed_call = analyze_function_call(to_analyze, function_symbol_mapper, context)?;
@@ -133,7 +133,7 @@ fn analyze_literal(to_analyze: &str) -> Option<Literal> {
 /// * `None` if analysis or conversion fails.
 fn analyze_unary_op(
     to_analyze: &UnaryOp<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<UnaryOp<TypedAST>>> {
     let (op_type, expression) = (to_analyze.op_type(), to_analyze.input());
@@ -171,7 +171,7 @@ fn analyze_unary_op(
 /// * `None` if analysis or conversion fails.
 fn analyze_binary_op(
     to_analyze: &BinaryOp<UntypedAST>,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<Box<BinaryOp<TypedAST>>> {
     let (op_type, left_expr, right_expr) =

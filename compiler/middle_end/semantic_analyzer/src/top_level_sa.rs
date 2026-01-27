@@ -55,7 +55,7 @@ pub(crate) fn analyze_top_level(
 /// * `None` if analysis fails (e.g., type or scope errors, or symbol missing in global map).
 pub(crate) fn analyze_function(
     symbol: Rc<FunctionSymbol<TypedAST>>,
-    context: &mut SyntaxContext<impl TypeParameterContext, FunctionTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&FunctionTraversalHelper<UntypedAST>>,
 ) -> Option<ASTNode<Function<TypedAST>>> {
     let mut func_mapper = FunctionSymbolMapper::new();
     func_mapper.set_current_function_return_type(symbol.return_type().cloned());
@@ -66,11 +66,8 @@ pub(crate) fn analyze_function(
             .expect("Internal error: Function parameters should not conflict.");
     }
 
-    // It's a false positive
-    // Replacing the closure causes lifetime problems
-    #[allow(clippy::redundant_closure)]
-    let mut new_context =
-        context.with_ast_reference(|to_analyze| StatementTraversalHelper::new_root(to_analyze));
+    let sth = StatementTraversalHelper::new_root(context.ast_reference);
+    let mut new_context = context.with_ast_reference(&sth);
     let typed_implementation_statement = analyze_statement(&mut new_context, &mut func_mapper)?;
 
     if symbol.return_type().is_some() && !always_return(&typed_implementation_statement) {
@@ -90,16 +87,22 @@ pub(crate) fn analyze_function(
 pub(crate) fn analyze_enum(
     symbol: Rc<EnumSymbol<TypedAST>>,
     variants: Vec<Rc<EnumVariantSymbol<TypedAST>>>,
-    context: &mut SyntaxContext<impl TypeParameterContext, EnumTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&EnumTraversalHelper<UntypedAST>>,
 ) -> ASTNode<Enum<TypedAST>> {
     let untyped_enum = context.ast_reference.inner();
     ASTNode::new(
         Enum::new(
             symbol,
-            variants.into_iter().zip(untyped_enum.variants().iter()).map(|(typed, untyped)| ASTNode::new(EnumVariant::new(typed), untyped.position().clone())).collect(),
-            untyped_enum.visibility()
+            variants
+                .into_iter()
+                .zip(untyped_enum.variants().iter())
+                .map(|(typed, untyped)| {
+                    ASTNode::new(EnumVariant::new(typed), untyped.position().clone())
+                })
+                .collect(),
+            untyped_enum.visibility(),
         ),
-        untyped_enum.position().clone()
+        untyped_enum.position().clone(),
     )
 }
 

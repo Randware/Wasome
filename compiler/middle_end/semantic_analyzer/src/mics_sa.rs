@@ -20,7 +20,7 @@ use ast::{ASTNode, TypedAST, UntypedAST};
 /// * `None` otherwise.
 pub(crate) fn analyze_data_type<T: Clone>(
     to_analyze: &UntypedDataType,
-    context: &mut SyntaxContext<impl TypeParameterContext, T>,
+    context: &SyntaxContext<T>,
 ) -> Option<DataType> {
     // TODO: Add Composites
     analyze_primitive_data_type(to_analyze).or_else(|| {
@@ -51,14 +51,14 @@ fn analyze_primitive_data_type(to_analyze: &UntypedDataType) -> Option<DataType>
 
 pub(crate) fn analyze_type_parameter_full<'a, T: Clone>(
     to_analyze: &UntypedTypeParameter,
-    context: &'a mut SyntaxContext<impl TypeParameterContext, T>,
+    context: &'a SyntaxContext<T>,
 ) -> Option<&'a TypedTypeParameter> {
     analyze_type_parameter(to_analyze.inner().name(), context)
 }
 
 pub(crate) fn analyze_type_parameter<'a, T: Clone>(
     to_analyze: &str,
-    context: &'a mut SyntaxContext<impl TypeParameterContext, T>,
+    context: &'a SyntaxContext<T>,
 ) -> Option<&'a TypedTypeParameter> {
     context
         .type_parameter_context
@@ -66,7 +66,7 @@ pub(crate) fn analyze_type_parameter<'a, T: Clone>(
 }
 
 pub(crate) fn analyze_type_parameters_declaration<'a>(
-    context: &mut SyntaxContext<impl TypeParameterContext, impl Clone>,
+    context: &SyntaxContext<impl Clone>,
     to_analyze: impl Iterator<Item = &'a UntypedTypeParameter>,
 ) -> Result<Vec<TypedTypeParameter>, String> {
     to_analyze
@@ -78,7 +78,7 @@ pub(crate) fn analyze_type_parameters_declaration<'a>(
 pub(crate) fn analyze_type_parameter_providing<T: Clone>(
     to_analyze: &UntypedTypeParameter,
     with: &UntypedDataType,
-    context: &mut SyntaxContext<impl TypeParameterContext, T>,
+    context: &SyntaxContext<T>,
 ) -> Option<TypedTypeParameter> {
     Some(TypedTypeParameter::new(
         to_analyze.inner().name().to_owned(),
@@ -89,7 +89,7 @@ pub(crate) fn analyze_type_parameter_providing<T: Clone>(
 fn analyze_type_parameters_providing<ASTReference: Clone>(
     type_parameters: &[UntypedTypeParameter],
     fillings: &[UntypedDataType],
-    context: &mut SyntaxContext<impl TypeParameterContext, ASTReference>,
+    context: &SyntaxContext<ASTReference>,
 ) -> Option<Vec<TypedTypeParameter>> {
     fillings
         .iter()
@@ -104,11 +104,11 @@ fn analyze_type_parameters_providing<ASTReference: Clone>(
 pub(crate) fn analyze_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     mapper: &mut FunctionSymbolMapper,
-    context: &mut SyntaxContext<impl TypeParameterContext, StatementTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
 ) -> Option<FunctionCall<TypedAST>> {
     let call_name = to_analyze.function();
 
-    // TODO
+    // TODO: Methods
     let found_symbol = symbol_by_name(&call_name.0, context.ast_reference.symbols_available_at())?;
 
     let untyped_func_symbol = match found_symbol {
@@ -118,18 +118,22 @@ pub(crate) fn analyze_function_call(
 
     let typed_func_symbol = context
         .global_elements
-        .get_or_insert_typed_function_symbol(untyped_func_symbol, &to_analyze.function().1, |from| {
-            let mut context = SyntaxContext::new(
-                from,
-                context.type_parameter_context.clone(),
-                context.ast_reference.clone(),
-            );
-            analyze_type_parameters_providing(
-                untyped_func_symbol.type_parameters(),
-                &to_analyze.function().1,
-                &mut context,
-            )
-        })
+        .get_or_insert_typed_function_symbol(
+            untyped_func_symbol,
+            &to_analyze.function().1,
+            |from| {
+                let mut context = SyntaxContext::new(
+                    from,
+                    context.type_parameter_context.clone(),
+                    context.ast_reference.clone(),
+                );
+                analyze_type_parameters_providing(
+                    untyped_func_symbol.type_parameters(),
+                    &to_analyze.function().1,
+                    &mut context,
+                )
+            },
+        )
         .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");
 
     let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();

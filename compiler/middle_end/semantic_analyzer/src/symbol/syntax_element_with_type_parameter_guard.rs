@@ -1,6 +1,6 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use crate::symbol::{
-    AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext, SyntaxContext,
+    AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext,
 };
 use ast::data_type::UntypedDataType;
 use ast::symbol::SymbolWithTypeParameter;
@@ -21,12 +21,13 @@ pub(crate) struct SyntaxElementWithTypeParameterGuard<
     // and then lookup with that
     typed: HashMap<Vec<UntypedDataType>, TypedSyntaxElement<'a, Element>>,
     ast_reference: Element::ASTReference<'a, 'b>,
+    in_context_type_parameters: Option<Rc<TypeParameterContext>>,
 }
 
 impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
     SyntaxElementWithTypeParameterGuard<'a, 'b, Element>
 {
-    pub fn new(
+    pub fn new_root(
         untyped_symbol: Rc<Element::Symbol<UntypedAST>>,
         ast_reference: Element::ASTReference<'a, 'b>,
     ) -> Self {
@@ -34,6 +35,34 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
             untyped_symbol,
             typed: HashMap::new(),
             ast_reference,
+            in_context_type_parameters: None,
+        }
+    }
+
+    pub fn new_child(
+        untyped_symbol: Rc<Element::Symbol<UntypedAST>>,
+        ast_reference: Element::ASTReference<'a, 'b>,
+        in_context_type_parameters: Rc<TypeParameterContext>,
+    ) -> Self {
+        Self {
+            untyped_symbol,
+            typed: HashMap::new(),
+            ast_reference,
+            in_context_type_parameters: Some(in_context_type_parameters),
+        }
+    }
+
+    pub fn new(
+        untyped_symbol: Rc<Element::Symbol<UntypedAST>>,
+        typed: HashMap<Vec<UntypedDataType>, TypedSyntaxElement<'a, Element>>,
+        ast_reference: Element::ASTReference<'a, 'b>,
+        in_context_type_parameters: Option<Rc<TypeParameterContext>>,
+    ) -> Self {
+        Self {
+            untyped_symbol,
+            typed,
+            ast_reference,
+            in_context_type_parameters,
         }
     }
 
@@ -87,38 +116,35 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
             .into_iter()
             .filter_map(|typed| typed.1.into_implementation())
     }
+
+    pub fn in_context_type_parameters(&self) -> Option<Rc<TypeParameterContext>> {
+        self.in_context_type_parameters.clone()
+    }
 }
 
 pub(crate) struct TypedSyntaxElement<'a, Element: AnalyzableSyntaxElementWithTypeParameter> {
-    typed_type_parameters: Rc<[TypedTypeParameter]>,
-    untyped_type_parameters: Rc<[UntypedDataType]>,
+    type_parameters: Rc<TypeParameterContext>,
     symbol: Rc<Element::Symbol<TypedAST>>,
     pre_implementation: Option<Element::PreImplementation>,
     implementation: Option<Element::Implementation>,
-    subanalyzables: Element::SubAnalyzables<'a>
+    subanalyzables: Element::SubAnalyzables<'a>,
 }
 
 impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<'a, Element> {
     pub fn new(
-        typed_type_parameters: &[TypedTypeParameter],
-        untyped_typed_parameters: &[UntypedDataType],
+        type_parameters: Rc<TypeParameterContext>,
         from: <Element as AnalyzableSyntaxElementWithTypeParameter>::ASTReference<'a, 'a>,
-        global_elements: &mut SyntaxElementMap<'a>,
+        global_elements: &SyntaxElementMap<'a>,
     ) -> Option<Self> {
-        let typed_type_parameters: Rc<[TypedTypeParameter]> = Rc::from(typed_type_parameters);
-        let untyped_type_parameters: Rc<[UntypedDataType]> = Rc::from(untyped_typed_parameters);
-        let type_parameter_context =
-            RegularTypeParameterContext::new(typed_type_parameters.clone());
-        let subanalyzables = Element::init_subanalyzables(&from);
-        let context = SyntaxContext::new(global_elements, type_parameter_context, from);
-        let symbol = Element::generate_typed_symbol(context)?;
+        let context = SyntaxContext::new(global_elements, type_parameters.clone(), from);
+        let subanalyzables = Element::init_subanalyzables(&context);
+        let symbol = Element::generate_typed_symbol(&context)?;
         Some(Self {
-            typed_type_parameters,
-            untyped_type_parameters,
+            type_parameters,
             symbol,
             pre_implementation: None,
             implementation: None,
-            subanalyzables
+            subanalyzables,
         })
     }
 
@@ -160,19 +186,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<'
     }
 
     pub fn typed_type_parameters(&self) -> &[TypedTypeParameter] {
-        &self.typed_type_parameters
-    }
-
-    pub fn typed_type_parameters_owned(&self) -> Rc<[TypedTypeParameter]> {
-        self.typed_type_parameters.clone()
-    }
-
-    pub fn untyped_type_parameters(&self) -> &[UntypedDataType] {
-        &self.untyped_type_parameters
-    }
-
-    pub fn untyped_type_parameters_owned(&self) -> Rc<[UntypedDataType]> {
-        self.untyped_type_parameters.clone()
+        &self.type_parameters.current()
     }
 
     pub fn into_implementation(self) -> Option<Element::Implementation> {
