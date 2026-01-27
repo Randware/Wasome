@@ -118,7 +118,7 @@ pub(crate) fn analyze_function_call(
 
     let typed_func_symbol = context
         .global_elements
-        .get_typed_function_symbol(untyped_func_symbol, &to_analyze.function().1, |from| {
+        .get_or_insert_typed_function_symbol(untyped_func_symbol, &to_analyze.function().1, |from| {
             let mut context = SyntaxContext::new(
                 from,
                 context.type_parameter_context.clone(),

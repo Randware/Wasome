@@ -2,7 +2,7 @@ use crate::mics_sa::{
     analyze_data_type, analyze_type_parameter_full, analyze_type_parameter_providing,
     analyze_type_parameters_declaration,
 };
-use crate::symbol::syntax_element_map::SyntaxElementMap;
+use crate::symbol::syntax_element_map::{SingleSyntaxElementMap, SyntaxElementMap};
 use crate::top_level_sa::{analyze_enum, analyze_function};
 use ast::composite::{Enum, Struct};
 use ast::data_type::UntypedDataType;
@@ -122,7 +122,7 @@ pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
     type ASTReference<'a, 'b>: Clone
     where
         'b: 'a;
-    type SubAnalyzables<'a, 'b> where 'b: 'a;
+    type SubAnalyzables<'a>;
     /// This uses a Rc as the symbol is loaded from the untyped AST and not generated
     // Rustrover is wrong, the lifetimes can't be elided
     fn load_untyped_symbol<'a, 'b>(
@@ -140,9 +140,9 @@ pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
         pre_implementation: Self::PreImplementation,
         context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'_, 'b>>,
     ) -> Option<Self::Implementation>;
-    fn init_subanalyzables<'a, 'b>(
-        from: &Self::ASTReference<'a, 'b>,
-    ) -> Self::SubAnalyzables<'a, 'b>;
+    fn init_subanalyzables<'a>(
+        from: &Self::ASTReference<'a, 'a>,
+    ) -> Self::SubAnalyzables<'a>;
 }
 
 pub(crate) struct AnalyzableFunction;
@@ -154,7 +154,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
         = FunctionTraversalHelper<'a, 'b, UntypedAST>
     where
         'b: 'a;
-    type SubAnalyzables<'a, 'b> = () where 'b: 'a;
+    type SubAnalyzables<'a> = ();
     fn load_untyped_symbol<'a, 'b>(
         from: &Self::ASTReference<'a, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
@@ -181,7 +181,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
         analyze_function(symbol, &mut context)
     }
 
-    fn init_subanalyzables<'a, 'b>(_from: &Self::ASTReference<'a, 'b>) -> Self::SubAnalyzables<'a, 'b> {
+    fn init_subanalyzables<'a>(_from: &Self::ASTReference<'a, 'a>) -> Self::SubAnalyzables<'a> {
         ()
     }
 }
@@ -195,7 +195,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
         = EnumTraversalHelper<'a, 'b, UntypedAST>
     where
         'b: 'a;
-    type SubAnalyzables<'a, 'b> = () where 'b: 'a;
+    type SubAnalyzables<'a> = ();
     fn load_untyped_symbol<'a, 'b>(
         from: &Self::ASTReference<'a, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
@@ -221,7 +221,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
     ) -> Option<Self::Implementation> {
         Some(analyze_enum(symbol, pre_implementation, &mut context))
     }
-    fn init_subanalyzables<'a, 'b>(_from: &Self::ASTReference<'a, 'b>) -> Self::SubAnalyzables<'a, 'b> {
+    fn init_subanalyzables<'a>(_from: &Self::ASTReference<'a, 'a>) -> Self::SubAnalyzables<'a> {
         ()
     }
 }
@@ -235,7 +235,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
         = StructTraversalHelper<'a, 'b, UntypedAST>
     where
         'b: 'a;
-    type SubAnalyzables<'a, 'b> = Vec<SyntaxElementWithTypeParameterGuard<'a, 'b, AnalyzableFunction>> where 'b: 'a;
+    type SubAnalyzables<'a> = SingleSyntaxElementMap<'a, AnalyzableMethod>;
     fn load_untyped_symbol<'a, 'b>(
         from: &Self::ASTReference<'a, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
@@ -263,8 +263,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
         //analyze_function(&mut context)
     }
 
-    fn init_subanalyzables<'a, 'b>(from: &Self::ASTReference<'a, 'b>) -> Self::SubAnalyzables<'a, 'b> {
-        Vec::new()
+    fn init_subanalyzables<'a>(from: &Self::ASTReference<'a, 'a>) -> Self::SubAnalyzables<'a> {
+        SingleSyntaxElementMap::new()
     }
 }
 
@@ -277,7 +277,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     = (RegularTypeParameterContext, FunctionTraversalHelper<'a, 'b, UntypedAST>)
     where
         'b: 'a;
-    type SubAnalyzables<'a, 'b> = () where 'b: 'a;
+    type SubAnalyzables<'a> = ();
     fn load_untyped_symbol<'a, 'b>(
         from: &Self::ASTReference<'a, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
@@ -308,7 +308,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
         analyze_function(symbol, &mut context)
     }
 
-    fn init_subanalyzables<'a, 'b>(_from: &Self::ASTReference<'a, 'b>) -> Self::SubAnalyzables<'a, 'b> {
+    fn init_subanalyzables<'a>(_from: &Self::ASTReference<'a, 'a>) -> Self::SubAnalyzables<'a> {
         ()
     }
 }
