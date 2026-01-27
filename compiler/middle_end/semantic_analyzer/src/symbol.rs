@@ -19,7 +19,6 @@ use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
 use std::task::Context;
 
-pub mod file_symbol_mapper;
 pub mod function_symbol_mapper;
 pub mod global_system_collector;
 pub(crate) mod syntax_element_map;
