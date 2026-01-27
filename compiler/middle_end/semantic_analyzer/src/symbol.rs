@@ -17,6 +17,7 @@ use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
+use std::task::Context;
 
 pub mod file_symbol_mapper;
 pub mod function_symbol_mapper;
@@ -216,7 +217,9 @@ pub(crate) struct AnalyzableStruct;
 impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
     type Symbol<Type: ASTType> = StructSymbol<Type>;
     type PreImplementation = Vec<Rc<StructFieldSymbol<TypedAST>>>;
-    type Implementation = ASTNode<Struct<TypedAST>>;
+    // Implementation is just Symbol + PreImplementation as the rest (methods) can still change
+    // later and is in SubAnalyzables
+    type Implementation = (Rc<Self::Symbol<TypedAST>>, Self::PreImplementation);
     type ASTReference<'a, 'b>
         = &'a StructTraversalHelper<'a, 'b, UntypedAST>
     where
@@ -242,11 +245,10 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
 
     fn generate_implementation<'a, 'b>(
         symbol: Rc<Self::Symbol<TypedAST>>,
-        _pre_implementation: Self::PreImplementation,
-        context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
+        pre_implementation: Self::PreImplementation,
+        _context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::Implementation> {
-        todo!()
-        //analyze_function(&mut context)
+        Some((symbol, pre_implementation))
     }
 
     fn init_subanalyzables<'b>(
@@ -279,8 +281,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     fn generate_typed_symbol<'a, 'b>(
         context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Rc<Self::Symbol<TypedAST>>> {
-        todo!()
-        //convert_function_symbol(context).ok()
+        let context = context.with_ast_reference(&context.ast_reference);
+        convert_function_symbol(&context).ok()
     }
 
     fn generate_pre_implementation<'a, 'b>(
@@ -294,8 +296,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
         _pre_implementation: Self::PreImplementation,
         context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::Implementation> {
-        todo!()
-        //analyze_function(symbol, &mut context)
+        let context = context.with_ast_reference(&context.ast_reference);
+        analyze_function(symbol, &context)
     }
 
     fn init_subanalyzables<'b>(
@@ -330,6 +332,41 @@ fn convert_function_symbol(
     };
 
     let mut typed_params = Vec::new();
+    for param in untyped.params() {
+        let param_type_name = param.data_type();
+        let dt = analyze_data_type(param_type_name, context)
+            .ok_or_else(|| "Semantic Error: Unknown parameter type".to_string())?;
+
+        let typed_param = Rc::new(VariableSymbol::new(param.name().to_string(), dt));
+        typed_params.push(typed_param);
+    }
+
+    let typed_type_params =
+        analyze_type_parameters_declaration(context, untyped.type_parameters().iter())?;
+
+    Ok(Rc::new(FunctionSymbol::new(
+        untyped.name().to_string(),
+        return_type,
+        typed_params,
+        typed_type_params,
+    )))
+}
+
+fn convert_method_symbol(
+    context: &SyntaxContext<&FunctionTraversalHelper<UntypedAST>>,
+) -> Result<Rc<FunctionSymbol<TypedAST>>, String> {
+    let untyped = context.ast_reference.inner().declaration();
+    let return_type = match untyped.return_type() {
+        Some(type_name) => {
+            let dt = analyze_data_type(type_name, context)
+                .ok_or_else(|| "Semantic Error: Unknown return type".to_string())?;
+            Some(dt)
+        }
+        None => None,
+    };
+
+    let mut typed_params = Vec::new();
+    // TODO: Add self type
     for param in untyped.params() {
         let param_type_name = param.data_type();
         let dt = analyze_data_type(param_type_name, context)
