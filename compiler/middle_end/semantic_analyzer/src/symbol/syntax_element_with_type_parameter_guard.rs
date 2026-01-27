@@ -19,7 +19,7 @@ pub(crate) struct SyntaxElementWithTypeParameterGuard<
     // require translating from untyped for each lookup
     // Potential performance improvement: Use a different HashMap for translating from untyped to typed
     // and then lookup with that
-    typed: HashMap<Vec<UntypedDataType>, TypedSyntaxElement<Element>>,
+    typed: HashMap<Vec<UntypedDataType>, TypedSyntaxElement<'a, 'b, Element>>,
     ast_reference: Element::ASTReference<'a, 'b>,
 }
 
@@ -44,20 +44,20 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
     pub fn typed_variant(
         &self,
         type_parameter: &[UntypedDataType],
-    ) -> Option<&TypedSyntaxElement<Element>> {
+    ) -> Option<&TypedSyntaxElement<'a, 'b, Element>> {
         self.typed.get(type_parameter)
     }
 
     pub fn typed_variant_mut(
         &mut self,
         type_parameter: &[UntypedDataType],
-    ) -> Option<&mut TypedSyntaxElement<Element>> {
+    ) -> Option<&mut TypedSyntaxElement<'a, 'b, Element>> {
         self.typed.get_mut(type_parameter)
     }
 
     pub fn insert_typed_variant(
         &mut self,
-        to_insert: TypedSyntaxElement<Element>,
+        to_insert: TypedSyntaxElement<'a, 'b, Element>,
         untyped_type_parameters: Vec<UntypedDataType>,
     ) -> Option<()> {
         let to_insert_type_parameters = to_insert.symbol().type_parameters();
@@ -89,27 +89,27 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
     }
 }
 
-pub(crate) struct TypedSyntaxElement<Element: AnalyzableSyntaxElementWithTypeParameter> {
+pub(crate) struct TypedSyntaxElement<'a, 'b: 'a ,Element: AnalyzableSyntaxElementWithTypeParameter> {
     typed_type_parameters: Rc<[TypedTypeParameter]>,
     untyped_type_parameters: Rc<[UntypedDataType]>,
     symbol: Rc<Element::Symbol<TypedAST>>,
     pre_implementation: Option<Element::PreImplementation>,
     implementation: Option<Element::Implementation>,
+    subanalyzables: Element::SubAnalyzables<'a, 'b>
 }
 
-impl<Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<Element> {
-    pub fn new<'c, 'a: 'c, 'b: 'a>(
-        typed_type_parameters: &'c [TypedTypeParameter],
-        untyped_typed_parameters: &'c [UntypedDataType],
+impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<'a, 'b, Element> {
+    pub fn new(
+        typed_type_parameters: &[TypedTypeParameter],
+        untyped_typed_parameters: &[UntypedDataType],
         from: <Element as AnalyzableSyntaxElementWithTypeParameter>::ASTReference<'a, 'b>,
-        global_elements: &'c mut SyntaxElementMap<'b>,
+        global_elements: &mut SyntaxElementMap<'b>,
     ) -> Option<Self> {
         let typed_type_parameters: Rc<[TypedTypeParameter]> = Rc::from(typed_type_parameters);
         let untyped_type_parameters: Rc<[UntypedDataType]> = Rc::from(untyped_typed_parameters);
-        let type_parameter_context = RegularTypeParameterContext::new(
-            typed_type_parameters.clone(),
-            untyped_type_parameters.clone(),
-        );
+        let type_parameter_context =
+            RegularTypeParameterContext::new(typed_type_parameters.clone());
+        let subanalyzables = Element::init_subanalyzables(&from);
         let context = SyntaxContext::new(global_elements, type_parameter_context, from);
         let symbol = Element::generate_typed_symbol(context)?;
         Some(Self {
@@ -118,6 +118,7 @@ impl<Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<Eleme
             symbol,
             pre_implementation: None,
             implementation: None,
+            subanalyzables
         })
     }
 

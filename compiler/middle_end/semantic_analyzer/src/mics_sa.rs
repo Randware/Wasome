@@ -4,7 +4,8 @@ use crate::symbol::{SyntaxContext, TypeParameterContext};
 use crate::symbol_by_name;
 use ast::data_type::{DataType, UntypedDataType};
 use ast::expression::{Expression, FunctionCall};
-use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter};
+use ast::symbol::{DirectlyAvailableSymbol, FunctionSymbol, SymbolWithTypeParameter};
+use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, TypedAST, UntypedAST};
@@ -64,6 +65,16 @@ pub(crate) fn analyze_type_parameter<'a, T: Clone>(
         .lookup_typed_type_parameter(to_analyze)
 }
 
+pub(crate) fn analyze_type_parameters_declaration<'a>(
+    context: &mut SyntaxContext<impl TypeParameterContext, impl Clone>,
+    to_analyze: impl Iterator<Item = &'a UntypedTypeParameter>,
+) -> Result<Vec<TypedTypeParameter>, String> {
+    to_analyze
+        .map(|tp| analyze_type_parameter_full(tp, context).cloned())
+        .collect::<Option<Vec<_>>>()
+        .ok_or_else(|| "Unknown type parameter".to_string())
+}
+
 pub(crate) fn analyze_type_parameter_providing<T: Clone>(
     to_analyze: &UntypedTypeParameter,
     with: &UntypedDataType,
@@ -73,6 +84,18 @@ pub(crate) fn analyze_type_parameter_providing<T: Clone>(
         to_analyze.inner().name().to_owned(),
         analyze_data_type(with, context)?,
     ))
+}
+
+fn analyze_type_parameters_providing<ASTReference: Clone>(
+    type_parameters: &[UntypedTypeParameter],
+    fillings: &[UntypedDataType],
+    context: &mut SyntaxContext<impl TypeParameterContext, ASTReference>,
+) -> Option<Vec<TypedTypeParameter>> {
+    fillings
+        .iter()
+        .zip(type_parameters.iter())
+        .map(|(filling, param)| analyze_type_parameter_providing(param, filling, context))
+        .collect::<Option<Vec<_>>>()
 }
 
 /// Analyzes a function call
@@ -94,11 +117,19 @@ pub(crate) fn analyze_function_call(
     };
 
     let typed_func_symbol = context
-        .get_typed_function_symbol(
-            untyped_func_symbol,
-            untyped_func_symbol.type_parameters(),
-            |_| &to_analyze.function().1,
-        )
+        .global_elements
+        .get_typed_function_symbol(untyped_func_symbol, &to_analyze.function().1, |from| {
+            let mut context = SyntaxContext::new(
+                from,
+                context.type_parameter_context.clone(),
+                context.ast_reference.clone(),
+            );
+            analyze_type_parameters_providing(
+                untyped_func_symbol.type_parameters(),
+                &to_analyze.function().1,
+                &mut context,
+            )
+        })
         .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");
 
     let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();

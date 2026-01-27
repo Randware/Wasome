@@ -1,15 +1,23 @@
 use crate::mics_sa::{
     analyze_data_type, analyze_type_parameter_full, analyze_type_parameter_providing,
+    analyze_type_parameters_declaration,
 };
 use crate::symbol::syntax_element_map::SyntaxElementMap;
-use crate::top_level_sa::analyze_function;
+use crate::top_level_sa::{analyze_enum, analyze_function};
+use ast::composite::{Enum, Struct};
 use ast::data_type::UntypedDataType;
-use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
+use ast::symbol::{
+    EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
+    SymbolWithTypeParameter, VariableSymbol,
+};
 use ast::top_level::Function;
+use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
+use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
+use crate::symbol::syntax_element_with_type_parameter_guard::{SyntaxElementWithTypeParameterGuard, TypedSyntaxElement};
 
 pub mod file_symbol_mapper;
 pub mod function_symbol_mapper;
@@ -19,25 +27,18 @@ mod syntax_element_with_type_parameter_guard;
 
 pub(crate) trait TypeParameterContext: Clone {
     fn lookup_typed_type_parameter(&self, to_lookup: &str) -> Option<&TypedTypeParameter>;
-    fn lookup_untyped_type_parameter(&self, to_lookup: &str) -> Option<&UntypedDataType>;
-    fn typed_type_parameters(&self) -> &[TypedTypeParameter];
-    fn untyped_type_parameters(&self) -> &[UntypedDataType];
+    fn current_typed_type_parameters(&self) -> &[TypedTypeParameter];
 }
 
 #[derive(Clone)]
 pub(crate) struct RegularTypeParameterContext {
     typed_type_parameters: Rc<[TypedTypeParameter]>,
-    untyped_type_parameters: Rc<[UntypedDataType]>,
 }
 
 impl RegularTypeParameterContext {
-    pub fn new(
-        typed_type_parameters: Rc<[TypedTypeParameter]>,
-        untyped_type_parameters: Rc<[UntypedDataType]>,
-    ) -> Self {
+    pub fn new(typed_type_parameters: Rc<[TypedTypeParameter]>) -> Self {
         Self {
             typed_type_parameters,
-            untyped_type_parameters,
         }
     }
 }
@@ -49,18 +50,31 @@ impl TypeParameterContext for RegularTypeParameterContext {
             .find(|type_parameter| type_parameter.name() == to_lookup)
     }
 
-    fn lookup_untyped_type_parameter(&self, to_lookup: &str) -> Option<&UntypedDataType> {
-        self.untyped_type_parameters
-            .iter()
-            .find(|type_parameter| type_parameter.name() == to_lookup)
-    }
-
-    fn typed_type_parameters(&self) -> &[TypedTypeParameter] {
+    fn current_typed_type_parameters(&self) -> &[TypedTypeParameter] {
         &self.typed_type_parameters
     }
+}
 
-    fn untyped_type_parameters(&self) -> &[UntypedDataType] {
-        &self.untyped_type_parameters
+#[derive(Clone)]
+pub(crate) struct TypeParameterContextWithParent<Parent: TypeParameterContext, Current: TypeParameterContext> {
+    parent: Parent,
+    current: Current,
+}
+
+impl<Parent: TypeParameterContext, Current: TypeParameterContext> TypeParameterContextWithParent<Parent, Current> {
+    pub fn new(parent: Parent, current: Current) -> Self {
+        Self { parent, current }
+    }
+}
+
+impl<Parent: TypeParameterContext, Current: TypeParameterContext> TypeParameterContext for TypeParameterContextWithParent<Parent, Current> {
+    fn lookup_typed_type_parameter(&self, to_lookup: &str) -> Option<&TypedTypeParameter> {
+        self.current.lookup_typed_type_parameter(to_lookup)
+            .or_else(|| self.parent.lookup_typed_type_parameter(to_lookup))
+    }
+
+    fn current_typed_type_parameters(&self) -> &[TypedTypeParameter] {
+        &self.current.current_typed_type_parameters()
     }
 }
 
@@ -83,30 +97,6 @@ impl<'a, 'b, Context: TypeParameterContext, ASTReference: Clone>
             type_parameter_context,
             ast_reference,
         }
-    }
-
-    pub fn get_typed_function_symbol<'c>(
-        &'c mut self,
-        symbol: &FunctionSymbol<UntypedAST>,
-        type_parameters: &[UntypedTypeParameter],
-        type_parameters_fillings: impl FnOnce(&'c Context) -> &'c [UntypedDataType],
-    ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
-        let fillings = type_parameters_fillings(&self.type_parameter_context);
-        self.global_elements
-            .get_typed_function_symbol(symbol, fillings, |global_elements| {
-                let mut context = SyntaxContext::new(
-                    global_elements,
-                    self.type_parameter_context.clone(),
-                    self.ast_reference.clone(),
-                );
-                fillings
-                    .iter()
-                    .zip(type_parameters.iter())
-                    .map(|(filling, param)| {
-                        analyze_type_parameter_providing(param, filling, &mut context)
-                    })
-                    .collect::<Option<Vec<_>>>()
-            })
     }
 }
 
@@ -132,6 +122,7 @@ pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
     type ASTReference<'a, 'b>: Clone
     where
         'b: 'a;
+    type SubAnalyzables<'a, 'b> where 'b: 'a;
     /// This uses a Rc as the symbol is loaded from the untyped AST and not generated
     // Rustrover is wrong, the lifetimes can't be elided
     fn load_untyped_symbol<'a, 'b>(
@@ -145,9 +136,13 @@ pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
         context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'_, 'b>>,
     ) -> Option<Self::PreImplementation>;
     fn generate_implementation<'b, Context: TypeParameterContext>(
+        symbol: Rc<Self::Symbol<TypedAST>>,
         pre_implementation: Self::PreImplementation,
         context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'_, 'b>>,
     ) -> Option<Self::Implementation>;
+    fn init_subanalyzables<'a, 'b>(
+        from: &Self::ASTReference<'a, 'b>,
+    ) -> Self::SubAnalyzables<'a, 'b>;
 }
 
 pub(crate) struct AnalyzableFunction;
@@ -159,6 +154,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
         = FunctionTraversalHelper<'a, 'b, UntypedAST>
     where
         'b: 'a;
+    type SubAnalyzables<'a, 'b> = () where 'b: 'a;
     fn load_untyped_symbol<'a, 'b>(
         from: &Self::ASTReference<'a, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
@@ -178,12 +174,145 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
     }
 
     fn generate_implementation<'a, 'b, Context: TypeParameterContext>(
+        symbol: Rc<Self::Symbol<TypedAST>>,
         _pre_implementation: Self::PreImplementation,
         mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::Implementation> {
-        analyze_function(&mut context)
+        analyze_function(symbol, &mut context)
+    }
+
+    fn init_subanalyzables<'a, 'b>(_from: &Self::ASTReference<'a, 'b>) -> Self::SubAnalyzables<'a, 'b> {
+        ()
     }
 }
+
+pub(crate) struct AnalyzableEnum;
+impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
+    type Symbol<Type: ASTType> = EnumSymbol<Type>;
+    type PreImplementation = Vec<Rc<EnumVariantSymbol<TypedAST>>>;
+    type Implementation = ASTNode<Enum<TypedAST>>;
+    type ASTReference<'a, 'b>
+        = EnumTraversalHelper<'a, 'b, UntypedAST>
+    where
+        'b: 'a;
+    type SubAnalyzables<'a, 'b> = () where 'b: 'a;
+    fn load_untyped_symbol<'a, 'b>(
+        from: &Self::ASTReference<'a, 'b>,
+    ) -> Rc<Self::Symbol<UntypedAST>> {
+        from.inner().symbol_owned()
+    }
+
+    fn generate_typed_symbol<'a, 'b, Context: TypeParameterContext>(
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Rc<Self::Symbol<TypedAST>>> {
+        convert_enum_symbol(&mut context).ok()
+    }
+
+    fn generate_pre_implementation<'a, 'b, Context: TypeParameterContext>(
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Self::PreImplementation> {
+        convert_enum_pre_implementation(&mut context)
+    }
+
+    fn generate_implementation<'a, 'b, Context: TypeParameterContext>(
+        symbol: Rc<Self::Symbol<TypedAST>>,
+        pre_implementation: Self::PreImplementation,
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Self::Implementation> {
+        Some(analyze_enum(symbol, pre_implementation, &mut context))
+    }
+    fn init_subanalyzables<'a, 'b>(_from: &Self::ASTReference<'a, 'b>) -> Self::SubAnalyzables<'a, 'b> {
+        ()
+    }
+}
+
+pub(crate) struct AnalyzableStruct;
+impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
+    type Symbol<Type: ASTType> = StructSymbol<Type>;
+    type PreImplementation = Vec<Rc<StructFieldSymbol<TypedAST>>>;
+    type Implementation = ASTNode<Struct<TypedAST>>;
+    type ASTReference<'a, 'b>
+        = StructTraversalHelper<'a, 'b, UntypedAST>
+    where
+        'b: 'a;
+    type SubAnalyzables<'a, 'b> = Vec<SyntaxElementWithTypeParameterGuard<'a, 'b, AnalyzableFunction>> where 'b: 'a;
+    fn load_untyped_symbol<'a, 'b>(
+        from: &Self::ASTReference<'a, 'b>,
+    ) -> Rc<Self::Symbol<UntypedAST>> {
+        from.inner().symbol_owned()
+    }
+
+    fn generate_typed_symbol<'a, 'b, Context: TypeParameterContext>(
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Rc<Self::Symbol<TypedAST>>> {
+        convert_struct_symbol(&mut context).ok()
+    }
+
+    fn generate_pre_implementation<'a, 'b, Context: TypeParameterContext>(
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Self::PreImplementation> {
+        convert_struct_pre_implementation(&mut context)
+    }
+
+    fn generate_implementation<'a, 'b, Context: TypeParameterContext>(
+        symbol: Rc<Self::Symbol<TypedAST>>,
+        _pre_implementation: Self::PreImplementation,
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Self::Implementation> {
+        todo!()
+        //analyze_function(&mut context)
+    }
+
+    fn init_subanalyzables<'a, 'b>(from: &Self::ASTReference<'a, 'b>) -> Self::SubAnalyzables<'a, 'b> {
+        Vec::new()
+    }
+}
+
+pub(crate) struct AnalyzableMethod;
+impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
+    type Symbol<Type: ASTType> = FunctionSymbol<Type>;
+    type PreImplementation = ();
+    type Implementation = ASTNode<Function<TypedAST>>;
+    type ASTReference<'a, 'b>
+    = (RegularTypeParameterContext, FunctionTraversalHelper<'a, 'b, UntypedAST>)
+    where
+        'b: 'a;
+    type SubAnalyzables<'a, 'b> = () where 'b: 'a;
+    fn load_untyped_symbol<'a, 'b>(
+        from: &Self::ASTReference<'a, 'b>,
+    ) -> Rc<Self::Symbol<UntypedAST>> {
+        from.1.inner().declaration_owned()
+    }
+
+    fn generate_typed_symbol<'a, 'b, Context: TypeParameterContext>(
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Rc<Self::Symbol<TypedAST>>> {
+        let type_param_context = TypeParameterContextWithParent::new(context.ast_reference.0, context.type_parameter_context);
+        let mut context = SyntaxContext::new(context.global_elements, type_param_context, context.ast_reference.1);
+        convert_function_symbol(&mut context).ok()
+    }
+
+    fn generate_pre_implementation<'a, 'b, Context: TypeParameterContext>(
+        _context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Self::PreImplementation> {
+        Some(())
+    }
+
+    fn generate_implementation<'a, 'b, Context: TypeParameterContext>(
+        symbol: Rc<Self::Symbol<TypedAST>>,
+        _pre_implementation: Self::PreImplementation,
+        mut context: SyntaxContext<'_, 'b, Context, Self::ASTReference<'a, 'b>>,
+    ) -> Option<Self::Implementation> {
+        let type_param_context = TypeParameterContextWithParent::new(context.ast_reference.0, context.type_parameter_context);
+        let mut context = SyntaxContext::new(context.global_elements, type_param_context, context.ast_reference.1);
+        analyze_function(symbol, &mut context)
+    }
+
+    fn init_subanalyzables<'a, 'b>(_from: &Self::ASTReference<'a, 'b>) -> Self::SubAnalyzables<'a, 'b> {
+        ()
+    }
+}
+
 
 /// Converts an untyped function symbol (with String types) into a typed symbol (with Enum types).
 ///
@@ -219,12 +348,8 @@ fn convert_function_symbol(
         typed_params.push(typed_param);
     }
 
-    let typed_type_params = untyped
-        .type_parameters()
-        .iter()
-        .map(|tp| analyze_type_parameter_full(tp, context).cloned())
-        .collect::<Option<Vec<_>>>()
-        .ok_or_else(|| "Unknown type parameter".to_string())?;
+    let typed_type_params =
+        analyze_type_parameters_declaration(context, untyped.type_parameters().iter())?;
 
     Ok(Rc::new(FunctionSymbol::new(
         untyped.name().to_string(),
@@ -232,4 +357,70 @@ fn convert_function_symbol(
         typed_params,
         typed_type_params,
     )))
+}
+
+fn convert_enum_symbol(
+    context: &mut SyntaxContext<impl TypeParameterContext, EnumTraversalHelper<UntypedAST>>,
+) -> Result<Rc<EnumSymbol<TypedAST>>, String> {
+    let untyped = context.ast_reference.inner().symbol();
+
+    let typed_type_params =
+        analyze_type_parameters_declaration(context, untyped.type_parameters().iter())?;
+
+    Ok(Rc::new(EnumSymbol::new(
+        untyped.name().to_string(),
+        typed_type_params,
+    )))
+}
+
+fn convert_enum_pre_implementation(
+    context: &mut SyntaxContext<impl TypeParameterContext, EnumTraversalHelper<UntypedAST>>,
+) -> Option<Vec<Rc<EnumVariantSymbol<TypedAST>>>> {
+    let untyped = context.ast_reference.inner().variants();
+
+    untyped
+        .iter()
+        .map(|variant| variant.inner())
+        .map(|variant| {
+            Some(Rc::new(EnumVariantSymbol::<TypedAST>::new(
+                variant.name().to_owned(),
+                variant
+                    .fields()
+                    .iter()
+                    .map(|field| analyze_data_type(field, context))
+                    .collect::<Option<Vec<_>>>()?,
+            )))
+        })
+        .collect()
+}
+
+fn convert_struct_symbol(
+    context: &mut SyntaxContext<impl TypeParameterContext, StructTraversalHelper<UntypedAST>>,
+) -> Result<Rc<StructSymbol<TypedAST>>, String> {
+    let untyped = context.ast_reference.inner().symbol();
+
+    let typed_type_params =
+        analyze_type_parameters_declaration(context, untyped.type_parameters().iter())?;
+
+    Ok(Rc::new(StructSymbol::new(
+        untyped.name().to_string(),
+        typed_type_params,
+    )))
+}
+
+fn convert_struct_pre_implementation(
+    context: &mut SyntaxContext<impl TypeParameterContext, StructTraversalHelper<UntypedAST>>,
+) -> Option<Vec<Rc<StructFieldSymbol<TypedAST>>>> {
+    let untyped = context.ast_reference.inner().fields();
+
+    untyped
+        .iter()
+        .map(|variant| variant.inner())
+        .map(|variant| {
+            Some(Rc::new(StructFieldSymbol::<TypedAST>::new(
+                variant.name().to_owned(),
+                analyze_data_type(variant.data_type(), context)?,
+            )))
+        })
+        .collect()
 }

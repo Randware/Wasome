@@ -118,7 +118,7 @@ mod tests {
     use ast::symbol::{FunctionSymbol, ModuleUsageNameSymbol};
     use ast::top_level::{Function, Import, ImportRoot};
     use ast::visibility::Visibility;
-    use ast::{ASTNode, UntypedAST, AST};
+    use ast::{AST, ASTNode, UntypedAST};
     use std::collections::HashMap;
     use std::rc::Rc;
 

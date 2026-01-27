@@ -1,9 +1,11 @@
 use crate::statement_sa::analyze_statement;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::{SyntaxContext, TypeParameterContext};
+use ast::composite::{Enum, EnumVariant};
 use ast::statement::{ControlStructure, Statement};
-use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter};
+use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, SymbolWithTypeParameter};
 use ast::top_level::Function;
+use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::visibility::Visible;
@@ -52,20 +54,13 @@ pub(crate) fn analyze_top_level(
 /// * `Some(Function<TypedAST>)` if the body is semantically correct.
 /// * `None` if analysis fails (e.g., type or scope errors, or symbol missing in global map).
 pub(crate) fn analyze_function(
+    symbol: Rc<FunctionSymbol<TypedAST>>,
     context: &mut SyntaxContext<impl TypeParameterContext, FunctionTraversalHelper<UntypedAST>>,
 ) -> Option<ASTNode<Function<TypedAST>>> {
-    let to_analyze = &context.ast_reference;
-    let untyped_symbol = to_analyze.inner().declaration();
-    let typed_declaration: Rc<FunctionSymbol<TypedAST>> = context.get_typed_function_symbol(
-        untyped_symbol,
-        untyped_symbol.type_parameters(),
-        |context| context.untyped_type_parameters(),
-    )?;
-
     let mut func_mapper = FunctionSymbolMapper::new();
-    func_mapper.set_current_function_return_type(typed_declaration.return_type().cloned());
+    func_mapper.set_current_function_return_type(symbol.return_type().cloned());
 
-    for param_symbol in typed_declaration.params().iter() {
+    for param_symbol in symbol.params().iter() {
         func_mapper
             .add_variable(param_symbol.clone())
             .expect("Internal error: Function parameters should not conflict.");
@@ -78,8 +73,7 @@ pub(crate) fn analyze_function(
         context.with_ast_reference(|to_analyze| StatementTraversalHelper::new_root(to_analyze));
     let typed_implementation_statement = analyze_statement(&mut new_context, &mut func_mapper)?;
 
-    if typed_declaration.return_type().is_some() && !always_return(&typed_implementation_statement)
-    {
+    if symbol.return_type().is_some() && !always_return(&typed_implementation_statement) {
         // We have to return a value but don't
         return None;
     }
@@ -88,13 +82,25 @@ pub(crate) fn analyze_function(
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
 
     Some(ASTNode::new(
-        Function::new(
-            typed_declaration,
-            implementation_node,
-            to_analyze.inner().visibility(),
-        ),
+        Function::new(symbol, implementation_node, to_analyze.inner().visibility()),
         to_analyze.inner().position().clone(),
     ))
+}
+
+pub(crate) fn analyze_enum(
+    symbol: Rc<EnumSymbol<TypedAST>>,
+    variants: Vec<Rc<EnumVariantSymbol<TypedAST>>>,
+    context: &mut SyntaxContext<impl TypeParameterContext, EnumTraversalHelper<UntypedAST>>,
+) -> ASTNode<Enum<TypedAST>> {
+    let untyped_enum = context.ast_reference.inner();
+    ASTNode::new(
+        Enum::new(
+            symbol,
+            variants.into_iter().zip(untyped_enum.variants().iter()).map(|(typed, untyped)| ASTNode::new(EnumVariant::new(typed), untyped.position().clone())).collect(),
+            untyped_enum.visibility()
+        ),
+        untyped_enum.position().clone()
+    )
 }
 
 /// Checks wherever a statement will always encounter a return statement before finishing execution

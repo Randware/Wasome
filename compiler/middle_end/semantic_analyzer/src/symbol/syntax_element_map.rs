@@ -2,13 +2,15 @@ use crate::symbol::syntax_element_with_type_parameter_guard::{
     SyntaxElementWithTypeParameterGuard, TypedSyntaxElement,
 };
 use crate::symbol::{
-    AnalyzableFunction, AnalyzableSyntaxElementWithTypeParameter, RegularTypeParameterContext,
-    SyntaxContext,
+    AnalyzableEnum, AnalyzableFunction, AnalyzableStruct, AnalyzableSyntaxElementWithTypeParameter,
+    RegularTypeParameterContext, SyntaxContext,
 };
 use ast::data_type::UntypedDataType;
-use ast::symbol::{FunctionSymbol, SymbolWithTypeParameter};
+use ast::symbol::{EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter};
 use ast::top_level::Function;
+use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
+use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::collections::HashMap;
@@ -16,12 +18,16 @@ use std::rc::Rc;
 
 pub(crate) struct SyntaxElementMap<'a> {
     functions: SingleSyntaxElementMap<'a, AnalyzableFunction>,
+    enums: SingleSyntaxElementMap<'a, AnalyzableEnum>,
+    structs: SingleSyntaxElementMap<'a, AnalyzableStruct>,
 }
 
 impl<'a> SyntaxElementMap<'a> {
     pub fn new() -> Self {
         Self {
             functions: SingleSyntaxElementMap::new(),
+            enums: SingleSyntaxElementMap::new(),
+            structs: SingleSyntaxElementMap::new(),
         }
     }
 
@@ -33,6 +39,52 @@ impl<'a> SyntaxElementMap<'a> {
     ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
         let mut single_and_root =
             SingleAndRoot::new(|root| &root.functions, |root| &mut root.functions, self);
+        SingleSyntaxElementMap::get_typed_symbol(
+            &mut single_and_root,
+            symbol,
+            type_parameters,
+            typed_type_parameters,
+        )
+    }
+
+    pub fn insert_untyped_enum(
+        &mut self,
+        to_insert: EnumTraversalHelper<'a, 'a, UntypedAST>,
+    ) -> Option<()> {
+        self.enums.insert_untyped_element(to_insert)
+    }
+
+    pub fn get_typed_enum_symbol(
+        &mut self,
+        symbol: &EnumSymbol<UntypedAST>,
+        type_parameters: &[UntypedDataType],
+        typed_type_parameters: impl FnOnce(&mut SyntaxElementMap) -> Option<Vec<TypedTypeParameter>>,
+    ) -> Option<Rc<EnumSymbol<TypedAST>>> {
+        let mut single_and_root =
+            SingleAndRoot::new(|root| &root.enums, |root| &mut root.enums, self);
+        SingleSyntaxElementMap::get_typed_symbol(
+            &mut single_and_root,
+            symbol,
+            type_parameters,
+            typed_type_parameters,
+        )
+    }
+
+    pub fn insert_untyped_struct(
+        &mut self,
+        to_insert: StructTraversalHelper<'a, 'a, UntypedAST>,
+    ) -> Option<()> {
+        self.structs.insert_untyped_element(to_insert)
+    }
+
+    pub fn get_typed_struct_symbol(
+        &mut self,
+        symbol: &StructSymbol<UntypedAST>,
+        type_parameters: &[UntypedDataType],
+        typed_type_parameters: impl FnOnce(&mut SyntaxElementMap) -> Option<Vec<TypedTypeParameter>>,
+    ) -> Option<Rc<StructSymbol<TypedAST>>> {
+        let mut single_and_root =
+            SingleAndRoot::new(|root| &root.structs, |root| &mut root.structs, self);
         SingleSyntaxElementMap::get_typed_symbol(
             &mut single_and_root,
             symbol,
@@ -142,16 +194,14 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
             ast_reference.clone(),
             root.root(),
         )?;
-        let untyped_type_parameters_owned = typed_variant.untyped_type_parameters_owned();
+        let typed_symbol = typed_variant.symbol_owned();
         let typed_type_parameters = typed_variant.typed_type_parameters_owned();
 
         let guard = root.single_mut().elements.get_mut(symbol)?;
         guard.insert_typed_variant(typed_variant, untyped_type_parameters.to_vec());
 
-        let type_parameter_context = RegularTypeParameterContext::new(
-            typed_type_parameters.clone(),
-            untyped_type_parameters_owned.clone(),
-        );
+        let type_parameter_context =
+            RegularTypeParameterContext::new(typed_type_parameters.clone());
         let context =
             SyntaxContext::new(root.root(), type_parameter_context, ast_reference.clone());
         let pre_implementation = Element::generate_pre_implementation(context)?;
@@ -160,12 +210,11 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         let typed_variant = guard.typed_variant_mut(untyped_type_parameters)?;
         typed_variant.set_pre_implementation(pre_implementation.clone());
 
-        let type_parameter_context = RegularTypeParameterContext::new(
-            typed_type_parameters.clone(),
-            untyped_type_parameters_owned,
-        );
+        let type_parameter_context =
+            RegularTypeParameterContext::new(typed_type_parameters.clone());
         let context = SyntaxContext::new(root.root(), type_parameter_context, ast_reference);
-        let implementation = Element::generate_implementation(pre_implementation, context)?;
+        let implementation =
+            Element::generate_implementation(typed_symbol, pre_implementation, context)?;
 
         let guard = root.single_mut().elements.get_mut(symbol)?;
         let typed_variant = guard.typed_variant_mut(untyped_type_parameters)?;
