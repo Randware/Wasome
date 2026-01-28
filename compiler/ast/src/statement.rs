@@ -522,7 +522,7 @@ impl<Type: ASTType> IfEnumVariant<Type> {
         &self.condition_enum_variant
     }
 
-    pub fn assignment_expression(&self) -> &Expression<Type> {
+    pub fn assignment_expression(&self) -> &ASTNode<Expression<Type>> {
         &self.assignment_expression
     }
 

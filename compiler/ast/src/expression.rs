@@ -665,7 +665,10 @@ impl StructFieldAccess<UntypedAST> {
 
 impl StructFieldAccess<TypedAST> {
     /// Tries to create a new StructFieldAccess
+    /// 
     /// Returns None if the return type of of is not a struct
+    /// 
+    /// Note that it must be externally checked that field belongs to the struct being accessed
     pub fn new(
         of: ASTNode<Expression<TypedAST>>,
         field: Rc<StructFieldSymbol<TypedAST>>,

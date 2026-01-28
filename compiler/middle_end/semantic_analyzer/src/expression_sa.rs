@@ -1,13 +1,14 @@
-use crate::mics_sa::{analyze_data_type, analyze_function_call};
+use std::ops::Deref;
+use crate::mics_sa::{analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_struct_usage};
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::SyntaxContext;
-use ast::expression::{
-    BinaryOp, Expression, FunctionCall, Literal, Typecast, UnaryOp, UnaryOpType,
-};
-use ast::symbol::VariableSymbol;
+use ast::expression::{BinaryOp, Expression, FunctionCall, Literal, NewEnum, NewStruct, StructFieldAccess, Typecast, UnaryOp, UnaryOpType};
+use ast::symbol::{DirectlyAvailableSymbol, EnumSymbol, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
+use ast::data_type::Typed;
+use crate::symbol_by_name;
 
 /// Analyzes an untyped expression and converts it into a typed `Expression`.
 ///
@@ -38,7 +39,9 @@ pub(crate) fn analyze_expression(
         Expression::BinaryOp(inner) => {
             Expression::BinaryOp(analyze_binary_op(inner, context, function_symbol_mapper)?)
         }
-        _ => todo!(),
+        Expression::NewStruct(nstr) => Expression::NewStruct(analyze_new_struct(nstr, context, function_symbol_mapper)?),
+        Expression::NewEnum(ne) => Expression::NewEnum(analyze_new_enum(ne, context, function_symbol_mapper)?),
+        Expression::StructFieldAccess(sfa) => todo!(),
     })
 }
 
@@ -190,6 +193,82 @@ fn analyze_binary_op(
 
     Some(Box::new(analyzed))
 }
+
+fn analyze_new_struct(
+    to_analyze: &NewStruct<UntypedAST>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<Box<NewStruct<TypedAST>>> {
+    let struct_use = analyze_struct_usage(&to_analyze.symbol().0, &to_analyze.symbol().1, context)?;
+    let untyped_struct_symbol = if let DirectlyAvailableSymbol::Struct(st) = symbol_by_name(&to_analyze.symbol().0, context.ast_reference.symbols_available_at())? {
+        st
+    }
+    else { return None; };
+
+    let struct_fields = context.global_elements.get_struct_fields(untyped_struct_symbol, &to_analyze.symbol().1)?;
+    let parameter = to_analyze.parameters()
+        .iter()
+        .map(|param| Some((ASTNode::new(struct_fields.iter().find(|field| param.0.deref() == field.name())?.clone(), param.0.position().clone()), ASTNode::new(analyze_expression(&param.1, context, function_symbol_mapper)?, param.1.position().clone())))).collect::<Option<Vec<_>>>()?;
+
+    let all_struct_fields_exist_dt_match = struct_fields.iter().all(|field| parameter.iter().find(|param| param.0.name() == field.name()).is_some_and(|val| &val.1.data_type() == field.data_type()));
+    let types_ok = all_struct_fields_exist_dt_match && parameter.len() == struct_fields.len();
+    if !types_ok {
+        return None;
+    }
+    let analyzed = NewStruct::<TypedAST>::new(struct_use, parameter);
+
+    Some(Box::new(analyzed))
+}
+
+fn analyze_new_enum(
+    to_analyze: &NewEnum<UntypedAST>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<Box<NewEnum<TypedAST>>> {
+    let enum_use = analyze_enum_usage(&to_analyze.to_create().0, &to_analyze.to_create().1, context)?;
+    let untyped_enum_symbol = if let DirectlyAvailableSymbol::Enum(en) = symbol_by_name(&to_analyze.to_create().0, context.ast_reference.symbols_available_at())? {
+        en
+    }
+    else { return None; };
+
+    let enum_variants = context.global_elements.get_enum_variants(untyped_enum_symbol, &to_analyze.to_create().1)?;
+    let enum_variant = enum_variants.iter().find(|var| var.name() == to_analyze.variant())?;
+    let parameter = to_analyze.parameters().iter().map(|param| Some(ASTNode::new(analyze_expression(&param, context, function_symbol_mapper)?, param.position().clone()))).collect::<Option<Vec<_>>>()?;
+
+    if !parameter.iter().zip(enum_variant.fields().iter()).all(|(found, expected)| &found.data_type() == expected) {
+        return None;
+    }
+    let analyzed = NewEnum::<TypedAST>::new(enum_use, enum_variant.clone(), parameter)?;
+
+    Some(Box::new(analyzed))
+}
+
+// TODO
+/*fn analyze_struct_field_access(
+    to_analyze: &StructFieldAccess<UntypedAST>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<Box<NewStruct<TypedAST>>> {
+    let struct_use = analyze_struct_usage(&to_analyze.symbol().0, &to_analyze.symbol().1, context)?;
+    let untyped_struct_symbol = if let DirectlyAvailableSymbol::Struct(st) = symbol_by_name(&to_analyze.symbol().0, context.ast_reference.symbols_available_at())? {
+        st
+    }
+    else { return None; };
+
+    let struct_fields = context.global_elements.get_struct_fields(untyped_struct_symbol, &to_analyze.symbol().1)?;
+    let parameter = to_analyze.parameters()
+        .iter()
+        .map(|param| Some((ASTNode::new(struct_fields.iter().find(|field| param.0.deref() == field.name())?.clone(), param.0.position().clone()), ASTNode::new(analyze_expression(&param.1, context, function_symbol_mapper)?, param.1.position().clone())))).collect::<Option<Vec<_>>>()?;
+
+    let all_struct_fields_exist_dt_match = struct_fields.iter().all(|field| parameter.iter().find(|param| param.0.name() == field.name()).is_some_and(|val| &val.1.data_type() == field.data_type()));
+    let types_ok = all_struct_fields_exist_dt_match && parameter.len() == struct_fields.len();
+    if !types_ok {
+        return None;
+    }
+    let analyzed = StructFieldAccess::<TypedAST>::new(struct_use, parameter);
+
+    Some(Box::new(analyzed))
+}*/
 
 #[cfg(test)]
 pub(crate) fn sample_codearea() -> shared::code_reference::CodeArea {

@@ -1,14 +1,11 @@
 use crate::expression_sa::analyze_expression;
-use crate::mics_sa::{analyze_data_type, analyze_function_call};
+use crate::mics_sa::{analyze_data_type, analyze_enum_usage, analyze_function_call};
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::SyntaxContext;
 use crate::symbol_by_name;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
-use ast::statement::{
-    CodeBlock, Conditional, ControlStructure, Loop, LoopType, Return, Statement,
-    VariableAssignment, VariableDeclaration,
-};
+use ast::statement::{CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
 use ast::symbol::{DirectlyAvailableSymbol, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
@@ -77,7 +74,8 @@ pub(crate) fn analyze_statement(
             panic!("Void function calls are not allowed in the untyped AST")
         }
         Statement::Break => analyze_break(context),
-        _ => todo!(),
+
+        Statement::StructFieldAssignment(_) => todo!()
     }
 }
 
@@ -247,7 +245,8 @@ fn analyze_control_structure(
         ControlStructure::Loop(lp) => {
             analyze_loop(lp, context, function_symbol_mapper).map(ControlStructure::Loop)
         }
-        _ => todo!(),
+
+        ControlStructure::IfEnumVariant(iev) => analyze_if_enum_variant(iev, context, function_symbol_mapper).map(ControlStructure::IfEnumVariant)
     }
 }
 
@@ -409,6 +408,66 @@ fn analyze_loop(
     let _ = function_symbol_mapper.exit_scope();
 
     Some(Loop::new(typed_to_loop_on, typed_loop_type))
+}
+
+fn analyze_if_enum_variant(
+    to_analyze: &IfEnumVariant<UntypedAST>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<IfEnumVariant<TypedAST>> {
+    let condition_enum = analyze_enum_usage(&to_analyze.condition_enum().0, &to_analyze.condition_enum().1, context)?;
+
+    let untyped_enum_symbol = if let DirectlyAvailableSymbol::Enum(en) = symbol_by_name(&to_analyze.condition_enum().0, context.ast_reference.symbols_available_at())? {
+        en
+    }
+    else { return None; };
+
+    let enum_variants = context.global_elements.get_enum_variants(untyped_enum_symbol, &to_analyze.condition_enum().1)?;
+    let enum_variant = enum_variants.iter().find(|variant| variant.name() == to_analyze.condition_enum_variant())?.clone();
+
+    let typed_condition_expr =
+        analyze_expression(to_analyze.assignment_expression(), context, function_symbol_mapper)?;
+
+    let typed_condition = ASTNode::new(typed_condition_expr, to_analyze.assignment_expression().position().clone());
+
+    if typed_condition.data_type() != DataType::Bool {
+        return None;
+    }
+
+    function_symbol_mapper.enter_scope();
+    let variables = to_analyze.variables().iter().map(|var| {
+        let declared_type_name = var.data_type();
+        let resolved_declared_type = analyze_data_type(declared_type_name, context)?;
+
+        let var_name = var.name().to_string();
+        Some(Rc::new(VariableSymbol::new(var_name, resolved_declared_type)))
+    }).collect::<Option<Vec<_>>>()?;
+    if !variables.iter().all(|var| function_symbol_mapper.add_variable(var.clone()).is_ok()) {
+        return None;
+    }
+
+    function_symbol_mapper.enter_scope();
+
+
+    // Unwrap:
+    // A IfEnumVariant always has a 0th statement (then-statement)
+    let sth = context.ast_reference.get_child(0).unwrap();
+    let then_context = context.with_ast_reference(&sth);
+    let then_position = then_context.ast_reference.inner().position().clone();
+
+    let typed_then_statement = analyze_statement(&then_context, function_symbol_mapper)?;
+    let typed_then_node = ASTNode::new(typed_then_statement, then_position);
+    let _ = function_symbol_mapper.exit_scope();
+    let _ = function_symbol_mapper.exit_scope();
+
+
+    IfEnumVariant::<TypedAST>::new(
+        condition_enum,
+        enum_variant,
+        typed_condition,
+        variables,
+        typed_then_node,
+    )
 }
 
 /// Analyzes a code block (a list of statements).

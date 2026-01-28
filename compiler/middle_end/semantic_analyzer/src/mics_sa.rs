@@ -1,13 +1,15 @@
+use std::rc::Rc;
 use crate::expression_sa::analyze_expression;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::SyntaxContext;
 use crate::symbol_by_name;
 use ast::data_type::{DataType, UntypedDataType};
 use ast::expression::{Expression, FunctionCall};
-use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter};
+use ast::symbol::{DirectlyAvailableSymbol, EnumSymbol, StructSymbol, SymbolWithTypeParameter};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, TypedAST, UntypedAST};
+use ast::traversal::HasSymbols;
 
 /// A helper function that resolves the type names into the right types.
 ///
@@ -17,14 +19,15 @@ use ast::{ASTNode, TypedAST, UntypedAST};
 /// # Returns
 /// * `Some(DataType)` if the string matches a known type.
 /// * `None` otherwise.
-pub(crate) fn analyze_data_type<T: Clone>(
+pub(crate) fn analyze_data_type<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
     to_analyze: &UntypedDataType,
-    context: &SyntaxContext<T>,
+    context: &SyntaxContext<&T>,
 ) -> Option<DataType> {
-    // TODO: Add Composites
     analyze_primitive_data_type(to_analyze).or_else(|| {
         analyze_type_parameter(to_analyze.name(), context).map(|tp| tp.data_type().clone())
     })
+        .or_else(|| Some(DataType::Struct(analyze_struct_usage(to_analyze.name(), to_analyze.type_parameters(), context)?)))
+        .or_else(|| Some(DataType::Enum(analyze_enum_usage(to_analyze.name(), to_analyze.type_parameters(), context)?)))
 }
 
 fn analyze_primitive_data_type(to_analyze: &UntypedDataType) -> Option<DataType> {
@@ -48,24 +51,50 @@ fn analyze_primitive_data_type(to_analyze: &UntypedDataType) -> Option<DataType>
     })
 }
 
+pub(crate) fn analyze_struct_usage<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
+    to_analyze: &str,
+    type_parameters: &[UntypedDataType],
+    context: &SyntaxContext<&T>,
+) -> Option<Rc<StructSymbol<TypedAST>>> {
+    let untyped_symbol = symbol_by_name(to_analyze, context.ast_reference.symbols())?;
+    let untyped_symbol = match untyped_symbol {
+        DirectlyAvailableSymbol::Struct(st) => st,
+        _ => return None
+    };
+    context.global_elements.get_typed_struct_symbol(untyped_symbol, type_parameters, |_| analyze_type_parameters_providing(untyped_symbol.type_parameters(), type_parameters, context))
+}
+
+pub(crate) fn analyze_enum_usage<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
+    to_analyze: &str,
+    type_parameters: &[UntypedDataType],
+    context: &SyntaxContext<&T>,
+) -> Option<Rc<EnumSymbol<TypedAST>>> {
+    let untyped_symbol = symbol_by_name(to_analyze, context.ast_reference.symbols())?;
+    let untyped_symbol = match untyped_symbol {
+        DirectlyAvailableSymbol::Enum(st) => st,
+        _ => return None
+    };
+    context.global_elements.get_typed_enum_symbol(untyped_symbol, type_parameters, |_| analyze_type_parameters_providing(untyped_symbol.type_parameters(), type_parameters, context))
+}
+
 pub(crate) fn analyze_type_parameter_full<'a, T: Clone>(
     to_analyze: &UntypedTypeParameter,
-    context: &'a SyntaxContext<T>,
+    context: &'a SyntaxContext<&T>,
 ) -> Option<&'a TypedTypeParameter> {
     analyze_type_parameter(to_analyze.inner().name(), context)
 }
 
 pub(crate) fn analyze_type_parameter<'a, T: Clone>(
     to_analyze: &str,
-    context: &'a SyntaxContext<T>,
+    context: &'a SyntaxContext<&T>,
 ) -> Option<&'a TypedTypeParameter> {
     context
         .type_parameter_context
         .lookup_typed_type_parameter(to_analyze)
 }
 
-pub(crate) fn analyze_type_parameters_declaration<'a>(
-    context: &SyntaxContext<impl Clone>,
+pub(crate) fn analyze_type_parameters_declaration<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
+    context: &SyntaxContext<&T>,
     to_analyze: impl Iterator<Item = &'a UntypedTypeParameter>,
 ) -> Result<Vec<TypedTypeParameter>, String> {
     to_analyze
@@ -74,10 +103,10 @@ pub(crate) fn analyze_type_parameters_declaration<'a>(
         .ok_or_else(|| "Unknown type parameter".to_string())
 }
 
-pub(crate) fn analyze_type_parameter_providing<T: Clone>(
+pub(crate) fn analyze_type_parameter_providing<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
     to_analyze: &UntypedTypeParameter,
     with: &UntypedDataType,
-    context: &SyntaxContext<T>,
+    context: &SyntaxContext<&T>,
 ) -> Option<TypedTypeParameter> {
     Some(TypedTypeParameter::new(
         to_analyze.inner().name().to_owned(),
@@ -85,10 +114,10 @@ pub(crate) fn analyze_type_parameter_providing<T: Clone>(
     ))
 }
 
-fn analyze_type_parameters_providing<ASTReference: Clone>(
+fn analyze_type_parameters_providing<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
     type_parameters: &[UntypedTypeParameter],
     fillings: &[UntypedDataType],
-    context: &SyntaxContext<ASTReference>,
+    context: &SyntaxContext<&T>,
 ) -> Option<Vec<TypedTypeParameter>> {
     fillings
         .iter()
@@ -120,16 +149,11 @@ pub(crate) fn analyze_function_call(
         .get_or_insert_typed_function_symbol(
             untyped_func_symbol,
             &to_analyze.function().1,
-            |from| {
-                let context = SyntaxContext::new(
-                    from,
-                    context.type_parameter_context.clone(),
-                    context.ast_reference.clone(),
-                );
+            |_| {
                 analyze_type_parameters_providing(
                     untyped_func_symbol.type_parameters(),
                     &to_analyze.function().1,
-                    &context,
+                    context,
                 )
             },
         )
