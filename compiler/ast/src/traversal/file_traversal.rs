@@ -11,6 +11,7 @@ use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
 use std::iter;
 use std::path::PathBuf;
+use crate::traversal::enum_traversal::EnumTraversalHelper;
 
 /// This struct helps with traversing files
 /// It keeps a reference to a file and its parent (directory).
@@ -63,23 +64,23 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /// ### Errors
     ///
     /// Errors if `index > self.len_enums()`
-    pub fn index_enums(&self, index: usize) -> Option<&'b ASTNode<Enum<Type>>> {
-        self.inner.enums().get(index)
+    pub fn index_enums<'c>(&'c self, index: usize) -> Option<EnumTraversalHelper<'c, 'b, Type>> {
+        self.inner.enums().get(index).map(|en| EnumTraversalHelper::new(en, self))
     }
 
     /// Gets the enum with the specified identifier.
     ///
     /// Returns None if it doesn't exist
-    pub fn enum_by_identifier(
-        &self,
+    pub fn enum_by_identifier<'c>(
+        &'c self,
         identifier: Type::SymbolIdentifier<'_>,
-    ) -> Option<&'b ASTNode<Enum<Type>>> {
-        self.inner().enum_by_identifier(identifier)
+    ) -> Option<EnumTraversalHelper<'c, 'b, Type>> {
+        self.inner().enum_by_identifier(identifier).map(|en| EnumTraversalHelper::new(en, self))
     }
 
     /// Gets an iterator over all enums
-    pub fn enums_iterator<'c>(&'c self) -> impl Iterator<Item = &'b ASTNode<Enum<Type>>> + 'c {
-        self.inner.enum_iterator()
+    pub fn enums_iterator<'c>(&'c self) -> impl Iterator<Item = EnumTraversalHelper<'c, 'b, Type>> + 'c {
+        self.inner.enum_iterator().map(|en| EnumTraversalHelper::new(en, self))
     }
 
     /// Gets the length of the enums
@@ -217,7 +218,7 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
                         )
                     })),
             ),
-            enum_symbols: Box::new(symbol_source.enums_iterator().map(|en| en.symbol())),
+            enum_symbols: Box::new(symbol_source.enums_iterator().map(|en| en.inner().symbol())),
             struct_symbols: Box::new(
                 symbol_source
                     .structs_iterator()

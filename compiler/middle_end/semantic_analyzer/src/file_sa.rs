@@ -3,6 +3,7 @@ use ast::file::File;
 use ast::top_level::{Import, ImportRoot};
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
+use ast::composite::{Struct, StructField};
 
 /// Analyzes a single file and converts it into its typed representation.
 ///
@@ -31,6 +32,33 @@ pub(crate) fn analyze_file(
             .for_each(|func_impl| typed_functions.push(func_impl));
     }
 
+    let mut typed_enums = Vec::new();
+    for en in untyped_file.enum_iterator() {
+        global_elements
+            .enum_implementations_for_untyped_symbol(en.symbol())
+            .into_iter()
+            .flatten()
+            .for_each(|en_impl| typed_enums.push(en_impl));
+    }
+
+    let mut typed_structs = Vec::new();
+    for st in untyped_file.struct_iterator() {
+        global_elements
+            .struct_implementations_for_untyped_symbol(st.symbol())
+            .into_iter()
+            .flatten()
+            .map(|st_impl| {
+                ASTNode::new(Struct::new(
+                st_impl.0.0,
+                st_impl.1.implementations().map(|(func, _)| func).collect(),
+                st_impl.0.1.into_iter().zip(st.fields().iter()).map(|(typed, untyped)|
+                ASTNode::new(StructField::new(typed, untyped.visibility()), untyped.position().clone())).collect(),
+                st.visibility().clone(),
+                ), st.position().clone())
+            })
+            .for_each(|st_impl| typed_structs.push(st_impl));
+    }
+
     let typed_imports: Vec<ASTNode<Import>> = untyped_file
         .imports()
         .iter()
@@ -50,9 +78,8 @@ pub(crate) fn analyze_file(
         untyped_file.name().to_string(),
         typed_imports,
         typed_functions,
-        // TODO
-        Vec::new(),
-        Vec::new(),
+        typed_enums,
+        typed_structs,
     );
 
     Ok(ASTNode::new(typed_file, untyped_file.position().clone()))

@@ -1,12 +1,9 @@
 use crate::symbol::syntax_element_with_type_parameter_guard::{
     SyntaxElementWithTypeParameterGuard, TypedSyntaxElement,
 };
-use crate::symbol::{
-    AnalyzableEnum, AnalyzableFunction, AnalyzableStruct, AnalyzableSyntaxElementWithTypeParameter,
-    SyntaxContext, TypeParameterContext,
-};
+use crate::symbol::{AnalyzableEnum, AnalyzableFunction, AnalyzableMethod, AnalyzableStruct, AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext};
 use ast::data_type::UntypedDataType;
-use ast::symbol::{EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter};
+use ast::symbol::{EnumSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol, SymbolWithTypeParameter};
 use ast::top_level::Function;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -16,6 +13,7 @@ use ast::{ASTNode, TypedAST, UntypedAST};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
+use ast::composite::Enum;
 
 pub(crate) struct SyntaxElementMap<'a> {
     functions: SingleSyntaxElementMap<'a, AnalyzableFunction>,
@@ -129,7 +127,21 @@ impl<'a> SyntaxElementMap<'a> {
         &mut self,
         symbol: &FunctionSymbol<UntypedAST>,
     ) -> Option<impl Iterator<Item = ASTNode<Function<TypedAST>>>> {
-        self.functions.implementations_for_untyped_symbol(symbol)
+        self.functions.implementations_for_untyped_symbol(symbol).map(|funcs| funcs.map(|func| func.0))
+    }
+
+    pub fn enum_implementations_for_untyped_symbol(
+        &mut self,
+        symbol: &EnumSymbol<UntypedAST>,
+    ) -> Option<impl Iterator<Item = ASTNode<Enum<TypedAST>>>> {
+        self.enums.implementations_for_untyped_symbol(symbol).map(|ens| ens.map(|en| en.0))
+    }
+
+    pub fn struct_implementations_for_untyped_symbol(
+        &mut self,
+        symbol: &StructSymbol<UntypedAST>,
+    ) -> Option<impl Iterator<Item = ((Rc<StructSymbol<TypedAST>>, Vec<Rc<StructFieldSymbol<TypedAST>>>), SingleSyntaxElementMap<'a, AnalyzableMethod>)>> {
+        self.structs.implementations_for_untyped_symbol(symbol)
     }
 }
 
@@ -195,7 +207,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
                 self.insert_typed_variant(type_parameters, typed_type_parameters, root, symbol)?;
             }
         }
-        Self::get_typed_syntax_element_mut(self, symbol, type_parameters)
+        Self::get_typed_syntax_element(self, symbol, type_parameters)
             .map(|syntax_element| syntax_element.symbol_owned())
     }
 
@@ -264,10 +276,16 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     pub fn implementations_for_untyped_symbol(
         &mut self,
         symbol: &Element::Symbol<UntypedAST>,
-    ) -> Option<impl Iterator<Item = Element::Implementation>> {
+    ) -> Option<impl Iterator<Item = (Element::Implementation, Element::SubAnalyzables<'a>)>> {
         self.elements
             .remove(symbol)
             .map(|implement| implement.into_inner().into_implementations())
+    }
+
+    pub fn implementations(
+        self,
+    ) -> impl Iterator<Item = (Element::Implementation, Element::SubAnalyzables<'a>)> {
+        self.elements.into_values().map(|guard| guard.into_inner().into_implementations()).flatten()
     }
 }
 

@@ -5,6 +5,8 @@ use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::UntypedAST;
 use typed_arena::Arena;
+use ast::traversal::enum_traversal::EnumTraversalHelper;
+use ast::traversal::struct_traversal::StructTraversalHelper;
 
 /// Entry Point: Collects all global symbols from the AST.
 ///
@@ -46,6 +48,16 @@ fn collect_from_directory<'a>(
             let function: &'a _ = to_alloc_in.functions.alloc(function);
             map.insert_untyped_function(function);
         }
+
+        for en in file.enums_iterator() {
+            let en: &'a _ = to_alloc_in.enums.alloc(en);
+            map.insert_untyped_enum(en);
+        }
+
+        for st in file.structs_iterator() {
+            let st: &'a _ = to_alloc_in.structs.alloc(st);
+            map.insert_untyped_struct(st);
+        }
     }
 
     for subdir in dir.subdirectories_iterator() {
@@ -61,6 +73,8 @@ pub(crate) struct TraversalHelpers<'a> {
     pub directories: Arena<DirectoryTraversalHelper<'a, 'a, UntypedAST>>,
     pub files: Arena<FileTraversalHelper<'a, 'a, UntypedAST>>,
     pub functions: Arena<FunctionTraversalHelper<'a, 'a, UntypedAST>>,
+    pub enums: Arena<EnumTraversalHelper<'a, 'a, UntypedAST>>,
+    pub structs: Arena<StructTraversalHelper<'a, 'a, UntypedAST>>,
 }
 
 impl<'a> TraversalHelpers<'a> {
@@ -69,6 +83,8 @@ impl<'a> TraversalHelpers<'a> {
             directories: Arena::new(),
             files: Arena::new(),
             functions: Arena::new(),
+            enums: Arena::new(),
+            structs: Arena::new()
         }
     }
 }
