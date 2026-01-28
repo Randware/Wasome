@@ -136,11 +136,12 @@ pub(crate) struct TypedSyntaxElement<'a, Element: AnalyzableSyntaxElementWithTyp
 impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<'a, Element> {
     pub fn new(
         type_parameters: Rc<TypeParameterContext>,
+        untyped_type_parameters: Rc<[UntypedDataType]>,
         from: <Element as AnalyzableSyntaxElementWithTypeParameter>::ASTReference<'a, 'a>,
         global_elements: &SyntaxElementMap<'a>,
     ) -> Option<Self> {
         let context = SyntaxContext::new(global_elements, type_parameters.clone(), from);
-        let subanalyzables = Element::init_subanalyzables(&context);
+        let subanalyzables = Element::init_subanalyzables(&context, untyped_type_parameters);
         let symbol = Element::generate_typed_symbol(&context)?;
         Some(Self {
             type_parameters,

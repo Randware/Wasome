@@ -273,7 +273,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         let ast_reference = guard.ast_reference().clone();
         drop(guard);
         let typed_variant =
-            TypedSyntaxElement::new(type_parameters.clone(), ast_reference.clone(), root)?;
+            TypedSyntaxElement::new(type_parameters.clone(), Rc::from(untyped_type_parameters), ast_reference.clone(), root)?;
         let typed_symbol = typed_variant.symbol_owned();
 
         let mut guard = self.elements.get(symbol)?.borrow_mut();

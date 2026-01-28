@@ -5,7 +5,7 @@ use crate::symbol::SyntaxContext;
 use crate::symbol_by_name;
 use ast::data_type::{DataType, UntypedDataType};
 use ast::expression::{Expression, FunctionCall};
-use ast::symbol::{DirectlyAvailableSymbol, EnumSymbol, StructSymbol, SymbolWithTypeParameter};
+use ast::symbol::{DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::{ASTNode, TypedAST, UntypedAST};
@@ -136,13 +136,10 @@ pub(crate) fn analyze_function_call(
 ) -> Option<FunctionCall<TypedAST>> {
     let call_name = to_analyze.function();
 
+    let name = &call_name.0;
     // TODO: Methods
-    let found_symbol = symbol_by_name(&call_name.0, context.ast_reference.symbols_available_at())?;
 
-    let untyped_func_symbol = match found_symbol {
-        DirectlyAvailableSymbol::Function(f) => f,
-        _ => return None,
-    };
+    let untyped_func_symbol = analyze_function_usage(context, name)?;
 
     let typed_func_symbol = context
         .global_elements
@@ -170,3 +167,25 @@ pub(crate) fn analyze_function_call(
     }
     FunctionCall::<TypedAST>::new(typed_func_symbol, typed_args)
 }
+
+fn analyze_function_usage<'a >(context: &SyntaxContext<&'a StatementTraversalHelper<UntypedAST>>, name: &str) -> Option<&'a FunctionSymbol<UntypedAST>> {
+    let method_seperator = name.rmatch_indices('.').next();
+    let found_symbol = symbol_by_name(name, context.ast_reference.symbols_available_at())?;
+
+    let untyped_func_symbol = match found_symbol {
+        DirectlyAvailableSymbol::Function(f) => f,
+        _ => return None,
+    };
+    Some(untyped_func_symbol)
+}
+
+/*fn analyze_method_usage<'a >(context: &SyntaxContext<&'a StatementTraversalHelper<UntypedAST>>, struct: &str) -> Option<&'a FunctionSymbol<UntypedAST>> {
+    let method_seperator = name.match_indices('.').skip(1).next();
+    let found_symbol = symbol_by_name(name, context.ast_reference.symbols_available_at())?;
+
+    let untyped_func_symbol = match found_symbol {
+        DirectlyAvailableSymbol::Function(f) => f,
+        _ => return None,
+    };
+    Some(untyped_func_symbol)
+}*/

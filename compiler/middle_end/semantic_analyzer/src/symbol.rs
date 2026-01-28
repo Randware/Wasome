@@ -1,7 +1,4 @@
-use crate::mics_sa::{
-    analyze_data_type,
-    analyze_type_parameters_declaration,
-};
+use crate::mics_sa::{analyze_data_type, analyze_struct_usage, analyze_type_parameters_declaration};
 use crate::symbol::syntax_element_map::{SingleSyntaxElementMap, SyntaxElementMap};
 use crate::top_level_sa::{analyze_enum, analyze_function};
 use ast::composite::{Enum, Struct};
@@ -18,6 +15,7 @@ use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
 use std::task::Context;
+use ast::data_type::{DataType, UntypedDataType};
 
 pub mod function_symbol_mapper;
 pub mod global_system_collector;
@@ -124,6 +122,7 @@ pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
     ) -> Option<Self::Implementation>;
     fn init_subanalyzables<'b>(
         context: &SyntaxContext<'_, 'b, Self::ASTReference<'b, 'b>>,
+        parent_type_parameters: Rc<[UntypedDataType]>
     ) -> Self::SubAnalyzables<'b>;
 }
 
@@ -165,6 +164,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
 
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
+        _parent_type_parameters: Rc<[UntypedDataType]>
     ) -> Self::SubAnalyzables<'b> {
         
     }
@@ -207,6 +207,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
     }
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
+        _parent_type_parameters: Rc<[UntypedDataType]>
     ) -> Self::SubAnalyzables<'b> {
         
     }
@@ -252,10 +253,11 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
 
     fn init_subanalyzables<'b>(
         context: &SyntaxContext<'_, 'b, Self::ASTReference<'b, 'b>>,
+        parent_type_parameters: Rc<[UntypedDataType]>
     ) -> Self::SubAnalyzables<'b> {
         let mut methods = SingleSyntaxElementMap::new_child(context.type_parameter_context.clone());
         context.ast_reference.function_iterator().for_each(|func| {
-            methods.insert_untyped_element(func);
+            methods.insert_untyped_element((context.ast_reference, parent_type_parameters.clone(), func));
         });
         methods
     }
@@ -267,21 +269,21 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     type PreImplementation = ();
     type Implementation = ASTNode<Function<TypedAST>>;
     type ASTReference<'a, 'b>
-        = FunctionTraversalHelper<'a, 'b, UntypedAST>
+        = (&'a StructTraversalHelper<'a, 'b, UntypedAST>, Rc<[UntypedDataType]>, FunctionTraversalHelper<'a, 'b, UntypedAST>)
     where
         'b: 'a;
     type SubAnalyzables<'a> = ();
     fn load_untyped_symbol<'a, 'b>(
         from: &Self::ASTReference<'a, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
-        from.inner().declaration_owned()
+        from.2.inner().declaration_owned()
     }
 
     fn generate_typed_symbol<'a, 'b>(
         context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Rc<Self::Symbol<TypedAST>>> {
         let context = context.with_ast_reference(&context.ast_reference);
-        convert_function_symbol(&context).ok()
+        convert_method_symbol(&context).ok()
     }
 
     fn generate_pre_implementation<'a, 'b>(
@@ -295,12 +297,13 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
         _pre_implementation: Self::PreImplementation,
         context: &SyntaxContext<'_, 'b, Self::ASTReference<'a, 'b>>,
     ) -> Option<Self::Implementation> {
-        let context = context.with_ast_reference(&context.ast_reference);
+        let context = context.with_ast_reference(&context.ast_reference.2);
         analyze_function(symbol, &context)
     }
 
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
+        _parent_type_parameters: Rc<[UntypedDataType]>
     ) -> Self::SubAnalyzables<'b> {
         
     }
@@ -352,12 +355,13 @@ fn convert_function_symbol(
 }
 
 fn convert_method_symbol(
-    context: &SyntaxContext<&FunctionTraversalHelper<UntypedAST>>,
+    context: &SyntaxContext<&(&StructTraversalHelper<UntypedAST>, Rc<[UntypedDataType]>, FunctionTraversalHelper<UntypedAST>)>,
 ) -> Result<Rc<FunctionSymbol<TypedAST>>, String> {
-    let untyped = context.ast_reference.inner().declaration();
+    let internal_context = context.with_ast_reference(&context.ast_reference.2);
+    let untyped = context.ast_reference.2.inner().declaration();
     let return_type = match untyped.return_type() {
         Some(type_name) => {
-            let dt = analyze_data_type(type_name, context)
+            let dt = analyze_data_type(type_name, &internal_context)
                 .ok_or_else(|| "Semantic Error: Unknown return type".to_string())?;
             Some(dt)
         }
@@ -365,10 +369,11 @@ fn convert_method_symbol(
     };
 
     let mut typed_params = Vec::new();
-    // TODO: Add self type
+    let struct_use = analyze_struct_usage(context.ast_reference.0.inner().symbol().name(), &context.ast_reference.1, &internal_context).ok_or_else(|| "Unknown struct".to_owned())?;
+    typed_params.push(Rc::new(VariableSymbol::new("self".to_owned(), DataType::Struct(struct_use))));
     for param in untyped.params() {
         let param_type_name = param.data_type();
-        let dt = analyze_data_type(param_type_name, context)
+        let dt = analyze_data_type(param_type_name, &internal_context)
             .ok_or_else(|| "Semantic Error: Unknown parameter type".to_string())?;
 
         let typed_param = Rc::new(VariableSymbol::new(param.name().to_string(), dt));
@@ -376,7 +381,7 @@ fn convert_method_symbol(
     }
 
     let typed_type_params =
-        analyze_type_parameters_declaration(context, untyped.type_parameters().iter())?;
+        analyze_type_parameters_declaration(&internal_context, untyped.type_parameters().iter())?;
 
     Ok(Rc::new(FunctionSymbol::new(
         untyped.name().to_string(),
