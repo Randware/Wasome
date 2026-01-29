@@ -107,6 +107,7 @@ pub fn requires_space(prev: &TokenType, current: &TokenType) -> bool {
         || space_between_identifiers
 }
 
+<<<<<<< HEAD
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,3 +140,6 @@ mod tests {
         assert!(requires_space(&TokenType::If, &TokenType::OpenParen));
     }
 }
+=======
+
+>>>>>>> 518ccfbee87b136e0c9a5dfa69287f96f61eeff1

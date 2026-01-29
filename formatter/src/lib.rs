@@ -14,10 +14,16 @@
 mod constants;
 mod formatter;
 mod indent;
-mod reorder;
-mod spacing;
+pub mod reorder;
+pub mod spacing;
 
+<<<<<<< HEAD
 pub use formatter::format_source;
+=======
+pub use engine::format_source;
+pub use reorder::{categorize_keyword, ItemCategory};
+pub use spacing::needs_space_before;
+>>>>>>> 518ccfbee87b136e0c9a5dfa69287f96f61eeff1
 
 use std::fs;
 use std::io::{self, Read, Write};
