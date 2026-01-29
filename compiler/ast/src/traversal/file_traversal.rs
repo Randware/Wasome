@@ -5,13 +5,13 @@ use crate::symbol::{
 };
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
+use crate::traversal::enum_traversal::EnumTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::struct_traversal::StructTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
 use std::iter;
 use std::path::PathBuf;
-use crate::traversal::enum_traversal::EnumTraversalHelper;
 
 /// This struct helps with traversing files
 /// It keeps a reference to a file and its parent (directory).
@@ -65,7 +65,10 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     ///
     /// Errors if `index > self.len_enums()`
     pub fn index_enums<'c>(&'c self, index: usize) -> Option<EnumTraversalHelper<'c, 'b, Type>> {
-        self.inner.enums().get(index).map(|en| EnumTraversalHelper::new(en, self))
+        self.inner
+            .enums()
+            .get(index)
+            .map(|en| EnumTraversalHelper::new(en, self))
     }
 
     /// Gets the enum with the specified identifier.
@@ -75,12 +78,18 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
         &'c self,
         identifier: Type::SymbolIdentifier<'_>,
     ) -> Option<EnumTraversalHelper<'c, 'b, Type>> {
-        self.inner().enum_by_identifier(identifier).map(|en| EnumTraversalHelper::new(en, self))
+        self.inner()
+            .enum_by_identifier(identifier)
+            .map(|en| EnumTraversalHelper::new(en, self))
     }
 
     /// Gets an iterator over all enums
-    pub fn enums_iterator<'c>(&'c self) -> impl Iterator<Item = EnumTraversalHelper<'c, 'b, Type>> + 'c {
-        self.inner.enum_iterator().map(|en| EnumTraversalHelper::new(en, self))
+    pub fn enums_iterator<'c>(
+        &'c self,
+    ) -> impl Iterator<Item = EnumTraversalHelper<'c, 'b, Type>> + 'c {
+        self.inner
+            .enum_iterator()
+            .map(|en| EnumTraversalHelper::new(en, self))
     }
 
     /// Gets the length of the enums

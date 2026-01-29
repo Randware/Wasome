@@ -1,9 +1,9 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
+use ast::composite::{Struct, StructField};
 use ast::file::File;
 use ast::top_level::{Import, ImportRoot};
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
-use ast::composite::{Struct, StructField};
 
 /// Analyzes a single file and converts it into its typed representation.
 ///
@@ -48,13 +48,26 @@ pub(crate) fn analyze_file(
             .into_iter()
             .flatten()
             .map(|st_impl| {
-                ASTNode::new(Struct::new(
-                st_impl.0.0,
-                st_impl.1.implementations().map(|(func, _)| func).collect(),
-                st_impl.0.1.into_iter().zip(st.fields().iter()).map(|(typed, untyped)|
-                ASTNode::new(StructField::new(typed, untyped.visibility()), untyped.position().clone())).collect(),
-                st.visibility().clone(),
-                ), st.position().clone())
+                ASTNode::new(
+                    Struct::new(
+                        st_impl.0.0,
+                        st_impl.1.implementations().map(|(func, _)| func).collect(),
+                        st_impl
+                            .0
+                            .1
+                            .into_iter()
+                            .zip(st.fields().iter())
+                            .map(|(typed, untyped)| {
+                                ASTNode::new(
+                                    StructField::new(typed, untyped.visibility()),
+                                    untyped.position().clone(),
+                                )
+                            })
+                            .collect(),
+                        st.visibility().clone(),
+                    ),
+                    st.position().clone(),
+                )
             })
             .for_each(|st_impl| typed_structs.push(st_impl));
     }

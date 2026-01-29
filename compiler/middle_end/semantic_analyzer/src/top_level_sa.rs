@@ -1,6 +1,6 @@
 use crate::statement_sa::analyze_statement;
-use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::SyntaxContext;
+use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::composite::{Enum, EnumVariant};
 use ast::statement::{ControlStructure, Statement};
 use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol};

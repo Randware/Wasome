@@ -1,12 +1,12 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
+use ast::UntypedAST;
 use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
+use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
-use ast::UntypedAST;
-use typed_arena::Arena;
-use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
+use typed_arena::Arena;
 
 /// Entry Point: Collects all global symbols from the AST.
 ///
@@ -84,7 +84,7 @@ impl<'a> TraversalHelpers<'a> {
             files: Arena::new(),
             functions: Arena::new(),
             enums: Arena::new(),
-            structs: Arena::new()
+            structs: Arena::new(),
         }
     }
 }

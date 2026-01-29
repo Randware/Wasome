@@ -1,9 +1,16 @@
 use crate::symbol::syntax_element_with_type_parameter_guard::{
     SyntaxElementWithTypeParameterGuard, TypedSyntaxElement,
 };
-use crate::symbol::{AnalyzableEnum, AnalyzableFunction, AnalyzableMethod, AnalyzableStruct, AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext};
+use crate::symbol::{
+    AnalyzableEnum, AnalyzableFunction, AnalyzableMethod, AnalyzableStruct,
+    AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext,
+};
+use ast::composite::{Enum, EnumVariant, StructField};
 use ast::data_type::UntypedDataType;
-use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol, SymbolWithTypeParameter};
+use ast::symbol::{
+    EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
+    SymbolWithTypeParameter,
+};
 use ast::top_level::Function;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -13,7 +20,6 @@ use ast::{ASTNode, TypedAST, UntypedAST};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
-use ast::composite::{Enum, EnumVariant, StructField};
 
 pub(crate) struct SyntaxElementMap<'a> {
     functions: SingleSyntaxElementMap<'a, AnalyzableFunction>,
@@ -35,11 +41,8 @@ impl<'a> SyntaxElementMap<'a> {
         symbol: Rc<FunctionSymbol<UntypedAST>>,
         type_parameters: &[TypedTypeParameter],
     ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
-        self.functions.get_or_insert_typed_symbol(
-            self,
-            symbol,
-            type_parameters,
-        )
+        self.functions
+            .get_or_insert_typed_symbol(self, symbol, type_parameters)
     }
 
     pub fn get_typed_method_symbol(
@@ -93,11 +96,8 @@ impl<'a> SyntaxElementMap<'a> {
         symbol: Rc<StructSymbol<UntypedAST>>,
         type_parameters: &[TypedTypeParameter],
     ) -> Option<Rc<StructSymbol<TypedAST>>> {
-        self.structs.get_or_insert_typed_symbol(
-            self,
-            symbol,
-            type_parameters,
-        )
+        self.structs
+            .get_or_insert_typed_symbol(self, symbol, type_parameters)
     }
 
     pub fn get_struct_fields<'b>(
@@ -124,8 +124,7 @@ impl<'a> SyntaxElementMap<'a> {
             .filter(|func| func.as_ref().type_parameters().is_empty())
             .for_each(|func| {
                 // Mutable borrow required here
-                let typed_symbol =
-                    self.get_or_insert_typed_function_symbol(func, &[]);
+                let typed_symbol = self.get_or_insert_typed_function_symbol(func, &[]);
                 if typed_symbol.is_none() {
                     ok = None;
                 }
@@ -137,24 +136,41 @@ impl<'a> SyntaxElementMap<'a> {
         &mut self,
         symbol: &FunctionSymbol<UntypedAST>,
     ) -> Option<impl Iterator<Item = ASTNode<Function<TypedAST>>>> {
-        self.functions.implementations_for_untyped_symbol(symbol).map(|funcs| funcs.map(|func| func.0))
+        self.functions
+            .implementations_for_untyped_symbol(symbol)
+            .map(|funcs| funcs.map(|func| func.0))
     }
 
     pub fn enum_implementations_for_untyped_symbol(
         &mut self,
         symbol: &EnumSymbol<UntypedAST>,
     ) -> Option<impl Iterator<Item = ASTNode<Enum<TypedAST>>>> {
-        self.enums.implementations_for_untyped_symbol(symbol).map(|ens| ens.map(|en| en.0))
+        self.enums
+            .implementations_for_untyped_symbol(symbol)
+            .map(|ens| ens.map(|en| en.0))
     }
 
     pub fn struct_implementations_for_untyped_symbol(
         &mut self,
         symbol: &StructSymbol<UntypedAST>,
-    ) -> Option<impl Iterator<Item = ((Rc<StructSymbol<TypedAST>>, Vec<Rc<StructFieldSymbol<TypedAST>>>), SingleSyntaxElementMap<'a, AnalyzableMethod>)>> {
+    ) -> Option<
+        impl Iterator<
+            Item = (
+                (
+                    Rc<StructSymbol<TypedAST>>,
+                    Vec<Rc<StructFieldSymbol<TypedAST>>>,
+                ),
+                SingleSyntaxElementMap<'a, AnalyzableMethod>,
+            ),
+        >,
+    > {
         self.structs.implementations_for_untyped_symbol(symbol)
     }
-    
-    pub fn untyped_struct_symbol_from_typed(&self, typed: &StructSymbol<TypedAST>) -> Option<Rc<StructSymbol<UntypedAST>>> {
+
+    pub fn untyped_struct_symbol_from_typed(
+        &self,
+        typed: &StructSymbol<TypedAST>,
+    ) -> Option<Rc<StructSymbol<UntypedAST>>> {
         self.structs.untyped_from_typed_symbol(typed)
     }
 }
@@ -170,7 +186,8 @@ pub(crate) struct SingleSyntaxElementMap<'a, Element: AnalyzableSyntaxElementWit
         Rc<Element::Symbol<UntypedAST>>,
         RefCell<SyntaxElementWithTypeParameterGuard<'a, 'a, Element>>,
     >,
-    untyped_symbols: RefCell<HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>>,
+    untyped_symbols:
+        RefCell<HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>>,
     type_parameters: Option<Rc<TypeParameterContext>>,
 }
 
@@ -179,7 +196,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         Self {
             elements: HashMap::new(),
             type_parameters: None,
-            untyped_symbols: RefCell::default()
+            untyped_symbols: RefCell::default(),
         }
     }
 
@@ -187,7 +204,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         Self {
             elements: HashMap::new(),
             type_parameters: Some(type_parameters),
-            untyped_symbols: RefCell::default()
+            untyped_symbols: RefCell::default(),
         }
     }
 
@@ -231,7 +248,11 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         symbol: &<Element as AnalyzableSyntaxElementWithTypeParameter>::Symbol<UntypedAST>,
         type_parameters: &[TypedTypeParameter],
     ) -> Option<Ref<'b, Element::PreImplementation>> {
-        Ref::filter_map(self.get_typed_syntax_element(symbol, type_parameters)?, |element| element.pre_implementation()).ok()
+        Ref::filter_map(
+            self.get_typed_syntax_element(symbol, type_parameters)?,
+            |element| element.pre_implementation(),
+        )
+        .ok()
     }
 
     pub fn get_typed_syntax_element<'b>(
@@ -292,7 +313,9 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         let mut guard = self.elements.get(&symbol)?.borrow_mut();
         let typed_variant = guard.typed_variant_mut(&typed_type_parameters)?;
         typed_variant.set_implementation(implementation);
-        self.untyped_symbols.borrow_mut().insert(typed_symbol, symbol);
+        self.untyped_symbols
+            .borrow_mut()
+            .insert(typed_symbol, symbol);
         Some(())
     }
 
@@ -308,10 +331,16 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     pub fn implementations(
         self,
     ) -> impl Iterator<Item = (Element::Implementation, Element::SubAnalyzables<'a>)> {
-        self.elements.into_values().map(|guard| guard.into_inner().into_implementations()).flatten()
+        self.elements
+            .into_values()
+            .map(|guard| guard.into_inner().into_implementations())
+            .flatten()
     }
-    
-    pub fn untyped_from_typed_symbol(&self, typed_symbol: &Element::Symbol<TypedAST>) -> Option<Rc<Element::Symbol<UntypedAST>>> {
+
+    pub fn untyped_from_typed_symbol(
+        &self,
+        typed_symbol: &Element::Symbol<TypedAST>,
+    ) -> Option<Rc<Element::Symbol<UntypedAST>>> {
         self.untyped_symbols.borrow().get(typed_symbol).cloned()
     }
 }

@@ -1,11 +1,16 @@
 use crate::expression_sa::analyze_expression;
-use crate::mics_sa::{analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call};
-use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
+use crate::mics_sa::{
+    analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call,
+};
 use crate::symbol::SyntaxContext;
+use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol_by_name;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
-use ast::statement::{CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, StructFieldAssignment, VariableAssignment, VariableDeclaration};
+use ast::statement::{
+    CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
+    StructFieldAssignment, VariableAssignment, VariableDeclaration,
+};
 use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
@@ -45,11 +50,11 @@ pub(crate) fn analyze_statement(
             let void_call = try_analyze_void_function_call(context, function_symbol_mapper);
             if let Some(inner) = void_call {
                 Some(Statement::VoidFunctionCall(inner))
-            } else if let Some(inner) = try_analyze_void_method_call(context, function_symbol_mapper) {
-                Some(Statement::VoidFunctionCall(inner))
-            }
-            else
+            } else if let Some(inner) =
+                try_analyze_void_method_call(context, function_symbol_mapper)
             {
+                Some(Statement::VoidFunctionCall(inner))
+            } else {
                 // We pass the helper as context so the expression can resolve symbols valid at this location
                 let typed_expr = analyze_expression(inner, context, function_symbol_mapper)?;
                 Some(Statement::Expression(ASTNode::new(
@@ -78,7 +83,9 @@ pub(crate) fn analyze_statement(
             panic!("Void function calls are not allowed in the untyped AST")
         }
         Statement::Break => analyze_break(context),
-        Statement::StructFieldAssignment(sfa) => Some(Statement::StructFieldAssignment(analyze_struct_field_assignment(sfa, context, function_symbol_mapper)?))
+        Statement::StructFieldAssignment(sfa) => Some(Statement::StructFieldAssignment(
+            analyze_struct_field_assignment(sfa, context, function_symbol_mapper)?,
+        )),
     }
 }
 
@@ -276,7 +283,10 @@ fn analyze_control_structure(
             analyze_loop(lp, context, function_symbol_mapper).map(ControlStructure::Loop)
         }
 
-        ControlStructure::IfEnumVariant(iev) => analyze_if_enum_variant(iev, context, function_symbol_mapper).map(ControlStructure::IfEnumVariant)
+        ControlStructure::IfEnumVariant(iev) => {
+            analyze_if_enum_variant(iev, context, function_symbol_mapper)
+                .map(ControlStructure::IfEnumVariant)
+        }
     }
 }
 
@@ -445,39 +455,67 @@ fn analyze_if_enum_variant(
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<IfEnumVariant<TypedAST>> {
-    let condition_enum = analyze_enum_usage(&to_analyze.condition_enum().0, &to_analyze.condition_enum().1, context)?;
+    let condition_enum = analyze_enum_usage(
+        &to_analyze.condition_enum().0,
+        &to_analyze.condition_enum().1,
+        context,
+    )?;
 
-    let untyped_enum_symbol = if let DirectlyAvailableSymbol::Enum(en) = symbol_by_name(&to_analyze.condition_enum().0, context.ast_reference.symbols_available_at())? {
+    let untyped_enum_symbol = if let DirectlyAvailableSymbol::Enum(en) = symbol_by_name(
+        &to_analyze.condition_enum().0,
+        context.ast_reference.symbols_available_at(),
+    )? {
         en
-    }
-    else { return None; };
+    } else {
+        return None;
+    };
 
-    let enum_variants = context.global_elements.get_enum_variants(untyped_enum_symbol, condition_enum.type_parameters())?;
-    let enum_variant = enum_variants.iter().find(|variant| variant.name() == to_analyze.condition_enum_variant())?.clone();
+    let enum_variants = context
+        .global_elements
+        .get_enum_variants(untyped_enum_symbol, condition_enum.type_parameters())?;
+    let enum_variant = enum_variants
+        .iter()
+        .find(|variant| variant.name() == to_analyze.condition_enum_variant())?
+        .clone();
 
-    let typed_condition_expr =
-        analyze_expression(to_analyze.assignment_expression(), context, function_symbol_mapper)?;
+    let typed_condition_expr = analyze_expression(
+        to_analyze.assignment_expression(),
+        context,
+        function_symbol_mapper,
+    )?;
 
-    let typed_condition = ASTNode::new(typed_condition_expr, to_analyze.assignment_expression().position().clone());
+    let typed_condition = ASTNode::new(
+        typed_condition_expr,
+        to_analyze.assignment_expression().position().clone(),
+    );
 
     if typed_condition.data_type() != DataType::Bool {
         return None;
     }
 
     function_symbol_mapper.enter_scope();
-    let variables = to_analyze.variables().iter().map(|var| {
-        let declared_type_name = var.data_type();
-        let resolved_declared_type = analyze_data_type(declared_type_name, context)?;
+    let variables = to_analyze
+        .variables()
+        .iter()
+        .map(|var| {
+            let declared_type_name = var.data_type();
+            let resolved_declared_type = analyze_data_type(declared_type_name, context)?;
 
-        let var_name = var.name().to_string();
-        Some(Rc::new(VariableSymbol::new(var_name, resolved_declared_type)))
-    }).collect::<Option<Vec<_>>>()?;
-    if !variables.iter().all(|var| function_symbol_mapper.add_variable(var.clone()).is_ok()) {
+            let var_name = var.name().to_string();
+            Some(Rc::new(VariableSymbol::new(
+                var_name,
+                resolved_declared_type,
+            )))
+        })
+        .collect::<Option<Vec<_>>>()?;
+    if !variables
+        .iter()
+        .all(|var| function_symbol_mapper.add_variable(var.clone()).is_ok())
+    {
         return None;
     }
 
     function_symbol_mapper.enter_scope();
-
 
     // Unwrap:
     // A IfEnumVariant always has a 0th statement (then-statement)
@@ -489,7 +527,6 @@ fn analyze_if_enum_variant(
     let typed_then_node = ASTNode::new(typed_then_statement, then_position);
     let _ = function_symbol_mapper.exit_scope();
     let _ = function_symbol_mapper.exit_scope();
-
 
     IfEnumVariant::<TypedAST>::new(
         condition_enum,
@@ -571,18 +608,25 @@ fn analyze_struct_field_assignment(
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
 ) -> Option<StructFieldAssignment<TypedAST>> {
-    let struct_source = analyze_expression(to_analyze.struct_source(), context, function_symbol_mapper)?;
+    let struct_source =
+        analyze_expression(to_analyze.struct_source(), context, function_symbol_mapper)?;
     let struct_source = ASTNode::new(struct_source, to_analyze.struct_source().position().clone());
 
     let to_assign_to = if let DataType::Struct(st) = struct_source.data_type() {
         st
-    }
-    else {
+    } else {
         return None;
     };
-    let untyped_symbol = context.global_elements.untyped_struct_symbol_from_typed(&to_assign_to)?;
-    let fields = context.global_elements.get_struct_fields(&untyped_symbol, to_assign_to.type_parameters())?;
-    let field = fields.iter().find(|field| field.name() == to_analyze.struct_field())?.clone();
+    let untyped_symbol = context
+        .global_elements
+        .untyped_struct_symbol_from_typed(&to_assign_to)?;
+    let fields = context
+        .global_elements
+        .get_struct_fields(&untyped_symbol, to_assign_to.type_parameters())?;
+    let field = fields
+        .iter()
+        .find(|field| field.name() == to_analyze.struct_field())?
+        .clone();
 
     let value = analyze_expression(to_analyze.value(), context, function_symbol_mapper)?;
     let value = ASTNode::new(value, to_analyze.struct_source().position().clone());

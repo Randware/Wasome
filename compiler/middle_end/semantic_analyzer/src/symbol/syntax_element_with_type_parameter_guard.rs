@@ -111,13 +111,13 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
         &self.ast_reference
     }
 
-    pub fn into_implementations(self) -> impl Iterator<Item = (Element::Implementation, Element::SubAnalyzables<'a>)> {
-        self.typed
-            .into_iter()
-            .filter_map(|typed| {
-                let implementation = typed.1.into_implementation();
-                Some((implementation.0?, implementation.1))
-            })
+    pub fn into_implementations(
+        self,
+    ) -> impl Iterator<Item = (Element::Implementation, Element::SubAnalyzables<'a>)> {
+        self.typed.into_iter().filter_map(|typed| {
+            let implementation = typed.1.into_implementation();
+            Some((implementation.0?, implementation.1))
+        })
     }
 
     pub fn in_context_type_parameters(&self) -> Option<Rc<TypeParameterContext>> {
@@ -192,7 +192,9 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<'
         self.type_parameters.current()
     }
 
-    pub fn into_implementation(self) -> (Option<Element::Implementation>, Element::SubAnalyzables<'a>) {
+    pub fn into_implementation(
+        self,
+    ) -> (Option<Element::Implementation>, Element::SubAnalyzables<'a>) {
         (self.implementation, self.subanalyzables)
     }
 

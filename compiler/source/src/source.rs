@@ -1,11 +1,11 @@
+use crate::types::{BytePos, FileID, LineInfo, Location, MultiByteChar, Span};
+use io::{FileIO, WasomeLoader};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
     marker::PhantomData,
     path::{Path, PathBuf},
 };
-use io::{FileIO, WasomeLoader};
-use crate::types::{BytePos, FileID, LineInfo, Location, MultiByteChar, Span};
 
 /// The central registry for source files
 ///
@@ -323,16 +323,16 @@ impl SourceFile {
 #[cfg(test)]
 mod tests {
 
+    use crate::{
+        SourceFile, SourceMap,
+        types::{BytePos, Span},
+    };
+    use io::{FileLoader, PathResolver};
     use std::{
         collections::HashMap,
         io::{Error, ErrorKind},
         path::PathBuf,
         sync::{LazyLock, Mutex},
-    };
-    use io::{FileLoader, PathResolver};
-    use crate::{
-        types::{BytePos, Span}, SourceFile,
-        SourceMap,
     };
 
     static MOCK_FS: LazyLock<Mutex<HashMap<PathBuf, String>>> =

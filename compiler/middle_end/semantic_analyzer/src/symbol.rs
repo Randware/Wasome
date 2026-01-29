@@ -1,7 +1,11 @@
-use crate::mics_sa::{analyze_data_type, analyze_struct_usage, analyze_struct_usage_from_typed_type_parameters, analyze_type_parameters_declaration};
+use crate::mics_sa::{
+    analyze_data_type, analyze_struct_usage, analyze_struct_usage_from_typed_type_parameters,
+    analyze_type_parameters_declaration,
+};
 use crate::symbol::syntax_element_map::{SingleSyntaxElementMap, SyntaxElementMap};
 use crate::top_level_sa::{analyze_enum, analyze_function};
 use ast::composite::{Enum, Struct};
+use ast::data_type::{DataType, UntypedDataType};
 use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
     SymbolWithTypeParameter, VariableSymbol,
@@ -15,7 +19,6 @@ use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
 use std::task::Context;
-use ast::data_type::{DataType, UntypedDataType};
 
 pub mod function_symbol_mapper;
 pub mod global_system_collector;
@@ -164,7 +167,6 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
     ) -> Self::SubAnalyzables<'b> {
-        
     }
 }
 
@@ -206,7 +208,6 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
     ) -> Self::SubAnalyzables<'b> {
-        
     }
 }
 
@@ -265,7 +266,10 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     type PreImplementation = ();
     type Implementation = ASTNode<Function<TypedAST>>;
     type ASTReference<'a, 'b>
-        = (&'a StructTraversalHelper<'a, 'b, UntypedAST>, FunctionTraversalHelper<'a, 'b, UntypedAST>)
+        = (
+        &'a StructTraversalHelper<'a, 'b, UntypedAST>,
+        FunctionTraversalHelper<'a, 'b, UntypedAST>,
+    )
     where
         'b: 'a;
     type SubAnalyzables<'a> = ();
@@ -299,7 +303,6 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
     ) -> Self::SubAnalyzables<'b> {
-        
     }
 }
 
@@ -349,7 +352,10 @@ fn convert_function_symbol(
 }
 
 fn convert_method_symbol(
-    context: &SyntaxContext<(&StructTraversalHelper<UntypedAST>, FunctionTraversalHelper<UntypedAST>)>,
+    context: &SyntaxContext<(
+        &StructTraversalHelper<UntypedAST>,
+        FunctionTraversalHelper<UntypedAST>,
+    )>,
 ) -> Result<Rc<FunctionSymbol<TypedAST>>, String> {
     let internal_context = context.with_ast_reference(&context.ast_reference.1);
     let untyped = context.ast_reference.1.inner().declaration();
@@ -361,14 +367,27 @@ fn convert_method_symbol(
         }
         None => None,
     };
-    
+
     // Unwrap:
     // This can never panic as methods are always in a container (struct)
-    let type_params = context.type_parameter_context.parent.as_ref().unwrap().current_owned();
+    let type_params = context
+        .type_parameter_context
+        .parent
+        .as_ref()
+        .unwrap()
+        .current_owned();
 
     let mut typed_params = Vec::new();
-    let struct_use = analyze_struct_usage_from_typed_type_parameters(context.ast_reference.0.inner().symbol().name(), &type_params, &internal_context).ok_or_else(|| "Unknown struct".to_owned())?;
-    typed_params.push(Rc::new(VariableSymbol::new("self".to_owned(), DataType::Struct(struct_use))));
+    let struct_use = analyze_struct_usage_from_typed_type_parameters(
+        context.ast_reference.0.inner().symbol().name(),
+        &type_params,
+        &internal_context,
+    )
+    .ok_or_else(|| "Unknown struct".to_owned())?;
+    typed_params.push(Rc::new(VariableSymbol::new(
+        "self".to_owned(),
+        DataType::Struct(struct_use),
+    )));
     for param in untyped.params() {
         let param_type_name = param.data_type();
         let dt = analyze_data_type(param_type_name, &internal_context)

@@ -82,7 +82,6 @@ impl FunctionSymbolMapper {
 
         let name = symbol.name().to_string();
 
-        // TODO: Variable shadowing
         if current_scope.variables.contains_key(&name) {
             return Err(format!(
                 "Error: Variable '{}' is already defined in the current scope.",

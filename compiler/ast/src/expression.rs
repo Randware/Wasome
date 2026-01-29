@@ -15,7 +15,7 @@ pub enum Expression<Type: ASTType> {
     FunctionCall(FunctionCall<Type>),
     /// Only valid in the untyped AST
     /// Use `FunctionCall` in the typed AST
-    /// 
+    ///
     /// Constructing it anyway can lead to arbitiary behavior, including panics
     MethodCall(Box<MethodCall>),
     Variable(Type::VariableUse),
@@ -785,8 +785,16 @@ pub struct MethodCall {
 }
 
 impl MethodCall {
-    pub fn new(struct_source: ASTNode<Expression<UntypedAST>>, function: (String, Vec<UntypedDataType>), args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
-        Self { struct_source, function, args }
+    pub fn new(
+        struct_source: ASTNode<Expression<UntypedAST>>,
+        function: (String, Vec<UntypedDataType>),
+        args: Vec<ASTNode<Expression<UntypedAST>>>,
+    ) -> Self {
+        Self {
+            struct_source,
+            function,
+            args,
+        }
     }
 
     pub fn struct_source(&self) -> &ASTNode<Expression<UntypedAST>> {
@@ -804,7 +812,9 @@ impl MethodCall {
 
 impl SemanticEq for MethodCall {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.struct_source().semantic_eq(other.struct_source()) && self.function().semantic_eq(other.function()) && self.args.semantic_eq(&other.args)
+        self.struct_source().semantic_eq(other.struct_source())
+            && self.function().semantic_eq(other.function())
+            && self.args.semantic_eq(&other.args)
     }
 }
 

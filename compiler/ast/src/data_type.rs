@@ -50,7 +50,7 @@ impl SemanticEq for DataType {
 }
 
 /// A data type in an untyped AST
-/// 
+///
 /// This is context-dependant
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct UntypedDataType {
