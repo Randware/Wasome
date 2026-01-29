@@ -259,6 +259,8 @@ impl StructFieldAssignment<TypedAST> {
     ///
     /// - The data type of `struct_field` and `value` mismatch
     /// - `struct_source` doesn't evaluate to a struct
+    /// 
+    /// 
 
     pub fn new(
         struct_source: ASTNode<Expression<TypedAST>>,

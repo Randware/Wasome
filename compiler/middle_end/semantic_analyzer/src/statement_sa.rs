@@ -5,7 +5,7 @@ use crate::symbol::SyntaxContext;
 use crate::symbol_by_name;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
-use ast::statement::{CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
+use ast::statement::{CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, StructFieldAssignment, VariableAssignment, VariableDeclaration};
 use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
@@ -74,8 +74,7 @@ pub(crate) fn analyze_statement(
             panic!("Void function calls are not allowed in the untyped AST")
         }
         Statement::Break => analyze_break(context),
-
-        Statement::StructFieldAssignment(_) => todo!()
+        Statement::StructFieldAssignment(sfa) => Some(Statement::StructFieldAssignment(analyze_struct_field_assignment(sfa, context, function_symbol_mapper)?))
     }
 }
 
@@ -534,6 +533,29 @@ fn analyze_break(
         current_loc_opt = current_loc.parent_statement();
     }
     None
+}
+
+fn analyze_struct_field_assignment(
+    to_analyze: &StructFieldAssignment<UntypedAST>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<StructFieldAssignment<TypedAST>> {
+    let struct_source = analyze_expression(to_analyze.struct_source(), context, function_symbol_mapper)?;
+    let struct_source = ASTNode::new(struct_source, to_analyze.struct_source().position().clone());
+
+    let to_assign_to = if let DataType::Struct(st) = struct_source.data_type() {
+        st
+    }
+    else {
+        return None;
+    };
+    let untyped_symbol = context.global_elements.untyped_struct_symbol_from_typed(&to_assign_to)?;
+    let fields = context.global_elements.get_struct_fields(&untyped_symbol, to_assign_to.type_parameters())?;
+    let field = fields.iter().find(|field| field.name() == to_analyze.struct_field())?.clone();
+
+    let value = analyze_expression(to_analyze.value(), context, function_symbol_mapper)?;
+    let value = ASTNode::new(value, to_analyze.struct_source().position().clone());
+    StructFieldAssignment::<TypedAST>::new(struct_source, field, value)
 }
 
 #[cfg(test)]
