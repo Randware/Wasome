@@ -1,4 +1,4 @@
-use crate::data_type::{DataType, Typed};
+use crate::data_type::{DataType, Typed, UntypedDataType};
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol};
 use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
 use std::rc::Rc;
@@ -13,6 +13,11 @@ use std::rc::Rc;
 pub enum Expression<Type: ASTType> {
     /// This is only valid if there is a return value and not void
     FunctionCall(FunctionCall<Type>),
+    /// Only valid in the untyped AST
+    /// Use `FunctionCall` in the typed AST
+    /// 
+    /// Constructing it anyway can lead to arbitiary behavior, including panics
+    MethodCall(Box<MethodCall>),
     Variable(Type::VariableUse),
     Literal(Type::LiteralType),
     UnaryOp(Box<UnaryOp<Type>>), // The boxes prevent this from becoming an infinitely sized type
@@ -29,6 +34,8 @@ impl Typed for Expression<TypedAST> {
             // Unwrap safety:
             // It may only exist if the return type is not void
             Ex::FunctionCall(inner) => inner.function().return_type().unwrap().clone(),
+            // This is invalid in the typed AST
+            Ex::MethodCall(_) => panic!(),
             Ex::Literal(inner) => inner.data_type(),
             Ex::UnaryOp(inner) => inner.data_type(),
             Ex::BinaryOp(inner) => inner.data_type(),
@@ -45,6 +52,9 @@ impl<Type: ASTType> SemanticEq for Expression<Type> {
         use Expression as Exp;
         match (self, other) {
             (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
+                inner.semantic_eq(other_inner)
+            }
+            (Exp::MethodCall(inner), Exp::MethodCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
             (Exp::Variable(inner), Exp::Variable(other_inner)) => inner.semantic_eq(other_inner),
@@ -765,25 +775,25 @@ impl FunctionCall<UntypedAST> {
 /// A method call
 ///
 /// Only valid in the untyped AST
-/// 
+///
 /// In the typed AST, this is a function call with the struct as the first parameter
 #[derive(Debug, PartialEq)]
 pub struct MethodCall {
     struct_source: ASTNode<Expression<UntypedAST>>,
-    function: String,
+    function: (String, Vec<UntypedDataType>),
     args: Vec<ASTNode<Expression<UntypedAST>>>,
 }
 
 impl MethodCall {
-    pub fn new(struct_source: ASTNode<Expression<UntypedAST>>, function: String, args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
+    pub fn new(struct_source: ASTNode<Expression<UntypedAST>>, function: (String, Vec<UntypedDataType>), args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
         Self { struct_source, function, args }
     }
 
     pub fn struct_source(&self) -> &ASTNode<Expression<UntypedAST>> {
         &self.struct_source
     }
-    
-    pub fn function(&self) -> &str {
+
+    pub fn function(&self) -> &(String, Vec<UntypedDataType>) {
         &self.function
     }
 

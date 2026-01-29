@@ -1,5 +1,5 @@
 use crate::expression_sa::analyze_expression;
-use crate::mics_sa::{analyze_data_type, analyze_enum_usage, analyze_function_call};
+use crate::mics_sa::{analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call};
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::SyntaxContext;
 use crate::symbol_by_name;
@@ -45,7 +45,11 @@ pub(crate) fn analyze_statement(
             let void_call = try_analyze_void_function_call(context, function_symbol_mapper);
             if let Some(inner) = void_call {
                 Some(Statement::VoidFunctionCall(inner))
-            } else {
+            } else if let Some(inner) = try_analyze_void_method_call(context, function_symbol_mapper) {
+                Some(Statement::VoidFunctionCall(inner))
+            }
+            else
+            {
                 // We pass the helper as context so the expression can resolve symbols valid at this location
                 let typed_expr = analyze_expression(inner, context, function_symbol_mapper)?;
                 Some(Statement::Expression(ASTNode::new(
@@ -96,11 +100,38 @@ fn try_analyze_void_function_call(
 
     let symbol = symbol_by_name(&call.function().0, to_analyze.symbols_available_at())?;
 
-    if let DirectlyAvailableSymbol::Function(_) = symbol {
+    if let DirectlyAvailableSymbol::Function(func) = symbol {
+        func.return_type()?;
     } else {
         return None;
     };
     analyze_function_call(call, function_symbol_mapper, context)
+}
+
+fn try_analyze_void_method_call(
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    function_symbol_mapper: &mut FunctionSymbolMapper,
+) -> Option<FunctionCall<TypedAST>> {
+    let to_analyze = &context.ast_reference;
+    let statement_to_analyze = to_analyze.inner();
+    let expr = if let Statement::Expression(inner) = statement_to_analyze.deref() {
+        inner
+    } else {
+        return None;
+    };
+    let call = match expr.deref() {
+        Expression::MethodCall(call) => call,
+        _ => return None,
+    };
+
+    let symbol = symbol_by_name(&call.function().0, to_analyze.symbols_available_at())?;
+
+    if let DirectlyAvailableSymbol::Function(func) = symbol {
+        func.return_type()?;
+    } else {
+        return None;
+    };
+    analyze_method_call(call, function_symbol_mapper, context)
 }
 /// Analyzes a variable assignment (re-assignment of an existing variable).
 ///

@@ -3,8 +3,8 @@ use crate::expression_sa::analyze_expression;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::SyntaxContext;
 use crate::symbol_by_name;
-use ast::data_type::{DataType, UntypedDataType};
-use ast::expression::{Expression, FunctionCall};
+use ast::data_type::{DataType, Typed, UntypedDataType};
+use ast::expression::{Expression, FunctionCall, MethodCall};
 use ast::symbol::{DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
@@ -153,7 +153,6 @@ pub(crate) fn analyze_function_call(
     let call_name = to_analyze.function();
 
     let name = &call_name.0;
-    // TODO: Methods
 
     let untyped_func_symbol = analyze_function_usage(context, name)?;
 
@@ -180,7 +179,6 @@ pub(crate) fn analyze_function_call(
 }
 
 fn analyze_function_usage<'a >(context: &SyntaxContext<&'a StatementTraversalHelper<UntypedAST>>, name: &str) -> Option<&'a FunctionSymbol<UntypedAST>> {
-    let method_seperator = name.rmatch_indices('.').next();
     let found_symbol = symbol_by_name(name, context.ast_reference.symbols_available_at())?;
 
     let untyped_func_symbol = match found_symbol {
@@ -190,13 +188,30 @@ fn analyze_function_usage<'a >(context: &SyntaxContext<&'a StatementTraversalHel
     Some(untyped_func_symbol)
 }
 
-/*fn analyze_method_usage<'a >(context: &SyntaxContext<&'a StatementTraversalHelper<UntypedAST>>, struct: &str) -> Option<&'a FunctionSymbol<UntypedAST>> {
-    let method_seperator = name.match_indices('.').skip(1).next();
-    let found_symbol = symbol_by_name(name, context.ast_reference.symbols_available_at())?;
-
-    let untyped_func_symbol = match found_symbol {
-        DirectlyAvailableSymbol::Function(f) => f,
-        _ => return None,
-    };
-    Some(untyped_func_symbol)
-}*/
+pub(crate) fn analyze_method_call<'a >(to_analyze: &MethodCall,
+                            mapper: &mut FunctionSymbolMapper,
+                            context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>) -> Option<FunctionCall<TypedAST>> {
+    let struct_expr = analyze_expression(to_analyze.struct_source(), context, mapper)?;
+    let untyped_function_symbol = symbol_by_name(&to_analyze.function().0, context.ast_reference.symbols_available_at())?;
+    let function_symbol = if let DirectlyAvailableSymbol::Function(func) = untyped_function_symbol {
+        func
+    }
+    else { return None; };
+    let struct_symbol = if let DataType::Struct(st) = struct_expr.data_type() {
+        st
+    }
+    else { return None; };
+    let untyped_struct_symbol = context.global_elements.untyped_struct_symbol_from_typed(&struct_symbol)?;
+    let typed_type_parameters = analyze_type_parameters_providing(function_symbol.type_parameters(), &to_analyze.function().1, context)?;
+    let function_symbol = context.global_elements.get_typed_method_symbol(&untyped_struct_symbol, struct_symbol.type_parameters(), Rc::new(function_symbol.clone()), &typed_type_parameters)?;
+    let mut args = vec![ASTNode::new(struct_expr, to_analyze.struct_source().position().clone())];
+    if !to_analyze.args().iter().map(|param| {
+        let typed_param = analyze_expression(param, context, mapper)?;
+        let typed_param = ASTNode::new(typed_param, param.position().clone());
+        args.push(typed_param);
+        Some(())
+    }).all(|res| res.is_some()) {
+        return None;
+    }
+    FunctionCall::<TypedAST>::new(function_symbol, args)
+}

@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use crate::mics_sa::{analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_struct_usage};
+use crate::mics_sa::{analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call, analyze_struct_usage};
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use crate::symbol::SyntaxContext;
 use ast::expression::{BinaryOp, Expression, FunctionCall, Literal, NewEnum, NewStruct, StructFieldAccess, Typecast, UnaryOp, UnaryOpType};
@@ -28,6 +28,11 @@ pub(crate) fn analyze_expression(
         Expression::FunctionCall(inner) => {
             let typed_call =
                 analyze_non_void_function_call(inner, context, function_symbol_mapper)?;
+            Expression::FunctionCall(typed_call)
+        }
+        Expression::MethodCall(inner) => {
+            let typed_call =
+                analyze_method_call(inner, function_symbol_mapper, context)?;
             typed_call.function().return_type()?;
             Expression::FunctionCall(typed_call)
         }
