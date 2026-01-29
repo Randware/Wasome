@@ -1,6 +1,6 @@
 //! Reordering logic for file structure.
 //!
-//! Enforces the canonical ordering:
+//! Introduces an absolute order between top-level items:
 //! 1. Imports
 //! 2. Structs
 //! 3. Enums
@@ -94,7 +94,10 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
                 }
             }
             _ => {
-                // Update category if we see a keyword right after `pub`
+                // Update category if we see a defining keyword right after `pub`.
+                //
+                // Example: For `pub struct Point { ... }`, at first this turns into `Other`,
+                // by iterating to the next token the actual Item is discovered
                 if in_item && current_category == ItemCategory::Other {
                     if let Some(cat) = categorize_keyword(&token.kind) {
                         current_category = cat;
@@ -116,9 +119,8 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
     items
 }
 
-/// Reorders items according to the canonical order.
+/// Reorders items according to the canonical order, while preserving the relative order between Items of the same kind
 pub fn reorder_items(mut items: Vec<TopLevelItem>) -> Vec<TopLevelItem> {
-    // Stable sort preserves relative order within categories
     items.sort_by_key(|item| item.category);
     items
 }

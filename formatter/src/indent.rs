@@ -2,7 +2,7 @@
 
 use crate::constants::INDENT;
 
-/// Tracks and generates indentation strings.
+/// Tracks and generates indentation strings by counting the number of levels of indentation.
 #[derive(Debug, Default)]
 pub struct IndentTracker {
     level: usize,

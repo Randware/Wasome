@@ -1,11 +1,12 @@
-//! Core formatting engine.
+//! Core formatting logic.
 //!
 //! Processes tokens and produces formatted output.
 
 use crate::indent::IndentTracker;
-use crate::reorder::{parse_top_level_items, reorder_items};
-use crate::spacing::needs_space_before;
+use crate::reorder::{categorize_keyword, parse_top_level_items, reorder_items, ItemCategory};
+use crate::spacing::requires_space;
 use lexer::{lex, Token, TokenType};
+use std::borrow::Cow;
 
 /// Formats Wasome source code and returns the formatted string.
 pub fn format_source(input: &str) -> String {
@@ -28,13 +29,9 @@ pub fn format_source(input: &str) -> String {
 /// Checks if a token starts a top-level item.
 fn is_top_level_start(token: &TokenType) -> bool {
     matches!(
-        token,
-        TokenType::Function
-            | TokenType::Struct
-            | TokenType::Enum
-            | TokenType::Import
-            | TokenType::Public
-    )
+        categorize_keyword(token),
+        Some(ItemCategory::Function | ItemCategory::Struct | ItemCategory::Enum | ItemCategory::Import)
+    ) || matches!(token, TokenType::Public)
 }
 
 /// Formats a sequence of tokens.
@@ -96,7 +93,7 @@ fn format_tokens(tokens: &[Token]) -> String {
         // Add space before token if needed (but not right after indentation)
         if !just_indented {
             if let Some(prev_token) = prev {
-                if needs_space_before(&prev_token.kind, &token.kind) {
+                if requires_space(&prev_token.kind, &token.kind) {
                     output.push(' ');
                 }
             }
@@ -145,10 +142,12 @@ fn format_tokens(tokens: &[Token]) -> String {
 }
 
 /// Converts a token to its string representation.
-fn token_to_string(token: &TokenType) -> String {
+/// Uses Cow to avoid heap allocations for static strings.
+fn token_to_string(token: &TokenType) -> Cow<'_, str> {
     use TokenType::*;
 
     match token {
+        // Primitive types
         S8 => "s8".into(),
         S16 => "s16".into(),
         S32 => "s32".into(),
@@ -162,13 +161,16 @@ fn token_to_string(token: &TokenType) -> String {
         Bool => "bool".into(),
         Char => "char".into(),
         SelfType => "self".into(),
-        Identifier(s) => s.clone(),
-        String(s) => s.clone(),
-        Decimal(f) => f.to_string(),
-        Integer(i) => i.to_string(),
-        CharLiteral(c) => format!("'{}'", escape_char(*c)),
+
+        // Literals - require owned strings
+        Identifier(s) | String(s) | Comment(s) => Cow::Borrowed(s),
+        Decimal(f) => Cow::Owned(f.to_string()),
+        Integer(i) => Cow::Owned(i.to_string()),
+        CharLiteral(c) => Cow::Owned(format!("'{}'", escape_char(*c))),
         True => "true".into(),
         False => "false".into(),
+
+        // Operators
         Addition => "+".into(),
         Subtraction => "-".into(),
         Multiplication => "*".into(),
@@ -187,10 +189,19 @@ fn token_to_string(token: &TokenType) -> String {
         BitAnd => "&".into(),
         And => "&&".into(),
         Not => "!".into(),
+
+        // Delimiters
         OpenScope => "{".into(),
         CloseScope => "}".into(),
         OpenParen => "(".into(),
         CloseParen => ")".into(),
+        Dot => ".".into(),
+        Semicolon => ";".into(),
+        PathSeparator => "::".into(),
+        ArgumentSeparator => ",".into(),
+        StatementSeparator => "".into(),
+
+        // Keywords
         Function => "fn".into(),
         If => "if".into(),
         Else => "else".into(),
@@ -203,12 +214,6 @@ fn token_to_string(token: &TokenType) -> String {
         Import => "import".into(),
         Return => "->".into(),
         Assign => "<-".into(),
-        PathSeparator => "::".into(),
-        Dot => ".".into(),
-        Semicolon => ";".into(),
-        StatementSeparator => "".into(),
-        ArgumentSeparator => ",".into(),
-        Comment(s) => s.clone(),
     }
 }
 

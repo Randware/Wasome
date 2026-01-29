@@ -12,12 +12,12 @@
 //! ```
 
 mod constants;
-mod engine;
+mod formatter;
 mod indent;
 mod reorder;
 mod spacing;
 
-pub use engine::format_source;
+pub use formatter::format_source;
 
 use std::fs;
 use std::io::{self, Read, Write};
