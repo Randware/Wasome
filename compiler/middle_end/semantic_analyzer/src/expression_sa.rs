@@ -10,7 +10,7 @@ use ast::expression::{
     BinaryOp, Expression, FunctionCall, Literal, NewEnum, NewStruct, StructFieldAccess, Typecast,
     UnaryOp, UnaryOpType,
 };
-use ast::symbol::{DirectlyAvailableSymbol, EnumSymbol, SymbolWithTypeParameter, VariableSymbol};
+use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::ops::Deref;
@@ -293,7 +293,7 @@ fn analyze_new_enum(
         .iter()
         .map(|param| {
             Some(ASTNode::new(
-                analyze_expression(&param, context, function_symbol_mapper)?,
+                analyze_expression(param, context, function_symbol_mapper)?,
                 param.position().clone(),
             ))
         })
@@ -326,9 +326,7 @@ fn analyze_struct_field_access(
     let sfs = context.global_elements.get_struct_fields(
         context
             .global_elements
-            .untyped_struct_symbol_from_typed(&source_symbol)
-            .as_ref()
-            .map(|utss| utss.deref())?,
+            .untyped_struct_symbol_from_typed(&source_symbol).as_deref()?,
         source_symbol.type_parameters(),
     )?;
     let sf = sfs

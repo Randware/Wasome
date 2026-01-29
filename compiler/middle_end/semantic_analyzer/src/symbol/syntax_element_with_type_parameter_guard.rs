@@ -2,7 +2,6 @@ use crate::symbol::syntax_element_map::SyntaxElementMap;
 use crate::symbol::{
     AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext,
 };
-use ast::data_type::UntypedDataType;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::type_parameter::TypedTypeParameter;
 use ast::{TypedAST, UntypedAST};

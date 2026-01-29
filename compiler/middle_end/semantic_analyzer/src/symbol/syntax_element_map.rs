@@ -5,8 +5,7 @@ use crate::symbol::{
     AnalyzableEnum, AnalyzableFunction, AnalyzableMethod, AnalyzableStruct,
     AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext,
 };
-use ast::composite::{Enum, EnumVariant, StructField};
-use ast::data_type::UntypedDataType;
+use ast::composite::Enum;
 use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
     SymbolWithTypeParameter,
@@ -235,11 +234,11 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         {
             let guard = self.elements.get(&symbol)?.borrow_mut();
 
-            if guard.typed_variant(&type_parameters).is_none() {
+            if guard.typed_variant(type_parameters).is_none() {
                 self.insert_typed_variant(type_parameters.to_vec(), root, symbol.clone())?;
             }
         }
-        Self::get_typed_syntax_element(self, &symbol, &type_parameters)
+        Self::get_typed_syntax_element(self, &symbol, type_parameters)
             .map(|syntax_element| syntax_element.symbol_owned())
     }
 
@@ -333,8 +332,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     ) -> impl Iterator<Item = (Element::Implementation, Element::SubAnalyzables<'a>)> {
         self.elements
             .into_values()
-            .map(|guard| guard.into_inner().into_implementations())
-            .flatten()
+            .flat_map(|guard| guard.into_inner().into_implementations())
     }
 
     pub fn untyped_from_typed_symbol(

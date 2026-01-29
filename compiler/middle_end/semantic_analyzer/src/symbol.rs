@@ -1,11 +1,11 @@
 use crate::mics_sa::{
-    analyze_data_type, analyze_struct_usage, analyze_struct_usage_from_typed_type_parameters,
+    analyze_data_type, analyze_struct_usage_from_typed_type_parameters,
     analyze_type_parameters_declaration,
 };
 use crate::symbol::syntax_element_map::{SingleSyntaxElementMap, SyntaxElementMap};
 use crate::top_level_sa::{analyze_enum, analyze_function};
-use ast::composite::{Enum, Struct};
-use ast::data_type::{DataType, UntypedDataType};
+use ast::composite::Enum;
+use ast::data_type::DataType;
 use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol, StructSymbol,
     SymbolWithTypeParameter, VariableSymbol,
@@ -18,7 +18,6 @@ use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
-use std::task::Context;
 
 pub mod function_symbol_mapper;
 pub mod global_system_collector;

@@ -223,7 +223,7 @@ fn analyze_function_usage<'a>(
     Some(untyped_func_symbol)
 }
 
-pub(crate) fn analyze_method_call<'a>(
+pub(crate) fn analyze_method_call(
     to_analyze: &MethodCall,
     mapper: &mut FunctionSymbolMapper,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,

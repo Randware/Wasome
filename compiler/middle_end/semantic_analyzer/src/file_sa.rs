@@ -64,7 +64,7 @@ pub(crate) fn analyze_file(
                                 )
                             })
                             .collect(),
-                        st.visibility().clone(),
+                        st.visibility(),
                     ),
                     st.position().clone(),
                 )
