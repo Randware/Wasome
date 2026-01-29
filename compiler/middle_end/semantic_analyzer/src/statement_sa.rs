@@ -6,7 +6,7 @@ use crate::symbol_by_name;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{Expression, FunctionCall};
 use ast::statement::{CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement, VariableAssignment, VariableDeclaration};
-use ast::symbol::{DirectlyAvailableSymbol, VariableSymbol};
+use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::ops::Deref;
@@ -422,7 +422,7 @@ fn analyze_if_enum_variant(
     }
     else { return None; };
 
-    let enum_variants = context.global_elements.get_enum_variants(untyped_enum_symbol, &to_analyze.condition_enum().1)?;
+    let enum_variants = context.global_elements.get_enum_variants(untyped_enum_symbol, condition_enum.type_parameters())?;
     let enum_variant = enum_variants.iter().find(|variant| variant.name() == to_analyze.condition_enum_variant())?.clone();
 
     let typed_condition_expr =

@@ -61,8 +61,23 @@ pub(crate) fn analyze_struct_usage<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
         DirectlyAvailableSymbol::Struct(st) => st,
         _ => return None
     };
-    context.global_elements.get_typed_struct_symbol(untyped_symbol, type_parameters, |_| analyze_type_parameters_providing(untyped_symbol.type_parameters(), type_parameters, context))
+    let type_parameters = analyze_type_parameters_providing(untyped_symbol.type_parameters(), type_parameters, context)?;
+    context.global_elements.get_typed_struct_symbol(Rc::new(untyped_symbol.clone()), &type_parameters)
 }
+
+pub(crate) fn analyze_struct_usage_from_typed_type_parameters<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
+    to_analyze: &str,
+    type_parameters: &[TypedTypeParameter],
+    context: &SyntaxContext<&T>,
+) -> Option<Rc<StructSymbol<TypedAST>>> {
+    let untyped_symbol = symbol_by_name(to_analyze, context.ast_reference.symbols())?;
+    let untyped_symbol = match untyped_symbol {
+        DirectlyAvailableSymbol::Struct(st) => st,
+        _ => return None
+    };
+    context.global_elements.get_typed_struct_symbol(Rc::new(untyped_symbol.clone()), type_parameters)
+}
+
 
 pub(crate) fn analyze_enum_usage<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
     to_analyze: &str,
@@ -74,7 +89,8 @@ pub(crate) fn analyze_enum_usage<'a, T: Clone+HasSymbols<'a, UntypedAST>>(
         DirectlyAvailableSymbol::Enum(st) => st,
         _ => return None
     };
-    context.global_elements.get_typed_enum_symbol(untyped_symbol, type_parameters, |_| analyze_type_parameters_providing(untyped_symbol.type_parameters(), type_parameters, context))
+    let type_parameters = analyze_type_parameters_providing(untyped_symbol.type_parameters(), type_parameters, context)?;
+    context.global_elements.get_typed_enum_symbol(Rc::new(untyped_symbol.clone()), &type_parameters)
 }
 
 pub(crate) fn analyze_type_parameter_full<'a, T: Clone>(
@@ -141,18 +157,13 @@ pub(crate) fn analyze_function_call(
 
     let untyped_func_symbol = analyze_function_usage(context, name)?;
 
+    let type_parameters = analyze_type_parameters_providing(untyped_func_symbol.type_parameters(), &to_analyze.function().1, context)?;
+
     let typed_func_symbol = context
         .global_elements
         .get_or_insert_typed_function_symbol(
-            untyped_func_symbol,
-            &to_analyze.function().1,
-            |_| {
-                analyze_type_parameters_providing(
-                    untyped_func_symbol.type_parameters(),
-                    &to_analyze.function().1,
-                    context,
-                )
-            },
+            Rc::new(untyped_func_symbol.clone()),
+            &type_parameters
         )
         .expect("Critical: Symbol found in AST but missing in map. Stage 2 failed?");
 

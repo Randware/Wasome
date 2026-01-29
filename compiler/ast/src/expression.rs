@@ -665,9 +665,9 @@ impl StructFieldAccess<UntypedAST> {
 
 impl StructFieldAccess<TypedAST> {
     /// Tries to create a new StructFieldAccess
-    /// 
+    ///
     /// Returns None if the return type of of is not a struct
-    /// 
+    ///
     /// Note that it must be externally checked that field belongs to the struct being accessed
     pub fn new(
         of: ASTNode<Expression<TypedAST>>,
@@ -682,7 +682,7 @@ impl StructFieldAccess<TypedAST> {
 }
 
 impl<Type: ASTType> StructFieldAccess<Type> {
-    pub fn of(&self) -> &Expression<Type> {
+    pub fn of(&self) -> &ASTNode<Expression<Type>> {
         &self.of
     }
 
@@ -759,6 +759,42 @@ impl FunctionCall<UntypedAST> {
         args: Vec<ASTNode<Expression<UntypedAST>>>,
     ) -> Self {
         Self { function, args }
+    }
+}
+
+/// A method call
+///
+/// Only valid in the untyped AST
+/// 
+/// In the typed AST, this is a function call with the struct as the first parameter
+#[derive(Debug, PartialEq)]
+pub struct MethodCall {
+    struct_source: ASTNode<Expression<UntypedAST>>,
+    function: String,
+    args: Vec<ASTNode<Expression<UntypedAST>>>,
+}
+
+impl MethodCall {
+    pub fn new(struct_source: ASTNode<Expression<UntypedAST>>, function: String, args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
+        Self { struct_source, function, args }
+    }
+
+    pub fn struct_source(&self) -> &ASTNode<Expression<UntypedAST>> {
+        &self.struct_source
+    }
+    
+    pub fn function(&self) -> &str {
+        &self.function
+    }
+
+    pub fn args(&self) -> &Vec<ASTNode<Expression<UntypedAST>>> {
+        &self.args
+    }
+}
+
+impl SemanticEq for MethodCall {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.struct_source().semantic_eq(other.struct_source()) && self.function().semantic_eq(other.function()) && self.args.semantic_eq(&other.args)
     }
 }
 

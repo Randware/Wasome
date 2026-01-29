@@ -167,7 +167,7 @@ pub trait SymbolWithTypeParameter<Type: ASTType>:
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionSymbol<Type: ASTType> {
     id: Id,
     name: String,
@@ -244,7 +244,7 @@ impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VariableSymbol<Type: ASTType> {
     id: Id,
     name: String,
@@ -305,7 +305,7 @@ impl<Type: ASTType> Eq for VariableSymbol<Type> {}
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
 /// PartialEq behavior instead
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ModuleUsageNameSymbol {
     id: Id,
     name: String,
@@ -337,7 +337,7 @@ impl Hash for ModuleUsageNameSymbol {
 }
 
 /// The symbol of an enum
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumSymbol<Type: ASTType> {
     id: Id,
     name: String,
@@ -388,7 +388,7 @@ impl<Type: ASTType> SemanticEq for EnumSymbol<Type> {
 }
 
 /// A symbol for a struct
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructSymbol<Type: ASTType> {
     id: Id,
     name: String,
@@ -440,7 +440,7 @@ impl<Type: ASTType> SemanticEq for StructSymbol<Type> {
 }
 
 /// The symbol of an enum
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumVariantSymbol<Type: ASTType> {
     id: Id,
     name: String,
@@ -490,7 +490,7 @@ impl<Type: ASTType> SemanticEq for EnumVariantSymbol<Type> {
 }
 
 /// The symbol of an enum
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StructFieldSymbol<Type: ASTType> {
     id: Id,
     name: String,

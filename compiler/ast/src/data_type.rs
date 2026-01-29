@@ -7,7 +7,7 @@ use std::rc::Rc;
 /// This only exists in the typed AST
 /// Therefore, having type parameters here does not make sense as they are part of the composite
 /// identifier (and not data types) in the typed AST
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DataType {
     Char,
     U8,
@@ -50,8 +50,8 @@ impl SemanticEq for DataType {
 }
 
 /// A data type in an untyped AST
-///
-///
+/// 
+/// This is context-dependant
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct UntypedDataType {
     name: String,

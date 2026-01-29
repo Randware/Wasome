@@ -34,7 +34,7 @@ impl SemanticEq for UntypedTypeParameter {
 /// A type parameter in a typed AST
 ///
 /// This is part of the composite identifier
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct TypedTypeParameter {
     name: String,
     data_type: DataType,
