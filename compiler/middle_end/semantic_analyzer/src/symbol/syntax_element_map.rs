@@ -1,5 +1,5 @@
 use crate::symbol::syntax_element_with_type_parameter_guard::{
-    SyntaxElementWithTypeParameterGuard, TypedSyntaxElement,
+    SyntaxElementWithTypeParameterTranslator, TypedSyntaxElement,
 };
 use crate::symbol::{
     AnalyzableEnum, AnalyzableFunction, AnalyzableMethod, AnalyzableStruct,
@@ -20,6 +20,9 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
 
+/// Multiple [`SingleSyntaxElementMap`], one for each of syntax element with type parameters
+///
+/// This also includes functionality for handling methods
 pub(crate) struct SyntaxElementMap<'a> {
     functions: SingleSyntaxElementMap<'a, AnalyzableFunction>,
     enums: SingleSyntaxElementMap<'a, AnalyzableEnum>,
@@ -44,6 +47,9 @@ impl<'a> SyntaxElementMap<'a> {
             .get_or_insert_typed_symbol(self, symbol, type_parameters)
     }
 
+    /// Gets the symbol of the provided method
+    ///
+    /// This first of all loads the struct the method belongs to and then fetches the method
     pub fn get_typed_method_symbol(
         &self,
         from: &StructSymbol<UntypedAST>,
@@ -114,15 +120,18 @@ impl<'a> SyntaxElementMap<'a> {
         self.functions.insert_untyped_element(to_insert)
     }
 
+    /// Fills self with all typed variants that are ever used in the program
     pub fn fill(&self) -> Option<()> {
         let mut ok = Some(());
-        // Collect to break off the borrow chain
-        let funcs = self.functions.untyped_elements().collect::<Vec<_>>();
+        // It is sufficient to translate all functions without type parameters
+        // Anything reachable (=used by) from these functions will be translated as well
+        // The main functions may not have type parameters
+        // And anything not reachable by the main functions is unused and thus not required by codegen
+        let funcs = self.functions.untyped_elements();
         funcs
             .into_iter()
             .filter(|func| func.as_ref().type_parameters().is_empty())
             .for_each(|func| {
-                // Mutable borrow required here
                 let typed_symbol = self.get_or_insert_typed_function_symbol(func, &[]);
                 if typed_symbol.is_none() {
                     ok = None;
@@ -180,13 +189,44 @@ impl<'a> Default for SyntaxElementMap<'a> {
     }
 }
 
+/// Translates a single type of syntax element that has type parameters from untyped to typed
+///
+/// The process for a single element is as follows:
+/// 1. Generate the symbol
+/// 2. Initialize the sub-analyzables
+///     - Currently, only structs have non-empty sub-analyzables
+///         - Structs have methods
+///         - If syntax element A is a subanalyzable of B, then we say that B is the parent of A
+///     - If not empty, they are an instance of [`SingleSyntaxElementMap`]
+/// 2. Generate the pre-implementation
+///     - It consists of the variants for enums and fields for structs
+///     - Otherwise, it is empty
+/// 3. Generate the implementation
+///
+/// Each intermediate result is immediately inserted into the map to allow for cyclic usages
+/// (e.g.: A struct that contains itself)
+///
+/// Translating everything at once would not allow this
+///
+///
+/// The entire semantic analysis process can be described as:
+/// 1. Load all untyped elements and insert them
+/// 2. Recursively translate all elements and their dependencies
+/// 3. Take the typed translation results and put them into a typed AST
+///
+/// This uses dynamic borrow checking as static borrow checking is simply insufficient to allow
+/// the complex usage patters required
 pub(crate) struct SingleSyntaxElementMap<'a, Element: AnalyzableSyntaxElementWithTypeParameter> {
     elements: HashMap<
         Rc<Element::Symbol<UntypedAST>>,
-        RefCell<SyntaxElementWithTypeParameterGuard<'a, 'a, Element>>,
+        RefCell<SyntaxElementWithTypeParameterTranslator<'a, 'a, Element>>,
     >,
+    /// Maps typed symbols to untyped
+    /// Required as certain operations require untyped symbols and only typed symbols may be available
+    /// (e.g.: When analyzing a method call)
     untyped_symbols:
         RefCell<HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>>,
+    /// All type parameters that are available here
     type_parameters: Option<Rc<TypeParameterContext>>,
 }
 
@@ -207,6 +247,13 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         }
     }
 
+    /// Inserts a new untyped syntax element
+    ///
+    /// This is only supposed to be called at the beginning of the semantic analysis process
+    ///
+    /// # Errors
+    ///
+    /// If the element already exists
     pub fn insert_untyped_element(
         &mut self,
         to_insert: Element::ASTReference<'a, 'a>,
@@ -216,7 +263,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
             return None;
         }
         let guard =
-            SyntaxElementWithTypeParameterGuard::new_root(untyped_symbol.clone(), to_insert);
+            SyntaxElementWithTypeParameterTranslator::new(untyped_symbol.clone(), to_insert, self.type_parameters.clone());
         self.elements.insert(untyped_symbol, RefCell::new(guard));
         Some(())
     }
@@ -225,6 +272,9 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         self.elements.keys().cloned()
     }
 
+    /// Gets a typed variant of an untyped symbol with the provided type parameters
+    ///
+    /// If it doesn't exist, it and the rest of its element is created
     pub fn get_or_insert_typed_symbol<'b>(
         &self,
         root: &'b SyntaxElementMap<'a>,
@@ -232,6 +282,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         type_parameters: &[TypedTypeParameter],
     ) -> Option<Rc<Element::Symbol<TypedAST>>> {
         {
+            // Use an inner scope to drop the borrow and prevent panics
             let guard = self.elements.get(&symbol)?.borrow_mut();
 
             if guard.typed_variant(type_parameters).is_none() {
@@ -270,7 +321,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         symbol: &<Element as AnalyzableSyntaxElementWithTypeParameter>::Symbol<UntypedAST>,
         type_parameters: &[TypedTypeParameter],
     ) -> Option<RefMut<'b, TypedSyntaxElement<'a, Element>>> {
-        RefMut::<'_, SyntaxElementWithTypeParameterGuard<'a, 'a, Element>>::filter_map(
+        RefMut::<'_, SyntaxElementWithTypeParameterTranslator<'a, 'a, Element>>::filter_map(
             self.elements.get(symbol)?.borrow_mut(),
             |guard| guard.typed_variant_mut(type_parameters),
         )

@@ -35,7 +35,6 @@ pub(crate) fn symbol_by_name<'a>(
     let mut parts = name.split('.');
 
     let first = parts.next()?;
-    // TODO: Support structs
     let (prefix_name, name) = if let Some(second) = parts.next() {
         // If there are three parts, error
         if parts.next().is_some() {
