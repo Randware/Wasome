@@ -69,6 +69,9 @@ fn collect_from_directory<'a>(
     Ok(())
 }
 
+/// A place where traversal helpers are stored
+///
+/// Arenas are used as they all must have the same lifetime for the [`SyntaxMap`]
 pub(crate) struct TraversalHelpers<'a> {
     pub directories: Arena<DirectoryTraversalHelper<'a, 'a, UntypedAST>>,
     pub files: Arena<FileTraversalHelper<'a, 'a, UntypedAST>>,
