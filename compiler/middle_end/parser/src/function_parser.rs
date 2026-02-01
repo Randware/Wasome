@@ -16,7 +16,7 @@ use std::rc::Rc;
 /// Parses a single function
 pub(crate) fn function_parser<'src>()
 -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Function<UntypedAST>>> {
-    let statement = statement_parser();
+    let statement = statement_parser().boxed();
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let param = data_type
