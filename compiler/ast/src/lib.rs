@@ -633,8 +633,7 @@ mod tests {
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
         let function_ref = file_traversal_helper
-            .function_by_identifier(("fibonacci", &[]))
-            .unwrap();
+            .function_by_identifier(("fibonacci", &[])).unwrap();
 
         let root = function_ref.ref_to_implementation();
         let return_statement = root.get_child(3).unwrap();
@@ -2013,7 +2012,7 @@ pub(crate) mod test_shared {
     use crate::directory::Directory;
     use crate::expression::{Expression, Literal};
     use crate::file::File;
-    use crate::statement::VariableDeclaration;
+    use crate::statement::{VariableAssignment, VariableDeclaration};
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
     use crate::{AST, ASTNode, ASTType, TypedAST};

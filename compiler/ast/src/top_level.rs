@@ -46,12 +46,8 @@ impl<Type: ASTType> Function<Type> {
 
 impl<Type: ASTType> SemanticEq for Function<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        let res = self.declaration().semantic_eq(other.declaration())
-            && self.implementation.semantic_eq(&other.implementation);
-        if !res {
-            dbg!(res);
-        }
-        res
+        self.declaration().semantic_eq(other.declaration())
+            && self.implementation.semantic_eq(&other.implementation)
     }
 }
 
@@ -115,7 +111,7 @@ impl SemanticEq for Import {
 }
 
 /// The place from where the provided path in an import originates
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ImportRoot {
     /// In the current module, comparable with ./
     CurrentModule,

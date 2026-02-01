@@ -76,6 +76,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "driver"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "io",
+ "parser",
+ "shared",
+ "source",
+ "tempfile",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -231,6 +243,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "chumsky",
+ "io",
  "lexer",
  "shared",
  "source",
