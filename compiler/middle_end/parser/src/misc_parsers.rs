@@ -62,7 +62,7 @@ pub(crate) fn identifier_with_type_parameter_parser<'src>() -> impl Parser<
     &'src [PosInfoWrapper<TokenType>],
     (PosInfoWrapper<String>, Vec<PosInfoWrapper<UntypedDataType>>),
 > + Clone {
-    let type_parameter_usage = type_parameter_usage_parser();
+    let type_parameter_usage = type_parameter_usage_parser().boxed();
     identifier_with_type_parameter_parser_internal(type_parameter_usage)
 }
 

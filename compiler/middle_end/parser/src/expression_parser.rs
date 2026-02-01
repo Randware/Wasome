@@ -40,8 +40,9 @@ pub(crate) fn expression_parser<'src>()
         );
 
         let ident = identifier_parser();
+        let ident_with_typ_param = identifier_with_type_parameter_parser();
 
-        let call = identifier_with_type_parameter_parser()
+        let call = ident_with_typ_param.clone()
             .clone()
             .then(
                 expr.clone()
@@ -73,7 +74,7 @@ pub(crate) fn expression_parser<'src>()
             });
 
         let new_struct = token_parser(TokenType::New)
-            .then(identifier_with_type_parameter_parser())
+            .then(ident_with_typ_param.clone())
             .then_ignore(token_parser(TokenType::OpenScope))
             .then(
                 identifier_parser()
@@ -102,7 +103,7 @@ pub(crate) fn expression_parser<'src>()
                 )
             });
 
-        let new_enum = identifier_with_type_parameter_parser()
+        let new_enum = ident_with_typ_param
             .then_ignore(token_parser(TokenType::PathSeparator))
             .then(identifier_parser())
             .then(
