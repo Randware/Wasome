@@ -7,6 +7,7 @@ use ast::composite::{Enum, Struct};
 use ast::top_level::{Function, Import};
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
+use io::FullIO;
 use lexer::TokenType;
 
 /// Parses all Top-Level elements in a file.
@@ -16,8 +17,8 @@ use lexer::TokenType;
 /// # Parameter
 ///
 /// - **file_information**: Information about the to be parsed.
-pub(crate) fn top_level_parser<'src>(
-    file_information: &'src FileInformation,
+pub(crate) fn top_level_parser<'src, Loader: FullIO>(
+    file_information: &'src FileInformation<Loader>,
 ) -> impl Parser<
     'src,
     &'src [PosInfoWrapper<TokenType>],
@@ -85,6 +86,7 @@ mod import_parser {
 
     use shared::code_reference::CodeArea;
 
+    use io::FullIO;
     use std::rc::Rc;
 
     /// Parses a single import.
@@ -94,9 +96,9 @@ mod import_parser {
     /// # Parameter
     ///
     /// - **file_information**: Information about the file to be parsed. This is currently only used
-    ///   in order to resolve import paths correctly
-    pub(super) fn import_parser<'src>(
-        file_information: &'src FileInformation,
+    /// in order to resolve import paths correctly
+    pub(super) fn import_parser<'src, Loader: FullIO>(
+        file_information: &'src FileInformation<Loader>,
     ) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>> {
         let ident = identifier_parser();
         let path = string_parser();

@@ -1,8 +1,6 @@
 use crate::composite::Enum;
 use crate::file::File;
-use crate::symbol::{
-    DirectlyAvailableSymbol, EnumSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable,
-};
+use crate::symbol::{DirectlyAvailableSymbol, EnumSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable, SymbolWithTypeParameter};
 use crate::top_level::Import;
 use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::enum_traversal::EnumTraversalHelper;
@@ -128,6 +126,18 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
         self.inner
             .struct_iterator()
             .map(|st| StructTraversalHelper::new(st, self))
+    }
+    pub fn function_by_name(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
+        self.function_iterator()
+            .find(|function| function.inner().declaration().name() == name)
+    }
+    /// Gets an iterator over all functions
+    pub fn function_iterator<'c>(
+        &'c self,
+    ) -> impl Iterator<Item = FunctionTraversalHelper<'c, 'b, Type>> + 'c {
+        self.inner
+            .function_iterator()
+            .map(|st| FunctionTraversalHelper::new(st, self))
     }
 
     /// Gets the symbols imported by a specific import

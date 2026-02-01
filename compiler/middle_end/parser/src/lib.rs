@@ -3,6 +3,7 @@ use ast::file::File;
 use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
 use chumsky::Parser;
+use io::FullIO;
 use lexer::{Token, TokenType, lex};
 use shared::code_file::CodeFile;
 use shared::code_reference::{CodeArea, CodeLocation};
@@ -22,7 +23,7 @@ mod top_level_parser;
 /// Information about a file
 ///
 /// This is used to provide the parser with all the required information
-pub struct FileInformation<'a> {
+pub struct FileInformation<'a, Loader: FullIO> {
     /// The file
     ///
     /// Must always be contained within source_map in order for `FileInformation` to be valid
@@ -30,10 +31,10 @@ pub struct FileInformation<'a> {
     /// The name of the module where the file is located
     module_name: &'a str,
     /// "Contains" the file
-    source_map: &'a SourceMap,
+    source_map: &'a SourceMap<Loader>,
 }
 
-impl<'a> FileInformation<'a> {
+impl<'a, Loader: FullIO> FileInformation<'a, Loader> {
     /// Attempts to create a new FileInformation
     ///
     /// # Params
@@ -46,7 +47,11 @@ impl<'a> FileInformation<'a> {
     ///
     /// **None** if `file` is not included in `source_map`
     /// **The new instance** otherwise
-    pub fn new(file: FileID, module_name: &'a str, source_map: &'a SourceMap) -> Option<Self> {
+    pub fn new(
+        file: FileID,
+        module_name: &'a str,
+        source_map: &'a SourceMap<Loader>,
+    ) -> Option<Self> {
         source_map.get_file(&file)?;
         Some(Self {
             file,
@@ -63,7 +68,7 @@ impl<'a> FileInformation<'a> {
         self.module_name
     }
 
-    pub fn source_map(&self) -> &'a SourceMap {
+    pub fn source_map(&self) -> &'a SourceMap<Loader> {
         self.source_map
     }
 
@@ -113,7 +118,7 @@ impl<'a> FileInformation<'a> {
 ///
 /// - **None**: The parsing failed // TODO: Add error handling support
 /// - **Some**: The parsing succeeded and the result is contained within
-pub fn parse(to_parse: FileInformation<'_>) -> Option<File<UntypedAST>> {
+pub fn parse<Loader: FullIO>(to_parse: FileInformation<'_, Loader>) -> Option<File<UntypedAST>> {
     let content = to_parse.file_content();
     let mut tokens = Vec::new();
     let mut all_ok = true;
@@ -127,9 +132,9 @@ pub fn parse(to_parse: FileInformation<'_>) -> Option<File<UntypedAST>> {
     parse_tokens(tokens, &to_parse)
 }
 
-fn parse_tokens(
+fn parse_tokens<Loader: FullIO>(
     to_parse: Vec<Token>,
-    file_information: &FileInformation<'_>,
+    file_information: &FileInformation<'_, Loader>,
 ) -> Option<File<UntypedAST>> {
     let filename = file_information.filename_without_extension()?.to_owned();
     let to_parse_with_file_info = prepare_tokens(to_parse, filename.clone());
