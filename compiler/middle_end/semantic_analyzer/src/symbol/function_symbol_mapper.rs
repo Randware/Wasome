@@ -46,9 +46,12 @@ impl FunctionSymbolMapper {
     ///
     /// Removes the topmost scope from the stack.
     ///
+    /// # Errors
+    /// *   Returns `Err` if the stack is empty (Internal Compiler Error).
+    /// *   Returns `Err` if attempting to pop the **base scope** (stack size 1). The base scope must persist for the function's lifetime.
+    ///
     /// # Returns
-    /// * `Ok(())` if a scope was successfully popped.
-    /// * `Err(String)` if the stack is empty or if attempting to pop the base scope (stack size 1).
+    /// *   `Ok(())` if a scope was successfully popped.
     pub fn exit_scope(&mut self) -> Result<(), String> {
         if self.scope_stack.is_empty() {
             return Err(String::from(
@@ -67,6 +70,10 @@ impl FunctionSymbolMapper {
     }
 
     /// Adds a variable symbol to the current scope.
+    ///
+    /// # Shadowing
+    /// Forbids shadowing within the **same** scope. If a variable with the same name already exists in the current scope, returns an error.
+    /// Shadowing variables from outer scopes is permitted.
     ///
     /// # Parameters
     /// * `symbol` - The variable symbol to insert (`Rc<VariableSymbol<TypedAST>>`).

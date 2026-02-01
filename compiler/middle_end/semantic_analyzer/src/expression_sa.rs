@@ -24,7 +24,7 @@ use std::rc::Rc;
 ///
 /// # Returns
 /// * `Some(Expression<TypedAST>)` if the expression and all nested sub-expressions can be successfully analyzed and typed.
-/// * `None` if analysis or conversion fails for the expression or any of its sub-expressions.
+/// * `None` if analysis or conversion fails for the expression or any of its sub-expressions. Failure context is not provided.
 pub(crate) fn analyze_expression(
     to_analyze: &Expression<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
@@ -64,13 +64,15 @@ pub(crate) fn analyze_expression(
 /// Analyzes an untyped `FunctionCall`, resolves the function symbol, recursively analyzes all arguments,
 /// and delegates the final argument count and type checking to the `FunctionCall::new` constructor.
 ///
+/// This function also enforces that the called function must have a return type.
+///
 /// # Parameters
 /// * `to_analyze` - The untyped `FunctionCall` structure.
 /// * `function_symbol_mapper` - The mapper for resolving the function symbol and analyzing nested expressions.
 ///
 /// # Returns
 /// * `Some(FunctionCall<TypedAST>)` on success.
-/// * `None` on semantic error (undeclared function, argument mismatch, or argument analysis failure).
+/// * `None` on semantic error (undeclared function, argument mismatch, argument analysis failure, or if the function returns `void`).
 pub(crate) fn analyze_non_void_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
@@ -106,6 +108,15 @@ fn analyze_variable_use(
 }
 
 /// Analyzes a literal string and converts it into a `Literal` type.
+///
+/// # Parsing Limits
+/// *   **F64**: Uses `f64::parse`. Accepts standard float representations. Special values like `inf` or `NaN` are accepted.
+/// *   **S32**: Uses `i32::parse`. Returns `None` if the literal exceeds `i32` bounds.
+/// *   **Char**: Expects the string to be wrapped in single quotes (e.g., `'c'`).
+///     - It does *not* support escape sequences
+///         - (e.g., `'\n'` passed as a 2-char string will fail) and strictly expects the inner content to be parseable as a single `char`.
+///         - The lexer already resolves escape sequences, so we don't need to handle them here
+///
 ///
 /// # Parameters
 /// * `to_analyze` - The literal string to be analyzed.

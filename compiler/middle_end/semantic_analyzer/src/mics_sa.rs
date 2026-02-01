@@ -15,6 +15,12 @@ use std::rc::Rc;
 
 /// A helper function that resolves the type names into the right types.
 ///
+/// # Resolution Order
+/// 1.  **Primitives**: Checks if the name matches a primitive type (e.g., `s32`, `bool`).
+/// 2.  **Type Parameters**: Checks if the name matches a generic type parameter in the current context.
+/// 3.  **Structs**: Checks if the name corresponds to a known struct.
+/// 4.  **Enums**: Checks if the name corresponds to a known enum.
+///
 /// # Parameters
 /// * `to_analyze` - The string representation of the data type (e.g., "s32", "bool").
 ///
@@ -176,6 +182,10 @@ fn analyze_type_parameters_providing<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
 /// Analyzes a function call
 ///
 /// Does not care if the function call is void or not
+///
+/// # Panics
+/// Panics if the function symbol exists in the AST but is missing from the global element map.
+/// This indicates a failure in the "Stage 2" symbol collection pass.
 pub(crate) fn analyze_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     mapper: &mut FunctionSymbolMapper,

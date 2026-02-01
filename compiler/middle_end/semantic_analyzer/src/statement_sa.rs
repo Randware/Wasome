@@ -23,6 +23,9 @@ use std::rc::Rc;
 /// handler functions based on the statement type. It ensures that global symbols (functions)
 /// are resolved via the `global_map` and local variables via the `function_symbol_mapper`.
 ///
+/// # Panics
+/// *   Panics if it encounters a `Statement::VoidFunctionCall`. It assumes the untyped AST will never produce a `VoidFunctionCall` directly (these are generated during this analysis phase).
+///
 /// # Parameters
 /// * `to_analyze` - Traversal helper pointing to the statement to analyze (`StatementTraversalHelper<UntypedAST>`).
 /// * `function_symbol_mapper` - Provides current function context (return type, local scopes) (`&mut FunctionSymbolMapper`).
@@ -144,6 +147,9 @@ fn try_analyze_void_method_call(
 ///
 /// It checks if the variable exists in the current scope and if the type of the assigned value matches.
 ///
+/// # Type Checking
+/// Enforces strict type equality. Implicit casting (e.g., `s32` to `s64`) is **not** supported.
+///
 /// # Parameters
 /// * `to_analyze` - The untyped assignment node.
 /// * `function_symbol_mapper` - Used to look up the existing variable in the current scope.
@@ -176,6 +182,10 @@ fn analyze_variable_assignment(
 ///
 /// It registers the new variable in the current scope and ensures the type of the
 /// initializer matches the declared type.
+///
+/// # Shadowing
+/// Allows shadowing of variables defined in outer scopes, but forbids defining a variable
+/// with the same name multiple times within the *same* scope.
 ///
 /// # Parameters
 /// * `to_analyze` - The untyped declaration node.
@@ -260,6 +270,9 @@ fn analyze_return(
 /// Analyzes a control structure (conditional or loop).
 ///
 /// Delegates to `analyze_conditional` or `analyze_loop` respectively.
+///
+/// # Scoping
+/// Creates a new scope for the control structure's body (loops and conditionals).
 ///
 /// # Parameters
 /// * `to_analyze_helper` - Traversal helper for the control structure, providing access to children blocks.
@@ -579,6 +592,11 @@ fn analyze_codeblock(
 /// Analyzes a break statement.
 ///
 /// Traverses up the AST using the helper to ensure the break statement is inside a loop.
+///
+/// # Validation
+/// Implicitly validates that the `break` statement occurs within a `ControlStructure::Loop`.
+/// If the statement is nested within other structures (like conditionals) but eventually enclosed by a loop, it is valid.
+/// If no enclosing loop is found, analysis returns `None`.
 ///
 /// # Parameters
 /// * `to_analyze` - Traversal helper (used to check validity context).

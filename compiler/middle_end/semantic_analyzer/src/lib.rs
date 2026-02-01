@@ -28,6 +28,20 @@ pub fn analyze(to_analyze: AST<UntypedAST>) -> Option<AST<TypedAST>> {
         })
 }
 
+/// Resolves a symbol by its name within the given symbol table.
+///
+/// # Resolution Logic
+/// *   The name is split by `.`.
+/// *   Maximum supported depth is 2 (e.g., `module.symbol` or `symbol`).
+/// *   If the name has more than 2 parts (e.g., `a.b.c`), resolution fails.
+///
+/// # Parameters
+/// *   `name` - The name to resolve.
+/// *   `from` - The symbol table to search in.
+///
+/// # Returns
+/// *   `Some(DirectlyAvailableSymbol)` if found.
+/// *   `None` if not found or if the name format is invalid.
 pub(crate) fn symbol_by_name<'a>(
     name: &str,
     mut from: impl SymbolTable<'a, UntypedAST>,

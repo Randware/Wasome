@@ -121,6 +121,11 @@ impl<'a> SyntaxElementMap<'a> {
     }
 
     /// Fills self with all typed variants that are ever used in the program
+    ///
+    /// # Tree Shaking
+    /// Only functions without type parameters (e.g., `main` or specific implementations) are used as entry points.
+    /// Any code reachable from these functions is analyzed. Unreachable generic functions or unused library code
+    /// that is not transitively referenced by a non-generic function will be ignored.
     pub fn fill(&self) -> Option<()> {
         let mut ok = Some(());
         // It is sufficient to translate all functions without type parameters

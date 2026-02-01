@@ -98,57 +98,6 @@ pub(crate) fn analyze_file(
     Ok(ASTNode::new(typed_file, untyped_file.position().clone()))
 }
 
-/*/// A concrete implementation of `FileContext` used during the semantic analysis of a specific file.
-///
-/// It holds the file's canonical path and its imports to allow for resolving symbol aliases
-/// and relative paths during the analysis of functions within this file.
-struct ConcreteFileContext<'a> {
-    path: String,
-    imports: &'a [ASTNode<Import>],
-}
-
-impl<'a> FileContext for ConcreteFileContext<'a> {
-    /// Returns the canonical path of the current file.
-    fn get_canonical_path(&self) -> &str {
-        &self.path
-    }
-
-    /// Resolves an import alias to its full canonical path.
-    ///
-    /// It searches the file's imports for a matching usage name (alias or implicit name).
-    /// If found, it constructs the full path, handling both root-absolute and relative imports.
-    fn resolve_import(&self, alias: &str) -> Option<String> {
-        for import_node in self.imports {
-            if import_node.usage_name().name() == alias {
-                let suffix = import_node.path().join("::");
-
-                return match import_node.root() {
-                    ImportRoot::Root => Some(suffix),
-                    ImportRoot::CurrentModule => {
-                        let path_obj = std::path::Path::new(&self.path);
-                        if let Some(parent) = path_obj.parent() {
-                            let mut module_parts = Vec::new();
-                            for component in parent.components() {
-                                if let std::path::Component::Normal(part) = component {
-                                    module_parts.push(part.to_string_lossy().to_string());
-                                }
-                            }
-                            if module_parts.is_empty() {
-                                Some(suffix)
-                            } else {
-                                Some(format!("{}::{}", module_parts.join("::"), suffix))
-                            }
-                        } else {
-                            Some(suffix)
-                        }
-                    }
-                };
-            }
-        }
-        None
-    }
-}*/
-
 #[cfg(test)]
 mod tests {
     use super::*;

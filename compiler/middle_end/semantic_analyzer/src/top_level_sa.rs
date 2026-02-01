@@ -12,37 +12,17 @@ use ast::visibility::Visible;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::ops::Deref;
 use std::rc::Rc;
-// I think that this is now obsolete
-/*
-/// Analyzes a top-level element (e.g., a Function) and converts it into its typed representation.
-///
-/// This process ensures semantic correctness for the element's implementation body.
-///
-/// # Parameters
-/// * `to_analyze` - The untyped element to be analyzed (`TopLevelElement<UntypedAST>`).
-/// * `file_mapper` - Provides global context for symbol lookup (e.g., function declarations) (`&mut FileSymbolMapper`).
-/// * `root_helper` - The traversal context for the function's implementation (`&FunctionTraversalHelper<UntypedAST>`).
-///
-/// # Returns
-/// * `Some(TopLevelElement<TypedAST>)` if the element (including its body) could be successfully analyzed.
-/// * `None` if analysis fails (type errors, invalid constructs, or other semantic errors).
-pub(crate) fn analyze_top_level(
-    to_analyze: TopLevelElement<UntypedAST>,
-    file_mapper: &mut FileSymbolMapper,
-    root_helper: &FunctionTraversalHelper<UntypedAST>,
-) -> Option<TopLevelElement<TypedAST>> {
-    match to_analyze {
-        TopLevelElement::Function(untyped_function) => {
-            analyze_function(&untyped_function, root_helper, file_mapper)
-                .map(TopLevelElement::Function)
-        }
-    }
-}*/
 
 /// Analyzes the implementation (body) of an untyped function.
 ///
 /// Initializes the function's local scope, registers parameters, and validates all contained statements and expressions.
 /// Requires the function's signature to be present in the global symbol map prior to execution.
+///
+/// # Panics
+/// *   Panics if function parameters conflict (assumes upstream uniqueness guarantees).
+///
+/// # Control Flow Analysis
+/// Checks if the function always returns a value (if a return type is declared) using `always_return`.
 ///
 /// # Parameters
 /// * `untyped_function` - Function element with the body to analyze (`&Function<UntypedAST>`).
@@ -62,8 +42,7 @@ pub(crate) fn analyze_function(
 
     for param_symbol in symbol.params().iter() {
         func_mapper
-            .add_variable(param_symbol.clone())
-            .expect("Internal error: Function parameters should not conflict.");
+            .add_variable(param_symbol.clone()).ok()?;
     }
 
     let sth = StatementTraversalHelper::new_root(context.ast_reference);
@@ -118,6 +97,10 @@ pub(crate) fn analyze_enum(
 ///
 /// The exact cases where a false-negative happens may change over time, but cases may only be
 /// resolved and not added.
+///
+/// # Limitations
+/// *   **Loops**: Infinite loops (`loop { ... }` or `while (true) { ... }`) are **not** considered to "return", even though they diverge.
+/// *   **Code Blocks**: Only the **last** statement in a code block is checked. If an early return exists but is not the last statement (e.g., followed by unreachable code), it might not be detected.
 fn always_return(to_check: &Statement<TypedAST>) -> bool {
     match to_check {
         Statement::Return(_) => true,
