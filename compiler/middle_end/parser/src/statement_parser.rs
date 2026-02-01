@@ -82,7 +82,7 @@ pub(crate) fn statement_parser<'src>()
                     StructFieldAssignment::<UntypedAST>::new(source, field.inner, val),
                     pos,
                 ))
-            }).boxed();
+            });
 
         let variable_declaration = data_type
             .clone()
@@ -97,7 +97,7 @@ pub(crate) fn statement_parser<'src>()
                     ),
                     combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
                 )
-            }).boxed();
+            });
 
         let return_statement = token_parser(TokenType::Return)
             .then(expression.clone().or_not())
@@ -111,7 +111,7 @@ pub(crate) fn statement_parser<'src>()
                 );
 
                 PosInfoWrapper::new(Return::<UntypedAST>::new(to_return), pos)
-            }).boxed();
+            });
 
         let conditional = token_parser(TokenType::If)
             .then(expression.clone().delimited_by(
@@ -137,7 +137,7 @@ pub(crate) fn statement_parser<'src>()
                 );
 
                 PosInfoWrapper::new(Conditional::new(cond, then, else_statement), pos)
-            }).boxed();
+            });
 
         let if_enum_variant = token_parser(TokenType::If)
             .then(
@@ -197,7 +197,7 @@ pub(crate) fn statement_parser<'src>()
                         pos,
                     )
                 },
-            ).boxed();
+            );
 
         let loop_body = maybe_statement_separator().ignore_then(statement.clone());
         let loop_statement = token_parser(TokenType::Loop)
@@ -234,7 +234,7 @@ pub(crate) fn statement_parser<'src>()
             .map(|((loop_keyword, loop_type), body)| {
                 let pos = combine_code_areas_succeeding(&loop_keyword.pos_info, body.position());
                 PosInfoWrapper::new(Loop::new(body, loop_type), pos)
-            }).boxed();
+            });
 
         let code_block = token_parser(TokenType::OpenScope)
             .then(
@@ -251,7 +251,7 @@ pub(crate) fn statement_parser<'src>()
                     CodeBlock::new(block.into_iter().collect()),
                     combine_code_areas_succeeding(&open.pos_info, &close.pos_info),
                 )
-            }).boxed();
+            });
 
         choice((
             variable_assignment.map(|var_assign| var_assign.map(Statement::VariableAssignment)),
