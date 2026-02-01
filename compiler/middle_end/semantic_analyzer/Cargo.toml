@@ -7,3 +7,9 @@ edition = "2024"
 ast = { path = "../../ast"}
 shared = { path = "../../shared" }
 typed-arena = "2.0.2"
+
+[dev-dependencies]
+tempfile.workspace = true
+driver = { path = "../../driver"}
+source = { path = "../../source" }
+io = { path = "../../io" }

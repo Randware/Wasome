@@ -574,7 +574,7 @@ impl<Type: ASTType> SemanticEq for NewStruct<Type> {
                 .iter()
                 .zip(other.parameters().iter())
                 .all(|(lhs, rhs)| lhs.0.semantic_eq(&rhs.0) && lhs.1.semantic_eq(&rhs.1))
-            && self.symbol() == other.symbol()
+            && self.symbol().semantic_eq(other.symbol())
     }
 }
 
@@ -656,8 +656,8 @@ impl Typed for NewEnum<TypedAST> {
 impl<Type: ASTType> SemanticEq for NewEnum<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.parameters().semantic_eq(other.parameters())
-            && self.variant() == other.variant()
-            && self.to_create() == other.to_create()
+            && self.variant().semantic_eq(other.variant())
+            && self.to_create().semantic_eq(other.to_create())
     }
 }
 
@@ -709,7 +709,7 @@ impl Typed for StructFieldAccess<TypedAST> {
 
 impl<Type: ASTType> SemanticEq for StructFieldAccess<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.of().semantic_eq(other.of()) && self.field() == other.field()
+        self.of().semantic_eq(other.of()) && self.field().semantic_eq(other.field())
     }
 }
 

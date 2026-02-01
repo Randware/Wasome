@@ -37,34 +37,6 @@ pub(crate) fn statement_parser<'src>()
 
         let expression = expression_parser();
 
-        let call = identifier_with_type_parameter_parser()
-            .clone()
-            .then(
-                expression
-                    .clone()
-                    .separated_by(token_parser(TokenType::ArgumentSeparator))
-                    .collect::<Vec<ASTNode<Expression<UntypedAST>>>>()
-                    .delimited_by(
-                        token_parser(TokenType::OpenParen),
-                        token_parser(TokenType::CloseParen),
-                    ),
-            )
-            .map(|(identifier, args)| {
-                let pos = combine_code_areas_succeeding(
-                    identifier.0.pos_info(),
-                    args.last()
-                        .map(|to_map| to_map.position())
-                        .unwrap_or(identifier.0.pos_info()),
-                );
-                PosInfoWrapper::new(
-                    FunctionCall::<UntypedAST>::new(
-                        (identifier.0.inner, remove_pos_info_from_vec(identifier.1)),
-                        args,
-                    ),
-                    pos,
-                )
-            });
-
         let variable_assignment = ident
             .clone()
             .then_ignore(token_parser(TokenType::Assign))
@@ -303,7 +275,6 @@ pub(crate) fn statement_parser<'src>()
             }),
             code_block.map(|code_block| code_block.map(Statement::Codeblock)),
             return_statement.map(|return_statement| return_statement.map(Statement::Return)),
-            call.map(|func| func.map(Statement::VoidFunctionCall)),
             expression.map(|expr| -> PosInfoWrapper<Statement<UntypedAST>> {
                 let pos = expr.position().clone();
                 PosInfoWrapper::new(Statement::Expression(expr), pos)

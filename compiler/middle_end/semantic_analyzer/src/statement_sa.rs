@@ -107,14 +107,11 @@ fn try_analyze_void_function_call(
         _ => return None,
     };
 
-    let symbol = symbol_by_name(&call.function().0, to_analyze.symbols_available_at())?;
-
-    if let DirectlyAvailableSymbol::Function(func) = symbol {
-        func.return_type()?;
-    } else {
+    let call = analyze_function_call(call, function_symbol_mapper, context)?;
+    if call.function().return_type().is_some() {
         return None;
-    };
-    analyze_function_call(call, function_symbol_mapper, context)
+    }
+    Some(call)
 }
 
 fn try_analyze_void_method_call(

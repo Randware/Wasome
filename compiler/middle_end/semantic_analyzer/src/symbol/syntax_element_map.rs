@@ -288,9 +288,10 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     ) -> Option<Rc<Element::Symbol<TypedAST>>> {
         {
             // Use an inner scope to drop the borrow and prevent panics
-            let guard = self.elements.get(&symbol)?.borrow_mut();
+            let guard = self.elements.get(&symbol)?.borrow();
 
             if guard.typed_variant(type_parameters).is_none() {
+                drop(guard);
                 self.insert_typed_variant(type_parameters.to_vec(), root, symbol.clone())?;
             }
         }

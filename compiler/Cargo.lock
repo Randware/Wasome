@@ -334,7 +334,11 @@ name = "semantic_analyzer"
 version = "0.1.0"
 dependencies = [
  "ast",
+ "driver",
+ "io",
  "shared",
+ "source",
+ "tempfile",
  "typed-arena",
 ]
 
