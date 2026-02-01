@@ -337,7 +337,8 @@ fn analyze_struct_field_access(
     let sfs = context.global_elements.get_struct_fields(
         context
             .global_elements
-            .untyped_struct_symbol_from_typed(&source_symbol).as_deref()?,
+            .untyped_struct_symbol_from_typed(&source_symbol)
+            .as_deref()?,
         source_symbol.type_parameters(),
     )?;
     let sf = sfs
@@ -367,5 +368,4 @@ mod tests {
         assert_eq!(analyze_literal("42"), Some(Literal::S32(42)));
         assert_eq!(analyze_literal("nope"), None);
     }
-    
 }

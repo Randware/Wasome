@@ -98,9 +98,7 @@ pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
         'b: 'a;
     type SubAnalyzables<'a>;
     /// This uses a Rc as the symbol is loaded from the untyped AST and not generated
-    fn load_untyped_symbol<'b>(
-        from: &Self::ASTReference<'_, 'b>,
-    ) -> Rc<Self::Symbol<UntypedAST>>;
+    fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>>;
     /// This uses a direct symbol as it is generated
     fn generate_typed_symbol<'b>(
         context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
@@ -128,9 +126,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
     where
         'b: 'a;
     type SubAnalyzables<'a> = ();
-    fn load_untyped_symbol<'b>(
-        from: &Self::ASTReference<'_, 'b>,
-    ) -> Rc<Self::Symbol<UntypedAST>> {
+    fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
         from.inner().declaration_owned()
     }
 
@@ -170,9 +166,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
     where
         'b: 'a;
     type SubAnalyzables<'a> = ();
-    fn load_untyped_symbol<'b>(
-        from: &Self::ASTReference<'_, 'b>,
-    ) -> Rc<Self::Symbol<UntypedAST>> {
+    fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
         from.inner().symbol_owned()
     }
 
@@ -213,9 +207,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
     where
         'b: 'a;
     type SubAnalyzables<'a> = SingleSyntaxElementMap<'a, AnalyzableMethod>;
-    fn load_untyped_symbol<'b>(
-        from: &Self::ASTReference<'_, 'b>,
-    ) -> Rc<Self::Symbol<UntypedAST>> {
+    fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
         from.inner().symbol_owned()
     }
 
@@ -264,9 +256,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     where
         'b: 'a;
     type SubAnalyzables<'a> = ();
-    fn load_untyped_symbol<'b>(
-        from: &Self::ASTReference<'_, 'b>,
-    ) -> Rc<Self::Symbol<UntypedAST>> {
+    fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
         from.1.inner().declaration_owned()
     }
 

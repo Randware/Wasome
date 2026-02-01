@@ -1,5 +1,4 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
-use crate::symbol::syntax_element_map::SingleSyntaxElementMap;
 use crate::symbol::{
     AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext,
 };
@@ -8,7 +7,6 @@ use ast::type_parameter::TypedTypeParameter;
 use ast::{TypedAST, UntypedAST};
 use std::collections::HashMap;
 use std::rc::Rc;
-
 
 /// Translates untyped syntax elements to typed syntax elements
 ///

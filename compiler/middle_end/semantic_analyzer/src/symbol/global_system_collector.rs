@@ -1,6 +1,5 @@
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use ast::UntypedAST;
-use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;

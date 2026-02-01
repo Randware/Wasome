@@ -267,8 +267,11 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         if self.elements.contains_key(&untyped_symbol) {
             return None;
         }
-        let guard =
-            SyntaxElementWithTypeParameterTranslator::new(untyped_symbol.clone(), to_insert, self.type_parameters.clone());
+        let guard = SyntaxElementWithTypeParameterTranslator::new(
+            untyped_symbol.clone(),
+            to_insert,
+            self.type_parameters.clone(),
+        );
         self.elements.insert(untyped_symbol, RefCell::new(guard));
         Some(())
     }

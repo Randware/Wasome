@@ -39,8 +39,7 @@ pub(crate) fn analyze_function(
     func_mapper.set_current_function_return_type(symbol.return_type().cloned());
 
     for param_symbol in symbol.params().iter() {
-        func_mapper
-            .add_variable(param_symbol.clone()).ok()?;
+        func_mapper.add_variable(param_symbol.clone()).ok()?;
     }
 
     let sth = StatementTraversalHelper::new_root(context.ast_reference);
