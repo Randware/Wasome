@@ -25,10 +25,8 @@ use std::rc::Rc;
 /// Checks if the function always returns a value (if a return type is declared) using `always_return`.
 ///
 /// # Parameters
-/// * `untyped_function` - Function element with the body to analyze (`&Function<UntypedAST>`).
-/// * `root_helper` - Traversal context for the function's body (`&FunctionTraversalHelper<UntypedAST>`).
-/// * `file_mapper` - Needed to initialize the `FunctionSymbolMapper` (local scope manager).
-/// * `global_map` - Global symbol table for resolving function signatures and analyzing statements.
+/// * `symbol` - The typed function symbol containing the return type and parameters.
+/// * `context` - The syntax context containing the function traversal helper for the body.
 ///
 /// # Returns
 /// * `Some(Function<TypedAST>)` if the body is semantically correct.

@@ -302,7 +302,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
 /// and converts them from their string representation to `DataType`.
 ///
 /// # Parameters
-/// * `untyped` - The untyped function symbol from the parser.
+/// * `context` - The syntax context containing the function traversal helper.
 ///
 /// # Returns
 /// * `Ok(Rc<FunctionSymbol<TypedAST>>)` - The newly created typed symbol wrapped in an Rc.

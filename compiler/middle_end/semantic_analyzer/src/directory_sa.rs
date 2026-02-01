@@ -10,9 +10,8 @@ use std::path::PathBuf;
 /// aggregating the typed results into a new `Directory` node.
 ///
 /// # Parameters
-/// * `dir_helper` - Traversal helper for the current directory (`&DirectoryTraversalHelper<UntypedAST>`).
-/// * `lookup_map` - Map used by `FileSymbolMapper` for string-based symbol lookups (`&GlobalFunctionMap`).
-/// * `global_map` - The global registry of typed symbols (`&GlobalSymbolMap`).
+/// * `untyped_directory` - The untyped directory node to analyze (`&ASTNode<Directory<UntypedAST>, PathBuf>`).
+/// * `global_elements` - The global registry of typed symbols (`&mut SyntaxElementMap`).
 ///
 /// # Returns
 /// * `Result<ASTNode<Directory<TypedAST>, PathBuf>, String>` - The typed directory node on success, or an error string.

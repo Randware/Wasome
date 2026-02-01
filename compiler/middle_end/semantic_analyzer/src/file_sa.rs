@@ -13,9 +13,8 @@ use std::path::PathBuf;
 /// 3. Reconstructing the file node with typed imports and typed functions.
 ///
 /// # Parameters
-/// * `file_helper` - Traversal helper for the current file (`&FileTraversalHelper<UntypedAST>`).
-/// * `lookup_map` - Map used by `FileSymbolMapper` for string-based symbol lookups (`&GlobalFunctionMap`).
-/// * `global_map` - The global registry of typed symbols (`&GlobalSymbolMap`).
+/// * `untyped_file` - The untyped file node to analyze (`&ASTNode<File<UntypedAST>, PathBuf>`).
+/// * `global_elements` - The global registry of typed symbols (`&mut SyntaxElementMap`).
 ///
 /// # Returns
 /// * `Result<ASTNode<File<TypedAST>, PathBuf>, String>` - The typed file node on success, or an error string.

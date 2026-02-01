@@ -22,7 +22,8 @@ use std::rc::Rc;
 /// 4.  **Enums**: Checks if the name corresponds to a known enum.
 ///
 /// # Parameters
-/// * `to_analyze` - The string representation of the data type (e.g., "s32", "bool").
+/// * `to_analyze` - The untyped data type to analyze (`&UntypedDataType`).
+/// * `context` - The syntax context containing available symbols and type parameters.
 ///
 /// # Returns
 /// * `Some(DataType)` if the string matches a known type.

@@ -27,9 +27,8 @@ use std::rc::Rc;
 /// *   Panics if it encounters a `Statement::VoidFunctionCall`. It assumes the untyped AST will never produce a `VoidFunctionCall` directly (these are generated during this analysis phase).
 ///
 /// # Parameters
-/// * `to_analyze` - Traversal helper pointing to the statement to analyze (`StatementTraversalHelper<UntypedAST>`).
+/// * `context` - The syntax context containing the traversal helper and available symbols.
 /// * `function_symbol_mapper` - Provides current function context (return type, local scopes) (`&mut FunctionSymbolMapper`).
-/// * `global_map` - The global registry of typed function signatures (`&GlobalSymbolMap`).
 ///
 /// # Returns
 /// * `Some(Statement<TypedAST>)` if the statement and its children were successfully analyzed.
@@ -153,8 +152,7 @@ fn try_analyze_void_method_call(
 /// # Parameters
 /// * `to_analyze` - The untyped assignment node.
 /// * `function_symbol_mapper` - Used to look up the existing variable in the current scope.
-/// * `helper` - The traversal helper providing the scope context for the value expression.
-/// * `global_map` - Used for function lookups within the assigned expression.
+/// * `context` - The syntax context providing the scope and symbol resolution.
 ///
 /// # Returns
 /// * `Some(VariableAssignment<TypedAST>)` if the variable exists and types match.
@@ -189,9 +187,8 @@ fn analyze_variable_assignment(
 ///
 /// # Parameters
 /// * `to_analyze` - The untyped declaration node.
+/// * `context` - The syntax context providing symbol resolution for types and expressions.
 /// * `function_symbol_mapper` - Used to register the new variable in the current scope.
-/// * `helper` - The traversal helper providing context for the value expression.
-/// * `global_map` - Used for function lookups within the value expression.
 ///
 /// # Returns
 /// * `Some(VariableDeclaration<TypedAST>)` if the variable is successfully declared.
@@ -232,9 +229,8 @@ fn analyze_variable_declaration(
 ///
 /// # Parameters
 /// * `to_analyze` - The untyped return node.
+/// * `context` - The syntax context providing symbol resolution for the returned expression.
 /// * `function_symbol_mapper` - Used to check against the function's expected return type.
-/// * `helper` - The traversal helper providing context for the returned expression.
-/// * `global_map` - Used for function lookups within the returned expression.
 ///
 /// # Returns
 /// * `Some(Return<TypedAST>)` if the return value matches the function signature.
@@ -275,9 +271,9 @@ fn analyze_return(
 /// Creates a new scope for the control structure's body (loops and conditionals).
 ///
 /// # Parameters
-/// * `to_analyze_helper` - Traversal helper for the control structure, providing access to children blocks.
+/// * `to_analyze` - The untyped control structure.
+/// * `context` - The syntax context providing access to children blocks and symbol resolution.
 /// * `function_symbol_mapper` - Context for scope and variable management.
-/// * `global_map` - Context for global function resolution.
 ///
 /// # Returns
 /// * `Some(ControlStructure<TypedAST>)` if the structure and its blocks are valid.
@@ -308,9 +304,9 @@ fn analyze_control_structure(
 /// Recursively analyzes the condition expression and the 'then' and 'else' blocks.
 ///
 /// # Parameters
-/// * `to_analyze_helper` - Traversal helper for the if-statement.
+/// * `to_analyze` - The untyped conditional (if/else) structure.
+/// * `context` - The syntax context for resolving expressions and traversing blocks.
 /// * `function_symbol_mapper` - Manages scopes for the then/else blocks.
-/// * `global_map` - Passed down for expression and statement analysis.
 ///
 /// # Returns
 /// * `Some(Conditional<TypedAST>)` if the condition is boolean and blocks are valid.
@@ -370,9 +366,9 @@ fn analyze_conditional(
 /// Handles the specific child indexing defined in `statement.rs` for loops.
 ///
 /// # Parameters
-/// * `to_analyze_helper` - Traversal helper for the loop structure.
+/// * `to_analyze` - The untyped loop structure.
+/// * `context` - The syntax context for resolving expressions and traversing the loop body.
 /// * `function_symbol_mapper` - Manages scopes for the loop body.
-/// * `global_map` - Passed down for expression and statement analysis.
 ///
 /// # Returns
 /// * `Some(Loop<TypedAST>)` if the loop structure and body are valid.
@@ -556,9 +552,8 @@ fn analyze_if_enum_variant(
 /// Creates a new scope for the duration of the block.
 ///
 /// # Parameters
-/// * `to_analyze_helper` - Traversal helper for the code block.
+/// * `context` - The syntax context pointing to the code block traversal helper.
 /// * `function_symbol_mapper` - Context used to create a new scope for the block.
-/// * `global_map` - Passed down for nested analysis.
 ///
 /// # Returns
 /// * `Some(CodeBlock<TypedAST>)` if all statements in the block are valid.
@@ -599,7 +594,7 @@ fn analyze_codeblock(
 /// If no enclosing loop is found, analysis returns `None`.
 ///
 /// # Parameters
-/// * `to_analyze` - Traversal helper (used to check validity context).
+/// * `context` - The syntax context (used to check validity context by traversing parents).
 ///
 /// # Returns
 /// * `Some(Statement::Break)` if inside a loop.
