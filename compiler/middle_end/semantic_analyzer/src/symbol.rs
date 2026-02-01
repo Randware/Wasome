@@ -24,6 +24,7 @@ pub mod global_system_collector;
 pub(crate) mod syntax_element_map;
 mod syntax_element_with_type_parameter_guard;
 
+/// Contains all relevant information about type parameters for a syntax element
 #[derive(Clone)]
 pub(crate) struct TypeParameterContext {
     parent: Option<Rc<Self>>,
@@ -37,26 +38,9 @@ impl TypeParameterContext {
             .find(|ttp| ttp.name() == to_lookup)
             .or_else(|| self.parent.as_ref()?.lookup_typed_type_parameter(to_lookup))
     }
-    pub fn current(&self) -> &[TypedTypeParameter] {
-        &self.current
-    }
 
     pub fn current_owned(&self) -> Rc<[TypedTypeParameter]> {
         self.current.clone()
-    }
-
-    pub fn new_child(parent: Rc<Self>, current: Rc<[TypedTypeParameter]>) -> Self {
-        Self {
-            parent: Some(parent),
-            current,
-        }
-    }
-
-    pub fn new_root(current: Rc<[TypedTypeParameter]>) -> Self {
-        Self {
-            parent: None,
-            current,
-        }
     }
 
     pub fn new(parent: Option<Rc<Self>>, current: Rc<[TypedTypeParameter]>) -> Self {
@@ -64,6 +48,7 @@ impl TypeParameterContext {
     }
 }
 
+/// Contains all relevant information for semantic analysis of a syntax element
 pub(crate) struct SyntaxContext<'a, 'b, ASTReference: Clone> {
     pub global_elements: &'a SyntaxElementMap<'b>,
     pub type_parameter_context: Rc<TypeParameterContext>,
@@ -97,18 +82,24 @@ impl<'a, 'b, 'c, ASTReference: 'c + Clone> SyntaxContext<'a, 'b, ASTReference> {
     }
 }
 
+/// A syntax element that can be semantically analyzed
+///
+/// Instantiating implementors of this is not intended
+///
+/// See [`SingleSyntaxElementMap`] for more information
 pub(crate) trait AnalyzableSyntaxElementWithTypeParameter {
     type Symbol<Type: ASTType>: SymbolWithTypeParameter<Type>;
     type PreImplementation: Clone;
+    /// The implementation, e.g.: `Function<TypedAST>`
     type Implementation;
+    /// A reference to the AST part of this syntax element
     type ASTReference<'a, 'b>: Clone
     where
         'b: 'a;
     type SubAnalyzables<'a>;
     /// This uses a Rc as the symbol is loaded from the untyped AST and not generated
-    // Rustrover is wrong, the lifetimes can't be elided
-    fn load_untyped_symbol<'a, 'b>(
-        from: &Self::ASTReference<'a, 'b>,
+    fn load_untyped_symbol<'b>(
+        from: &Self::ASTReference<'_, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>>;
     /// This uses a direct symbol as it is generated
     fn generate_typed_symbol<'b>(
@@ -137,8 +128,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
     where
         'b: 'a;
     type SubAnalyzables<'a> = ();
-    fn load_untyped_symbol<'a, 'b>(
-        from: &Self::ASTReference<'a, 'b>,
+    fn load_untyped_symbol<'b>(
+        from: &Self::ASTReference<'_, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
         from.inner().declaration_owned()
     }
@@ -179,8 +170,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
     where
         'b: 'a;
     type SubAnalyzables<'a> = ();
-    fn load_untyped_symbol<'a, 'b>(
-        from: &Self::ASTReference<'a, 'b>,
+    fn load_untyped_symbol<'b>(
+        from: &Self::ASTReference<'_, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
         from.inner().symbol_owned()
     }
@@ -222,8 +213,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
     where
         'b: 'a;
     type SubAnalyzables<'a> = SingleSyntaxElementMap<'a, AnalyzableMethod>;
-    fn load_untyped_symbol<'a, 'b>(
-        from: &Self::ASTReference<'a, 'b>,
+    fn load_untyped_symbol<'b>(
+        from: &Self::ASTReference<'_, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
         from.inner().symbol_owned()
     }
@@ -272,8 +263,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     where
         'b: 'a;
     type SubAnalyzables<'a> = ();
-    fn load_untyped_symbol<'a, 'b>(
-        from: &Self::ASTReference<'a, 'b>,
+    fn load_untyped_symbol<'b>(
+        from: &Self::ASTReference<'_, 'b>,
     ) -> Rc<Self::Symbol<UntypedAST>> {
         from.1.inner().declaration_owned()
     }
