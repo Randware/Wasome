@@ -17,10 +17,10 @@ pub(crate) fn struct_parser<'src>()
 -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Struct<UntypedAST>>> {
     let data_type = datatype_parser();
     let ident = identifier_parser();
-    let function = function_parser();
+    let function = function_parser().boxed();
     let field = visibility_parser()
         .then(data_type)
-        .then(identifier_parser());
+        .then(ident.clone());
     visibility_parser()
         .then(
             token_parser(TokenType::Struct)

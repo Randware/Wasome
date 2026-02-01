@@ -35,9 +35,9 @@ pub(crate) fn top_level_parser<'src, Loader: FullIO>(
         .collect::<Vec<_>>();
 
     let top_level_element = choice((
-        function_parser().map(TopLevelElement::Function),
-        enum_parser().map(TopLevelElement::Enum),
-        struct_parser().map(TopLevelElement::Struct),
+        function_parser().boxed().map(TopLevelElement::Function),
+        enum_parser().boxed().map(TopLevelElement::Enum),
+        struct_parser().boxed().map(TopLevelElement::Struct),
     ));
     let top_level_elements = top_level_element
         .separated_by(statement_separator())
