@@ -205,8 +205,8 @@ pub(crate) struct AnalyzableStruct;
 impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
     type Symbol<Type: ASTType> = StructSymbol<Type>;
     type PreImplementation = Vec<Rc<StructFieldSymbol<TypedAST>>>;
-    // Implementation is just Symbol + PreImplementation as the rest (methods) can still change
-    // later and is in SubAnalyzables
+    /// Implementation is just Symbol + PreImplementation as the rest (methods) can still change
+    /// later and is in SubAnalyzables
     type Implementation = (Rc<Self::Symbol<TypedAST>>, Self::PreImplementation);
     type ASTReference<'a, 'b>
         = &'a StructTraversalHelper<'a, 'b, UntypedAST>
@@ -255,6 +255,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     type Symbol<Type: ASTType> = FunctionSymbol<Type>;
     type PreImplementation = ();
     type Implementation = ASTNode<Function<TypedAST>>;
+    /// This includes the parent struct as we need to access it too
     type ASTReference<'a, 'b>
         = (
         &'a StructTraversalHelper<'a, 'b, UntypedAST>,
