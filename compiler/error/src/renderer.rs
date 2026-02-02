@@ -341,7 +341,10 @@ impl<'a, S: ?Sized> Renderer<'a, S> {
                     false => self.styling.context_highlight,
                 };
 
-                let label = Label::new((cached.path.clone(), ann.range.clone()))
+                let start_char = Self::byte_to_char_idx(&cached.content, ann.range.start);
+                let end_char = Self::byte_to_char_idx(&cached.content, ann.range.end);
+
+                let label = Label::new((cached.path.clone(), start_char..end_char))
                     .with_message(&ann.message.fg(self.styling.annotation_message))
                     .with_color(color);
 
@@ -350,5 +353,34 @@ impl<'a, S: ?Sized> Renderer<'a, S> {
         }
 
         builder
+    }
+
+    /// Converts a byte position to a character index.
+    fn byte_to_char_idx(s: &str, byte_pos: usize) -> usize {
+        s.char_indices()
+            .enumerate()
+            .find(|(_, (idx, c))| idx + c.len_utf8() > byte_pos)
+            .map(|(i, _)| i)
+            .unwrap_or_else(|| s.chars().count())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source::NoSource;
+
+    #[test]
+    fn test_byte_to_char_idx_conversion() {
+        // The ✨ emoji is 3 bytes long
+        let s = "a✨b";
+
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 0), 0);
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 1), 1);
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 4), 2);
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 5), 3);
+
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 2), 1);
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 3), 1);
     }
 }
