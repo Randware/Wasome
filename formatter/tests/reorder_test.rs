@@ -1,5 +1,5 @@
 use lexer::TokenType;
-use formatter::{ItemCategory, categorize_keyword};
+use formatter::reorder::{ItemCategory, categorize_keyword};
 
 #[test]
 fn test_categorize_keyword() {
