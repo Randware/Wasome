@@ -39,7 +39,17 @@ fn test_all_brackets() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    // Lexing, panics if met with an error
+    let actual_tokens: Vec<Token> = lex(input)
+        .map(|res| res.expect("Lexer failed with error"))
+        .collect();
 
-    assert_eq!(tokens, expected_tokens);
+    // Comparing
+    for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
+        assert_eq!(
+            got, want,
+            "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
+            i, got, want
+        );
+    }
 }

@@ -1,0 +1,6 @@
+fn is_even(s32 n) -> bool {
+    if (n % 2 == 0) {
+        -> true
+    }
+    -> false
+}

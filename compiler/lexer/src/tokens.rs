@@ -21,7 +21,7 @@ pub struct Token {
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
 #[logos(extras = (usize,usize))]
-#[logos(skip r"[\t\f]+")]
+#[logos(skip r"[ \t\r\f]+")]
 pub enum TokenType {
     // Datatypes
     #[token("s8")]
@@ -54,12 +54,18 @@ pub enum TokenType {
     // Values
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
+    #[regex(r#""(\\.|[^\\"])*""#, |lex| lex.slice().to_string())]
+    String(String),
     #[regex(r"\d+\.\d+", |lex| lex.slice().parse().map_err(LexError::Float))]
     Decimal(f64),
     #[regex(r"\d+", |lex| lex.slice().parse().map_err(LexError::Int))]
     Integer(i64),
     #[regex(r"'(\\.|[^\\'])'", char_callback)]
     CharLiteral(char),
+    #[token("true")]
+    True,
+    #[token("false")]
+    False,
 
     // Math Operators
     #[token("+")]
@@ -68,10 +74,12 @@ pub enum TokenType {
     Subtraction,
     #[token("*")]
     Multiplication,
-    #[token("/")]
-    Division,
     #[token("%")]
     Modulo,
+
+    // '/' is a bit extra, since we will be using it for both Math and Filepaths.
+    #[token("/")]
+    Slash,
 
     // Logic Operators
     #[token("<")]
@@ -130,6 +138,8 @@ pub enum TokenType {
     Public,
     #[token("new")]
     New,
+    #[token("import")]
+    Import,
 
     // Symbols
     #[token("->")]
@@ -146,6 +156,8 @@ pub enum TokenType {
     StatementSeparator,
     #[token(",")]
     ArgumentSeparator,
+    #[regex(r"//[^\n]*", |lex| lex.slice().to_string())]
+    Comment(String),
 }
 
 /**

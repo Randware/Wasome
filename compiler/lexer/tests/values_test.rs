@@ -5,7 +5,7 @@ fn test_all_values() {
     let input = r#"
     name name_trimmed
     0.123 123.0 123.01
-    0 123
+    0 123 true false
     "#;
 
     let expected_tokens = vec![
@@ -60,15 +60,35 @@ fn test_all_values() {
             span: 6..9,
         },
         Token {
+            kind: TokenType::True,
+            line: 3,
+            span: 10..14,
+        },
+        Token {
+            kind: TokenType::False,
+            line: 3,
+            span: 15..20,
+        },
+        Token {
             kind: TokenType::StatementSeparator,
             line: 3,
-            span: 9..10,
+            span: 20..21,
         },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    // Lexing, panics if met with an error
+    let actual_tokens: Vec<Token> = lex(input)
+        .map(|res| res.expect("Lexer failed with error"))
+        .collect();
 
-    assert_eq!(tokens, expected_tokens);
+    // Comparing
+    for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
+        assert_eq!(
+            got, want,
+            "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
+            i, got, want
+        );
+    }
 }
 #[test]
 fn test_broken_format_decimal() {
@@ -109,9 +129,19 @@ fn test_broken_format_decimal() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    // Lexing, panics if met with an error
+    let actual_tokens: Vec<Token> = lex(input)
+        .map(|res| res.expect("Lexer failed with error"))
+        .collect();
 
-    assert_eq!(tokens, expected_tokens);
+    // Comparing
+    for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
+        assert_eq!(
+            got, want,
+            "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
+            i, got, want
+        );
+    }
 }
 
 #[test]
@@ -205,7 +235,17 @@ fn test_char_literal() {
         },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    // Lexing, panics if met with an error
+    let actual_tokens: Vec<Token> = lex(input)
+        .map(|res| res.expect("Lexer failed with error"))
+        .collect();
 
-    assert_eq!(tokens, expected_tokens);
+    // Comparing
+    for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
+        assert_eq!(
+            got, want,
+            "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
+            i, got, want
+        );
+    }
 }
