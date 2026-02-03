@@ -11,6 +11,8 @@ mod combined;
 /// This is used instead of normal functions to allow for better composability with [`Self::then`]
 ///
 /// Pipelines can also be created with [`from_func`] and [`from_func_infallible`]
+///
+/// `Output` is an associated type to prevent issues with unconstraint type parameters
 pub trait Pipeline<Input, Error> {
     type Output;
     fn process(&self, input: Input) -> Result<Self::Output, Error>;
@@ -37,6 +39,8 @@ pub trait Pipeline<Input, Error> {
         Boxed::new(self)
     }
 }
+
+// These functions are external to prevent generic issues
 
 /// Creates a pipeline from a function
 pub fn from_func<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>>(
