@@ -1,53 +1,49 @@
+use std::any::Any;
 use crate::pipeline::Pipeline;
 use std::marker::PhantomData;
 
-pub struct FromInfallibleFunc<Input, Output, Func: Fn(Input) -> Output> {
+pub struct FromInfallibleFunc<Func>
+{
     func: Func,
-    /// Prevent type parameter not used problems
-    /// Only required on the input as associated type usage silences the error and
-    /// return from Fn is associated type usage
-    _input_phantom: PhantomData<Input>,
 }
 
-impl<Input, Output, Func: Fn(Input) -> Output> FromInfallibleFunc<Input, Output, Func> {
+impl<Func> FromInfallibleFunc<Func> {
     pub const fn new(func: Func) -> Self {
         Self {
             func,
-            _input_phantom: PhantomData,
         }
     }
 }
 
-impl<Input, Output, Error, Func: Fn(Input) -> Output> Pipeline<Input, Output, Error>
-    for FromInfallibleFunc<Input, Output, Func>
+impl<Input, Output, Error, Func> Pipeline<Input, Error>
+    for FromInfallibleFunc<Func>
+where Func: Fn(Input) -> Output
 {
+    type Output = Output;
     fn process(&self, input: Input) -> Result<Output, Error> {
         Ok((self.func)(input))
     }
 }
 
-pub struct FromFunc<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>> {
+pub struct FromFunc<Func> {
     func: Func,
-    /// Prevent type parameter not used problems
-    /// Only required on the input as associated type usage silences the error and
-    /// return from Fn is associated type usage
-    _input_phantom: PhantomData<Input>,
 }
 
-impl<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>>
-    FromFunc<Input, Output, Error, Func>
+impl<Func>
+    FromFunc<Func>
 {
     pub const fn new(func: Func) -> Self {
         Self {
             func,
-            _input_phantom: PhantomData,
         }
     }
 }
 
-impl<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>> Pipeline<Input, Output, Error>
-    for FromFunc<Input, Output, Error, Func>
+impl<Input, Output, Error, Func> Pipeline<Input, Error>
+    for FromFunc<Func>
+where Func: Fn(Input) -> Result<Output, Error>
 {
+    type Output = Output;
     fn process(&self, input: Input) -> Result<Output, Error> {
         (self.func)(input)
     }

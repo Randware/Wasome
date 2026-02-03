@@ -8,6 +8,7 @@ shared = { path = "../shared" }
 ast = { path = "../ast" }
 source = { path = "../source" }
 parser = { path = "../middle_end/parser" }
+semantic_analyzer = { path = "../middle_end/semantic_analyzer" }
 io = { path = "../io" }
 
 [dev-dependencies]
