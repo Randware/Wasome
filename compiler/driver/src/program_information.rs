@@ -41,7 +41,7 @@ impl ProgramInformation {
         let main_file_empty = main_file.iter().count() == 0;
         let main_project_not_found = !projects
             .iter()
-            .any(|project| project.name() == &main_project);
+            .any(|project| project.name() == main_project);
         if main_file_empty || main_project_not_found {
             None
         } else {
