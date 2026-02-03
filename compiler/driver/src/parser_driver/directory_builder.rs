@@ -1,12 +1,11 @@
 use ast::directory::Directory;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
-use std::ops::Deref;
 use std::path::PathBuf;
 
 /// Builds an untyped directory
 #[derive(Debug)]
-pub(crate) struct DirectoryBuilder {
+pub struct DirectoryBuilder {
     /// The location of the directory
     ///
     /// Relative to the program root
@@ -27,7 +26,7 @@ pub(crate) struct DirectoryBuilder {
 }
 
 impl DirectoryBuilder {
-    pub fn new(name: String, location: PathBuf) -> Self {
+    pub const fn new(name: String, location: PathBuf) -> Self {
         Self {
             name,
             location,
@@ -42,7 +41,7 @@ impl DirectoryBuilder {
     ///
     /// # Parameter
     ///
-    /// - **to_add** - The file to add
+    /// - **`to_add`** - The file to add
     ///
     /// # Return
     ///
@@ -66,13 +65,13 @@ impl DirectoryBuilder {
     ///
     /// # Parameter
     ///
-    /// - **to_add** - The directory to add
+    /// - **`to_add`** - The directory to add
     ///
     /// # Return
     ///
     /// - **Some(())** - If adding was successful
     /// - **None** - If a directory with this name already exists
-    fn add_subdirectory_directly(&mut self, to_add: DirectoryBuilder) -> Option<()> {
+    fn add_subdirectory_directly(&mut self, to_add: Self) -> Option<()> {
         match self.subdir_by_name(&to_add.name) {
             None => {
                 self.subdirectories.push(to_add);
@@ -89,7 +88,7 @@ impl DirectoryBuilder {
     ///
     /// # Parameters
     ///
-    /// - **to_add** - The file to add
+    /// - **`to_add`** - The file to add
     ///     - Its name is supposed to be without a file extension
     /// - **path** - The path to traverse before adding
     ///
@@ -117,7 +116,7 @@ impl DirectoryBuilder {
     /// # Return
     ///
     /// **The directory**
-    pub fn subdir_by_path(&mut self, path: &[String]) -> &mut DirectoryBuilder {
+    pub fn subdir_by_path(&mut self, path: &[String]) -> &mut Self {
         match path.first() {
             None => self,
             Some(dir_name) => {
@@ -146,7 +145,7 @@ impl DirectoryBuilder {
     ///
     /// - **None** - The directory does not exist
     /// - **Some(directory)** - The directory was found
-    pub fn subdir_by_path_nonmutating(&self, path: &[String]) -> Option<&DirectoryBuilder> {
+    pub fn subdir_by_path_nonmutating(&self, path: &[String]) -> Option<&Self> {
         match path.first() {
             None => Some(self),
             Some(dir_name) => {
@@ -179,10 +178,7 @@ impl DirectoryBuilder {
         ASTNode::new(
             Directory::new(
                 self.name,
-                self.subdirectories
-                    .into_iter()
-                    .map(|subdir| subdir.build())
-                    .collect(),
+                self.subdirectories.into_iter().map(Self::build).collect(),
                 self.files,
             ),
             self.location,
@@ -203,7 +199,7 @@ impl DirectoryBuilder {
         self.files
             .iter()
             .filter(|file| file.name() == name)
-            .map(|file| file.deref())
+            .map(|file| &**file)
             .next()
     }
 
@@ -227,7 +223,7 @@ impl DirectoryBuilder {
     ///
     /// - **None** - The subdir does not exist
     /// - **Some(subdir)** - The subdir was found
-    fn subdir_by_name(&self, name: &str) -> Option<&DirectoryBuilder> {
+    fn subdir_by_name(&self, name: &str) -> Option<&Self> {
         // Subdirs must be unique by name
         self.subdirectories
             .iter()
@@ -235,7 +231,7 @@ impl DirectoryBuilder {
     }
 
     /// Like [`Self::subdir_by_name`], but with `&mut` instead of `&`
-    fn subdir_by_name_mut(&mut self, name: &str) -> Option<&mut DirectoryBuilder> {
+    fn subdir_by_name_mut(&mut self, name: &str) -> Option<&mut Self> {
         // Subdirs must be unique by name
         self.subdirectories
             .iter_mut()
@@ -257,6 +253,7 @@ mod tests {
     use ast::ASTNode;
     use ast::UntypedAST;
     use ast::file::File;
+    use std::ops::Deref;
     use std::path::PathBuf;
 
     fn create_dummy_file(name: &str) -> ASTNode<File<UntypedAST>, PathBuf> {

@@ -1,7 +1,7 @@
 use crate::pipeline::Pipeline;
 use std::marker::PhantomData;
 
-pub(crate) struct Then<
+pub struct Then<
     Input,
     FirstOutput,
     SecondOutput,
@@ -26,7 +26,7 @@ impl<
     Second: Pipeline<FirstOutput, SecondOutput, Error>,
 > Then<Input, FirstOutput, SecondOutput, Error, First, Second>
 {
-    pub fn new(first: First, second: Second) -> Self {
+    pub const fn new(first: First, second: Second) -> Self {
         Self {
             first,
             second,
@@ -58,7 +58,7 @@ impl<
 /// A pipeline as trait object
 ///
 /// Allows to perform type erasure and shorten types
-pub(crate) struct Boxed<Input, Output, Error> {
+pub struct Boxed<Input, Output, Error> {
     inner: Box<dyn Pipeline<Input, Output, Error>>,
 }
 

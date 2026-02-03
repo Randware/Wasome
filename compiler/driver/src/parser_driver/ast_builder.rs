@@ -14,20 +14,20 @@ const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
 
 /// Builds an entire untyped AST
 #[derive(Debug)]
-pub(crate) struct ASTBuilder<'a, Loader: FullIO> {
+pub struct ASTBuilder<'a, Loader: FullIO> {
     root: DirectoryBuilder,
     load_from: &'a mut SourceMap<Loader>,
     program_information: &'a ProgramInformation,
 }
 
 impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
-    /// Creates a new ASTBuilder
+    /// Creates a new `ASTBuilder`
     ///
-    /// The resulting ASTBuilder will be ready to be [`Self::build`]
+    /// The resulting `ASTBuilder` will be ready to be [`Self::build`]
     /// # Parameters
     ///
     /// - **from** - Information about the program being compiled
-    /// - **load_from** - Where the data should be loaded from
+    /// - **`load_from`** - Where the data should be loaded from
     ///
     /// # Return
     ///
@@ -97,9 +97,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Parameters
     ///
-    /// - **file_location** - The location of the file
-    /// - **to_add** - The file to handle
-    /// - **file_name** - The filename on disk (e.g.: with file extension)
+    /// - **`file_location`** - The location of the file
+    /// - **`to_add`** - The file to handle
+    /// - **`file_name`** - The filename on disk (e.g.: with file extension)
     ///
     /// # Errors
     ///
@@ -126,9 +126,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Parameters
     ///
-    /// - **file_location** - The location of the file
+    /// - **`file_location`** - The location of the file
     /// - **file** - The file to handle
-    /// - **file_name** - The filename on disk (e.g.: with file extension)
+    /// - **`file_name`** - The filename on disk (e.g.: with file extension)
     ///
     /// # Returns
     ///
@@ -156,9 +156,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Parameter
     ///
-    /// - **file_location** - Where to add the file
+    /// - **`file_location`** - Where to add the file
     /// - **file** - The file to add
-    /// - **file_name** - The filename on disk (e.g.: with file extension)
+    /// - **`file_name`** - The filename on disk (e.g.: with file extension)
     ///
     /// # Errors
     ///
@@ -185,8 +185,8 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Parameters
     ///
-    /// - **file_location** - The location of the file. May not be empty
-    /// - **to_parse**: The file, provided as id in the [`SourceMap`] of self
+    /// - **`file_location`** - The location of the file. May not be empty
+    /// - **`to_parse`**: The file, provided as id in the [`SourceMap`] of self
     ///
     /// # Return
     ///
@@ -198,11 +198,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// - The file contains syntax errors
     ///
     /// All errors are represented by a return of `None`
-    fn parse_file(
-        &mut self,
-        file_location: &ModulePath,
-        to_parse: FileID,
-    ) -> Option<File<UntypedAST>> {
+    fn parse_file(&self, file_location: &ModulePath, to_parse: FileID) -> Option<File<UntypedAST>> {
         let last = file_location.elements().pop()?;
         let file_information = FileInformation::new(to_parse, &last, self.load_from)?;
         let parsed = parse(file_information)?;
@@ -220,7 +216,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Parameter
     ///
-    /// - **module_path** - The import path
+    /// - **`module_path`** - The import path
     ///
     /// # Errors
     ///
@@ -243,16 +239,17 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 // We don't load the file, but there is no error
                 return true;
             }
-            let loaded = match self.load_file(module_dir.clone(), &file) {
-                Some(value) => value,
-                None => return false,
+            let loaded = if let Some(value) = self.load_file(module_dir.clone(), &file) {
+                value
+            } else {
+                return false;
             };
             if self
                 .add_file_handle_imports(import_path, loaded, &file)
                 .is_none()
             {
                 return false;
-            };
+            }
             true
         }) {
             Some(())
@@ -267,9 +264,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Parameters
     ///
-    /// - **module_path** - The path of the module the file belongs to
+    /// - **`module_path`** - The path of the module the file belongs to
     ///     - Relative to the root of the [`SourceMap`]
-    /// - **file_name** - The name of the file
+    /// - **`file_name`** - The name of the file
     ///     - Excluding the file extension
     ///
     /// # Return
@@ -285,7 +282,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Parameters
     ///
-    /// - **module_path** - The path of the module the file belongs to
+    /// - **`module_path`** - The path of the module the file belongs to
     ///     - Relative to the root of the [`SourceMap`]
     ///
     /// # Return
@@ -315,16 +312,16 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         )
     }
 
-    /// Loads a file into the SourceMap and returns the FileID handle to it
+    /// Loads a file into the `SourceMap` and returns the `FileID` handle to it
     ///
     /// The file is specified via a module path and the file name. They are concatenated to get the
     /// final path
     ///
     /// # Parameters
     ///
-    /// - **module_path** - The path of the module the file belongs to
+    /// - **`module_path`** - The path of the module the file belongs to
     ///     - Relative to the root of the [`SourceMap`]
-    /// - **file_name** - The name of the file
+    /// - **`file_name`** - The name of the file
     ///     - Including the file extension
     ///
     /// # Return

@@ -31,6 +31,7 @@ impl ProgramInformation {
     ///
     /// - `main_file` is empty
     /// - `main_project` is not in `projects`
+    #[must_use]
     pub fn new(
         name: String,
         path: PathBuf,
@@ -55,22 +56,27 @@ impl ProgramInformation {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub fn path(&self) -> &Path {
         &self.path
     }
 
+    #[must_use]
     pub fn projects(&self) -> &[Project] {
         &self.projects
     }
 
+    #[must_use]
     pub fn main_file(&self) -> &Path {
         &self.main_file
     }
 
+    #[must_use]
     pub fn main_project(&self) -> &str {
         &self.main_project
     }
@@ -88,14 +94,17 @@ pub struct Project {
 }
 
 impl Project {
-    pub fn new(name: String, path: PathBuf) -> Self {
+    #[must_use]
+    pub const fn new(name: String, path: PathBuf) -> Self {
         Self { name, path }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub fn path(&self) -> &Path {
         &self.path
     }

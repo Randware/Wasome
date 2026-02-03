@@ -1,7 +1,7 @@
 use crate::pipeline::Pipeline;
 use std::marker::PhantomData;
 
-pub(crate) struct FromInfallibleFunc<Input, Output, Func: Fn(Input) -> Output> {
+pub struct FromInfallibleFunc<Input, Output, Func: Fn(Input) -> Output> {
     func: Func,
     /// Prevent type parameter not used problems
     /// Only required on the input as associated type usage silences the error and
@@ -10,7 +10,7 @@ pub(crate) struct FromInfallibleFunc<Input, Output, Func: Fn(Input) -> Output> {
 }
 
 impl<Input, Output, Func: Fn(Input) -> Output> FromInfallibleFunc<Input, Output, Func> {
-    pub fn new(func: Func) -> Self {
+    pub const fn new(func: Func) -> Self {
         Self {
             func,
             _input_phantom: PhantomData,
@@ -26,7 +26,7 @@ impl<Input, Output, Error, Func: Fn(Input) -> Output> Pipeline<Input, Output, Er
     }
 }
 
-pub(crate) struct FromFunc<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>> {
+pub struct FromFunc<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>> {
     func: Func,
     /// Prevent type parameter not used problems
     /// Only required on the input as associated type usage silences the error and
@@ -37,7 +37,7 @@ pub(crate) struct FromFunc<Input, Output, Error, Func: Fn(Input) -> Result<Outpu
 impl<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>>
     FromFunc<Input, Output, Error, Func>
 {
-    pub fn new(func: Func) -> Self {
+    pub const fn new(func: Func) -> Self {
         Self {
             func,
             _input_phantom: PhantomData,

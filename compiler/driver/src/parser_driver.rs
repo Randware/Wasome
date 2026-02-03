@@ -12,8 +12,8 @@ use source::SourceMap;
 ///
 /// # Parameters
 ///
-/// - **program_info** - Information about the program to generate an AST for
-/// - **load_from** - The [`SourceMap`] to load from
+/// - **`program_info`** - Information about the program to generate an AST for
+/// - **`load_from`** - The [`SourceMap`] to load from
 ///
 /// # Return
 ///
@@ -30,5 +30,5 @@ pub fn generate_untyped_ast<Loader: FullIO>(
     program_info: &ProgramInformation,
     load_from: &mut SourceMap<Loader>,
 ) -> Option<AST<UntypedAST>> {
-    ASTBuilder::new(program_info, load_from).map(|ast_builder| ast_builder.build())
+    ASTBuilder::new(program_info, load_from).map(ast_builder::ASTBuilder::build)
 }

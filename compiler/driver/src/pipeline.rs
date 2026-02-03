@@ -4,7 +4,7 @@ use crate::pipeline::combined::{Boxed, Then};
 mod basic;
 mod combined;
 
-pub(crate) trait Pipeline<Input, Output, Error> {
+pub trait Pipeline<Input, Output, Error> {
     fn process(&self, input: Input) -> Result<Output, Error>;
 
     fn from_func<Func: Fn(Input) -> Result<Output, Error>>(
