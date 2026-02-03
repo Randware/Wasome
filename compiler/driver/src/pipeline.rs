@@ -43,7 +43,7 @@ pub trait Pipeline<Input, Error> {
 // These functions are external to prevent generic issues
 
 /// Creates a pipeline from a function
-pub fn from_func<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>>(
+pub const fn from_func<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>>(
     func: Func,
 ) -> FromFunc<Func>
 where
@@ -52,7 +52,7 @@ where
 }
 
 /// Creates a pipeline from a function that can never fail.
-pub fn from_infallible_func<Input, Output, Error, Func: Fn(Input) -> Output>(
+pub const fn from_infallible_func<Input, Output, Error, Func: Fn(Input) -> Output>(
     func: Func,
 ) -> FromInfallibleFunc<Func>
 where
