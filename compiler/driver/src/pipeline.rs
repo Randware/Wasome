@@ -8,7 +8,7 @@ pub trait Pipeline<Input, Error> {
     type Output;
     fn process(&self, input: Input) -> Result<Self::Output, Error>;
 
-    fn then<SecondOutput, Second: Pipeline<Self::Output, Error, Output=SecondOutput>>(
+    fn then<SecondOutput, Second: Pipeline<Self::Output, Error, Output = SecondOutput>>(
         self,
         then: Second,
     ) -> Then<Self, Second>

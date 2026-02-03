@@ -82,6 +82,7 @@ dependencies = [
  "ast",
  "io",
  "parser",
+ "semantic_analyzer",
  "shared",
  "source",
  "tempfile",
