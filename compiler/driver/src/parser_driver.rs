@@ -1,6 +1,6 @@
 //! This part of the driver is responsible for loading programs from a [`SourceMap`] and
 //! using the parser to turn it into an untyped AST.
-//! 
+//!
 //! The parsing and loading can't be separated as the imports of a program, which will only be known
 //! after parsing, decide what to load next.
 mod ast_builder;

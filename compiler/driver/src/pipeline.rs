@@ -39,7 +39,7 @@ pub trait Pipeline<Input, Error> {
 
     /// Boxes self as a trait object to perform type erasure. This makes code more readable.
     ///
-    /// The `'static' lifetime is to prevent lifetime issues as the lifetime of the `self` is erased
+    /// The `'static`' lifetime is to prevent lifetime issues as the lifetime of the `self` is erased
     /// together with its type
     #[must_use]
     fn boxed(self) -> Boxed<Input, Self::Output, Error>
