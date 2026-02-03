@@ -1,3 +1,8 @@
+//! This part of the driver is responsible for loading programs from a [`SourceMap`] and
+//! using the parser to turn it into an untyped AST.
+//! 
+//! The parsing and loading can't be separated as the imports of a program, which will only be known
+//! after parsing, decide what to load next.
 mod ast_builder;
 mod directory_builder;
 mod module_path;
@@ -30,5 +35,5 @@ pub fn generate_untyped_ast<Loader: FullIO>(
     program_info: &ProgramInformation,
     load_from: &mut SourceMap<Loader>,
 ) -> Option<AST<UntypedAST>> {
-    ASTBuilder::new(program_info, load_from).map(ast_builder::ASTBuilder::build)
+    ASTBuilder::new(program_info, load_from).map(ASTBuilder::build)
 }

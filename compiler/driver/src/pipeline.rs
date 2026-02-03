@@ -38,6 +38,9 @@ pub trait Pipeline<Input, Error> {
     }
 
     /// Boxes self as a trait object to perform type erasure. This makes code more readable.
+    ///
+    /// The `'static' lifetime is to prevent lifetime issues as the lifetime of the `self` is erased
+    /// together with its type
     #[must_use]
     fn boxed(self) -> Boxed<Input, Self::Output, Error>
     where
@@ -50,6 +53,8 @@ pub trait Pipeline<Input, Error> {
 // These functions are external to prevent generic issues
 
 /// Creates a pipeline from a function
+///
+/// The function directly performs the operation of the pipeline
 #[must_use]
 pub const fn from_func<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>>(
     func: Func,
