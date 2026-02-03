@@ -1,5 +1,6 @@
 use crate::pipeline::Pipeline;
 
+/// See [`Pipeline::then`]
 pub struct Then<First, Second> {
     first: First,
     second: Second,

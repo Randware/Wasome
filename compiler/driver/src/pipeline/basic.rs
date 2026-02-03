@@ -1,5 +1,6 @@
 use crate::pipeline::Pipeline;
 
+/// See [`super::from_func`]
 pub struct FromInfallibleFunc<Func> {
     func: Func,
 }
@@ -20,6 +21,7 @@ where
     }
 }
 
+/// See [`super::from_infallible_func`]
 pub struct FromFunc<Func> {
     func: Func,
 }

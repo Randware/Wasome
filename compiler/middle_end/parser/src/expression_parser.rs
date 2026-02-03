@@ -42,7 +42,8 @@ pub(crate) fn expression_parser<'src>()
         let ident = identifier_parser();
         let ident_with_typ_param = identifier_with_type_parameter_parser();
 
-        let call = ident_with_typ_param.clone()
+        let call = ident_with_typ_param
+            .clone()
             .clone()
             .then(
                 expr.clone()

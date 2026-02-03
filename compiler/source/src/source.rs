@@ -1,12 +1,12 @@
 use crate::types::{BytePos, FileID, LineInfo, Location, MultiByteChar, Span};
 use io::{FileIO, WasomeLoader};
+use std::fmt::{Debug, Formatter};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
     marker::PhantomData,
     path::{Path, PathBuf},
 };
-use std::fmt::{Debug, Formatter};
 
 /// The central registry for source files
 ///

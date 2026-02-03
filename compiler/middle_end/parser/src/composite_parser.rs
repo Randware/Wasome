@@ -18,9 +18,7 @@ pub(crate) fn struct_parser<'src>()
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let function = function_parser().boxed();
-    let field = visibility_parser()
-        .then(data_type)
-        .then(ident.clone());
+    let field = visibility_parser().then(data_type).then(ident.clone());
     visibility_parser()
         .then(
             token_parser(TokenType::Struct)

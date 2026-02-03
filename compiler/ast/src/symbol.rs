@@ -535,7 +535,7 @@ impl<Type: ASTType> Eq for StructFieldSymbol<Type> {}
 
 impl<Type: ASTType> SemanticEq for StructFieldSymbol<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.name().semantic_eq(other.name()) && self.data_type().semantic_eq(other.data_type()) 
+        self.name().semantic_eq(other.name()) && self.data_type().semantic_eq(other.data_type())
     }
 }
 

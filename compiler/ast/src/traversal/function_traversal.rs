@@ -1,11 +1,13 @@
-use crate::symbol::{DirectlyAvailableSymbol, FunctionSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
+use crate::symbol::{
+    DirectlyAvailableSymbol, FunctionSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol,
+};
 use crate::top_level::Function;
+use crate::traversal::HasSymbols;
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::statement_traversal::StatementTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use crate::traversal::HasSymbols;
 
 /// This struct helps with traversing the AST
 /// It keeps a reference to the ast and a function.
@@ -89,7 +91,10 @@ impl<'a, 'b, Type: ASTType> FunctionSymbolTable<'a, 'b, Type> {
 }
 
 impl<'a, 'b, Type: ASTType> Iterator for FunctionSymbolTable<'a, 'b, Type> {
-    type Item = (Option<&'b ModuleUsageNameSymbol>, DirectlyAvailableSymbol<'b, Type>);
+    type Item = (
+        Option<&'b ModuleUsageNameSymbol>,
+        DirectlyAvailableSymbol<'b, Type>,
+    );
 
     fn next(&mut self) -> Option<Self::Item> {
         next_item_from_slice(self.parameters, &mut self.parameter_index)
