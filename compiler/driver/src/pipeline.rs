@@ -15,12 +15,18 @@ mod combined;
 /// `Output` is an associated type to prevent issues with unconstraint type parameters
 pub trait Pipeline<Input, Error> {
     type Output;
+    /// Processes data with the operation of self
+    ///
+    /// # Errors
+    ///
+    /// The operation might error. This is indicated by a `Err` result
     fn process(&self, input: Input) -> Result<Self::Output, Error>;
 
     /// Creates a new pipeline that chains two pipelines together
     ///
     /// The result will put `Input` into `Self` and its output into `then`. The output of this
     /// operation will then be returned
+    #[must_use]
     fn then<SecondOutput, Second: Pipeline<Self::Output, Error, Output = SecondOutput>>(
         self,
         then: Second,
@@ -32,6 +38,7 @@ pub trait Pipeline<Input, Error> {
     }
 
     /// Boxes self as a trait object to perform type erasure. This makes code more readable.
+    #[must_use]
     fn boxed(self) -> Boxed<Input, Self::Output, Error>
     where
         Self: 'static + Sized,
@@ -43,6 +50,7 @@ pub trait Pipeline<Input, Error> {
 // These functions are external to prevent generic issues
 
 /// Creates a pipeline from a function
+#[must_use]
 pub const fn from_func<Input, Output, Error, Func: Fn(Input) -> Result<Output, Error>>(
     func: Func,
 ) -> FromFunc<Func>
@@ -52,6 +60,7 @@ where
 }
 
 /// Creates a pipeline from a function that can never fail.
+#[must_use]
 pub const fn from_infallible_func<Input, Output, Error, Func: Fn(Input) -> Output>(
     func: Func,
 ) -> FromInfallibleFunc<Func>

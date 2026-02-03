@@ -22,6 +22,7 @@ pub fn syntax_check<'a>(
 /// 2. Parses the result of 1.
 /// 3. Performs semantic analysis
 /// 4. Voids all errors
+#[must_use]
 pub fn syntax_check_pipeline()
 -> impl for<'a> Pipeline<(&'a ProgramInformation, &'a mut SourceMap), (), Output = ()> {
     let from: fn((_, &mut SourceMap)) = |_| ();
