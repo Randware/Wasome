@@ -10,6 +10,7 @@ pub mod pipeline;
 pub mod program_information;
 
 /// Like [`syntax_check_pipeline`], but the pipeline is used immediately
+#[must_use]
 pub fn syntax_check<'a>(
     to_check: &'a ProgramInformation,
     source_map: &'a mut SourceMap,
@@ -29,6 +30,7 @@ pub fn syntax_check_pipeline()
     typed_ast_pipeline().then(from_infallible_func::<_, (), (), _>(from))
 }
 
+#[must_use]
 pub(crate) fn load_parse_pipeline() -> impl for<'a> Pipeline<
     (&'a ProgramInformation, &'a mut SourceMap),
     (),
@@ -46,6 +48,7 @@ pub(crate) fn load_parse_pipeline() -> impl for<'a> Pipeline<
     from_func(from)
 }
 
+#[must_use]
 pub(crate) fn typed_ast_pipeline() -> impl for<'a> Pipeline<
     (&'a ProgramInformation, &'a mut SourceMap),
     (),
