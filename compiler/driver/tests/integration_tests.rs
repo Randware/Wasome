@@ -1,6 +1,7 @@
 use ast::symbol::SymbolWithTypeParameter;
 use driver::parser_driver::generate_untyped_ast;
 use driver::program_information::{ProgramInformation, Project};
+use driver::syntax_check;
 use io::WasomeLoader;
 use source::SourceMap;
 use std::fs;
@@ -229,4 +230,103 @@ fn test_circular_imports() {
             .iter()
             .any(|f| f.declaration().name() == "func_b")
     );
+}
+
+#[test]
+fn test_syntax_check_simple() {
+    let dir = setup_temp_project(&[("simple/main.waso", SIMPLE_MAIN)]);
+    let root = dir.path().to_path_buf();
+    let main_file = PathBuf::from("main.waso");
+
+    let prog_info = ProgramInformation::new(
+        "simple".to_string(),
+        root.clone(),
+        vec![Project::new("simple".to_string(), PathBuf::from("simple"))],
+        "simple".to_string(),
+        main_file,
+    )
+    .unwrap();
+
+    let mut sm = SourceMap::<WasomeLoader>::new(root);
+
+    syntax_check(&prog_info, &mut sm).expect("Syntax check failed for simple program");
+}
+
+#[test]
+fn test_syntax_check_multi_module() {
+    let dir = setup_temp_project(&[
+        ("multi_module/main.waso", MULTI_MODULE_MAIN),
+        ("multi_module/utils/math.waso", MULTI_MODULE_MATH),
+        ("multi_module/utils/string.waso", MULTI_MODULE_STRING),
+    ]);
+    let root = dir.path().to_path_buf();
+    let main_file = PathBuf::from("main.waso");
+
+    let prog_info = ProgramInformation::new(
+        "multi_module".to_string(),
+        root.clone(),
+        vec![Project::new(
+            "multi_module".to_string(),
+            PathBuf::from("multi_module"),
+        )],
+        "multi_module".to_string(),
+        main_file,
+    )
+    .unwrap();
+
+    let mut sm = SourceMap::<WasomeLoader>::new(root);
+
+    syntax_check(&prog_info, &mut sm).expect("Syntax check failed for multi-module program");
+}
+
+#[test]
+fn test_syntax_check_multi_project() {
+    let dir = setup_temp_project(&[
+        ("multi_project/app/main.waso", MULTI_PROJECT_APP_MAIN),
+        ("multi_project/lib/math/ops.waso", MULTI_PROJECT_LIB_OPS),
+    ]);
+    let root = dir.path().to_path_buf().join("multi_project");
+    let main_file = PathBuf::from("main.waso");
+
+    let prog_info = ProgramInformation::new(
+        "multi_project".to_string(),
+        root.clone(),
+        vec![
+            Project::new("app".to_string(), PathBuf::from("app")),
+            Project::new("lib".to_string(), PathBuf::from("lib")),
+        ],
+        "app".to_string(),
+        main_file,
+    )
+    .unwrap();
+
+    let mut sm = SourceMap::<WasomeLoader>::new(root);
+
+    syntax_check(&prog_info, &mut sm).expect("Syntax check failed for multi-project program");
+}
+
+#[test]
+fn test_syntax_check_circular() {
+    let dir = setup_temp_project(&[
+        ("circular/a/a.waso", CIRCULAR_A),
+        ("circular/b/b.waso", CIRCULAR_B),
+    ]);
+    let root = dir.path().to_path_buf();
+    let main_file = PathBuf::from("a/a.waso");
+
+    let prog_info = ProgramInformation::new(
+        "circular".to_string(),
+        root.clone(),
+        vec![Project::new(
+            "circular".to_string(),
+            PathBuf::from("circular"),
+        )],
+        "circular".to_string(),
+        main_file,
+    )
+    .unwrap();
+
+    let mut sm = SourceMap::<WasomeLoader>::new(root);
+
+    syntax_check(&prog_info, &mut sm).expect("Syntax check failed for circular imports");
 }
