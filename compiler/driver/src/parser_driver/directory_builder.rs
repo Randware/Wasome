@@ -261,7 +261,13 @@ mod tests {
 
     fn create_dummy_file(name: &str) -> ASTNode<File<UntypedAST>, PathBuf> {
         ASTNode::new(
-            File::new(name.to_string(), Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+            File::new(
+                name.to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ),
             PathBuf::from(name),
         )
     }

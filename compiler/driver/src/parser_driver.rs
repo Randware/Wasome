@@ -2,11 +2,11 @@ mod ast_builder;
 mod directory_builder;
 mod module_path;
 
-use ast::{UntypedAST, AST};
-use io::FullIO;
-use crate::program_information::ProgramInformation;
-use source::SourceMap;
 use crate::parser_driver::ast_builder::ASTBuilder;
+use crate::program_information::ProgramInformation;
+use ast::{AST, UntypedAST};
+use io::FullIO;
+use source::SourceMap;
 
 /// Generates an entire untyped ast by loading it from the provided [`SourceMap`]
 ///

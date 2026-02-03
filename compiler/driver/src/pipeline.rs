@@ -21,7 +21,7 @@ pub(crate) trait Pipeline<Input, Output, Error> {
         func: Func,
     ) -> FromInfallibleFunc<Input, Output, Func>
     where
-    // Retain dyn compatibility of the trait
+        // Retain dyn compatibility of the trait
         Self: Sized,
     {
         FromInfallibleFunc::new(func)

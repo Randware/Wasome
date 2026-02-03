@@ -64,7 +64,9 @@ pub(crate) struct Boxed<Input, Output, Error> {
 
 impl<Input, Output, Error> Boxed<Input, Output, Error> {
     pub fn new(inner: impl Pipeline<Input, Output, Error> + 'static) -> Self {
-        Self { inner: Box::new(inner) }
+        Self {
+            inner: Box::new(inner),
+        }
     }
 }
 

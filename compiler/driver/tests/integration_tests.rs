@@ -1,22 +1,24 @@
-use io::WasomeLoader;
+use ast::symbol::SymbolWithTypeParameter;
+use driver::parser_driver::generate_untyped_ast;
 use driver::program_information::{ProgramInformation, Project};
+use io::WasomeLoader;
 use source::SourceMap;
 use std::fs;
 use std::ops::Deref;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use ast::symbol::SymbolWithTypeParameter;
-use driver::parser_driver::generate_untyped_ast;
 // --- Test Program Contents ---
 
 const SIMPLE_MAIN: &str = include_str!("test_programs/single_project/min/main.waso");
 
 const MULTI_MODULE_MAIN: &str = include_str!("test_programs/single_project/simple/main.waso");
 const MULTI_MODULE_MATH: &str = include_str!("test_programs/single_project/simple/utils/math.waso");
-const MULTI_MODULE_STRING: &str = include_str!("test_programs/single_project/simple/utils/string.waso");
+const MULTI_MODULE_STRING: &str =
+    include_str!("test_programs/single_project/simple/utils/string.waso");
 
 const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/min/app/main.waso");
-const MULTI_PROJECT_LIB_OPS: &str = include_str!("test_programs/multi-project/min/lib/math/ops.waso");
+const MULTI_PROJECT_LIB_OPS: &str =
+    include_str!("test_programs/multi-project/min/lib/math/ops.waso");
 
 const CIRCULAR_A: &str = include_str!("test_programs/single_project/circular/a/a.waso");
 const CIRCULAR_B: &str = include_str!("test_programs/single_project/circular/b/b.waso");
@@ -52,7 +54,7 @@ fn test_simple_program() {
         main_file,
     )
     .unwrap();
-    
+
     let mut sm = SourceMap::<WasomeLoader>::new(root);
 
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
