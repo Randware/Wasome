@@ -62,7 +62,7 @@ impl ModulePath {
         // We already checked for the error condition
         let path = combine_import_path(
             &container_file_location.relative_to_project,
-            &import_root,
+            import_root,
             import_path,
         )
         .unwrap();

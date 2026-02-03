@@ -227,10 +227,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     fn handle_import(&mut self, import_path: &ModulePath) -> Option<()> {
         let module_dir = import_path.build_path_buf(self.program_information.projects())?;
 
-        let imported_files = self
-            .list_wasome_files_in_dir(&module_dir)?
-            .collect::<Vec<_>>();
-        if imported_files.into_iter().all(|file| {
+        let mut imported_files = self
+            .list_wasome_files_in_dir(&module_dir)?;
+        if imported_files.all(|file| {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
             // All wasome files must have a file extension
@@ -239,9 +238,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 // We don't load the file, but there is no error
                 return true;
             }
-            let loaded = if let Some(value) = self.load_file(module_dir.clone(), &file) {
-                value
-            } else {
+            let Some(loaded) = self.load_file(module_dir.clone(), &file)  else {
                 return false;
             };
             if self
@@ -297,7 +294,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// - Directory not found
     ///
     /// All errors are represented by a return of `None`
-    fn list_wasome_files_in_dir(&self, dir: &Path) -> Option<impl Iterator<Item = String>> {
+    fn list_wasome_files_in_dir(&self, dir: &Path) -> Option<impl Iterator<Item = String> + 'static> {
         Some(
             Loader::list_files(self.program_information.path().join(dir))
                 .ok()?
