@@ -37,11 +37,7 @@ pub(crate) fn load_parse_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
     (),
     Output = (AST<UntypedAST>, &'a mut SourceMap<IO>),
 > {
-    // This is a false positive
-    // Removing the unused parens turns this into a Result with three type parameters instead of a
-    // tuple as type parameter
-    #[allow(unused_parens)]
-    let from: for<'a> fn((&'a _, &'a mut _)) -> Result<((_, &'a mut _)), ()> = |(pi, sm)| {
+    let from: for<'a> fn((&'a _, &'a mut _)) -> Result<(_, &'a mut _), ()> = |(pi, sm)| {
         generate_untyped_ast(pi, sm)
             .ok_or(())
             .map(|unt_ast| (unt_ast, sm))
