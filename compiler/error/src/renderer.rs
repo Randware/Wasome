@@ -1,0 +1,386 @@
+use std::collections::{HashMap, HashSet};
+use std::io::{self, Write};
+use std::marker::PhantomData;
+use std::sync::OnceLock;
+
+use ariadne::{Config, Label, Report, ReportBuilder, ReportKind};
+use regex::Regex;
+use source::types::FileID;
+use yansi::{Color, Paint};
+
+use crate::diagnostic::{Diagnostic, Level, Snippet};
+use crate::source::NoSource;
+use crate::source::SourceLookup;
+
+/// Defines the color scheme for diagnostic elements.
+///
+/// This centralizes styling to ensure consistency across different [`Level`]s,
+/// allowing the renderer to switch themes (e.g., Red for errors, Yellow for warnings) easily.
+struct DiagnosticStyling {
+    type_heading: Color,
+    help_heading: Color,
+    diagnostic_message: Color,
+    annotation_message: Color,
+    help_message: Color,
+    primary_highlight: Color,
+    context_highlight: Color,
+}
+
+/// Stores cached content and path information for a source file.
+#[derive(Clone, Debug)]
+struct CachedSource {
+    path: String,
+    content: String,
+}
+
+/// Handles the construction and rendering of diagnostics.
+pub struct Renderer<'a, S: ?Sized> {
+    diagnostic: &'a Diagnostic,
+    writer: Box<dyn Write>,
+    styling: DiagnosticStyling,
+    cache: HashMap<FileID, CachedSource>,
+    _marker: PhantomData<S>,
+}
+
+impl<'a> Renderer<'a, NoSource> {
+    /// Render without source lookup.
+    pub(crate) fn render(diagnostic: &'a Diagnostic, _source: &'a NoSource) -> io::Result<()> {
+        let mut renderer = Self::new(diagnostic, _source);
+        renderer.print()
+    }
+
+    /// Constructor for rendering without source lookup.
+    fn new(diagnostic: &'a Diagnostic, _source: &'a NoSource) -> Self {
+        let writer = Self::resolve_output(diagnostic.level);
+        let styling = Self::resolve_styling(diagnostic.level);
+
+        // No sources available, so we keep the cache empty
+        let cache = HashMap::new();
+
+        Self {
+            diagnostic,
+            writer,
+            styling,
+            cache,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, S: SourceLookup + ?Sized> Renderer<'a, S> {
+    /// Render with source lookup.
+    pub(crate) fn render(diagnostic: &'a Diagnostic, source: &'a S) -> io::Result<()> {
+        let mut renderer = Self::new(diagnostic, source);
+
+        renderer.print()
+    }
+
+    /// Constructor for rendering with source lookup.
+    fn new(diagnostic: &'a Diagnostic, source: &'a S) -> Self {
+        let writer = Self::resolve_output(diagnostic.level);
+        let styling = Self::resolve_styling(diagnostic.level);
+
+        Self {
+            diagnostic,
+            writer,
+            styling,
+            cache: Self::populate_cache(diagnostic, source),
+            _marker: PhantomData,
+        }
+    }
+
+    /// Populate our source cache. Panics if sources are missing.
+    fn populate_cache(diagnostic: &Diagnostic, source: &S) -> HashMap<FileID, CachedSource> {
+        diagnostic
+            .snippets
+            .iter()
+            .map(|s| s.file)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .map(|id| {
+                let path = source
+                    .get_path(id)
+                    .expect("Failed to load file path")
+                    .to_string_lossy()
+                    .to_string();
+                let content = source
+                    .get_content(id)
+                    .expect("Failed to load file content")
+                    .to_string();
+
+                (id, CachedSource { path, content })
+            })
+            .collect()
+    }
+}
+
+impl<'a, S: ?Sized> Renderer<'a, S> {
+    /// Determines the appropriate output stream (`stdout` or `stderr`) based on the [`Level`].
+    fn resolve_output(level: Level) -> Box<dyn Write> {
+        match level {
+            Level::Error => Box::new(io::stderr()),
+            Level::Warning | Level::Info => Box::new(io::stdout()),
+        }
+    }
+
+    /// Determines the appropriate color styling based on the [`Level`].
+    fn resolve_styling(level: Level) -> DiagnosticStyling {
+        match level {
+            Level::Error => DiagnosticStyling {
+                type_heading: Color::Red,
+                help_heading: Color::Green,
+                diagnostic_message: Color::Primary,
+                annotation_message: Color::Primary,
+                help_message: Color::Primary,
+                primary_highlight: Color::Red,
+                context_highlight: Color::Blue,
+            },
+            Level::Warning => DiagnosticStyling {
+                type_heading: Color::Yellow,
+                help_heading: Color::Green,
+                diagnostic_message: Color::Primary,
+                annotation_message: Color::Primary,
+                help_message: Color::Primary,
+                primary_highlight: Color::Yellow,
+                context_highlight: Color::Blue,
+            },
+            Level::Info => DiagnosticStyling {
+                type_heading: Color::Cyan,
+                help_heading: Color::Green,
+                diagnostic_message: Color::Primary,
+                annotation_message: Color::Primary,
+                help_message: Color::Primary,
+                primary_highlight: Color::Cyan,
+                context_highlight: Color::Blue,
+            },
+        }
+    }
+
+    /// Returns the rendering configuration based on the [`Level`].
+    fn resolve_config(level: Level) -> Config {
+        match level {
+            _ => Config::default(),
+        }
+    }
+
+    /// Orchestrates the printing of all diagnostic components.
+    fn print(&mut self) -> io::Result<()> {
+        // Add padding before the diagnostic
+        writeln!(self.writer)?;
+
+        self.print_header()?;
+
+        for snippet in &self.diagnostic.snippets {
+            self.render_snippet(snippet)?;
+        }
+
+        self.render_help()?;
+
+        // Add padding after the diagnostic
+        writeln!(self.writer)?;
+
+        Ok(())
+    }
+
+    /// Formats and prints the diagnostic header.
+    fn print_header(&mut self) -> io::Result<()> {
+        let title = match self.diagnostic.level {
+            Level::Error => "Error",
+            Level::Warning => "Warning",
+            Level::Info => "Info",
+        };
+
+        let heading = format!(" {} ", title);
+
+        write!(
+            self.writer,
+            "{}",
+            heading.fg(self.styling.type_heading).invert().bold()
+        )?;
+
+        write!(
+            self.writer,
+            " {}",
+            self.diagnostic.message.fg(self.styling.diagnostic_message)
+        )?;
+
+        if let Some(code) = &self.diagnostic.code {
+            write!(
+                self.writer,
+                " {}",
+                format!("{}", code).fg(self.styling.type_heading).bold()
+            )?;
+        }
+
+        writeln!(self.writer)?;
+
+        Ok(())
+    }
+
+    /// Formats and prints a single code [`Snippet`].
+    fn render_snippet(&mut self, snippet: &Snippet) -> io::Result<()> {
+        if let Some(path) = self.cache.get(&snippet.file).map(|c| c.path.clone()) {
+            let kind = ReportKind::Custom("", self.styling.type_heading);
+
+            // Use a dummy range 0..0 for the primary location, as we strip it manually later.
+            let report = Report::build(kind, (path, 0..0))
+                .with_config(Self::resolve_config(self.diagnostic.level));
+
+            let report = self.label_report(report, snippet);
+
+            let buffer = self.strip_report(report)?;
+
+            self.writer.write_all(&buffer)?;
+        }
+
+        Ok(())
+    }
+
+    /// Formats and prints the help message footer.
+    fn render_help(&mut self) -> io::Result<()> {
+        if let Some(help) = &self.diagnostic.help {
+            writeln!(
+                self.writer,
+                "{} {}",
+                " Help ".fg(self.styling.help_heading).invert().bold(),
+                help.fg(self.styling.help_message)
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Post-processes the `ariadne` [`Report`] to strip unwanted artifacts.
+    ///
+    /// This removes the default header lines and cleans up primary location indicators
+    /// that are not needed for this renderer's style.
+    fn strip_report(
+        &mut self,
+        report: ReportBuilder<(String, std::ops::Range<usize>)>,
+    ) -> io::Result<Vec<u8>> {
+        let mut buffer: Vec<u8> = Vec::new();
+        let sources = ariadne::sources(
+            self.cache
+                .values()
+                .map(|c| (c.path.clone(), c.content.clone())),
+        );
+
+        // Render the ariadne report into the buffer
+        report.finish().write(sources, &mut buffer)?;
+
+        let s =
+            String::from_utf8(buffer).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+        let mut output_lines = Vec::new();
+
+        for (i, line) in s.lines().enumerate() {
+            // Skip the first line as it contains an unwanted header
+            if i == 0 {
+                continue;
+            }
+
+            // Strip ANSI sequences to safely check the start of the line
+            let clean = Self::strip_ansi(line);
+            let trimmed = clean.trim_start();
+
+            // Detect if this is a frame line and strip the location info if necessary
+            if trimmed.starts_with('╭') || trimmed.starts_with('├') {
+                output_lines.push(Self::remove_primary_location(line));
+            } else {
+                output_lines.push(line.to_string());
+            }
+        }
+
+        // Convert lines back to a byte stream
+        let mut output = output_lines.join("\n").into_bytes();
+
+        // Restore the trailing newline
+        output.push(b'\n');
+
+        Ok(output)
+    }
+
+    /// Removes ANSI escape sequences from a string.
+    fn strip_ansi(s: &str) -> String {
+        // Compile and store the regex only once
+        static REGEX: OnceLock<Regex> = OnceLock::new();
+        let re = REGEX.get_or_init(|| Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap());
+
+        re.replace_all(s, "").to_string()
+    }
+
+    /// Removes the primary error location text (e.g., line/column numbers) from a line.
+    ///
+    /// This expects the format `path:line:col` (as generated by `ariadne`) and strips
+    /// everything after the first colon up to the next space. This allows us to
+    /// hide the raw line numbers from the report frame for a cleaner look.
+    fn remove_primary_location(line: &str) -> String {
+        // Find the second last colon to correctly identify the start of the location info, this
+        // avoids issues, in case the file name contains a colon.
+        if let Some((colon_idx, _)) = line.rmatch_indices(':').nth(1) {
+            if let Some(space_offset) = line[colon_idx..].find(' ') {
+                let space_idx = colon_idx + space_offset;
+
+                return format!("{}{}", &line[..colon_idx], &line[space_idx..]);
+            }
+        }
+
+        line.to_string()
+    }
+
+    /// Applies annotations from the [`Snippet`] to the [`ReportBuilder`].
+    fn label_report<'b>(
+        &self,
+        mut builder: ReportBuilder<'b, (String, std::ops::Range<usize>)>,
+        snippet: &'b Snippet,
+    ) -> ReportBuilder<'b, (String, std::ops::Range<usize>)> {
+        if let Some(cached) = self.cache.get(&snippet.file) {
+            for ann in &snippet.annotations {
+                let color = match ann.primary {
+                    true => self.styling.primary_highlight,
+                    false => self.styling.context_highlight,
+                };
+
+                let start_char = Self::byte_to_char_idx(&cached.content, ann.range.start);
+                let end_char = Self::byte_to_char_idx(&cached.content, ann.range.end);
+
+                let label = Label::new((cached.path.clone(), start_char..end_char))
+                    .with_message(&ann.message.fg(self.styling.annotation_message))
+                    .with_color(color);
+
+                builder.add_label(label);
+            }
+        }
+
+        builder
+    }
+
+    /// Converts a byte position to a character index.
+    fn byte_to_char_idx(s: &str, byte_pos: usize) -> usize {
+        s.char_indices()
+            .enumerate()
+            .find(|(_, (idx, c))| idx + c.len_utf8() > byte_pos)
+            .map(|(i, _)| i)
+            .unwrap_or_else(|| s.chars().count())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::source::NoSource;
+
+    #[test]
+    fn test_byte_to_char_idx_conversion() {
+        // The ✨ emoji is 3 bytes long
+        let s = "a✨b";
+
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 0), 0);
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 1), 1);
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 4), 2);
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 5), 3);
+
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 2), 1);
+        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 3), 1);
+    }
+}
