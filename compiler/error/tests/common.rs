@@ -4,7 +4,6 @@ use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
-
 use io::{FileLoader, PathResolver};
 
 pub static MOCK_FS: LazyLock<Mutex<HashMap<PathBuf, String>>> =
@@ -29,10 +28,6 @@ impl MockLoader {
             .expect(&format!("Could not read test file at: {:?}", real_path));
 
         Self::add_file(virtual_path, &content);
-    }
-
-    pub fn reset() {
-        MOCK_FS.lock().unwrap().clear();
     }
 }
 

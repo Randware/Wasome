@@ -9,8 +9,6 @@ use source::SourceMap;
 
 #[test]
 fn test_single_file_fixture() {
-    MockLoader::reset();
-
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -34,8 +32,6 @@ fn test_single_file_fixture() {
 
 #[test]
 fn test_bytepos_conversion() {
-    MockLoader::reset();
-
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -61,8 +57,6 @@ fn test_bytepos_conversion() {
 
 #[test]
 fn test_with_context() {
-    MockLoader::reset();
-
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -93,8 +87,6 @@ fn test_with_context() {
 
 #[test]
 fn test_primary() {
-    MockLoader::reset();
-
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -118,8 +110,6 @@ fn test_primary() {
 
 #[test]
 fn test_print_with_snippets() {
-    MockLoader::reset();
-
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -142,8 +132,6 @@ fn test_print_with_snippets() {
 
 #[test]
 fn test_multi_file() {
-    MockLoader::reset();
-
     MockLoader::load_from_disk("/src/a.waso", "a.waso");
     MockLoader::load_from_disk("/src/b.waso", "b.waso");
 
@@ -198,7 +186,6 @@ fn test_print_no_snippets() {
 
 #[test]
 fn test_multiline() {
-    MockLoader::reset();
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -221,7 +208,6 @@ fn test_multiline() {
 
 #[test]
 fn test_unicode() {
-    MockLoader::reset();
     MockLoader::load_from_disk("/src/unicode.waso", "unicode.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -244,7 +230,6 @@ fn test_unicode() {
 
 #[test]
 fn test_overlapping() {
-    MockLoader::reset();
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -267,7 +252,6 @@ fn test_overlapping() {
 
 #[test]
 fn test_zero_length() {
-    MockLoader::reset();
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
@@ -289,7 +273,6 @@ fn test_zero_length() {
 
 #[test]
 fn test_empty_file() {
-    MockLoader::reset();
     MockLoader::load_from_disk("/src/empty.waso", "empty.waso");
 
     let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
