@@ -128,7 +128,7 @@ pub(crate) fn enum_parser<'src>()
                     .map(|(name, opt_fields)| {
                         let (fields, end_pos) = match opt_fields {
                             Some((f, end)) => (f, end.pos_info),
-                            None => (Vec::new(), name.pos_info.clone()),
+                            None => (Vec::new(), name.pos_info),
                         };
                         ASTNode::new(
                             EnumVariant::new(Rc::new(EnumVariantSymbol::<UntypedAST>::new(

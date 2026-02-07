@@ -272,7 +272,7 @@ pub(crate) fn statement_parser<'src>()
             code_block.map(|code_block| code_block.map(Statement::Codeblock)),
             return_statement.map(|return_statement| return_statement.map(Statement::Return)),
             expression.map(|expr| -> PosInfoWrapper<Statement<UntypedAST>> {
-                let pos = expr.position().clone();
+                let pos = *expr.position();
                 PosInfoWrapper::new(Statement::Expression(expr), pos)
             }),
         ))

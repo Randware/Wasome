@@ -184,10 +184,10 @@ pub(crate) fn expression_parser<'src>()
 
         let unary_op = choice((
             token_parser(TokenType::Subtraction).map(|token| {
-                unary_op_mapper(UnaryOpType::Negative, token.pos_info.start().clone())
+                unary_op_mapper(UnaryOpType::Negative, token.pos_info.start())
             }),
             token_parser(TokenType::Not)
-                .map(|token| unary_op_mapper(UnaryOpType::Not, token.pos_info.start().clone())),
+                .map(|token| unary_op_mapper(UnaryOpType::Not, token.pos_info.start())),
         ));
         let unary = unary_op.repeated().foldr(typecast, |op, rhs| op(rhs));
 
@@ -325,7 +325,7 @@ fn unary_op_mapper(
     token_type: UnaryOpType<UntypedAST>,
     op_start: BytePos,
 ) -> impl Fn(ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
-    move |expr| map_unary_op(token_type.clone(), op_start.clone(), expr)
+    move |expr| map_unary_op(token_type.clone(), op_start, expr)
 }
 
 fn map_unary_op(

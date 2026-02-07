@@ -95,7 +95,7 @@ mod import_parser {
     /// # Parameter
     ///
     /// - **file_information**: Information about the file to be parsed. This is currently only used
-    /// in order to resolve import paths correctly
+    ///   in order to resolve import paths correctly
     pub(super) fn import_parser<'src, Loader: FullIO>(
         file_information: &'src FileInformation<Loader>,
     ) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>> {
@@ -106,13 +106,12 @@ mod import_parser {
             .try_map(|(import, (path, usage_name)), _span| {
                 let path_end_pos = path.pos_info;
                 let path = path.inner;
-                let start = import.pos_info.start().clone();
+                let start = import.pos_info.start();
                 let end = usage_name
                     .as_ref()
-                    .map(|inner| inner.pos_info.clone())
+                    .map(|inner| inner.pos_info)
                     .unwrap_or(path_end_pos)
-                    .end()
-                    .clone();
+                    .end();
 
                 let path = parse_import_path(&path).ok_or(EmptyErr::default())?;
                 let use_as = usage_name
