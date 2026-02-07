@@ -230,10 +230,14 @@ pub(crate) struct SingleSyntaxElementMap<'a, Element: AnalyzableSyntaxElementWit
     /// Required as certain operations require untyped symbols and only typed symbols may be available
     /// (e.g.: When analyzing a method call)
     untyped_symbols:
-        RefCell<HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>>,
+        RefCell<UntypedTypeParameterMap<Element>>,
     /// All type parameters that are available here
     type_parameters: Option<Rc<TypeParameterContext>>,
 }
+
+// It doesn't get enforced, but leaving the bound away makes Element have no associated typed
+#[allow(type_alias_bounds)]
+pub(crate) type UntypedTypeParameterMap<Element: AnalyzableSyntaxElementWithTypeParameter> = HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>;
 
 impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementMap<'a, Element> {
     pub fn new_root() -> Self {
