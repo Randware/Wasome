@@ -4,8 +4,8 @@ use std::io::{Error, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
 
-use source::SourceFile;
-use source::loader::FileLoader;
+
+use io::{FileLoader, PathResolver};
 
 pub static MOCK_FS: LazyLock<Mutex<HashMap<PathBuf, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -37,19 +37,21 @@ impl MockLoader {
 }
 
 impl FileLoader for MockLoader {
-    fn load<F: AsRef<Path>>(path: F) -> Result<SourceFile, Error> {
+    fn load<F: AsRef<Path>>(path: F) -> Result<String, Error> {
         let path = path.as_ref().to_path_buf();
         let fs = MOCK_FS.lock().unwrap();
 
         match fs.get(&path) {
-            Some(content) => Ok(SourceFile::new(path, content.clone())),
+            Some(content) => Ok(content.clone()),
             None => Err(Error::new(
                 ErrorKind::NotFound,
                 format!("Mock file not found: {:?}", path),
             )),
         }
     }
+}
 
+impl PathResolver for MockLoader {
     fn resolve<T: AsRef<Path>, F: AsRef<Path>>(
         root_path: T,
         relative_path: F,

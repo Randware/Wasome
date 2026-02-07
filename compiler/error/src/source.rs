@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use source::{SourceMap, loader::FileLoader, types::FileID};
+use io::FileIO;
+use source::{SourceMap, types::FileID};
 
 /// Abstraction for retrieving source file content and metadata.
 ///
@@ -18,7 +19,7 @@ pub trait SourceLookup {
 }
 
 /// Implementation of [`SourceLookup`] for the standard [`SourceMap`].
-impl<T: FileLoader> SourceLookup for SourceMap<T> {
+impl<T: FileIO> SourceLookup for SourceMap<T> {
     fn get_content(&self, id: FileID) -> Option<&str> {
         self.get_file(&id).map(|f| f.content())
     }
