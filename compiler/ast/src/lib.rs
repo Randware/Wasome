@@ -1834,7 +1834,6 @@ pub(crate) mod test_shared {
     ) -> AST<Type> {
         let mut src_path = PathBuf::new();
         src_path.push("src");
-        let mut main_path = src_path.clone();
         AST::new(ASTNode::new(
             Directory::new(
                 "src".to_string(),
