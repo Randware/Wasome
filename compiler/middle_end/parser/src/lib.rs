@@ -154,7 +154,7 @@ fn prepare_tokens(raw_tokens: Vec<Token>, file: FileID) -> Vec<PosInfoWrapper<To
         .map(|token| {
             PosInfoWrapper::new(
                 token.kind,
-                file.span(token.span.start as u32, token.span.end as u32)
+                file.span(token.span.start as u32, token.span.end as u32),
             )
         })
         .collect()
@@ -227,20 +227,14 @@ pub(crate) mod test_shared {
     use crate::PosInfoWrapper;
     use ast::ASTNode;
     use lexer::TokenType;
-    use std::fmt::Debug;
     use source::types::FileID;
+    use std::fmt::Debug;
 
     pub(crate) fn wrap_token(to_convert: TokenType) -> PosInfoWrapper<TokenType> {
-        PosInfoWrapper::new(
-            to_convert,
-            FileID::from(0).span(0,10),
-        )
+        PosInfoWrapper::new(to_convert, FileID::from(0).span(0, 10))
     }
 
     pub(crate) fn wrap_in_ast_node<T: PartialEq + Debug>(to_wrap: T) -> ASTNode<T> {
-        ASTNode::new(
-            to_wrap,
-            FileID::from(0).span(0,10),
-        )
+        ASTNode::new(to_wrap, FileID::from(0).span(0, 10))
     }
 }

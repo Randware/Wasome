@@ -55,11 +55,15 @@ pub(crate) fn expression_parser<'src>()
                     ),
             )
             .map(|((name, type_parameters), args)| {
-                let pos = 
-                    name.pos_info().merge(
-                    *args.last()
-                        .map(|to_map| to_map.position())
-                        .unwrap_or(name.pos_info())).unwrap();
+                let pos = name
+                    .pos_info()
+                    .merge(
+                        *args
+                            .last()
+                            .map(|to_map| to_map.position())
+                            .unwrap_or(name.pos_info()),
+                    )
+                    .unwrap();
                 let type_parameters = type_parameters
                     .into_iter()
                     .map(|type_param| type_param.inner)
@@ -118,12 +122,15 @@ pub(crate) fn expression_parser<'src>()
                     .or_not(),
             )
             .map(|(((name, type_parameters), variant_name), field_values)| {
-                let pos = 
-                    name.pos_info().merge(
-                    *field_values
-                        .as_ref()
-                        .and_then(|fv| fv.last().map(|last_val| last_val.position()))
-                        .unwrap_or(variant_name.pos_info())).unwrap();
+                let pos = name
+                    .pos_info()
+                    .merge(
+                        *field_values
+                            .as_ref()
+                            .and_then(|fv| fv.last().map(|last_val| last_val.position()))
+                            .unwrap_or(variant_name.pos_info()),
+                    )
+                    .unwrap();
                 let type_parameters = remove_pos_info_from_vec(type_parameters);
                 ASTNode::new(
                     Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
@@ -148,20 +155,19 @@ pub(crate) fn expression_parser<'src>()
             ),
         ));
 
-        let sfa = base
-            .clone()
-            .then_ignore(token_parser(TokenType::Dot))
-            .then(identifier_parser())
-            .map(|(struct_expr, field)| {
-                let pos = struct_expr.position().merge(field.pos_info).unwrap();
-                ASTNode::new(
-                    Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(
-                        struct_expr,
-                        field.inner,
-                    ))),
-                    pos,
-                )
-            });
+        let sfa =
+            base.clone()
+                .then_ignore(token_parser(TokenType::Dot))
+                .then(identifier_parser())
+                .map(|(struct_expr, field)| {
+                    let pos = struct_expr.position().merge(field.pos_info).unwrap();
+                    ASTNode::new(
+                        Expression::StructFieldAccess(Box::new(
+                            StructFieldAccess::<UntypedAST>::new(struct_expr, field.inner),
+                        )),
+                        pos,
+                    )
+                });
 
         let simple_combined = sfa.or(base);
 
@@ -183,9 +189,8 @@ pub(crate) fn expression_parser<'src>()
         );
 
         let unary_op = choice((
-            token_parser(TokenType::Subtraction).map(|token| {
-                unary_op_mapper(UnaryOpType::Negative, token.pos_info.start())
-            }),
+            token_parser(TokenType::Subtraction)
+                .map(|token| unary_op_mapper(UnaryOpType::Negative, token.pos_info.start())),
             token_parser(TokenType::Not)
                 .map(|token| unary_op_mapper(UnaryOpType::Not, token.pos_info.start())),
         ));
@@ -309,8 +314,10 @@ fn map_binary_op(
     lhs: ASTNode<Expression<UntypedAST>>,
     rhs: ASTNode<Expression<UntypedAST>>,
 ) -> ASTNode<Expression<UntypedAST>> {
-    let combined_pos = lhs.position().merge(*rhs.position())
-    .expect("This should never happen. lhs should always be before rhs");
+    let combined_pos = lhs
+        .position()
+        .merge(*rhs.position())
+        .expect("This should never happen. lhs should always be before rhs");
     ASTNode::new(
         Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
             operator_type,

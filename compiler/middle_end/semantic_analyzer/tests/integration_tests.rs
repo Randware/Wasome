@@ -17,11 +17,11 @@ use driver::program_information::{ProgramInformation, Project};
 use io::WasomeLoader;
 use semantic_analyzer::analyze;
 use source::SourceMap;
+use source::types::{BytePos, FileID, Span};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 use tempfile::TempDir;
-use source::types::{BytePos, FileID, Span};
 
 // --- Test Program Contents ---
 const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/min/app/main.waso");
@@ -102,10 +102,7 @@ fn test_multi_project_program() {
     let op_function = ASTNode::new(
         Function::new(
             op_symbol.clone(),
-            ASTNode::new(
-                Statement::Codeblock(CodeBlock::new(vec![])),
-                dummy_span(),
-            ),
+            ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![])), dummy_span()),
             Visibility::Public,
         ),
         dummy_span(),
@@ -388,14 +385,8 @@ fn test_multi_project_generics() {
         Enum::new(
             option_ll_symbol.clone(),
             vec![
-                ASTNode::new(
-                    EnumVariant::new(some_variant_symbol.clone()),
-                    dummy_span(),
-                ),
-                ASTNode::new(
-                    EnumVariant::new(none_variant_symbol.clone()),
-                    dummy_span(),
-                ),
+                ASTNode::new(EnumVariant::new(some_variant_symbol.clone()), dummy_span()),
+                ASTNode::new(EnumVariant::new(none_variant_symbol.clone()), dummy_span()),
             ],
             Visibility::Public,
         ),

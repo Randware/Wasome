@@ -1190,10 +1190,7 @@ mod tests {
                     Expression::UnaryOp(Box::new(
                         UnaryOp::<TypedAST>::new(
                             UnaryOpType::Typecast(Typecast::new(DataType::S64)),
-                            ASTNode::new(
-                                Expression::Literal(Literal::F64(10.3)),
-                                sample_span(),
-                            ),
+                            ASTNode::new(Expression::Literal(Literal::F64(10.3)), sample_span()),
                         )
                         .unwrap(),
                     )),

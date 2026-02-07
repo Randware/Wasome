@@ -166,11 +166,7 @@ impl<'a> SyntaxElementMap<'a> {
     pub fn struct_implementations_for_untyped_symbol(
         &mut self,
         symbol: &StructSymbol<UntypedAST>,
-    ) -> Option<
-        impl Iterator<
-            Item = StructImplementation<'a>,
-        >,
-    > {
+    ) -> Option<impl Iterator<Item = StructImplementation<'a>>> {
         self.structs.implementations_for_untyped_symbol(symbol)
     }
 
@@ -231,15 +227,15 @@ pub(crate) struct SingleSyntaxElementMap<'a, Element: AnalyzableSyntaxElementWit
     /// Maps typed symbols to untyped
     /// Required as certain operations require untyped symbols and only typed symbols may be available
     /// (e.g.: When analyzing a method call)
-    untyped_symbols:
-        RefCell<UntypedTypeParameterMap<Element>>,
+    untyped_symbols: RefCell<UntypedTypeParameterMap<Element>>,
     /// All type parameters that are available here
     type_parameters: Option<Rc<TypeParameterContext>>,
 }
 
 // It doesn't get enforced, but leaving the bound away makes Element have no associated typed
 #[allow(type_alias_bounds)]
-pub(crate) type UntypedTypeParameterMap<Element: AnalyzableSyntaxElementWithTypeParameter> = HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>;
+pub(crate) type UntypedTypeParameterMap<Element: AnalyzableSyntaxElementWithTypeParameter> =
+    HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>;
 
 impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementMap<'a, Element> {
     pub fn new_root() -> Self {

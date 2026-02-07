@@ -236,10 +236,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             let Some(loaded) = self.load_file(module_dir.clone(), &file) else {
                 return false;
             };
-            if self
-                .add_file_handle_imports(import_path, loaded)
-                .is_none()
-            {
+            if self.add_file_handle_imports(import_path, loaded).is_none() {
                 return false;
             }
             true

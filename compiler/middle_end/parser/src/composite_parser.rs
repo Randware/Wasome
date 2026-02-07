@@ -74,7 +74,9 @@ pub(crate) fn struct_parser<'src>()
                 let pos = visibility
                     .as_ref()
                     .map(|vis| vis.pos_info())
-                    .unwrap_or(struct_token.pos_info()).merge(end.pos_info).unwrap();
+                    .unwrap_or(struct_token.pos_info())
+                    .merge(end.pos_info)
+                    .unwrap();
                 let type_parameters = type_parameters
                     .into_iter()
                     .map(|type_param| type_param.inner)
@@ -136,17 +138,18 @@ pub(crate) fn enum_parser<'src>()
                                 fields.into_iter().map(|field| field.inner).collect(),
                             ))),
                             // This will never panic as name is before end
-                            name.pos_info.merge(end_pos).unwrap()
+                            name.pos_info.merge(end_pos).unwrap(),
                         )
                     })
                     .collect::<Vec<_>>();
 
                 //This will never panic as the start is before the closing bracket
-                let pos = 
-                    visibility
-                        .as_ref()
-                        .map(|vis| vis.pos_info())
-                        .unwrap_or(enum_token.pos_info()).merge(end.pos_info).unwrap();
+                let pos = visibility
+                    .as_ref()
+                    .map(|vis| vis.pos_info())
+                    .unwrap_or(enum_token.pos_info())
+                    .merge(end.pos_info)
+                    .unwrap();
                 let visibility = visibility
                     .map(|_| Visibility::Public)
                     .unwrap_or(Visibility::Private);

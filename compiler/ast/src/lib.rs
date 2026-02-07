@@ -27,12 +27,12 @@ use crate::symbol::{
 };
 use crate::top_level::{Import, ImportRoot};
 use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
+use source::types::Span;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
-use source::types::Span;
 
 pub mod composite;
 pub mod data_type;
@@ -449,9 +449,9 @@ mod tests {
     use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
     use crate::visibility::Visibility;
     use crate::{AST, ASTNode, SemanticEq, TypedAST, UntypedAST};
+    use source::types::FileID;
     use std::path::PathBuf;
     use std::rc::Rc;
-    use source::types::FileID;
 
     #[test]
     fn prove_identity_vs_semantic_eq() {
@@ -540,10 +540,7 @@ mod tests {
                     Statement::VariableDeclaration(
                         VariableDeclaration::<TypedAST>::new(
                             symbol.clone(),
-                            ASTNode::new(
-                                Expression::Literal(Literal::F64(10.0)),
-                                sample_span(),
-                            ),
+                            ASTNode::new(Expression::Literal(Literal::F64(10.0)), sample_span()),
                         )
                         .unwrap(),
                     ),
@@ -897,20 +894,14 @@ mod tests {
                         ASTNode::new(
                             Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                                 current.clone(),
-                                ASTNode::new(
-                                    Expression::Literal("1".to_string()),
-                                    sample_span(),
-                                ),
+                                ASTNode::new(Expression::Literal("1".to_string()), sample_span()),
                             )),
                             sample_span(),
                         ),
                         ASTNode::new(
                             Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                                 previous.clone(),
-                                ASTNode::new(
-                                    Expression::Literal("0".to_string()),
-                                    sample_span(),
-                                ),
+                                ASTNode::new(Expression::Literal("0".to_string()), sample_span()),
                             )),
                             sample_span(),
                         ),
@@ -1092,16 +1083,8 @@ mod tests {
                         Expression::BinaryOp(Box::new(
                             BinaryOp::<TypedAST>::new(
                                 BinaryOpType::Addition,
-                                ASTNode::new(
-                                    Expression::Variable(lhs_var.clone()),
-                                    sample_span()
-                                    ,
-                                ),
-                                ASTNode::new(
-                                    Expression::Variable(rhs_var.clone()),
-                                    sample_span()
-                                    ,
-                                ),
+                                ASTNode::new(Expression::Variable(lhs_var.clone()), sample_span()),
+                                ASTNode::new(Expression::Variable(rhs_var.clone()), sample_span()),
                             )
                             .unwrap(),
                         )),
@@ -1812,9 +1795,9 @@ pub(crate) mod test_shared {
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
     use crate::{AST, ASTNode, ASTType, TypedAST};
+    use source::types::{FileID, Span};
     use std::path::PathBuf;
     use std::rc::Rc;
-    use source::types::{FileID, Span};
 
     pub(crate) fn sample_span() -> Span {
         FileID::from(0).span(0, 10)

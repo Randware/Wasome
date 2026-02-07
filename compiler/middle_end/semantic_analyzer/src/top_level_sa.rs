@@ -72,9 +72,7 @@ pub(crate) fn analyze_enum(
             variants
                 .into_iter()
                 .zip(untyped_enum.variants().iter())
-                .map(|(typed, untyped)| {
-                    ASTNode::new(EnumVariant::new(typed), *untyped.position())
-                })
+                .map(|(typed, untyped)| ASTNode::new(EnumVariant::new(typed), *untyped.position()))
                 .collect(),
             untyped_enum.visibility(),
         ),

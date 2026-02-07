@@ -2,9 +2,9 @@ use crate::file::File;
 use crate::symbol::DirectlyAvailableSymbol;
 use crate::top_level::Import;
 use crate::{ASTNode, ASTType, SemanticEq};
+use source::types::FileID;
 use std::ops::Deref;
 use std::path::PathBuf;
-use source::types::FileID;
 
 /// A directory containing code.
 ///

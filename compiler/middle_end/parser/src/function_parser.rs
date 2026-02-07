@@ -53,12 +53,12 @@ pub(crate) fn function_parser<'src>()
         .then(statement)
         .map(
             |(((visibility, ((name, type_parameters), params)), return_type), implementation)| {
-                let pos = 
-                    visibility
-                        .as_ref()
-                        .map(|vis| vis.pos_info())
-                        .unwrap_or(name.pos_info()).merge(
-                    *implementation.position()).unwrap();
+                let pos = visibility
+                    .as_ref()
+                    .map(|vis| vis.pos_info())
+                    .unwrap_or(name.pos_info())
+                    .merge(*implementation.position())
+                    .unwrap();
                 let visibility = visibility
                     .map(|_| Visibility::Public)
                     .unwrap_or(Visibility::Private);

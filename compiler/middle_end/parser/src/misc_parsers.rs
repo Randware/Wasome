@@ -36,12 +36,15 @@ fn datatype_parser_internal<'src>(
     ))
     .map(|dt| dt.map(|inner| UntypedDataType::new(inner, Vec::new())))
     .or(identifier_with_type_parameter.map(|(ident, type_params)| {
-        let pos =
-            ident.pos_info.merge(
-            type_params
-                .last()
-                .map(|last| last.pos_info)
-                .unwrap_or(ident.pos_info)).unwrap();
+        let pos = ident
+            .pos_info
+            .merge(
+                type_params
+                    .last()
+                    .map(|last| last.pos_info)
+                    .unwrap_or(ident.pos_info),
+            )
+            .unwrap();
         PosInfoWrapper::new(
             UntypedDataType::new(
                 ident.inner,

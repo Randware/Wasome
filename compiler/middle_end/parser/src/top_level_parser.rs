@@ -19,12 +19,7 @@ use lexer::TokenType;
 /// - **file_information**: Information about the to be parsed.
 pub(crate) fn top_level_parser<'src, Loader: FullIO>(
     file_information: &'src FileInformation<Loader>,
-) -> impl Parser<
-    'src,
-    &'src [PosInfoWrapper<TokenType>],
-    TopLevelElements
-    ,
-> {
+) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], TopLevelElements> {
     let imports = maybe_statement_separator()
         .ignore_then(import_parser(file_information).then_ignore(statement_separator()))
         .repeated()
@@ -85,10 +80,10 @@ mod import_parser {
 
     use chumsky::regex::regex;
     use lexer::TokenType;
-    
+
     use io::FullIO;
-    use std::rc::Rc;
     use source::types::Span;
+    use std::rc::Rc;
 
     /// Parses a single import.
     ///
@@ -128,7 +123,7 @@ mod import_parser {
                         file_id: import.pos_info.file_id,
                         start,
                         end,
-                    }
+                    },
                 ))
             })
     }

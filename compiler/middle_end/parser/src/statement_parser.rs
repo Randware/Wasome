@@ -101,12 +101,15 @@ pub(crate) fn statement_parser<'src>()
         let return_statement = token_parser(TokenType::Return)
             .then(expression.clone().or_not())
             .map(|(return_keyword, to_return)| {
-                let pos =
-                    return_keyword.pos_info.merge(
-                    *to_return
-                        .as_ref()
-                        .map(|to_map| to_map.position())
-                        .unwrap_or(return_keyword.pos_info())).unwrap();
+                let pos = return_keyword
+                    .pos_info
+                    .merge(
+                        *to_return
+                            .as_ref()
+                            .map(|to_map| to_map.position())
+                            .unwrap_or(return_keyword.pos_info()),
+                    )
+                    .unwrap();
 
                 PosInfoWrapper::new(Return::<UntypedAST>::new(to_return), pos)
             });
@@ -126,12 +129,15 @@ pub(crate) fn statement_parser<'src>()
                     .or_not(),
             )
             .map(|(((if_keyword, cond), then), else_statement)| {
-                let pos =
-                    if_keyword.pos_info.merge(
-                    *else_statement
-                        .as_ref()
-                        .map(|to_map| to_map.position())
-                        .unwrap_or(then.position())).unwrap();
+                let pos = if_keyword
+                    .pos_info
+                    .merge(
+                        *else_statement
+                            .as_ref()
+                            .map(|to_map| to_map.position())
+                            .unwrap_or(then.position()),
+                    )
+                    .unwrap();
 
                 PosInfoWrapper::new(Conditional::new(cond, then, else_statement), pos)
             });
@@ -168,9 +174,10 @@ pub(crate) fn statement_parser<'src>()
                     (if_keyword, ((((_, enum_identifier), enum_variant), vars), source)),
                     then_statement,
                 )| {
-                    let pos =
-                        if_keyword.pos_info().merge(
-                        *then_statement.position()).unwrap();
+                    let pos = if_keyword
+                        .pos_info()
+                        .merge(*then_statement.position())
+                        .unwrap();
 
                     let vars = vars
                         .into_iter()

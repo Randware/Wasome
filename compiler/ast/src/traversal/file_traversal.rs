@@ -10,8 +10,8 @@ use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::struct_traversal::StructTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
-use std::iter;
 use source::types::FileID;
+use std::iter;
 
 /// This struct helps with traversing files
 /// It keeps a reference to a file and its parent (directory).

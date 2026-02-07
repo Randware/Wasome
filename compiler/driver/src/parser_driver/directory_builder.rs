@@ -1,8 +1,8 @@
 use ast::directory::Directory;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
-use std::path::PathBuf;
 use source::types::FileID;
+use std::path::PathBuf;
 
 /// Builds an untyped directory
 #[derive(Debug)]
@@ -266,7 +266,7 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
             ),
-            FileID::from(0)
+            FileID::from(0),
         )
     }
 
