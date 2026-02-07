@@ -16,13 +16,12 @@ use driver::parser_driver::generate_untyped_ast;
 use driver::program_information::{ProgramInformation, Project};
 use io::WasomeLoader;
 use semantic_analyzer::analyze;
-use shared::code_file::CodeFile;
-use shared::code_reference::{CodeArea, CodeLocation};
 use source::SourceMap;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 use tempfile::TempDir;
+use source::types::{BytePos, FileID, Span};
 
 // --- Test Program Contents ---
 const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/min/app/main.waso");
@@ -35,15 +34,13 @@ const MULTI_PROJECT_GENERICS_APP_MAIN: &str =
 
 // --- Helper Functions ---
 
-fn dummy_code_area() -> CodeArea {
-    CodeArea::new(
-        CodeLocation::new(0, 0),
-        CodeLocation::new(0, 0),
-        CodeFile::new(PathBuf::from("test")),
-    )
-    .unwrap()
+fn dummy_span() -> Span {
+    Span {
+        file_id: FileID::from(0),
+        start: BytePos(0),
+        end: BytePos(0),
+    }
 }
-
 fn setup_temp_project(files: &[(&str, &str)]) -> TempDir {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
@@ -107,16 +104,16 @@ fn test_multi_project_program() {
             op_symbol.clone(),
             ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![])),
-                dummy_code_area(),
+                dummy_span(),
             ),
             Visibility::Public,
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let ops_file = ASTNode::new(
         File::new("ops".to_string(), vec![], vec![op_function], vec![], vec![]),
-        PathBuf::from("lib/math/ops.waso"),
+        FileID::from(0),
     );
 
     let math_dir = ASTNode::new(
@@ -135,14 +132,14 @@ fn test_multi_project_program() {
             vec!["lib".to_string(), "math".to_string()],
             m_symbol.clone(),
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let main_body_stmt = ASTNode::new(
         Statement::VoidFunctionCall(
             FunctionCall::<TypedAST>::new(op_symbol.clone(), vec![]).unwrap(),
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let main_function = ASTNode::new(
@@ -150,11 +147,11 @@ fn test_multi_project_program() {
             main_symbol.clone(),
             ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![main_body_stmt])),
-                dummy_code_area(),
+                dummy_span(),
             ),
             Visibility::Private,
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let main_file = ASTNode::new(
@@ -165,7 +162,7 @@ fn test_multi_project_program() {
             vec![],
             vec![],
         ),
-        PathBuf::from("app/main.waso"),
+        FileID::from(0),
     );
 
     let app_dir = ASTNode::new(
@@ -286,7 +283,7 @@ fn test_multi_project_generics() {
             )
             .unwrap(),
         )),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let tail_new_struct = ASTNode::new(
@@ -294,23 +291,23 @@ fn test_multi_project_generics() {
             linked_list_s32_symbol.clone(),
             vec![
                 (
-                    ASTNode::new(val_field_symbol.clone(), dummy_code_area()),
-                    ASTNode::new(Expression::Literal(Literal::S32(10)), dummy_code_area()),
+                    ASTNode::new(val_field_symbol.clone(), dummy_span()),
+                    ASTNode::new(Expression::Literal(Literal::S32(10)), dummy_span()),
                 ),
                 (
-                    ASTNode::new(next_field_symbol.clone(), dummy_code_area()),
+                    ASTNode::new(next_field_symbol.clone(), dummy_span()),
                     none_expr,
                 ),
             ],
         ))),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let tail_decl = ASTNode::new(
         Statement::VariableDeclaration(
             VariableDeclaration::<TypedAST>::new(tail_var_symbol.clone(), tail_new_struct).unwrap(),
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     // head definition: new d.LinkedList<s32> { value <- 20, next <- new d.Option<...>::Some(tail) }
@@ -321,12 +318,12 @@ fn test_multi_project_generics() {
                 some_variant_symbol.clone(),
                 vec![ASTNode::new(
                     Expression::Variable(tail_var_symbol.clone()),
-                    dummy_code_area(),
+                    dummy_span(),
                 )],
             )
             .unwrap(),
         )),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let head_new_struct = ASTNode::new(
@@ -334,23 +331,23 @@ fn test_multi_project_generics() {
             linked_list_s32_symbol.clone(),
             vec![
                 (
-                    ASTNode::new(val_field_symbol.clone(), dummy_code_area()),
-                    ASTNode::new(Expression::Literal(Literal::S32(20)), dummy_code_area()),
+                    ASTNode::new(val_field_symbol.clone(), dummy_span()),
+                    ASTNode::new(Expression::Literal(Literal::S32(20)), dummy_span()),
                 ),
                 (
-                    ASTNode::new(next_field_symbol.clone(), dummy_code_area()),
+                    ASTNode::new(next_field_symbol.clone(), dummy_span()),
                     some_expr,
                 ),
             ],
         ))),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let head_decl = ASTNode::new(
         Statement::VariableDeclaration(
             VariableDeclaration::<TypedAST>::new(head_var_symbol.clone(), head_new_struct).unwrap(),
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let main_func = ASTNode::new(
@@ -358,11 +355,11 @@ fn test_multi_project_generics() {
             main_symbol.clone(),
             ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![tail_decl, head_decl])),
-                dummy_code_area(),
+                dummy_span(),
             ),
             Visibility::Private,
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let import_stmt = ASTNode::new(
@@ -371,7 +368,7 @@ fn test_multi_project_generics() {
             vec!["lib".to_string()],
             d_usage_symbol.clone(),
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let app_file = ASTNode::new(
@@ -382,7 +379,7 @@ fn test_multi_project_generics() {
             vec![],
             vec![],
         ),
-        PathBuf::from("app/main.waso"),
+        FileID::from(0),
     );
 
     // --- Construct Lib File (definitions) ---
@@ -393,16 +390,16 @@ fn test_multi_project_generics() {
             vec![
                 ASTNode::new(
                     EnumVariant::new(some_variant_symbol.clone()),
-                    dummy_code_area(),
+                    dummy_span(),
                 ),
                 ASTNode::new(
                     EnumVariant::new(none_variant_symbol.clone()),
-                    dummy_code_area(),
+                    dummy_span(),
                 ),
             ],
             Visibility::Public,
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let struct_def = ASTNode::new(
@@ -412,16 +409,16 @@ fn test_multi_project_generics() {
             vec![
                 ASTNode::new(
                     StructField::new(val_field_symbol.clone(), Visibility::Private),
-                    dummy_code_area(),
+                    dummy_span(),
                 ),
                 ASTNode::new(
                     StructField::new(next_field_symbol.clone(), Visibility::Private),
-                    dummy_code_area(),
+                    dummy_span(),
                 ),
             ],
             Visibility::Public,
         ),
-        dummy_code_area(),
+        dummy_span(),
     );
 
     let lib_file = ASTNode::new(
@@ -432,7 +429,7 @@ fn test_multi_project_generics() {
             vec![enum_def],
             vec![struct_def],
         ),
-        PathBuf::from("lib/data.waso"),
+        FileID::from(0),
     );
 
     // --- Construct Directories ---

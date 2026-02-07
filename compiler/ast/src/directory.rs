@@ -4,6 +4,7 @@ use crate::top_level::Import;
 use crate::{ASTNode, ASTType, SemanticEq};
 use std::ops::Deref;
 use std::path::PathBuf;
+use source::types::FileID;
 
 /// A directory containing code.
 ///
@@ -22,14 +23,14 @@ use std::path::PathBuf;
 pub struct Directory<Type: ASTType> {
     name: String,
     subdirectories: Vec<ASTNode<Directory<Type>, PathBuf>>,
-    files: Vec<ASTNode<File<Type>, PathBuf>>,
+    files: Vec<ASTNode<File<Type>, FileID>>,
 }
 
 impl<Type: ASTType> Directory<Type> {
     pub fn new(
         name: String,
         subdirectories: Vec<ASTNode<Directory<Type>, PathBuf>>,
-        files: Vec<ASTNode<File<Type>, PathBuf>>,
+        files: Vec<ASTNode<File<Type>, FileID>>,
     ) -> Self {
         Self {
             name,
@@ -46,7 +47,7 @@ impl<Type: ASTType> Directory<Type> {
         &self.subdirectories
     }
 
-    pub fn files(&self) -> &[ASTNode<File<Type>, PathBuf>] {
+    pub fn files(&self) -> &[ASTNode<File<Type>, FileID>] {
         &self.files
     }
 
@@ -62,14 +63,14 @@ impl<Type: ASTType> Directory<Type> {
     ///
     /// None if the file does not exist
     /// Some(file) if the file does exist
-    pub fn file_by_name(&self, name: &str) -> Option<&ASTNode<File<Type>, PathBuf>> {
+    pub fn file_by_name(&self, name: &str) -> Option<&ASTNode<File<Type>, FileID>> {
         self.files_iterator().find(|file| file.name() == name)
     }
 
     /// Gets an iterator over all files contained in this directory
     /// # Return
     /// The Iterator
-    pub fn files_iterator(&self) -> impl Iterator<Item = &ASTNode<File<Type>, PathBuf>> {
+    pub fn files_iterator(&self) -> impl Iterator<Item = &ASTNode<File<Type>, FileID>> {
         self.files().iter()
     }
 

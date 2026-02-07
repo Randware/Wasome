@@ -3,8 +3,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{PosInfoWrapper, combine_code_areas_succeeding, remove_pos_info_from_vec};
-use ast::expression::{Expression, FunctionCall};
+use crate::{PosInfoWrapper, remove_pos_info_from_vec};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,
@@ -42,7 +41,7 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|(name, val)| {
-                let pos = combine_code_areas_succeeding(&name.pos_info, val.position());
+                let pos = name.pos_info.merge(*val.position()).unwrap();
                 PosInfoWrapper::new(VariableAssignment::<UntypedAST>::new(name.inner, val), pos)
             });
 
@@ -77,7 +76,7 @@ pub(crate) fn statement_parser<'src>()
                     .into_output()
                     .ok_or(EmptyErr::default())?;
 
-                let pos = combine_code_areas_succeeding(source.position(), val.position());
+                let pos = source.position().merge(*val.position()).unwrap();
                 Ok(PosInfoWrapper::new(
                     StructFieldAssignment::<UntypedAST>::new(source, field.inner, val),
                     pos,
@@ -95,20 +94,19 @@ pub(crate) fn statement_parser<'src>()
                         Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
                         val,
                     ),
-                    combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
+                    data_type.pos_info.merge(name.pos_info).unwrap(),
                 )
             });
 
         let return_statement = token_parser(TokenType::Return)
             .then(expression.clone().or_not())
             .map(|(return_keyword, to_return)| {
-                let pos = combine_code_areas_succeeding(
-                    &return_keyword.pos_info,
-                    to_return
+                let pos =
+                    return_keyword.pos_info.merge(
+                    *to_return
                         .as_ref()
                         .map(|to_map| to_map.position())
-                        .unwrap_or(return_keyword.pos_info()),
-                );
+                        .unwrap_or(return_keyword.pos_info())).unwrap();
 
                 PosInfoWrapper::new(Return::<UntypedAST>::new(to_return), pos)
             });
@@ -128,13 +126,12 @@ pub(crate) fn statement_parser<'src>()
                     .or_not(),
             )
             .map(|(((if_keyword, cond), then), else_statement)| {
-                let pos = combine_code_areas_succeeding(
-                    &if_keyword.pos_info,
-                    else_statement
+                let pos =
+                    if_keyword.pos_info.merge(
+                    *else_statement
                         .as_ref()
                         .map(|to_map| to_map.position())
-                        .unwrap_or(then.position()),
-                );
+                        .unwrap_or(then.position())).unwrap();
 
                 PosInfoWrapper::new(Conditional::new(cond, then, else_statement), pos)
             });
@@ -171,10 +168,9 @@ pub(crate) fn statement_parser<'src>()
                     (if_keyword, ((((_, enum_identifier), enum_variant), vars), source)),
                     then_statement,
                 )| {
-                    let pos = combine_code_areas_succeeding(
-                        if_keyword.pos_info(),
-                        then_statement.position(),
-                    );
+                    let pos =
+                        if_keyword.pos_info().merge(
+                        *then_statement.position()).unwrap();
 
                     let vars = vars
                         .into_iter()
@@ -232,7 +228,7 @@ pub(crate) fn statement_parser<'src>()
             )))
             .then(loop_body.clone())
             .map(|((loop_keyword, loop_type), body)| {
-                let pos = combine_code_areas_succeeding(&loop_keyword.pos_info, body.position());
+                let pos = loop_keyword.pos_info.merge(*body.position()).unwrap();
                 PosInfoWrapper::new(Loop::new(body, loop_type), pos)
             });
 
@@ -249,7 +245,7 @@ pub(crate) fn statement_parser<'src>()
             .map(|((open, block), close)| {
                 PosInfoWrapper::new(
                     CodeBlock::new(block.into_iter().collect()),
-                    combine_code_areas_succeeding(&open.pos_info, &close.pos_info),
+                    open.pos_info.merge(close.pos_info).unwrap(),
                 )
             });
 

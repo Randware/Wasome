@@ -83,11 +83,10 @@ mod import_parser {
 
     use chumsky::regex::regex;
     use lexer::TokenType;
-
-    use shared::code_reference::CodeArea;
-
+    
     use io::FullIO;
     use std::rc::Rc;
+    use source::types::Span;
 
     /// Parses a single import.
     ///
@@ -124,7 +123,11 @@ mod import_parser {
                 // Therefore, this can never panic
                 Ok(ASTNode::new(
                     Import::new(path.0, path.1, Rc::new(ModuleUsageNameSymbol::new(use_as))),
-                    CodeArea::new(start, end, import.pos_info.file().clone()).unwrap(),
+                    Span {
+                        file_id: import.pos_info.file_id,
+                        start,
+                        end,
+                    }
                 ))
             })
     }

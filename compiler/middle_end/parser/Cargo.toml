@@ -7,9 +7,9 @@ edition = "2024"
 chumsky = { version = "1.0.0-alpha.8", features = ["regex"] }
 ast = { path = "../../ast"}
 lexer = { path = "../../lexer"}
-shared = { path = "../../shared"}
 source = { path = "../../source"}
 io = { path = "../../io"}
 
 [dev-dependencies]
+source = { path = "../../source", features = ["test-utils"] }
 tempfile.workspace = true

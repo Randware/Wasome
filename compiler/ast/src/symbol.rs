@@ -575,7 +575,7 @@ mod tests {
     use crate::data_type::DataType;
     use crate::expression::{Expression, FunctionCall, Literal};
     use crate::symbol::{FunctionSymbol, SymbolWithTypeParameter, VariableSymbol};
-    use crate::test_shared::sample_codearea;
+    use crate::test_shared::sample_span;
     use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST};
     use std::rc::Rc;
 
@@ -584,7 +584,7 @@ mod tests {
         let name = "test".to_string();
         let arg = ASTNode::new(
             Expression::<UntypedAST>::Literal("10".to_string()),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<UntypedAST>::new((name, Vec::new()), vec![arg]);
         assert_eq!("test", call.function().0);
@@ -604,7 +604,7 @@ mod tests {
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(10)),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
         assert_eq!(None, call);
@@ -626,7 +626,7 @@ mod tests {
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
         assert_eq!(None, call.as_ref().unwrap().function().return_type());
@@ -634,7 +634,7 @@ mod tests {
 
         let arg2 = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),
-            sample_codearea(),
+            sample_span(),
         );
         let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
         assert!(call.semantic_eq(&call2));

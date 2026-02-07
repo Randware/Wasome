@@ -13,58 +13,47 @@ fn test_comment() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::Comment("// This is a comment".to_string()),
-            line: 1,
-            span: 4..24,
+            span: 5..25,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 24..25,
+            span: 25..26,
         },
         Token {
             kind: TokenType::Comment("//Wasome is the best language".to_string()),
-            line: 2,
-            span: 4..33,
+            span: 30..59,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 33..34,
+            span: 59..60,
         },
         Token {
             kind: TokenType::Comment("// :)".to_string()),
-            line: 3,
-            span: 4..9,
+            span: 64..69,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 3,
-            span: 9..10,
+            span: 69..70,
         },
         Token {
             kind: TokenType::Comment("// // oh my god, DOUBLE COMMENT".to_string()),
-            line: 4,
-            span: 4..35,
+            span: 74..105,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 4,
-            span: 35..36,
+            span: 105..106,
         },
         Token {
             kind: TokenType::Comment("//".to_string()),
-            line: 5,
-            span: 4..6,
+            span: 110..112,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 5,
-            span: 6..7,
+            span: 112..113,
         },
     ];
 

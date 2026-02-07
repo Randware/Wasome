@@ -40,7 +40,7 @@ dependencies = [
 name = "ast"
 version = "0.1.0"
 dependencies = [
- "shared",
+ "source",
 ]
 
 [[package]]
@@ -153,7 +153,6 @@ dependencies = [
  "io",
  "parser",
  "semantic_analyzer",
- "shared",
  "source",
  "tempfile",
 ]
@@ -334,7 +333,6 @@ dependencies = [
  "chumsky",
  "io",
  "lexer",
- "shared",
  "source",
  "tempfile",
 ]
@@ -464,7 +462,6 @@ dependencies = [
  "ast",
  "driver",
  "io",
- "shared",
  "source",
  "tempfile",
  "typed-arena",

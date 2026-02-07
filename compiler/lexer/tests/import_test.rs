@@ -9,23 +9,19 @@ fn test_import() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::Import,
-            line: 1,
-            span: 4..10,
+            span: 5..11,
         },
         Token {
             kind: TokenType::String(r#""math/pi""#.to_string()),
-            line: 1,
-            span: 11..20,
+            span: 12..21,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 20..21,
+            span: 21..22,
         },
     ];
 

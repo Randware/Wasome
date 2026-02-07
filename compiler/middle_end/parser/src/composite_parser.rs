@@ -3,7 +3,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, maybe_statement_separator, statement_separator,
     token_parser, type_parameter_declaration_parser, visibility_parser,
 };
-use crate::{PosInfoWrapper, combine_code_areas_succeeding, map_visibility};
+use crate::{PosInfoWrapper, map_visibility};
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
 use ast::symbol::{EnumSymbol, EnumVariantSymbol, StructFieldSymbol, StructSymbol};
 use ast::visibility::Visibility;
@@ -55,7 +55,8 @@ pub(crate) fn struct_parser<'src>()
                             .as_ref()
                             .map(|vis| vis.pos_info())
                             .unwrap_or(data_type.pos_info());
-                        let pos = combine_code_areas_succeeding(start, &name.pos_info);
+                        // This will never panic as data_type is before name
+                        let pos = start.merge(name.pos_info).unwrap();
                         ASTNode::new(
                             StructField::new(
                                 Rc::new(StructFieldSymbol::<UntypedAST>::new(
@@ -64,20 +65,16 @@ pub(crate) fn struct_parser<'src>()
                                 )),
                                 map_visibility(visibility.as_ref()),
                             ),
-                            // This will never panic as data_type is before name
                             pos,
                         )
                     })
                     .collect::<Vec<_>>();
 
                 //This will never panic as the start is before the closing bracket
-                let pos = combine_code_areas_succeeding(
-                    visibility
-                        .as_ref()
-                        .map(|vis| vis.pos_info())
-                        .unwrap_or(struct_token.pos_info()),
-                    &end.pos_info,
-                );
+                let pos = visibility
+                    .as_ref()
+                    .map(|vis| vis.pos_info())
+                    .unwrap_or(struct_token.pos_info()).merge(end.pos_info).unwrap();
                 let type_parameters = type_parameters
                     .into_iter()
                     .map(|type_param| type_param.inner)
@@ -139,19 +136,17 @@ pub(crate) fn enum_parser<'src>()
                                 fields.into_iter().map(|field| field.inner).collect(),
                             ))),
                             // This will never panic as name is before end
-                            combine_code_areas_succeeding(&name.pos_info, &end_pos),
+                            name.pos_info.merge(end_pos).unwrap()
                         )
                     })
                     .collect::<Vec<_>>();
 
                 //This will never panic as the start is before the closing bracket
-                let pos = combine_code_areas_succeeding(
+                let pos = 
                     visibility
                         .as_ref()
                         .map(|vis| vis.pos_info())
-                        .unwrap_or(enum_token.pos_info()),
-                    &end.pos_info,
-                );
+                        .unwrap_or(enum_token.pos_info()).merge(end.pos_info).unwrap();
                 let visibility = visibility
                     .map(|_| Visibility::Public)
                     .unwrap_or(Visibility::Private);

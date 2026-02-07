@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-shared = { path = "../shared" }
 ast = { path = "../ast" }
 source = { path = "../source" }
 parser = { path = "../middle_end/parser" }
@@ -12,4 +11,5 @@ semantic_analyzer = { path = "../middle_end/semantic_analyzer" }
 io = { path = "../io" }
 
 [dev-dependencies]
+source = { path = "../source", features = ["test-utils"] }
 tempfile.workspace = true

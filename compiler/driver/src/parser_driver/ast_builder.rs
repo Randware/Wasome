@@ -44,7 +44,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         let main_file_name = from.main_file().iter().next_back()?.to_str()?;
         main_file_path.push(main_file_name);
         let main_file_id = to_ret.load_from.load_file(main_file_path).ok()?;
-        to_ret.add_file_handle_imports(&main_file_location, main_file_id, main_file_name)?;
+        to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Some(to_ret)
     }
 
@@ -111,9 +111,8 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
-        file_name: &str,
     ) -> Option<()> {
-        let imports_information = self.handle_file(file_location, to_add, file_name)?;
+        let imports_information = self.handle_file(file_location, to_add)?;
         imports_information
             .into_iter()
             .map(|path| self.handle_import(&path))
@@ -144,11 +143,10 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
-        file_name: &str,
     ) -> Option<Vec<ModulePath>> {
         let parsed = self.parse_file(file_location, to_add)?;
         let imports_information = ModulePath::from_file(&parsed, file_location);
-        self.add_file(file_location, parsed, file_name)?;
+        self.add_file(file_location, parsed, to_add)?;
         Some(imports_information)
     }
 
@@ -169,12 +167,10 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &mut self,
         file_location: &ModulePath,
         file: File<UntypedAST>,
-        file_name: &str,
+        file_id: FileID,
     ) -> Option<()> {
-        let mut file_path = file_location.build_path_buf(self.program_information.projects())?;
-        file_path.push(file_name);
         self.root
-            .add_file(ASTNode::new(file, file_path), &file_location.elements())?;
+            .add_file(ASTNode::new(file, file_id), &file_location.elements())?;
         Some(())
     }
 
@@ -241,7 +237,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 return false;
             };
             if self
-                .add_file_handle_imports(import_path, loaded, &file)
+                .add_file_handle_imports(import_path, loaded)
                 .is_none()
             {
                 return false;

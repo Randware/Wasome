@@ -1,7 +1,7 @@
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser, token_parser,
 };
-use crate::{PosInfoWrapper, combine_code_areas_succeeding, remove_pos_info_from_vec};
+use crate::{PosInfoWrapper, remove_pos_info_from_vec};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
     Typecast, UnaryOp, UnaryOpType,
@@ -9,7 +9,7 @@ use ast::expression::{
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
-use shared::code_reference::{CodeArea, CodeLocation};
+use source::types::{BytePos, Span};
 
 /// Parses an expression
 pub(crate) fn expression_parser<'src>()
@@ -55,12 +55,11 @@ pub(crate) fn expression_parser<'src>()
                     ),
             )
             .map(|((name, type_parameters), args)| {
-                let pos = combine_code_areas_succeeding(
-                    name.pos_info(),
-                    args.last()
+                let pos = 
+                    name.pos_info().merge(
+                    *args.last()
                         .map(|to_map| to_map.position())
-                        .unwrap_or(name.pos_info()),
-                );
+                        .unwrap_or(name.pos_info())).unwrap();
                 let type_parameters = type_parameters
                     .into_iter()
                     .map(|type_param| type_param.inner)
@@ -86,7 +85,7 @@ pub(crate) fn expression_parser<'src>()
             )
             .then(token_parser(TokenType::CloseScope))
             .map(|(((start, (name, type_parameters)), field_values), end)| {
-                let pos = combine_code_areas_succeeding(start.pos_info(), end.pos_info());
+                let pos = start.pos_info().merge(end.pos_info).unwrap();
                 let fields = field_values
                     .into_iter()
                     .map(|field| (field.0.into_ast_node(), field.1))
@@ -119,13 +118,12 @@ pub(crate) fn expression_parser<'src>()
                     .or_not(),
             )
             .map(|(((name, type_parameters), variant_name), field_values)| {
-                let pos = combine_code_areas_succeeding(
-                    name.pos_info(),
-                    field_values
+                let pos = 
+                    name.pos_info().merge(
+                    *field_values
                         .as_ref()
                         .and_then(|fv| fv.last().map(|last_val| last_val.position()))
-                        .unwrap_or(variant_name.pos_info()),
-                );
+                        .unwrap_or(variant_name.pos_info())).unwrap();
                 let type_parameters = remove_pos_info_from_vec(type_parameters);
                 ASTNode::new(
                     Expression::NewEnum(Box::new(NewEnum::<UntypedAST>::new(
@@ -155,7 +153,7 @@ pub(crate) fn expression_parser<'src>()
             .then_ignore(token_parser(TokenType::Dot))
             .then(identifier_parser())
             .map(|(struct_expr, field)| {
-                let pos = combine_code_areas_succeeding(struct_expr.position(), field.pos_info());
+                let pos = struct_expr.position().merge(field.pos_info).unwrap();
                 ASTNode::new(
                     Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(
                         struct_expr,
@@ -173,7 +171,7 @@ pub(crate) fn expression_parser<'src>()
                 .then(datatype_parser())
                 .repeated(),
             |expr, (_, new_type)| {
-                let new_pos = combine_code_areas_succeeding(expr.position(), &new_type.pos_info);
+                let new_pos = expr.position().merge(new_type.pos_info).unwrap();
                 ASTNode::new(
                     Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
                         UnaryOpType::Typecast(Typecast::new(new_type.inner)),
@@ -311,11 +309,7 @@ fn map_binary_op(
     lhs: ASTNode<Expression<UntypedAST>>,
     rhs: ASTNode<Expression<UntypedAST>>,
 ) -> ASTNode<Expression<UntypedAST>> {
-    let combined_pos = CodeArea::new(
-        lhs.position().start().clone(),
-        rhs.position().end().clone(),
-        lhs.position().file().clone(),
-    )
+    let combined_pos = lhs.position().merge(*rhs.position())
     .expect("This should never happen. lhs should always be before rhs");
     ASTNode::new(
         Expression::BinaryOp(Box::new(BinaryOp::<UntypedAST>::new(
@@ -329,22 +323,21 @@ fn map_binary_op(
 
 fn unary_op_mapper(
     token_type: UnaryOpType<UntypedAST>,
-    op_start: CodeLocation,
+    op_start: BytePos,
 ) -> impl Fn(ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
     move |expr| map_unary_op(token_type.clone(), op_start.clone(), expr)
 }
 
 fn map_unary_op(
     operator_type: UnaryOpType<UntypedAST>,
-    op_start: CodeLocation,
+    op_start: BytePos,
     input: ASTNode<Expression<UntypedAST>>,
 ) -> ASTNode<Expression<UntypedAST>> {
-    let combined_pos = CodeArea::new(
-        op_start,
-        input.position().end().clone(),
-        input.position().file().clone(),
-    )
-    .expect("This should never happen. The operator should always be before the expression");
+    let combined_pos = Span {
+        start: op_start,
+        end: input.position().end(),
+        file_id: input.position().file_id,
+    };
     ASTNode::new(
         Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
             operator_type.clone(),

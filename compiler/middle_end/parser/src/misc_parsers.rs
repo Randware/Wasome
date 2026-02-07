@@ -1,4 +1,4 @@
-use crate::{PosInfoWrapper, combine_code_areas_succeeding};
+use crate::PosInfoWrapper;
 use ast::data_type::UntypedDataType;
 use ast::symbol::UntypedTypeParameterSymbol;
 use ast::type_parameter::UntypedTypeParameter;
@@ -36,13 +36,12 @@ fn datatype_parser_internal<'src>(
     ))
     .map(|dt| dt.map(|inner| UntypedDataType::new(inner, Vec::new())))
     .or(identifier_with_type_parameter.map(|(ident, type_params)| {
-        let pos = combine_code_areas_succeeding(
-            &ident.pos_info,
+        let pos =
+            ident.pos_info.merge(
             type_params
                 .last()
-                .map(|last| last.pos_info())
-                .unwrap_or(&ident.pos_info),
-        );
+                .map(|last| last.pos_info)
+                .unwrap_or(ident.pos_info)).unwrap();
         PosInfoWrapper::new(
             UntypedDataType::new(
                 ident.inner,
@@ -116,7 +115,7 @@ pub(crate) fn cross_module_capable_identifier_parser<'a>()
             None => lhs,
             Some(inner) => PosInfoWrapper::new(
                 format!("{}.{}", lhs.inner, inner.1.inner),
-                combine_code_areas_succeeding(&lhs.pos_info, &inner.1.pos_info),
+                lhs.pos_info.merge(inner.1.pos_info).unwrap(),
             ),
         })
 }

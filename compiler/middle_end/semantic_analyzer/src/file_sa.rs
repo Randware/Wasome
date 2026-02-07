@@ -4,6 +4,7 @@ use ast::file::File;
 use ast::top_level::{Import, ImportRoot};
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::path::PathBuf;
+use source::types::FileID;
 
 /// Analyzes a single file and converts it into its typed representation.
 ///
@@ -19,9 +20,9 @@ use std::path::PathBuf;
 /// # Returns
 /// * `Result<ASTNode<File<TypedAST>, PathBuf>, String>` - The typed file node on success, or an error string.
 pub(crate) fn analyze_file(
-    untyped_file: &ASTNode<File<UntypedAST>, PathBuf>,
+    untyped_file: &ASTNode<File<UntypedAST>, FileID>,
     global_elements: &mut SyntaxElementMap,
-) -> Result<ASTNode<File<TypedAST>, PathBuf>, String> {
+) -> Result<ASTNode<File<TypedAST>, FileID>, String> {
     let mut typed_functions = Vec::new();
     for func in untyped_file.function_iterator() {
         global_elements

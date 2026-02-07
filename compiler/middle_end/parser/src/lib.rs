@@ -5,13 +5,10 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::Parser;
 use io::FullIO;
 use lexer::{Token, TokenType, lex};
-use shared::code_file::CodeFile;
-use shared::code_reference::{CodeArea, CodeLocation};
-use source::types::FileID;
+use source::types::{FileID, Span};
 use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
 use std::ops::Deref;
-use std::path::PathBuf;
 
 mod composite_parser;
 mod expression_parser;
@@ -137,7 +134,7 @@ fn parse_tokens<Loader: FullIO>(
     file_information: &FileInformation<'_, Loader>,
 ) -> Option<File<UntypedAST>> {
     let filename = file_information.filename_without_extension()?.to_owned();
-    let to_parse_with_file_info = prepare_tokens(to_parse, filename.clone());
+    let to_parse_with_file_info = prepare_tokens(to_parse, file_information.file);
     // It's not a good idea to put this into a static to prevent recreating the parser
     // as it would require unsafe code
     let parser = top_level_parser(file_information);
@@ -148,8 +145,7 @@ fn parse_tokens<Loader: FullIO>(
     )
 }
 
-fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<TokenType>> {
-    let code_file = CodeFile::new(PathBuf::from(file));
+fn prepare_tokens(raw_tokens: Vec<Token>, file: FileID) -> Vec<PosInfoWrapper<TokenType>> {
     raw_tokens
         .into_iter()
         // Remove all comments
@@ -158,33 +154,17 @@ fn prepare_tokens(raw_tokens: Vec<Token>, file: String) -> Vec<PosInfoWrapper<To
         .map(|token| {
             PosInfoWrapper::new(
                 token.kind,
-                CodeArea::new(
-                    CodeLocation::new(token.line, token.span.start),
-                    CodeLocation::new(token.line, token.span.end),
-                    code_file.clone(),
-                )
-                .unwrap(),
+                file.span(token.span.start as u32, token.span.end as u32)
             )
         })
         .collect()
-}
-
-pub(crate) fn combine_code_areas(a: &CodeArea, b: &CodeArea) -> Option<CodeArea> {
-    if a.file() != b.file() {
-        return None;
-    }
-    CodeArea::new(a.start().clone(), b.end().clone(), a.file().clone())
-}
-
-pub(crate) fn combine_code_areas_succeeding(a: &CodeArea, b: &CodeArea) -> CodeArea {
-    combine_code_areas(a, b).unwrap()
 }
 
 /// Stores positional information and an element
 ///
 /// This is like [`ASTNode`], except that it doesn't indicate that this belongs in an AST
 #[derive(PartialEq, Debug)]
-pub(crate) struct PosInfoWrapper<T: PartialEq + Debug, Pos: PartialEq + Debug = CodeArea> {
+pub(crate) struct PosInfoWrapper<T: PartialEq + Debug, Pos: PartialEq + Debug = Span> {
     pub inner: T,
     pub pos_info: Pos,
 }
@@ -247,32 +227,20 @@ pub(crate) mod test_shared {
     use crate::PosInfoWrapper;
     use ast::ASTNode;
     use lexer::TokenType;
-    use shared::code_file::CodeFile;
-    use shared::code_reference::{CodeArea, CodeLocation};
     use std::fmt::Debug;
-    use std::path::PathBuf;
+    use source::types::FileID;
 
     pub(crate) fn wrap_token(to_convert: TokenType) -> PosInfoWrapper<TokenType> {
         PosInfoWrapper::new(
             to_convert,
-            CodeArea::new(
-                CodeLocation::new(0, 0),
-                CodeLocation::new(0, 0),
-                CodeFile::new(PathBuf::from("test/test")),
-            )
-            .unwrap(),
+            FileID::from(0).span(0,10),
         )
     }
 
     pub(crate) fn wrap_in_ast_node<T: PartialEq + Debug>(to_wrap: T) -> ASTNode<T> {
         ASTNode::new(
             to_wrap,
-            CodeArea::new(
-                CodeLocation::new(0, 0),
-                CodeLocation::new(0, 0),
-                CodeFile::new(PathBuf::from("test/test")),
-            )
-            .unwrap(),
+            FileID::from(0).span(0,10),
         )
     }
 }

@@ -14,13 +14,11 @@ pub enum LexError {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub kind: TokenType,
-    pub line: usize,
     pub span: Range<usize>,
 }
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(error = LexError)]
-#[logos(extras = (usize,usize))]
 #[logos(skip r"[ \t\r\f]+")]
 pub enum TokenType {
     // Datatypes
