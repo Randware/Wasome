@@ -168,13 +168,7 @@ impl<'a> SyntaxElementMap<'a> {
         symbol: &StructSymbol<UntypedAST>,
     ) -> Option<
         impl Iterator<
-            Item = (
-                (
-                    Rc<StructSymbol<TypedAST>>,
-                    Vec<Rc<StructFieldSymbol<TypedAST>>>,
-                ),
-                SingleSyntaxElementMap<'a, AnalyzableMethod>,
-            ),
+            Item = StructImplementation<'a>,
         >,
     > {
         self.structs.implementations_for_untyped_symbol(symbol)
@@ -187,6 +181,14 @@ impl<'a> SyntaxElementMap<'a> {
         self.structs.untyped_from_typed_symbol(typed)
     }
 }
+
+pub(crate) type StructImplementation<'a> = (
+    (
+        Rc<StructSymbol<TypedAST>>,
+        Vec<Rc<StructFieldSymbol<TypedAST>>>,
+    ),
+    SingleSyntaxElementMap<'a, AnalyzableMethod>,
+);
 
 impl<'a> Default for SyntaxElementMap<'a> {
     fn default() -> Self {

@@ -22,12 +22,8 @@ pub(crate) fn top_level_parser<'src, Loader: FullIO>(
 ) -> impl Parser<
     'src,
     &'src [PosInfoWrapper<TokenType>],
-    (
-        Vec<ASTNode<Import>>,
-        Vec<ASTNode<Function<UntypedAST>>>,
-        Vec<ASTNode<Struct<UntypedAST>>>,
-        Vec<ASTNode<Enum<UntypedAST>>>,
-    ),
+    TopLevelElements
+    ,
 > {
     let imports = maybe_statement_separator()
         .ignore_then(import_parser(file_information).then_ignore(statement_separator()))
@@ -61,6 +57,12 @@ pub(crate) fn top_level_parser<'src, Loader: FullIO>(
             (imports, functions, structs, enums)
         })
 }
+type TopLevelElements = (
+    Vec<ASTNode<Import>>,
+    Vec<ASTNode<Function<UntypedAST>>>,
+    Vec<ASTNode<Struct<UntypedAST>>>,
+    Vec<ASTNode<Enum<UntypedAST>>>,
+);
 
 /// Enum for temporarily storing data during parsing
 enum TopLevelElement {
