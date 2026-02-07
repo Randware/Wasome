@@ -51,12 +51,12 @@ pub(crate) fn analyze_function(
         return None;
     }
     let to_analyze = &context.ast_reference;
-    let code_area = to_analyze.inner().implementation().position().clone();
+    let code_area = *to_analyze.inner().implementation().position();
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
 
     Some(ASTNode::new(
         Function::new(symbol, implementation_node, to_analyze.inner().visibility()),
-        to_analyze.inner().position().clone(),
+        *to_analyze.inner().position(),
     ))
 }
 
@@ -73,12 +73,12 @@ pub(crate) fn analyze_enum(
                 .into_iter()
                 .zip(untyped_enum.variants().iter())
                 .map(|(typed, untyped)| {
-                    ASTNode::new(EnumVariant::new(typed), untyped.position().clone())
+                    ASTNode::new(EnumVariant::new(typed), *untyped.position())
                 })
                 .collect(),
             untyped_enum.visibility(),
         ),
-        untyped_enum.position().clone(),
+        *untyped_enum.position(),
     )
 }
 

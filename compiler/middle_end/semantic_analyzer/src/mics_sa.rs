@@ -211,7 +211,7 @@ pub(crate) fn analyze_function_call(
 
     let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();
     for untyped_arg_node in to_analyze.args().iter() {
-        let position = untyped_arg_node.position().clone();
+        let position = *untyped_arg_node.position();
 
         // Rekursiv analyze_expression aufrufen (mit allen Parametern!)
         let typed_expr = analyze_expression(untyped_arg_node, context, mapper)?;
@@ -270,14 +270,14 @@ pub(crate) fn analyze_method_call(
     )?;
     let mut args = vec![ASTNode::new(
         struct_expr,
-        to_analyze.struct_source().position().clone(),
+        *to_analyze.struct_source().position(),
     )];
     if !to_analyze
         .args()
         .iter()
         .map(|param| {
             let typed_param = analyze_expression(param, context, mapper)?;
-            let typed_param = ASTNode::new(typed_param, param.position().clone());
+            let typed_param = ASTNode::new(typed_param, *param.position());
             args.push(typed_param);
             Some(())
         })

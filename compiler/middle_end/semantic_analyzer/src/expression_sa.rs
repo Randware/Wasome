@@ -181,7 +181,7 @@ fn analyze_unary_op(
         UnaryOpType::Not => UnaryOpType::Not,
     };
 
-    let postion = expression.position().clone();
+    let postion = *expression.position();
 
     let analyzed = UnaryOp::<TypedAST>::new(
         converted_unary_op_type,
@@ -210,8 +210,8 @@ fn analyze_binary_op(
     let converted_left = analyze_expression(left_expr, context, function_symbol_mapper)?;
     let converted_right = analyze_expression(right_expr, context, function_symbol_mapper)?;
 
-    let left_position = left_expr.position().clone();
-    let right_position = right_expr.position().clone();
+    let left_position = *left_expr.position();
+    let right_position = *right_expr.position();
 
     let typed_left_node = ASTNode::new(converted_left, left_position);
     let typed_right_node = ASTNode::new(converted_right, right_position);
@@ -249,11 +249,11 @@ fn analyze_new_struct(
                         .iter()
                         .find(|field| param.0.deref() == field.name())?
                         .clone(),
-                    param.0.position().clone(),
+                    *param.0.position(),
                 ),
                 ASTNode::new(
                     analyze_expression(&param.1, context, function_symbol_mapper)?,
-                    param.1.position().clone(),
+                    *param.1.position(),
                 ),
             ))
         })
@@ -305,7 +305,7 @@ fn analyze_new_enum(
         .map(|param| {
             Some(ASTNode::new(
                 analyze_expression(param, context, function_symbol_mapper)?,
-                param.position().clone(),
+                *param.position(),
             ))
         })
         .collect::<Option<Vec<_>>>()?;
@@ -347,7 +347,7 @@ fn analyze_struct_field_access(
         .clone();
 
     Some(Box::new(StructFieldAccess::<TypedAST>::new(
-        ASTNode::new(source_expr, to_analyze.of().position().clone()),
+        ASTNode::new(source_expr, *to_analyze.of().position()),
         sf,
     )?))
 }

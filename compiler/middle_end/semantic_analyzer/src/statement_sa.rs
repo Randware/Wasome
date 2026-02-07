@@ -61,7 +61,7 @@ pub(crate) fn analyze_statement(
                 let typed_expr = analyze_expression(inner, context, function_symbol_mapper)?;
                 Some(Statement::Expression(ASTNode::new(
                     typed_expr,
-                    inner.position().clone(),
+                    *inner.position(),
                 )))
             }
         }
@@ -169,7 +169,7 @@ fn analyze_variable_assignment(
         return None;
     }
 
-    let typed_node = ASTNode::new(typed_value_expr, untyped_val.position().clone());
+    let typed_node = ASTNode::new(typed_value_expr, *untyped_val.position());
     VariableAssignment::<TypedAST>::new(typed_variable_symbol, typed_node)
 }
 
@@ -217,7 +217,7 @@ fn analyze_variable_declaration(
         return None;
     }
 
-    let typed_node = ASTNode::new(typed_value_expr, untyped_val.position().clone());
+    let typed_node = ASTNode::new(typed_value_expr, *untyped_val.position());
 
     VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_node)
 }
@@ -252,7 +252,7 @@ fn analyze_return(
                 return None;
             }
 
-            let typed_node = ASTNode::new(typed_expr, expr_node.position().clone());
+            let typed_node = ASTNode::new(typed_expr, *expr_node.position());
             Some(Return::new(Some(typed_node)))
         }
 
@@ -318,7 +318,7 @@ fn analyze_conditional(
     let typed_condition_expr =
         analyze_expression(untyped_condition, context, function_symbol_mapper)?;
 
-    let typed_condition = ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
+    let typed_condition = ASTNode::new(typed_condition_expr, *untyped_condition.position());
 
     if typed_condition.data_type() != DataType::Bool {
         return None;
@@ -329,7 +329,7 @@ fn analyze_conditional(
     // A conditional always has a 0th statement (then-statement)
     let sth = context.ast_reference.get_child(0).unwrap();
     let then_context = context.with_ast_reference(&sth);
-    let then_position = then_context.ast_reference.inner().position().clone();
+    let then_position = *then_context.ast_reference.inner().position();
 
     let typed_then_statement = analyze_statement(&then_context, function_symbol_mapper)?;
     let typed_then_node = ASTNode::new(typed_then_statement, then_position);
@@ -341,7 +341,7 @@ fn analyze_conditional(
         // We checked that the conditional has a 1st statement (else-statement)
         let sth = context.ast_reference.get_child(1).unwrap();
         let else_context = context.with_ast_reference(&sth);
-        let else_position = else_context.ast_reference.inner().position().clone();
+        let else_position = *else_context.ast_reference.inner().position();
 
         let typed_block = analyze_statement(&else_context, function_symbol_mapper)?;
         let typed_block_node = ASTNode::new(typed_block, else_position);
@@ -383,7 +383,7 @@ fn analyze_loop(
         LoopType::While(condition) => {
             let typed_condition_expr =
                 analyze_expression(condition, context, function_symbol_mapper)?;
-            let typed_condition = ASTNode::new(typed_condition_expr, condition.position().clone());
+            let typed_condition = ASTNode::new(typed_condition_expr, *condition.position());
 
             if typed_condition.data_type() != DataType::Bool {
                 let _ = function_symbol_mapper.exit_scope();
@@ -402,13 +402,13 @@ fn analyze_loop(
             // A for loop always has a 0th substatement (before)
             let sth = context.ast_reference.get_child(0).unwrap();
             let start_context = context.with_ast_reference(&sth);
-            let start_position = start_context.ast_reference.inner().position().clone();
+            let start_position = *start_context.ast_reference.inner().position();
 
             let typed_start_stmt = analyze_statement(&start_context, function_symbol_mapper)?;
             let typed_start_node = ASTNode::new(typed_start_stmt, start_position);
 
             let typed_cond_expr = analyze_expression(cond, context, function_symbol_mapper)?;
-            let typed_cond_node = ASTNode::new(typed_cond_expr, cond.position().clone());
+            let typed_cond_node = ASTNode::new(typed_cond_expr, *cond.position());
 
             if typed_cond_node.data_type() != DataType::Bool {
                 let _ = function_symbol_mapper.exit_scope();
@@ -419,7 +419,7 @@ fn analyze_loop(
             // A for loop always has a 2nd substatement (after)
             let sth = context.ast_reference.get_child(2).unwrap();
             let after_each_context = context.with_ast_reference(&sth);
-            let after_each_position = after_each_context.ast_reference.inner().position().clone();
+            let after_each_position = *after_each_context.ast_reference.inner().position();
 
             let typed_after_each_stmt =
                 analyze_statement(&after_each_context, function_symbol_mapper)?;
@@ -446,7 +446,7 @@ fn analyze_loop(
     // Both of these must exist
     let sth = context.ast_reference.get_child(body_index).unwrap();
     let to_loop_on_context = context.with_ast_reference(&sth);
-    let to_loop_on_position = to_loop_on_context.ast_reference.inner().position().clone();
+    let to_loop_on_position = *to_loop_on_context.ast_reference.inner().position();
 
     let typed_to_loop_on_stmt = analyze_statement(&to_loop_on_context, function_symbol_mapper)?;
     let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, to_loop_on_position);
@@ -492,7 +492,7 @@ fn analyze_if_enum_variant(
 
     let typed_condition = ASTNode::new(
         typed_condition_expr,
-        to_analyze.assignment_expression().position().clone(),
+        *to_analyze.assignment_expression().position(),
     );
 
     if typed_condition.data_type() != DataType::Bool {
@@ -527,7 +527,7 @@ fn analyze_if_enum_variant(
     // A IfEnumVariant always has a 0th statement (then-statement)
     let sth = context.ast_reference.get_child(0).unwrap();
     let then_context = context.with_ast_reference(&sth);
-    let then_position = then_context.ast_reference.inner().position().clone();
+    let then_position = *then_context.ast_reference.inner().position();
 
     let typed_then_statement = analyze_statement(&then_context, function_symbol_mapper)?;
     let typed_then_node = ASTNode::new(typed_then_statement, then_position);
@@ -568,7 +568,7 @@ fn analyze_codeblock(
         // This can never panic as we never reach or exceed the length of child statements
         let sth = context.ast_reference.get_child(i).unwrap();
         let child_context = context.with_ast_reference(&sth);
-        let child_position = child_context.ast_reference.inner().position().clone();
+        let child_position = *child_context.ast_reference.inner().position();
         // Recursively analyze each statement
         if let Some(stmt) = analyze_statement(&child_context, function_symbol_mapper) {
             typed_statements.push(ASTNode::new(stmt, child_position));
@@ -620,7 +620,7 @@ fn analyze_struct_field_assignment(
 ) -> Option<StructFieldAssignment<TypedAST>> {
     let struct_source =
         analyze_expression(to_analyze.struct_source(), context, function_symbol_mapper)?;
-    let struct_source = ASTNode::new(struct_source, to_analyze.struct_source().position().clone());
+    let struct_source = ASTNode::new(struct_source, *to_analyze.struct_source().position());
 
     let to_assign_to = if let DataType::Struct(st) = struct_source.data_type() {
         st
@@ -639,6 +639,6 @@ fn analyze_struct_field_assignment(
         .clone();
 
     let value = analyze_expression(to_analyze.value(), context, function_symbol_mapper)?;
-    let value = ASTNode::new(value, to_analyze.struct_source().position().clone());
+    let value = ASTNode::new(value, *to_analyze.struct_source().position());
     StructFieldAssignment::<TypedAST>::new(struct_source, field, value)
 }

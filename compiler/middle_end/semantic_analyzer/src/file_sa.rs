@@ -3,7 +3,6 @@ use ast::composite::{Struct, StructField};
 use ast::file::File;
 use ast::top_level::{Import, ImportRoot};
 use ast::{ASTNode, TypedAST, UntypedAST};
-use std::path::PathBuf;
 use source::types::FileID;
 
 /// Analyzes a single file and converts it into its typed representation.
@@ -60,13 +59,13 @@ pub(crate) fn analyze_file(
                             .map(|(typed, untyped)| {
                                 ASTNode::new(
                                     StructField::new(typed, untyped.visibility()),
-                                    untyped.position().clone(),
+                                    *untyped.position(),
                                 )
                             })
                             .collect(),
                         st.visibility(),
                     ),
-                    st.position().clone(),
+                    *st.position(),
                 )
             })
             .for_each(|st_impl| typed_structs.push(st_impl));
@@ -83,7 +82,7 @@ pub(crate) fn analyze_file(
 
             let new_import = Import::new(root, node.path().clone(), node.usage_name_owned());
 
-            ASTNode::new(new_import, node.position().clone())
+            ASTNode::new(new_import, *node.position())
         })
         .collect();
 
@@ -95,5 +94,5 @@ pub(crate) fn analyze_file(
         typed_structs,
     );
 
-    Ok(ASTNode::new(typed_file, untyped_file.position().clone()))
+    Ok(ASTNode::new(typed_file, *untyped_file.position()))
 }
