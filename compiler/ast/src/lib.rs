@@ -32,7 +32,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::rc::Rc;
-use source::types::{FileID, Span};
+use source::types::Span;
 
 pub mod composite;
 pub mod data_type;

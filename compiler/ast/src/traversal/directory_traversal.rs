@@ -5,7 +5,6 @@ use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::{AST, ASTNode, ASTType};
 use std::ops::Deref;
 use std::path::PathBuf;
-use source::types::FileID;
 
 ///  This struct helps with traversing directories
 /// It keeps a reference to a directory and its root (also a directory).

@@ -261,7 +261,6 @@ impl StructFieldAssignment<TypedAST> {
     /// - `struct_source` doesn't evaluate to a struct
     ///
     ///
-
     pub fn new(
         struct_source: ASTNode<Expression<TypedAST>>,
         struct_field: Rc<StructFieldSymbol<TypedAST>>,
@@ -284,7 +283,6 @@ impl StructFieldAssignment<TypedAST> {
 
 impl StructFieldAssignment<UntypedAST> {
     /// Creates a new instance
-
     pub fn new(
         struct_source: ASTNode<Expression<UntypedAST>>,
         struct_field: String,
@@ -649,6 +647,10 @@ impl<Type: ASTType> LoopType<Type> {
             LoopType::While(_) => 0,
             LoopType::For { .. } => 2,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Returns the child statement at index

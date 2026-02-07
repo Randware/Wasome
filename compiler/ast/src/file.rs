@@ -1,6 +1,6 @@
 use crate::composite::{Enum, Struct};
 use crate::symbol::{
-    DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter,
+    DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol,
 };
 use crate::top_level::{Function, Import};
 use crate::visibility::{Visibility, Visible};
