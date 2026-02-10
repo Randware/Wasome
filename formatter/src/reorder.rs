@@ -26,14 +26,13 @@ pub struct TopLevelItem {
 }
 
 /// Identifies the category of a top-level item based on its first keyword.
-pub fn categorize_keyword(token: &TokenType) -> Option<ItemCategory> {
+pub fn categorize_keyword(token: &TokenType) -> ItemCategory {
     match token {
-        TokenType::Import => Some(ItemCategory::Import),
-        TokenType::Struct => Some(ItemCategory::Struct),
-        TokenType::Enum => Some(ItemCategory::Enum),
-        TokenType::Function => Some(ItemCategory::Function),
-        TokenType::Public => None, // Need to look at next token
-        _ => Some(ItemCategory::Other),
+        TokenType::Import => ItemCategory::Import,
+        TokenType::Struct => ItemCategory::Struct,
+        TokenType::Enum => ItemCategory::Enum,
+        TokenType::Function => ItemCategory::Function,
+        _ => ItemCategory::Other,
     }
 }
 
@@ -58,9 +57,11 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
                             tokens: std::mem::take(&mut current_tokens),
                         });
                     }
-                    current_category =
-                        categorize_keyword(&token.kind).unwrap_or(ItemCategory::Other);
+                    current_category = categorize_keyword(&token.kind);
                     in_item = true;
+                } else if in_item && current_category == ItemCategory::Other {
+                    // We're inside a `pub` item — now we know the actual category
+                    current_category = categorize_keyword(&token.kind);
                 }
                 current_tokens.push(token);
             }
@@ -86,14 +87,6 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
                 brace_depth = brace_depth.saturating_sub(1);
                 current_tokens.push(token);
                 if brace_depth == 0 && in_item {
-                    // Check if next token is a semicolon - include it with this item
-                    // This handles struct Foo { ... }; correctly
-                    if let Some(next) = iter.peek() {
-                        if matches!(next.kind, TokenType::Semicolon) {
-                            current_tokens.push(iter.next().unwrap());
-                        }
-                    }
-                    // End of top-level item
                     items.push(TopLevelItem {
                         category: current_category,
                         tokens: std::mem::take(&mut current_tokens),
@@ -108,7 +101,8 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
                 // Example: For `pub struct Point { ... }`, at first this turns into `Other`,
                 // by iterating to the next token the actual Item is discovered
                 if in_item && current_category == ItemCategory::Other {
-                    if let Some(cat) = categorize_keyword(&token.kind) {
+                    let cat = categorize_keyword(&token.kind);
+                    if cat != ItemCategory::Other {
                         current_category = cat;
                     }
                 }

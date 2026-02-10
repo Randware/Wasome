@@ -32,15 +32,6 @@ fn test_else_stays_with_brace() {
 }
 
 #[test]
-fn test_struct_semicolon_same_line() {
-    let input = "struct Foo {s32 x};";
-    let formatted = format_source(input);
-    
-    // Semicolon should be on same line as }
-    assert!(formatted.contains("};"), "Semicolon should stay with closing brace");
-}
-
-#[test]
 fn test_trailing_newline() {
     let input = "fn foo() {}";
     let formatted = format_source(input);

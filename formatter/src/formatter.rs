@@ -30,8 +30,8 @@ pub fn format_source(input: &str) -> String {
 fn is_top_level_start(token: &TokenType) -> bool {
     matches!(
         categorize_keyword(token),
-        Some(ItemCategory::Function | ItemCategory::Struct | ItemCategory::Enum | ItemCategory::Import)
-    ) || matches!(token, TokenType::Public)
+        ItemCategory::Function | ItemCategory::Struct | ItemCategory::Enum | ItemCategory::Import
+    ) || *token == TokenType::Public
 }
 
 /// Formats a sequence of tokens.
@@ -45,7 +45,7 @@ fn format_tokens(tokens: &[Token]) -> String {
         let next = tokens.get(i + 1);
 
         // Skip statement separators - we handle newlines explicitly
-        if matches!(token.kind, TokenType::StatementSeparator) {
+        if token.kind == TokenType::StatementSeparator {
             if !at_line_start {
                 output.push('\n');
                 at_line_start = true;
@@ -54,7 +54,7 @@ fn format_tokens(tokens: &[Token]) -> String {
         }
 
         // Handle closing brace - decrease indent first
-        if matches!(token.kind, TokenType::CloseScope) {
+        if token.kind == TokenType::CloseScope {
             indent.decrease();
             if !at_line_start {
                 output.push('\n');
@@ -67,7 +67,7 @@ fn format_tokens(tokens: &[Token]) -> String {
             if let Some(prev_token) = prev {
                 if matches!(
                     prev_token.kind,
-                    TokenType::CloseScope | TokenType::StatementSeparator | TokenType::Semicolon
+                    TokenType::CloseScope | TokenType::StatementSeparator
                 ) {
                     if !output.is_empty() && !output.ends_with("\n\n") {
                         while output.ends_with(' ') || output.ends_with('\t') {
@@ -102,39 +102,28 @@ fn format_tokens(tokens: &[Token]) -> String {
         // Add the token
         output.push_str(&token_to_string(&token.kind));
 
-        // Handle opening brace
-        if matches!(token.kind, TokenType::OpenScope) {
-            indent.increase();
-            output.push('\n');
-            at_line_start = true;
-        }
-        // Handle closing brace
-        else if matches!(token.kind, TokenType::CloseScope) {
-            match next.map(|t| &t.kind) {
-                // Don't add newline if followed by else - they stay on same line: } else
-                Some(TokenType::Else) => {}
-                // Don't add newline if followed by semicolon - it gets handled by semicolon case
-                Some(TokenType::Semicolon) => {}
-                _ => {
-                    output.push('\n');
-                    at_line_start = true;
+        // Handle post-token actions
+        match &token.kind {
+            TokenType::OpenScope => {
+                indent.increase();
+                output.push('\n');
+                at_line_start = true;
+            }
+            TokenType::CloseScope => {
+                match next.map(|t| &t.kind) {
+                    // Don't add newline if followed by else - they stay on same line: } else
+                    Some(TokenType::Else) => {}
+                    _ => {
+                        output.push('\n');
+                        at_line_start = true;
+                    }
                 }
             }
-        }
-        // Handle semicolon after closing brace - keep on same line, then newline
-        else if matches!(token.kind, TokenType::Semicolon) {
-            if let Some(prev_token) = prev {
-                if matches!(prev_token.kind, TokenType::CloseScope) {
-                    // Semicolon directly after }, add newline after the semicolon
-                    output.push('\n');
-                    at_line_start = true;
-                }
+            TokenType::Comment(_) => {
+                output.push('\n');
+                at_line_start = true;
             }
-        }
-        // Handle comments
-        else if matches!(token.kind, TokenType::Comment(_)) {
-            output.push('\n');
-            at_line_start = true;
+            _ => {}
         }
     }
 
@@ -168,7 +157,14 @@ fn token_to_string(token: &TokenType) -> Cow<'_, str> {
 
         // Literals - require owned strings
         Identifier(s) | String(s) | Comment(s) => Cow::Borrowed(s),
-        Decimal(f) => Cow::Owned(f.to_string()),
+        Decimal(f) => {
+            let s = f.to_string();
+            if s.contains('.') {
+                Cow::Owned(s)
+            } else {
+                Cow::Owned(format!("{}.0", s))
+            }
+        }
         Integer(i) => Cow::Owned(i.to_string()),
         CharLiteral(c) => Cow::Owned(format!("'{}'", escape_char(*c))),
         True => "true".into(),
