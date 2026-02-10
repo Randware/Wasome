@@ -1,8 +1,8 @@
 use crate::{DirectoryLoader, FileLoader, PathResolver};
 use std::ffi::OsString;
-use std::fs;
-use std::fs::{metadata, read_dir, DirEntry, FileType};
-use std::io::Error;
+use std::fs::{self, File};
+use std::fs::{DirEntry, FileType, metadata, read_dir};
+use std::io::{Error, Read};
 use std::path::{Path, PathBuf};
 
 /// Default loader for `.waso` files.
@@ -59,9 +59,9 @@ impl FileLoader for WasomeLoader {
     ///   by the internal [`BytePos`] type.
     ///
     fn load<F: AsRef<Path>>(path: F) -> Result<String, Error> {
-        let content = fs::read_to_string(&path)?;
-
-        if content.len() > (u32::MAX as usize) {
+        let mut file = File::open(&path)?;
+        let file_metadata = file.metadata()?;
+        if file_metadata.len() > (u32::MAX as u64) {
             return Err(Error::new(
                 std::io::ErrorKind::FileTooLarge,
                 format!(
@@ -70,6 +70,9 @@ impl FileLoader for WasomeLoader {
                 ),
             ));
         }
+        let mut content = String::new();
+        let _ = file.read_to_string(&mut content);
+
         Ok(content)
     }
 }
@@ -157,7 +160,10 @@ fn entry_is_directory(to_check: &DirEntry) -> Result<bool, Error> {
     dir_entry_has_file_type_condition(to_check, |ft| ft.is_dir())
 }
 
-fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(to_check: &DirEntry, mut condition: Condition) -> Result<bool, Error> {
+fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
+    to_check: &DirEntry,
+    mut condition: Condition,
+) -> Result<bool, Error> {
     let file_type = to_check.file_type()?;
     if file_type.is_symlink() {
         return metadata(to_check.path()).map(|inner| condition(inner.file_type()));
@@ -167,7 +173,7 @@ fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(to_chec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs::File, io::Write};
+    use std::{fs::File, io::Write, u32};
     use tempfile::tempdir;
 
     #[test]
@@ -220,6 +226,19 @@ mod tests {
     }
 
     #[test]
+    fn test_load_non_existent_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("ghost.waso");
+
+        let result = WasomeLoader::load(&file_path);
+
+        assert!(result.is_err(), "Should return an error for missing files");
+
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
     fn test_list_files_mixed_content() {
         let dir = tempdir().unwrap();
         let root = dir.path();
@@ -254,7 +273,6 @@ mod tests {
             .expect("Should list subdirs")
             .collect();
 
-
         assert!(subdirs.contains(&OsString::from("sub1")));
         assert!(subdirs.contains(&OsString::from("sub2")));
         assert!(!subdirs.contains(&OsString::from("file.txt")));
@@ -282,17 +300,17 @@ mod tests {
         let files_res = WasomeLoader::list_files(&root);
         assert!(files_res.is_err());
         if let Err(e) = files_res {
-             assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
+            assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
         } else {
-             panic!("Should be error");
+            panic!("Should be error");
         }
 
         let subdirs_res = WasomeLoader::list_subdirs(&root);
         assert!(subdirs_res.is_err());
         if let Err(e) = subdirs_res {
-             assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
+            assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
         } else {
-             panic!("Should be error");
+            panic!("Should be error");
         }
     }
 
@@ -312,7 +330,11 @@ mod tests {
 
         File::create(real_path.clone().join("real_file")).unwrap();
 
-        symlink(real_path.clone().join("real_file"), root.join("link_to_file")).unwrap();
+        symlink(
+            real_path.clone().join("real_file"),
+            root.join("link_to_file"),
+        )
+        .unwrap();
         symlink(real_path.clone().join("real_dir"), root.join("link_to_dir")).unwrap();
 
         let files: Vec<OsString> = WasomeLoader::list_files(root)
@@ -336,6 +358,5 @@ mod tests {
         assert!(subdirs.contains(&OsString::from("real")));
 
         assert_eq!(2, subdirs.len());
-
     }
 }
