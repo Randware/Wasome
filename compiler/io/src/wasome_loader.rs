@@ -1,8 +1,8 @@
 use crate::{DirectoryLoader, FileLoader, PathResolver};
 use std::ffi::OsString;
-use std::fs;
+use std::fs::{self, File};
 use std::fs::{DirEntry, FileType, metadata, read_dir};
-use std::io::Error;
+use std::io::{Error, Read};
 use std::path::{Path, PathBuf};
 
 /// Default loader for `.waso` files.
@@ -59,8 +59,9 @@ impl FileLoader for WasomeLoader {
     ///   by the internal [`BytePos`] type.
     ///
     fn load<F: AsRef<Path>>(path: F) -> Result<String, Error> {
-        let metadata = fs::metadata(&path)?;
-        if metadata.len() > (u32::MAX as u64) {
+        let mut file = File::open(&path)?;
+        let file_metadata = file.metadata()?;
+        if file_metadata.len() > (u32::MAX as u64) {
             return Err(Error::new(
                 std::io::ErrorKind::FileTooLarge,
                 format!(
@@ -69,7 +70,8 @@ impl FileLoader for WasomeLoader {
                 ),
             ));
         }
-        let content = fs::read_to_string(&path)?;
+        let mut content = String::new();
+        let _ = file.read_to_string(&mut content);
 
         Ok(content)
     }
