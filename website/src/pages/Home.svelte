@@ -1,6 +1,6 @@
 <script>
   import { navigate } from '../lib/router';
-  import Background3D from '../components/Background3D.svelte';
+  import BackgroundGrid from '../components/BackgroundGrid.svelte';
   import { highlight } from '../lib/highlighter';
   
   const snippet = `struct User {
@@ -16,10 +16,45 @@ fn main() -> s32 {
     }
     -> 0
 }`;
+
+  // Tilt Effect Variables
+  let card;
+  let glow;
+  let rotateX = 0;
+  let rotateY = 0;
+  let glowX = 50;
+  let glowY = 50;
+  let glowOpacity = 0;
+
+  function handleMouseMove(e) {
+    if (!card) return;
+    
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    
+    // Calculate rotation (max 10 deg)
+    rotateY = ((x - centerX) / centerX) * 5;
+    rotateX = -((y - centerY) / centerY) * 5;
+    
+    // Calculate glow position (opposite to mouse)
+    glowX = (x / rect.width) * 100;
+    glowY = (y / rect.height) * 100;
+    glowOpacity = 1;
+  }
+
+  function handleMouseLeave() {
+    rotateX = 0;
+    rotateY = 0;
+    glowOpacity = 0;
+  }
 </script>
 
 <section class="hero-section">
-  <Background3D />
+  <BackgroundGrid />
   
   <div class="content container">
     <div class="hero-grid">
@@ -47,7 +82,14 @@ fn main() -> s32 {
       </div>
 
       <div class="hero-code">
-        <div class="code-card-wrapper">
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <div 
+          class="code-card-wrapper"
+          bind:this={card}
+          onmousemove={handleMouseMove}
+          onmouseleave={handleMouseLeave}
+          style="transform: perspective(1000px) rotateX({rotateX}deg) rotateY({rotateY}deg);"
+        >
           <div class="code-preview">
             <div class="window-controls">
               <span class="dot red"></span>
@@ -58,7 +100,18 @@ fn main() -> s32 {
             <div class="code-inner">
               <pre>{@html highlight(snippet)}</pre>
             </div>
+            
+            <!-- Dynamic Glare/Glow Overlay -->
+            <div 
+              class="glare"
+              style="
+                background: radial-gradient(circle at {glowX}% {glowY}%, rgba(255,255,255,0.1) 0%, transparent 60%);
+                opacity: {glowOpacity};
+              "
+            ></div>
           </div>
+          
+          <!-- Back Glow -->
           <div class="glow-effect"></div>
         </div>
       </div>
@@ -214,21 +267,18 @@ fn main() -> s32 {
 
   /* Code Section Styling */
   .hero-code {
-    perspective: 1000px;
     display: flex;
     justify-content: center;
+    perspective: 1000px; /* Essential for 3D effect context */
   }
 
   .code-card-wrapper {
     position: relative;
     width: 100%;
     max-width: 550px;
-    transform: rotateY(-5deg) rotateX(2deg);
-    transition: transform 0.3s ease-out;
-  }
-  
-  .code-card-wrapper:hover {
-    transform: rotateY(0deg) rotateX(0deg);
+    /* Transformation is now handled by inline JS */
+    transition: transform 0.1s cubic-bezier(0.03, 0.98, 0.52, 0.99); /* Fast but smooth */
+    transform-style: preserve-3d;
   }
 
   .code-preview {
@@ -241,6 +291,17 @@ fn main() -> s32 {
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     overflow: hidden;
   }
+  
+  .glare {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    transition: opacity 0.3s ease;
+  }
 
   .glow-effect {
     position: absolute;
@@ -252,6 +313,7 @@ fn main() -> s32 {
     z-index: 1;
     border-radius: 20px;
     pointer-events: none;
+    transform: translateZ(-10px); /* Push glow behind */
   }
 
   .window-controls {
@@ -286,6 +348,7 @@ fn main() -> s32 {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
     margin-top: 4rem;
+    margin-bottom: 8rem;
   }
 
   .feature-card {
