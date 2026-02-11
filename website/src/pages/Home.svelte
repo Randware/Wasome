@@ -400,4 +400,33 @@ fn main() -> s32 {
     
     .grid-2 { grid-template-columns: 1fr; gap: 2rem; }
   }
+
+  @media (max-width: 600px) {
+    h1 {
+      font-size: 2.8rem;
+    }
+    
+    .hero-section {
+      padding: 4rem 0 6rem;
+    }
+
+    .hero-code {
+      display: none; /* Hide code snippet on small mobile devices */
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+    }
+    
+    .actions {
+      flex-direction: column;
+      width: 100%;
+      max-width: 300px;
+    }
+    
+    .btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
 </style>
