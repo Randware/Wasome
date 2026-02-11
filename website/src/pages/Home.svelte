@@ -216,10 +216,7 @@ fn main() -> s32 {
   }
 
   .gradient-text {
-    background: linear-gradient(to right, #FACC15, #FFF);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 25px rgba(250, 204, 21, 0.4));
+    color: #fff;
     display: inline-block;
   }
 
