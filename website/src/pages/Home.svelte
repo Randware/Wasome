@@ -22,36 +22,45 @@ fn main() -> s32 {
   <Background3D />
   
   <div class="content container">
-    <div class="badge">v0.1.0 Alpha is here</div>
-    
-    <h1>
-      The <span class="gradient-text">WebAssembly</span><br>
-      Language for Everyone
-    </h1>
-    
-    <p class="subtitle">
-      Wasome is a modern, high-performance language built directly for the web. 
-      Type-safe, expressive, and blazing fast.
-    </p>
-    
-    <div class="actions">
-      <button class="btn primary" onclick={() => navigate('/docs')}>
-        Get Started
-      </button>
-      <button class="btn secondary" onclick={() => navigate('/walkthrough')}>
-        Take the Tour
-      </button>
-    </div>
-
-    <div class="code-preview">
-      <div class="window-controls">
-        <span class="dot red"></span>
-        <span class="dot yellow"></span>
-        <span class="dot green"></span>
-        <span class="window-title">main.waso</span>
+    <div class="hero-grid">
+      <div class="hero-text">
+        <div class="badge">v0.1.0 Alpha is here</div>
+        
+        <h1>
+          The <span class="gradient-text">WebAssembly</span><br>
+          Language for Everyone
+        </h1>
+        
+        <p class="subtitle">
+          Wasome is a modern, high-performance language built directly for the web. 
+          Type-safe, expressive, and blazing fast.
+        </p>
+        
+        <div class="actions">
+          <button class="btn primary" onclick={() => navigate('/install')}>
+            Get Started
+          </button>
+          <button class="btn secondary" onclick={() => navigate('/walkthrough')}>
+            Take the Tour
+          </button>
+        </div>
       </div>
-      <div class="code-inner">
-        <pre>{@html highlight(snippet)}</pre>
+
+      <div class="hero-code">
+        <div class="code-card-wrapper">
+          <div class="code-preview">
+            <div class="window-controls">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="window-title">main.waso</span>
+            </div>
+            <div class="code-inner">
+              <pre>{@html highlight(snippet)}</pre>
+            </div>
+          </div>
+          <div class="glow-effect"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -107,13 +116,28 @@ fn main() -> s32 {
 <style>
   .hero-section {
     position: relative;
-    padding: 8rem 0 4rem;
+    padding: 6rem 0;
+    min-height: 90vh;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    text-align: center;
     overflow: hidden;
-    min-height: 90vh; /* ensure enough height for 3D bg */
+  }
+
+  .content {
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 4rem;
+    align-items: center;
+  }
+
+  .hero-text {
+    text-align: left;
   }
 
   .badge {
@@ -124,14 +148,14 @@ fn main() -> s32 {
     border-radius: 99px;
     font-size: 0.85rem;
     font-weight: 500;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
     display: inline-block;
   }
 
   h1 {
-    font-size: 5rem;
+    font-size: 4.5rem;
     font-weight: 800;
-    line-height: 1.05;
+    line-height: 1.1;
     margin-bottom: 1.5rem;
     letter-spacing: -0.03em;
   }
@@ -145,15 +169,14 @@ fn main() -> s32 {
   .subtitle {
     font-size: 1.25rem;
     color: var(--text-secondary);
-    max-width: 600px;
-    margin: 0 auto 3rem;
+    margin-bottom: 2.5rem;
+    line-height: 1.6;
+    max-width: 90%;
   }
 
   .actions {
     display: flex;
     gap: 1rem;
-    justify-content: center;
-    margin-bottom: 5rem;
   }
 
   .btn {
@@ -161,12 +184,14 @@ fn main() -> s32 {
     border-radius: 8px;
     font-weight: 600;
     font-size: 1rem;
+    cursor: pointer;
     transition: all 0.2s;
   }
-
+  
   .btn.primary {
     background: var(--primary);
     color: #000;
+    border: none;
     box-shadow: 0 0 20px rgba(250, 204, 21, 0.3);
   }
 
@@ -187,56 +212,72 @@ fn main() -> s32 {
     border-color: rgba(255, 255, 255, 0.2);
   }
 
+  /* Code Section Styling */
+  .hero-code {
+    perspective: 1000px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .code-card-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 550px;
+    transform: rotateY(-5deg) rotateX(2deg);
+    transition: transform 0.3s ease-out;
+  }
+  
+  .code-card-wrapper:hover {
+    transform: rotateY(0deg) rotateX(0deg);
+  }
+
   .code-preview {
-    background: #1e1e1e; /* Solid dark background */
+    background: #1e1e1e;
     border: 1px solid #333;
     border-radius: 12px;
     text-align: left;
-    width: 100%;
-    max-width: 600px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); /* Better shadow */
     position: relative;
+    z-index: 2;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     overflow: hidden;
+  }
+
+  .glow-effect {
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    bottom: -20px;
+    left: -20px;
+    background: radial-gradient(circle, rgba(250, 204, 21, 0.15) 0%, rgba(0,0,0,0) 70%);
+    z-index: 1;
+    border-radius: 20px;
+    pointer-events: none;
   }
 
   .window-controls {
     display: flex;
     gap: 8px;
     padding: 12px 16px;
-    background: #252526; /* Slightly lighter header */
+    background: #252526;
     border-bottom: 1px solid #333;
     align-items: center;
   }
 
-  .dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
   .red { background-color: #FF5F56; border: 1px solid #E0443E; }
   .yellow { background-color: #FFBD2E; border: 1px solid #DEA123; }
   .green { background-color: #27C93F; border: 1px solid #1AAB29; }
 
-  .window-title {
-    margin-left: auto;
-    font-size: 0.85rem;
-    color: #888;
-    font-family: var(--font-mono);
-  }
+  .window-title { margin-left: auto; font-size: 0.85rem; color: #888; font-family: var(--font-mono); }
 
-  .code-inner {
-    padding: 1.5rem;
-    background: #1e1e1e;
-  }
+  .code-inner { padding: 1.5rem; background: #1e1e1e; }
 
   pre {
     margin: 0;
     font-family: var(--font-mono);
     color: #d4d4d8;
     line-height: 1.6;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     overflow-x: auto;
   }
 
@@ -260,84 +301,36 @@ fn main() -> s32 {
     transform: translateY(-5px);
   }
 
-  .feature-card h3 {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-    color: #fff;
-  }
+  .feature-card h3 { font-size: 1.5rem; margin-bottom: 1rem; color: #fff; }
+  .feature-card p { color: var(--text-secondary); }
 
-  .feature-card p {
-    color: var(--text-secondary);
-  }
+  .why-section { padding: 6rem 1.5rem; border-top: 1px solid var(--border-light); }
+  .why-section h2 { font-size: 2.5rem; text-align: center; margin-bottom: 4rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
+  .grid-2 h3 { color: var(--primary); margin-bottom: 1rem; font-size: 1.4rem; }
+  .grid-2 p { color: var(--text-secondary); font-size: 1.1rem; line-height: 1.8; }
 
-    .why-section {
-
-      padding: 6rem 1.5rem;
-
-      border-top: 1px solid var(--border-light);
-
-    }
-
-  
-
-    .why-section h2 {
-
-      font-size: 2.5rem;
-
+  @media (max-width: 900px) {
+    .hero-grid {
+      grid-template-columns: 1fr;
       text-align: center;
-
-      margin-bottom: 4rem;
-
+      gap: 3rem;
     }
 
-  
-
-    .grid-2 {
-
-      display: grid;
-
-      grid-template-columns: 1fr 1fr;
-
-      gap: 4rem;
-
+    .hero-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
     }
 
-  
-
-    .grid-2 h3 {
-
-      color: var(--primary);
-
-      margin-bottom: 1rem;
-
-      font-size: 1.4rem;
-
+    h1 { font-size: 3.5rem; }
+    
+    .code-card-wrapper {
+      transform: none;
+      margin: 0 auto;
     }
-
-  
-
-    .grid-2 p {
-
-      color: var(--text-secondary);
-
-      font-size: 1.1rem;
-
-      line-height: 1.8;
-
-    }
-
-  
-
-    @media (max-width: 768px) {
-
-      h1 { font-size: 3rem; }
-
-      .hero-section { padding-top: 4rem; }
-
-      .grid-2 { grid-template-columns: 1fr; gap: 2rem; }
-
-    }
-
-  </style>
-
-  
+    
+    .grid-2 { grid-template-columns: 1fr; gap: 2rem; }
+  }
+</style>
