@@ -258,40 +258,45 @@ User u <- new User { id <- 1, active <- true }`)}</code></pre>
     background: #0A0A0A;
     border-radius: 8px;
     border: 1px solid var(--border-light);
-    overflow: hidden;
+    overflow-x: auto; /* Allow horizontal scroll */
   }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th, td {
-    padding: 1rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border-light);
-  }
-
-  th {
-    background: #111;
-    color: #fff;
-    font-weight: 600;
-  }
-
-  td {
-    color: var(--text-secondary);
-  }
-
-  tr:last-child td {
-    border-bottom: none;
-  }
+  /* ... styles ... */
 
   @media (max-width: 900px) {
     .page-content {
       grid-template-columns: 1fr;
+      display: flex;
+      flex-direction: column-reverse; /* Content first, then sidebar (or sidebar on top? usually sidebar on top for nav) */
+      /* Actually let's put sidebar on top */
+      flex-direction: column;
+      gap: 2rem;
     }
+    
     .sidebar {
-      display: none;
+      position: static;
+      border-bottom: 1px solid var(--border-light);
+      padding-bottom: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .sidebar-inner {
+      position: static;
+      border-right: none;
+      padding-right: 0;
+    }
+
+    .sidebar nav {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    
+    .sidebar nav a {
+      background: var(--bg-card);
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      border: 1px solid var(--border-light);
     }
   }
 </style>

@@ -258,15 +258,33 @@
     .walkthrough-container {
       flex-direction: column;
       height: auto;
+      min-height: calc(100vh - var(--header-height));
     }
+
     .guide-panel {
       width: 100%;
       height: auto;
       border-right: none;
       border-bottom: 1px solid var(--border-light);
+      padding: 1.5rem;
     }
+
+    .mascot-area {
+      height: 150px; /* Slightly smaller on mobile */
+      margin-bottom: 1rem;
+    }
+
     .editor-panel {
-      height: 600px;
+      flex: none; /* Don't flex, just take space */
+      height: auto;
+    }
+
+    .editor-body {
+      height: 400px; /* Fixed height for editor on mobile */
+    }
+
+    .output-panel {
+      height: 200px; /* Fixed height for output */
     }
   }
 </style>

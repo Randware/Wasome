@@ -166,13 +166,26 @@
   }
 
   @media (max-width: 768px) {
+    .playground-container {
+      height: auto; /* Allow scrolling on mobile */
+      min-height: calc(100vh - var(--header-height));
+    }
+    
     .editor-layout {
       grid-template-columns: 1fr;
-      grid-template-rows: 1fr 1fr;
+      grid-template-rows: 500px 300px; /* Fixed heights for editor and output */
+      display: flex;
+      flex-direction: column;
     }
+    
     .editor-pane {
+      height: 500px; /* Ensure editor has space */
       border-right: none;
       border-bottom: 1px solid var(--border-light);
+    }
+    
+    .output-pane {
+      min-height: 300px;
     }
   }
 </style>

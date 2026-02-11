@@ -222,4 +222,19 @@ fn main() {
     color: #e4e4e7;
     font-size: 1rem;
   }
+
+  @media (max-width: 600px) {
+    .page-section {
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+    }
+    
+    .code-content {
+      padding: 1rem;
+    }
+  }
 </style>
