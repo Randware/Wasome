@@ -1,6 +1,6 @@
 <script>
   import { navigate } from '../lib/router';
-  import BackgroundGrid from '../components/BackgroundGrid.svelte';
+  import BackgroundStars from '../components/BackgroundStars.svelte';
   import { highlight } from '../lib/highlighter';
   
   const snippet = `struct User {
@@ -54,7 +54,7 @@ fn main() -> s32 {
 </script>
 
 <section class="hero-section">
-  <BackgroundGrid />
+  <BackgroundStars />
   
   <div class="content container">
     <div class="hero-grid">
@@ -169,8 +169,8 @@ fn main() -> s32 {
 <style>
   .hero-section {
     position: relative;
-    padding: 6rem 0;
-    min-height: 90vh;
+    padding: 8rem 0 12rem;
+    min-height: 100vh;
     display: flex;
     align-items: center;
     overflow: hidden;
@@ -206,17 +206,21 @@ fn main() -> s32 {
   }
 
   h1 {
-    font-size: 4.5rem;
+    font-size: 5rem;
     font-weight: 800;
-    line-height: 1.1;
+    line-height: 1.05;
     margin-bottom: 1.5rem;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.04em;
+    color: #fff;
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
   }
 
   .gradient-text {
-    background: linear-gradient(135deg, #fff 30%, #888 100%);
+    background: linear-gradient(to right, #FACC15, #FFF);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 25px rgba(250, 204, 21, 0.4));
+    display: inline-block;
   }
 
   .subtitle {
@@ -347,8 +351,11 @@ fn main() -> s32 {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
-    margin-top: 4rem;
-    margin-bottom: 8rem;
+    padding: 8rem 0; /* Changed from margin-top: 4rem and margin-bottom: 8rem */
+    border-top: 1px solid rgba(255, 255, 255, 0.03); /* Extremely subtle line */
+    position: relative;
+    z-index: 2;
+    background: var(--bg-dark); /* Ensure it's opaque over the hero background */
   }
 
   .feature-card {
