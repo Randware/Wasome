@@ -169,6 +169,7 @@
     .playground-container {
       height: auto; /* Allow scrolling on mobile */
       min-height: calc(100vh - var(--header-height));
+      padding-bottom: 4rem;
     }
     
     .editor-layout {

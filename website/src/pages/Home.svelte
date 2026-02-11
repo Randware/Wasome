@@ -62,13 +62,25 @@ fn main() -> s32 {
         <div class="badge">v0.1.0 Alpha is here</div>
         
         <h1>
-          The <span class="gradient-text">WebAssembly</span><br>
-          Language for Everyone
+          <span class="desktop-text">
+            The <span class="gradient-text">WebAssembly</span><br>
+            Language for Everyone
+          </span>
+          <span class="mobile-text">
+            <span class="gradient-text">WebAssembly</span><br>
+            for Everyone
+          </span>
         </h1>
         
         <p class="subtitle">
-          Wasome is a modern, high-performance language built directly for the web. 
-          Type-safe, expressive, and blazing fast.
+          <span class="desktop-text">
+            Wasome is a modern, high-performance language built directly for the web. 
+            Type-safe, expressive, and blazing fast.
+          </span>
+          <span class="mobile-text">
+            A modern, type-safe language for the web.<br>
+            Expressive and blazing fast.
+          </span>
         </p>
         
         <div class="actions">
@@ -371,13 +383,18 @@ fn main() -> s32 {
   .feature-card h3 { font-size: 1.5rem; margin-bottom: 1rem; color: #fff; }
   .feature-card p { color: var(--text-secondary); }
 
-  .why-section { padding: 6rem 1.5rem; border-top: 1px solid var(--border-light); }
+  .why-section { padding: 6rem 1.5rem 10rem; border-top: 1px solid var(--border-light); }
   .why-section h2 { font-size: 2.5rem; text-align: center; margin-bottom: 4rem; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; }
   .grid-2 h3 { color: var(--primary); margin-bottom: 1rem; font-size: 1.4rem; }
   .grid-2 p { color: var(--text-secondary); font-size: 1.1rem; line-height: 1.8; }
 
-  @media (max-width: 900px) {
+  .mobile-text {
+    display: none;
+  }
+
+  /* Intermediate Breakpoint: Stack content but keep code visible */
+  @media (max-width: 1200px) {
     .hero-grid {
       grid-template-columns: 1fr;
       text-align: center;
@@ -390,28 +407,65 @@ fn main() -> s32 {
       align-items: center;
       text-align: center;
     }
-
-    h1 { font-size: 3.5rem; }
     
     .code-card-wrapper {
-      transform: none;
+      transform: none; /* Disable tilt on tablet/smaller to prevent overflow issues */
       margin: 0 auto;
+      max-width: 100%; /* Ensure it doesn't overflow */
+      width: 550px; /* Target width */
     }
+    
+    .hero-code {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding: 0 1rem;
+    }
+  }
+
+  /* Mobile Breakpoint: Hide code, optimized text */
+  @media (max-width: 900px) {
+    .features {
+      padding-bottom: 4rem;
+      margin-bottom: 10rem;
+    }
+
+    .why-section {
+      padding-top: 10rem;
+      padding-bottom: 10rem; /* Ensure space before footer */
+      border-top: 1px solid var(--border-light);
+    }
+
+    .hero-code {
+      display: none;
+    }
+
+    .desktop-text {
+      display: none;
+    }
+    
+    .mobile-text {
+      display: inline;
+    }
+
+    h1 { font-size: 3.5rem; }
     
     .grid-2 { grid-template-columns: 1fr; gap: 2rem; }
   }
 
+  /* Small Mobile Optimizations */
   @media (max-width: 600px) {
     h1 {
       font-size: 2.8rem;
     }
     
     .hero-section {
-      padding: 4rem 0 6rem;
+      padding: 6rem 0 8rem; /* Reduced padding */
+      min-height: auto; /* Remove 100vh constraint */
     }
 
-    .hero-code {
-      display: none; /* Hide code snippet on small mobile devices */
+    .container {
+      padding: 0 1rem; /* Smaller horizontal padding */
     }
 
     .subtitle {

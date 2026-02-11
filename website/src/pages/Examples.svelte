@@ -116,7 +116,7 @@ fn main() {
 <style>
   .page-section {
     padding-top: 4rem;
-    padding-bottom: 4rem;
+    padding-bottom: 8rem;
   }
 
   .header {

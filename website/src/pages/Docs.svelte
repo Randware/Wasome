@@ -139,7 +139,7 @@ User u <- new User { id <- 1, active <- true }`)}</code></pre>
     grid-template-columns: 250px 1fr;
     gap: 4rem;
     padding-top: 4rem;
-    padding-bottom: 4rem;
+    padding-bottom: 8rem; /* Increased padding */
   }
 
   /* Sidebar */
@@ -230,7 +230,7 @@ User u <- new User { id <- 1, active <- true }`)}</code></pre>
 
   code {
     background: rgba(255, 255, 255, 0.1);
-    padding: 0.2em 0.4em;
+    padding: 0.3em 0.6em; /* Increased padding */
     border-radius: 4px;
     color: var(--primary);
   }

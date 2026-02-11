@@ -1,28 +1,28 @@
 <script>
-  import { onMount } from 'svelte';
-  import { route } from './lib/router';
-  import Header from './components/Header.svelte';
-  import Home from './pages/Home.svelte';
-  import Docs from './pages/Docs.svelte';
-  import Examples from './pages/Examples.svelte';
-  import Playground from './pages/Playground.svelte';
-  import Walkthrough from './pages/Walkthrough.svelte';
-  import Install from './pages/Install.svelte';
+  import { onMount } from "svelte";
+  import { route } from "./lib/router";
+  import Header from "./components/Header.svelte";
+  import Home from "./pages/Home.svelte";
+  import Docs from "./pages/Docs.svelte";
+  import Examples from "./pages/Examples.svelte";
+  import Playground from "./pages/Playground.svelte";
+  import Walkthrough from "./pages/Walkthrough.svelte";
+  import Install from "./pages/Install.svelte";
 
   let Component = $derived.by(() => {
     switch ($route) {
-      case '/':
-      case '':
+      case "/":
+      case "":
         return Home;
-      case '/docs':
+      case "/docs":
         return Docs;
-      case '/walkthrough':
+      case "/walkthrough":
         return Walkthrough;
-      case '/examples':
+      case "/examples":
         return Examples;
-      case '/playground':
+      case "/playground":
         return Playground;
-      case '/install':
+      case "/install":
         return Install;
       default:
         return Home;
@@ -32,7 +32,7 @@
   $effect(() => {
     // Track route for scrolling
     $route;
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       window.scrollTo(0, 0);
     }
   });
@@ -59,12 +59,12 @@
         <span>Wasome</span>
       </div>
       <p class="copyright">
-        &copy; 2025 The Wasome Project. <br>
+        &copy; 2025 The Wasome Project. <br />
         <span class="dim">Designed for the future of WebAssembly.</span>
       </p>
       <div class="links">
         <a href="https://github.com/Randware/Wasome" target="_blank">GitHub</a>
-        <a href="https://twitter.com" target="_blank">Twitter</a>
+        <a href="https://www.youtube.com/@randware" target="_blank">YouTube</a>
       </div>
     </div>
   </div>
@@ -78,14 +78,19 @@
   }
 
   @keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   footer {
     border-top: 1px solid var(--border-light);
     padding: 4rem 0;
-    margin-top: 6rem;
     background: linear-gradient(to bottom, var(--bg-dark), #080808);
   }
 
