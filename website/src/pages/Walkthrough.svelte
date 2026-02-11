@@ -177,10 +177,12 @@
     display: flex;
     flex-direction: column;
     background: #050505;
+    overflow: hidden; /* Ensure it respects container bounds */
   }
 
   .editor-header {
     height: 50px;
+    flex-shrink: 0; /* Prevent shrinking */
     background: #111;
     border-bottom: 1px solid var(--border-light);
     display: flex;
@@ -213,19 +215,7 @@
   .editor-body {
     flex: 2;
     position: relative;
-  }
-
-  textarea {
-    width: 100%;
-    height: 100%;
-    background: #050505;
-    color: #e4e4e7;
-    border: none;
-    padding: 1.5rem;
-    font-family: var(--font-mono);
-    font-size: 1rem;
-    resize: none;
-    outline: none;
+    min-height: 0; /* Important for flex child with overflow */
   }
 
   .output-panel {
@@ -234,6 +224,7 @@
     background: #0A0A0A;
     display: flex;
     flex-direction: column;
+    min-height: 0; /* Important for flex child with overflow */
   }
 
   .output-header {
@@ -243,6 +234,7 @@
     color: var(--text-muted);
     background: #111;
     border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
   }
 
   pre {
@@ -252,6 +244,7 @@
     font-size: 0.9rem;
     margin: 0;
     overflow: auto;
+    flex: 1;
   }
 
   @media (max-width: 900px) {
@@ -267,24 +260,34 @@
       border-right: none;
       border-bottom: 1px solid var(--border-light);
       padding: 1.5rem;
+      flex-shrink: 0;
     }
 
     .mascot-area {
-      height: 150px; /* Slightly smaller on mobile */
+      height: 150px;
       margin-bottom: 1rem;
+    }
+    
+    .content-area {
+        min-height: 150px; /* Prevent layout shift when text is empty */
     }
 
     .editor-panel {
-      flex: none; /* Don't flex, just take space */
+      flex: none;
       height: auto;
+      overflow: visible;
     }
 
     .editor-body {
       height: 400px; /* Fixed height for editor on mobile */
+      min-height: 400px; /* Force minimum */
+      flex: none;
     }
 
     .output-panel {
       height: 200px; /* Fixed height for output */
+      min-height: 200px; /* Force minimum */
+      flex: none;
     }
   }
 </style>

@@ -45,6 +45,7 @@
 
 <style>
   .code-editor-container {
+    display: block; /* Ensure it takes space */
     position: relative;
     width: 100%;
     height: 100%;
