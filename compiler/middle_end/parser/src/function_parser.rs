@@ -3,7 +3,7 @@ use crate::misc_parsers::{
     visibility_parser,
 };
 use crate::statement_parser::statement_parser;
-use crate::{PosInfoWrapper, remove_pos_info_from_vec};
+use crate::{PosInfoWrapper, unspan_vec};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::Function;
 use ast::visibility::Visibility;
@@ -68,7 +68,7 @@ pub(crate) fn function_parser<'src>()
                             name.inner,
                             return_type.map(|to_map| to_map.inner),
                             params.into_iter().map(|param| param.inner).collect(),
-                            remove_pos_info_from_vec(type_parameters),
+                            unspan_vec(type_parameters),
                         )),
                         implementation,
                         visibility,

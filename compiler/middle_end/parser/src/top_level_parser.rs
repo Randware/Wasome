@@ -1,14 +1,17 @@
+use chumsky::extra::Full;
+use chumsky::input::MappedInput;
 use crate::composite_parser::{enum_parser, struct_parser};
 use crate::function_parser::function_parser;
 use crate::misc_parsers::{maybe_statement_separator, statement_separator};
 use crate::top_level_parser::import_parser::import_parser;
-use crate::{FileInformation, PosInfoWrapper};
+use crate::{FileInformation, ParserSpan, PosInfoWrapper};
 use ast::composite::{Enum, Struct};
 use ast::top_level::{Function, Import};
 use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use io::FullIO;
 use lexer::TokenType;
+use source::types::Span;
 
 /// Parses all Top-Level elements in a file.
 ///
@@ -19,7 +22,7 @@ use lexer::TokenType;
 /// - **file_information**: Information about the to be parsed.
 pub(crate) fn top_level_parser<'src, Loader: FullIO>(
     file_information: &'src FileInformation<Loader>,
-) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], TopLevelElements> {
+) -> impl Parser<'src, MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>, TopLevelElements, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> {
     let imports = maybe_statement_separator()
         .ignore_then(import_parser(file_information).then_ignore(statement_separator()))
         .repeated()
@@ -75,7 +78,7 @@ mod import_parser {
     use chumsky::IterParser;
     use chumsky::Parser;
 
-    use chumsky::error::EmptyErr;
+    use chumsky::error::{EmptyErr, Rich};
     use chumsky::prelude::{choice, just};
 
     use chumsky::regex::regex;
@@ -84,6 +87,7 @@ mod import_parser {
     use io::FullIO;
     use source::types::Span;
     use std::rc::Rc;
+    use chumsky::extra::Full;
 
     /// Parses a single import.
     ///
@@ -95,7 +99,7 @@ mod import_parser {
     ///   in order to resolve import paths correctly
     pub(super) fn import_parser<'src, Loader: FullIO>(
         file_information: &'src FileInformation<Loader>,
-    ) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>> {
+    ) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>, Full<Rich<'src, PosInfoWrapper<TokenType>>, (), ()>> {
         let ident = identifier_parser();
         let path = string_parser();
         token_parser(TokenType::Import)

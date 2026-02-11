@@ -3,7 +3,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{PosInfoWrapper, remove_pos_info_from_vec};
+use crate::{unspan_vec, ParserSpan};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,
@@ -13,13 +13,23 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
 use std::rc::Rc;
+use chumsky::extra::Full;
+use chumsky::input::MappedInput;
+use chumsky::span::WrappingSpan;
+
+type ParserInput<'src> = MappedInput<'src,
+    TokenType,
+    ParserSpan,
+    &'src [Spanned<TokenType, ParserSpan>],
+    fn(&'src Spanned<TokenType, ParserSpan>) -> (&'src TokenType, &'src ParserSpan),
+>;
 
 /// Ensures that T implements a specific trait
 ///
 /// This is only used to prevent type annotation issues without specifying the entire type
 fn narrow<
     'src,
-    T: Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Statement<UntypedAST>>> + Clone,
+    T: Parser<'src, ParserInput<'src>, ASTNode<Statement<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
 >(
     input: T,
 ) -> T {
@@ -28,7 +38,7 @@ fn narrow<
 
 /// Parses a single statement
 pub(crate) fn statement_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Statement<UntypedAST>>> {
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Statement<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> {
     recursive(|statement| {
         let statement = narrow(statement);
         let data_type = datatype_parser();
@@ -41,15 +51,32 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|(name, val)| {
-                let pos = name.pos_info.merge(*val.position()).unwrap();
-                PosInfoWrapper::new(VariableAssignment::<UntypedAST>::new(name.inner, val), pos)
+                let pos = name.span.merge(val.position().clone().into()).unwrap();
+                pos.make_wrapped(VariableAssignment::<UntypedAST>::new(name.inner, val))
             });
 
         let not_assign = token_parser(TokenType::Assign).not();
         let not_dot = token_parser(TokenType::Dot).not();
-        let not_assign_token = any().and_is(not_assign.clone());
+        let not_assign_token = any().spanned().and_is(not_assign.clone());
 
-        let struct_field_assignment = not_assign_token
+        let struct_field_assignment =
+            any::<ParserInput<'src>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>>()
+                .to_slice()
+                .map(|slice| {
+                     // slice is &[Spanned<TokenType, ParserSpan>]
+                     // span is the ParserSpan (which wraps SourceSpan)
+                     
+                     // Note: usage of to_slice() with MappedInput requires that the Input trait 
+                     // is correctly implemented for the slice type.
+                     // If compilation fails here with trait bound errors, it indicates
+                     // an incompatibility in the MappedInput configuration.
+
+                     //.make_wrapped(Statement::StructFieldAssignment(
+                     //  todo!("Implement struct field assignment parsing logic")
+                     //))
+                    ()
+                });
+        /*not_assign_token
             .clone()
             .then_ignore(
                 // Don't consume the struct field in the expression
@@ -61,27 +88,46 @@ pub(crate) fn statement_parser<'src>()
                     .rewind(),
             )
             .repeated()
+            .at_least(1)
             .collect::<Vec<_>>()
+            .to_slice()
+            .map(|a| todo!());*/
+        /*expression_parser().nested_in(
+
+                .*/
+        /*not_assign_token
+            .clone()
+            .then_ignore(
+                // Don't consume the struct field in the expression
+                not_assign_token
+                    .clone()
+                    .and_is(not_dot)
+                    .or_not()
+                    .then(token_parser(TokenType::Dot))
+                    .rewind(),
+            )
+            .repeated()
+            .at_least(1)
+            .collect::<Vec<_>>()
+            .to_slice()
             .then_ignore(token_parser(TokenType::Dot))
-            .then(not_assign_token.repeated().collect::<Vec<_>>())
+            .then(not_assign_token.repeated().at_least(1).collect::<Vec<_>>())
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .try_map(|((source, field), val), _| {
-                let source = expression_parser()
-                    .parse(&source)
-                    .into_output()
-                    .ok_or(EmptyErr::default())?;
+                let source3 = convert_nonempty_input(&source);
+                let source2 = expression_parser()
+                    .parse(source3).into_result().map_err(|err| err.into_iter().next().unwrap())?;
+                let field = convert_nonempty_input(&field);
                 let field = identifier_parser()
-                    .parse(&field)
-                    .into_output()
-                    .ok_or(EmptyErr::default())?;
+                    .parse(field)
+                    .into_result().map_err(|err| err[0])?;
 
-                let pos = source.position().merge(*val.position()).unwrap();
-                Ok(PosInfoWrapper::new(
-                    StructFieldAssignment::<UntypedAST>::new(source, field.inner, val),
-                    pos,
+                let pos: ParserSpan = source2.position().merge(*val.position()).unwrap().clone().into();
+                Ok(pos.make_wrapped(
+                    StructFieldAssignment::<UntypedAST>::new(source2, field.inner, val)
                 ))
-            });
+            });*/
 
         let variable_declaration = data_type
             .clone()
@@ -89,12 +135,11 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|((data_type, name), val)| {
-                PosInfoWrapper::new(
+                data_type.span.merge(name.span).unwrap().make_wrapped(
                     VariableDeclaration::<UntypedAST>::new(
                         Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
                         val,
-                    ),
-                    data_type.pos_info.merge(name.pos_info).unwrap(),
+                    )
                 )
             });
 
@@ -102,16 +147,15 @@ pub(crate) fn statement_parser<'src>()
             .then(expression.clone().or_not())
             .map(|(return_keyword, to_return)| {
                 let pos = return_keyword
-                    .pos_info
+                    .span
                     .merge(
-                        *to_return
+                        to_return
                             .as_ref()
-                            .map(|to_map| to_map.position())
-                            .unwrap_or(return_keyword.pos_info()),
+                            .map(|to_map| to_map.position().clone().into())
+                            .unwrap_or(return_keyword.span),
                     )
                     .unwrap();
-
-                PosInfoWrapper::new(Return::<UntypedAST>::new(to_return), pos)
+                pos.make_wrapped(Return::<UntypedAST>::new(to_return))
             });
 
         let conditional = token_parser(TokenType::If)
@@ -130,16 +174,15 @@ pub(crate) fn statement_parser<'src>()
             )
             .map(|(((if_keyword, cond), then), else_statement)| {
                 let pos = if_keyword
-                    .pos_info
+                    .span
                     .merge(
-                        *else_statement
+                        else_statement
                             .as_ref()
                             .map(|to_map| to_map.position())
-                            .unwrap_or(then.position()),
+                            .unwrap_or(then.position()).clone().into(),
                     )
                     .unwrap();
-
-                PosInfoWrapper::new(Conditional::new(cond, then, else_statement), pos)
+                pos.make_wrapped(Conditional::new(cond, then, else_statement))
             });
 
         let if_enum_variant = token_parser(TokenType::If)
@@ -175,8 +218,8 @@ pub(crate) fn statement_parser<'src>()
                     then_statement,
                 )| {
                     let pos = if_keyword
-                        .pos_info()
-                        .merge(*then_statement.position())
+                        .span
+                        .merge(then_statement.position().clone().into())
                         .unwrap();
 
                     let vars = vars
@@ -186,18 +229,17 @@ pub(crate) fn statement_parser<'src>()
                         })
                         .collect::<Vec<_>>();
 
-                    PosInfoWrapper::new(
+                    pos.make_wrapped(
                         IfEnumVariant::<UntypedAST>::new(
                             (
                                 enum_identifier.0.inner,
-                                remove_pos_info_from_vec(enum_identifier.1),
+                                unspan_vec(enum_identifier.1),
                             ),
                             enum_variant.inner,
                             source,
                             vars,
                             then_statement,
-                        ),
-                        pos,
+                        )
                     )
                 },
             );
@@ -235,8 +277,8 @@ pub(crate) fn statement_parser<'src>()
             )))
             .then(loop_body.clone())
             .map(|((loop_keyword, loop_type), body)| {
-                let pos = loop_keyword.pos_info.merge(*body.position()).unwrap();
-                PosInfoWrapper::new(Loop::new(body, loop_type), pos)
+                let pos = loop_keyword.span.merge(body.position().clone().into()).unwrap();
+                pos.make_wrapped(Loop::new(body, loop_type))
             });
 
         let code_block = token_parser(TokenType::OpenScope)
@@ -250,40 +292,39 @@ pub(crate) fn statement_parser<'src>()
             )
             .then(token_parser(TokenType::CloseScope))
             .map(|((open, block), close)| {
-                PosInfoWrapper::new(
+                open.span.merge(close.span).unwrap().make_wrapped(
                     CodeBlock::new(block.into_iter().collect()),
-                    open.pos_info.merge(close.pos_info).unwrap(),
                 )
             });
-
-        choice((
-            variable_assignment.map(|var_assign| var_assign.map(Statement::VariableAssignment)),
+        todo()
+        /*choice((
+            variable_assignment.map(|var_assign| map(var_assign, Statement::VariableAssignment)),
             struct_field_assignment
-                .map(|str_assign| str_assign.map(Statement::StructFieldAssignment)),
-            variable_declaration.map(|var_decl| var_decl.map(Statement::VariableDeclaration)),
+                .map(|str_assign| map(str_assign, Statement::StructFieldAssignment)),
+            variable_declaration.map(|var_decl| map(var_decl, Statement::VariableDeclaration)),
             conditional.map(|cond| {
-                cond.map(|inner| {
+                map(cond, |inner| {
                     Statement::ControlStructure(Box::new(ControlStructure::Conditional(inner)))
                 })
             }),
             loop_statement.map(|lst| {
-                lst.map(|inner| {
+                map(lst, |inner| {
                     Statement::ControlStructure(Box::new(ControlStructure::Loop(inner)))
                 })
             }),
             if_enum_variant.map(|iev| {
-                iev.map(|inner| {
+                map(iev, |inner| {
                     Statement::ControlStructure(Box::new(ControlStructure::IfEnumVariant(inner)))
                 })
             }),
-            code_block.map(|code_block| code_block.map(Statement::Codeblock)),
-            return_statement.map(|return_statement| return_statement.map(Statement::Return)),
-            expression.map(|expr| -> PosInfoWrapper<Statement<UntypedAST>> {
-                let pos = *expr.position();
-                PosInfoWrapper::new(Statement::Expression(expr), pos)
+            code_block.map(|code_block| map(code_block, Statement::Codeblock)),
+            return_statement.map(|return_statement| map(return_statement, Statement::Return)),
+            expression.map(|expr| -> Spanned<Statement<UntypedAST>, ParserSpan> {
+                let pos: ParserSpan = expr.position().clone().into();
+                pos.make_wrapped(Statement::Expression(expr))
             }),
         ))
-        .map(|statement| statement.into_ast_node())
+        .map(|statement| ASTNode::new(statement.inner, statement.span.into()))*/
     })
 }
 
@@ -301,6 +342,7 @@ mod tests {
     use chumsky::Parser;
     use lexer::TokenType;
     use std::rc::Rc;
+    use crate::convert_nonempty_input;
 
     #[test]
     fn parse() {
@@ -325,7 +367,7 @@ mod tests {
 
         let parser = statement_parser();
 
-        let parsed = parser.parse(&to_parse).unwrap();
+        let parsed = parser.parse(convert_nonempty_input(&to_parse)).unwrap();
 
         let symbol = Rc::new(VariableSymbol::new(
             "var".to_string(),

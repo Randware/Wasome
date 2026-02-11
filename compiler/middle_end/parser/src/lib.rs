@@ -5,10 +5,12 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::Parser;
 use io::FullIO;
 use lexer::{Token, TokenType, lex};
-use source::types::{FileID, Span};
+use source::types::{BytePos, FileID, Span as SourceSpan};
 use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
-use std::ops::Deref;
+use std::ops::{Deref, Range};
+use chumsky::input::{Input, MappedInput};
+use chumsky::span::{Span, Spanned, WrappingSpan};
 
 mod composite_parser;
 mod expression_parser;
@@ -16,7 +18,70 @@ mod function_parser;
 mod misc_parsers;
 mod statement_parser;
 mod top_level_parser;
+mod input;
 
+/// Newtype to bypass trait implementation rules
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+struct ParserSpan(pub SourceSpan);
+
+impl ParserSpan {
+    fn merge(self, other: Self) -> Option<Self> {
+        Some(Self(self.0.merge(other.0)?))
+    }
+}
+impl From<SourceSpan> for ParserSpan {
+    fn from(value: SourceSpan) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<SourceSpan> for ParserSpan {
+    fn into(self) -> SourceSpan {
+        self.0
+    }
+}
+
+impl Span for ParserSpan {
+    type Context = FileID;
+    type Offset = BytePos;
+
+    fn new(context: Self::Context, range: Range<Self::Offset>) -> Self {
+        Self(context.span(range.start.0, range.end.0))
+    }
+
+    fn context(&self) -> Self::Context {
+        self.0.file_id
+    }
+
+    fn start(&self) -> Self::Offset {
+        self.0.start
+    }
+
+    fn end(&self) -> Self::Offset {
+        self.0.end
+    }
+}
+
+impl<T> WrappingSpan<T> for ParserSpan {
+    type Spanned = Spanned<T, ParserSpan>;
+
+    fn make_wrapped(self, inner: T) -> Self::Spanned {
+        Spanned { inner, span: self }
+    }
+
+    fn inner_of(spanned: &Self::Spanned) -> &T {
+        &spanned.inner
+    }
+
+    fn span_of(spanned: &Self::Spanned) -> &Self {
+        &spanned.span
+    }
+}
+
+// It's impossible to make this a method
+pub(crate) fn map<T, S, O>(curr: Spanned<T, S>, mapper: impl FnOnce(T) -> O) -> Spanned<O, S> {
+    Spanned {inner: mapper(curr.inner), span: curr.span }
+}
 /// Information about a file
 ///
 /// This is used to provide the parser with all the required information
@@ -135,27 +200,28 @@ fn parse_tokens<Loader: FullIO>(
 ) -> Option<File<UntypedAST>> {
     let filename = file_information.filename_without_extension()?.to_owned();
     let to_parse_with_file_info = prepare_tokens(to_parse, file_information.file);
+    let eof = to_parse_with_file_info.last()
+        .map(|spanned| ParserSpan::new(spanned.span.context(), spanned.span.end()..spanned.span.end()))
+        .unwrap_or(ParserSpan::new(file_information.file, BytePos(0)..BytePos(0)));
+    let input = to_parse_with_file_info.split_spanned(eof);
     // It's not a good idea to put this into a static to prevent recreating the parser
     // as it would require unsafe code
     let parser = top_level_parser(file_information);
-    parser.parse(&to_parse_with_file_info).into_output().map(
+    parser.parse(input).into_output().map(
         |(imports, functions, structs, enums)| {
             File::new(filename, imports, functions, enums, structs)
         },
     )
 }
 
-fn prepare_tokens(raw_tokens: Vec<Token>, file: FileID) -> Vec<PosInfoWrapper<TokenType>> {
+fn prepare_tokens(raw_tokens: Vec<Token>, file: FileID) -> Vec<Spanned<TokenType, ParserSpan>> {
     raw_tokens
         .into_iter()
         // Remove all comments
         .filter(|token| !matches!(token.kind, TokenType::Comment(_)))
         // End will never be before start
         .map(|token| {
-            PosInfoWrapper::new(
-                token.kind,
-                file.span(token.span.start as u32, token.span.end as u32),
-            )
+            ParserSpan(file.span(token.span.start as u32, token.span.end as u32)).make_wrapped(token.kind)
         })
         .collect()
 }
@@ -164,7 +230,7 @@ fn prepare_tokens(raw_tokens: Vec<Token>, file: FileID) -> Vec<PosInfoWrapper<To
 ///
 /// This is like [`ASTNode`], except that it doesn't indicate that this belongs in an AST
 #[derive(PartialEq, Debug)]
-pub(crate) struct PosInfoWrapper<T: PartialEq + Debug, Pos: PartialEq + Debug = Span> {
+pub(crate) struct PosInfoWrapper<T: PartialEq + Debug, Pos: PartialEq + Debug = SourceSpan> {
     pub inner: T,
     pub pos_info: Pos,
 }
@@ -207,8 +273,8 @@ impl<T: PartialEq + Debug + Clone, Pos: PartialEq + Debug + Clone> Clone
     }
 }
 
-fn remove_pos_info_from_vec<T: PartialEq + Debug>(
-    type_parameters: Vec<PosInfoWrapper<T>>,
+fn unspan_vec<T: PartialEq + Debug, U>(
+    type_parameters: Vec<Spanned<T, U>>,
 ) -> Vec<T> {
     type_parameters
         .into_iter()
@@ -222,16 +288,27 @@ pub(crate) fn map_visibility(visibility: Option<&PosInfoWrapper<TokenType>>) -> 
         .unwrap_or(Visibility::Private)
 }
 
+pub(crate) fn convert_nonempty_input<'src>(source: &'src [Spanned<TokenType, ParserSpan>]) -> MappedInput<TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>], fn(&'src Spanned<TokenType, ParserSpan>) -> (&'src TokenType, &'src ParserSpan)> {
+    let eof = source.last()
+        .map(|spanned|
+            ParserSpan::new(spanned.span.context(), spanned.span.end()..spanned.span.end()))
+        // Unwrapping is fine as there must be tokens
+        .unwrap();
+    let source = source.split_spanned(eof);
+    source
+}
+
 #[cfg(test)]
 pub(crate) mod test_shared {
-    use crate::PosInfoWrapper;
+    use crate::{ParserSpan, PosInfoWrapper};
     use ast::ASTNode;
     use lexer::TokenType;
     use source::types::FileID;
     use std::fmt::Debug;
+    use chumsky::span::Spanned;
 
-    pub(crate) fn wrap_token(to_convert: TokenType) -> PosInfoWrapper<TokenType> {
-        PosInfoWrapper::new(to_convert, FileID::from(0).span(0, 10))
+    pub(crate) fn wrap_token(to_convert: TokenType) -> Spanned<TokenType, ParserSpan> {
+        Spanned { inner: to_convert, span: FileID::from(0).span(0, 10).into()}
     }
 
     pub(crate) fn wrap_in_ast_node<T: PartialEq + Debug>(to_wrap: T) -> ASTNode<T> {
