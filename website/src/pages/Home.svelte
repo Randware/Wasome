@@ -17,7 +17,6 @@ fn main() -> s32 {
     -> 0
 }`;
 
-  // Tilt Effect Variables
   let card;
   let glow;
   let rotateX = 0;
@@ -36,11 +35,9 @@ fn main() -> s32 {
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
     
-    // Calculate rotation (max 10 deg)
     rotateY = ((x - centerX) / centerX) * 5;
     rotateX = -((y - centerY) / centerY) * 5;
     
-    // Calculate glow position (opposite to mouse)
     glowX = (x / rect.width) * 100;
     glowY = (y / rect.height) * 100;
     glowOpacity = 1;
@@ -59,7 +56,7 @@ fn main() -> s32 {
   <div class="content container">
     <div class="hero-grid">
       <div class="hero-text">
-        <div class="badge">v0.1.0 Alpha is here</div>
+        <div class="badge">currently WIP</div>
         
         <h1>
           <span class="desktop-text">
@@ -113,7 +110,6 @@ fn main() -> s32 {
               <pre>{@html highlight(snippet)}</pre>
             </div>
             
-            <!-- Dynamic Glare/Glow Overlay -->
             <div 
               class="glare"
               style="
@@ -123,7 +119,6 @@ fn main() -> s32 {
             ></div>
           </div>
           
-          <!-- Back Glow -->
           <div class="glow-effect"></div>
         </div>
       </div>
@@ -278,19 +273,17 @@ fn main() -> s32 {
     border-color: rgba(255, 255, 255, 0.2);
   }
 
-  /* Code Section Styling */
   .hero-code {
     display: flex;
     justify-content: center;
-    perspective: 1000px; /* Essential for 3D effect context */
+    perspective: 1000px;
   }
 
   .code-card-wrapper {
     position: relative;
     width: 100%;
     max-width: 550px;
-    /* Transformation is now handled by inline JS */
-    transition: transform 0.1s cubic-bezier(0.03, 0.98, 0.52, 0.99); /* Fast but smooth */
+    transition: transform 0.1s cubic-bezier(0.03, 0.98, 0.52, 0.99);
     transform-style: preserve-3d;
   }
 
@@ -326,7 +319,7 @@ fn main() -> s32 {
     z-index: 1;
     border-radius: 20px;
     pointer-events: none;
-    transform: translateZ(-10px); /* Push glow behind */
+    transform: translateZ(-10px);
   }
 
   .window-controls {
@@ -360,11 +353,11 @@ fn main() -> s32 {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
-    padding: 8rem 0; /* Changed from margin-top: 4rem and margin-bottom: 8rem */
-    border-top: 1px solid rgba(255, 255, 255, 0.03); /* Extremely subtle line */
+    padding: 8rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
     position: relative;
     z-index: 2;
-    background: var(--bg-dark); /* Ensure it's opaque over the hero background */
+    background: var(--bg-dark);
   }
 
   .feature-card {
@@ -393,7 +386,6 @@ fn main() -> s32 {
     display: none;
   }
 
-  /* Intermediate Breakpoint: Stack content but keep code visible */
   @media (max-width: 1200px) {
     .hero-grid {
       grid-template-columns: 1fr;
@@ -409,10 +401,10 @@ fn main() -> s32 {
     }
     
     .code-card-wrapper {
-      transform: none; /* Disable tilt on tablet/smaller to prevent overflow issues */
+      transform: none;
       margin: 0 auto;
-      max-width: 100%; /* Ensure it doesn't overflow */
-      width: 550px; /* Target width */
+      max-width: 100%;
+      width: 550px;
     }
     
     .hero-code {
@@ -423,7 +415,6 @@ fn main() -> s32 {
     }
   }
 
-  /* Mobile Breakpoint: Hide code, optimized text */
   @media (max-width: 900px) {
     .features {
       padding-bottom: 2rem;
@@ -453,19 +444,18 @@ fn main() -> s32 {
     .grid-2 { grid-template-columns: 1fr; gap: 2rem; }
   }
 
-  /* Small Mobile Optimizations */
   @media (max-width: 600px) {
     h1 {
       font-size: 2.8rem;
     }
     
     .hero-section {
-      padding: 6rem 0 8rem; /* Reduced padding */
-      min-height: auto; /* Remove 100vh constraint */
+      padding: 6rem 0 8rem;
+      min-height: auto;
     }
 
     .container {
-      padding: 0 1rem; /* Smaller horizontal padding */
+      padding: 0 1rem;
     }
 
     .subtitle {

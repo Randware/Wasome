@@ -5,7 +5,6 @@
     e.preventDefault();
     const el = document.getElementById(id);
     if (el) {
-      // Adjust for header height
       const y = el.getBoundingClientRect().top + window.pageYOffset - 100;
       window.scrollTo({top: y, behavior: 'smooth'});
     }
@@ -46,11 +45,11 @@
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>u8, u16, u32, u64</code></td><td>Unsigned integers</td></tr>
-            <tr><td><code>s8, s16, s32, s64</code></td><td>Signed integers</td></tr>
-            <tr><td><code>f32, f64</code></td><td>Floating-point numbers</td></tr>
-            <tr><td><code>bool</code></td><td>Boolean (true / false)</td></tr>
-            <tr><td><code>char</code></td><td>Unicode code point (UTF-8)</td></tr>
+            <tr><td><code>{@html highlight('u8, u16, u32, u64')}</code></td><td>Unsigned integers</td></tr>
+            <tr><td><code>{@html highlight('s8, s16, s32, s64')}</code></td><td>Signed integers</td></tr>
+            <tr><td><code>{@html highlight('f32, f64')}</code></td><td>Floating-point numbers</td></tr>
+            <tr><td><code>{@html highlight('bool')}</code></td><td>Boolean (true / false)</td></tr>
+            <tr><td><code>{@html highlight('char')}</code></td><td>Unicode code point (UTF-8)</td></tr>
           </tbody>
         </table>
       </div>
@@ -139,7 +138,7 @@ User u <- new User { id <- 1, active <- true }`)}</code></pre>
     grid-template-columns: 250px 1fr;
     gap: 4rem;
     padding-top: 4rem;
-    padding-bottom: 8rem; /* Increased padding */
+    padding-bottom: 8rem;
   }
 
   /* Sidebar */
@@ -230,9 +229,12 @@ User u <- new User { id <- 1, active <- true }`)}</code></pre>
 
   code {
     background: rgba(255, 255, 255, 0.1);
-    padding: 0.3em 0.6em; /* Increased padding */
+    padding: 0.3em 0.6em;
     border-radius: 4px;
     color: var(--primary);
+    display: inline-block;
+    line-height: 1.4;
+    white-space: nowrap;
   }
 
   pre {
@@ -249,16 +251,41 @@ User u <- new User { id <- 1, active <- true }`)}</code></pre>
     padding: 0;
     color: #e4e4e7;
     font-family: var(--font-mono);
+    display: inline;
+    white-space: pre;
   }
 
   .comment { color: #52525B; }
 
-  /* Table */
   .table-wrapper {
     background: #0A0A0A;
     border-radius: 8px;
     border: 1px solid var(--border-light);
-    overflow-x: auto; /* Allow horizontal scroll */
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  th {
+    color: var(--text-main);
+    font-weight: 600;
+  }
+
+  td {
+    color: var(--text-secondary);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
   }
 
   /* ... styles ... */
@@ -267,8 +294,6 @@ User u <- new User { id <- 1, active <- true }`)}</code></pre>
     .page-content {
       grid-template-columns: 1fr;
       display: flex;
-      flex-direction: column-reverse; /* Content first, then sidebar (or sidebar on top? usually sidebar on top for nav) */
-      /* Actually let's put sidebar on top */
       flex-direction: column;
       gap: 2rem;
     }

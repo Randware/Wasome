@@ -30,7 +30,6 @@
   });
 
   $effect(() => {
-    // Track route for scrolling
     $route;
     if (typeof window !== "undefined") {
       window.scrollTo(0, 0);
@@ -73,7 +72,7 @@
 <style>
   main {
     min-height: calc(100vh - var(--header-height) - 200px);
-    padding-top: var(--header-height); /* Offset for fixed header */
+    padding-top: var(--header-height);
     animation: fade-in 0.3s ease-out;
   }
 
