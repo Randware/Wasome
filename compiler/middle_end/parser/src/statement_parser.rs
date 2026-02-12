@@ -3,7 +3,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{unspan_vec, ParserSpan};
+use crate::{map, unspan_vec, ParserSpan};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,
@@ -14,15 +14,8 @@ use chumsky::prelude::*;
 use lexer::TokenType;
 use std::rc::Rc;
 use chumsky::extra::Full;
-use chumsky::input::MappedInput;
 use chumsky::span::WrappingSpan;
-
-type ParserInput<'src> = MappedInput<'src,
-    TokenType,
-    ParserSpan,
-    &'src [Spanned<TokenType, ParserSpan>],
-    fn(&'src Spanned<TokenType, ParserSpan>) -> (&'src TokenType, &'src ParserSpan),
->;
+use crate::input::ParserInput;
 
 /// Ensures that T implements a specific trait
 ///
@@ -60,74 +53,43 @@ pub(crate) fn statement_parser<'src>()
         let not_assign_token = any().spanned().and_is(not_assign.clone());
 
         let struct_field_assignment =
-            any::<ParserInput<'src>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>>()
-                .to_slice()
-                .map(|slice| {
-                     // slice is &[Spanned<TokenType, ParserSpan>]
-                     // span is the ParserSpan (which wraps SourceSpan)
-                     
-                     // Note: usage of to_slice() with MappedInput requires that the Input trait 
-                     // is correctly implemented for the slice type.
-                     // If compilation fails here with trait bound errors, it indicates
-                     // an incompatibility in the MappedInput configuration.
-
-                     //.make_wrapped(Statement::StructFieldAssignment(
-                     //  todo!("Implement struct field assignment parsing logic")
-                     //))
-                    ()
-                });
-        /*not_assign_token
-            .clone()
-            .then_ignore(
-                // Don't consume the struct field in the expression
-                not_assign_token
-                    .clone()
-                    .and_is(not_dot)
-                    .or_not()
-                    .then(token_parser(TokenType::Dot))
-                    .rewind(),
-            )
-            .repeated()
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .to_slice()
-            .map(|a| todo!());*/
-        /*expression_parser().nested_in(
-
-                .*/
-        /*not_assign_token
-            .clone()
-            .then_ignore(
-                // Don't consume the struct field in the expression
-                not_assign_token
-                    .clone()
-                    .and_is(not_dot)
-                    .or_not()
-                    .then(token_parser(TokenType::Dot))
-                    .rewind(),
-            )
-            .repeated()
-            .at_least(1)
-            .collect::<Vec<_>>()
-            .to_slice()
+        // TODO:
+        // Improvement: Remove the collect
+        expression_parser().nested_in(
+            not_assign_token
+                .clone()
+                .then_ignore(
+                    // Don't consume the struct field in the expression
+                    not_assign_token
+                        .clone()
+                        .and_is(not_dot)
+                        .or_not()
+                        .then(token_parser(TokenType::Dot))
+                        .rewind(),
+                )
+                .repeated()
+                .at_least(1)
+                .collect::<Vec<_>>()
+                .to_slice())
             .then_ignore(token_parser(TokenType::Dot))
-            .then(not_assign_token.repeated().at_least(1).collect::<Vec<_>>())
+            .then(
+                identifier_parser().nested_in(
+                    not_assign_token
+                        .repeated()
+                        .at_least(1)
+                        .collect::<Vec<_>>()
+                        .to_slice()
+                )
+            )
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
-            .try_map(|((source, field), val), _| {
-                let source3 = convert_nonempty_input(&source);
-                let source2 = expression_parser()
-                    .parse(source3).into_result().map_err(|err| err.into_iter().next().unwrap())?;
-                let field = convert_nonempty_input(&field);
-                let field = identifier_parser()
-                    .parse(field)
-                    .into_result().map_err(|err| err[0])?;
+            .map(|((src, field), val)| {
+                let pos: ParserSpan = src.position().merge(*val.position()).unwrap().clone().into();
+                pos.make_wrapped(
+                    StructFieldAssignment::<UntypedAST>::new(src, field.inner, val)
+                )
+            });
 
-                let pos: ParserSpan = source2.position().merge(*val.position()).unwrap().clone().into();
-                Ok(pos.make_wrapped(
-                    StructFieldAssignment::<UntypedAST>::new(source2, field.inner, val)
-                ))
-            });*/
 
         let variable_declaration = data_type
             .clone()
@@ -296,8 +258,7 @@ pub(crate) fn statement_parser<'src>()
                     CodeBlock::new(block.into_iter().collect()),
                 )
             });
-        todo()
-        /*choice((
+        choice((
             variable_assignment.map(|var_assign| map(var_assign, Statement::VariableAssignment)),
             struct_field_assignment
                 .map(|str_assign| map(str_assign, Statement::StructFieldAssignment)),
@@ -324,7 +285,7 @@ pub(crate) fn statement_parser<'src>()
                 pos.make_wrapped(Statement::Expression(expr))
             }),
         ))
-        .map(|statement| ASTNode::new(statement.inner, statement.span.into()))*/
+        .map(|statement| ASTNode::new(statement.inner, statement.span.into()))
     })
 }
 

@@ -1,5 +1,4 @@
 use chumsky::extra::Full;
-use chumsky::input::MappedInput;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser, token_parser,
 };
@@ -12,10 +11,11 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::prelude::*;
 use lexer::TokenType;
 use source::types::{BytePos, Span};
+use crate::input::ParserInput;
 
 /// Parses an expression
 pub(crate) fn expression_parser<'src>()
--> impl Parser<'src, MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     recursive(|expr| {
         let literal =
             choice((
@@ -273,10 +273,10 @@ pub(crate) fn expression_parser<'src>()
 /// # Parameter
 ///
 /// **ops**: The tokens to parse and what to parse them to
-fn binary_operator_from_token_parser<'a>(
-    input: impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, ASTNode<Expression<UntypedAST>>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone,
+fn binary_operator_from_token_parser<'src>(
+    input: impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
     ops: &[(TokenType, BinaryOpType)],
-) -> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, ASTNode<Expression<UntypedAST>>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+) -> impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     let ops = ops.iter().map(|op| (token_parser(op.0.clone()), op.1));
     binary_op_parser(input, ops)
 }
@@ -285,12 +285,12 @@ fn binary_operator_from_token_parser<'a>(
 fn binary_op_parser<
     'src,
     Ignored,
-    OpParser: Parser<'src, MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>, Ignored, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
+    OpParser: Parser<'src, ParserInput<'src>, Ignored, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
     Ops: Iterator<Item = (OpParser, BinaryOpType)>,
 >(
-    input: impl Parser<'src, MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
+    input: impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
     ops: Ops,
-) -> impl Parser<'src, MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
+) -> impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     input.clone().foldl(
         choice(
             ops.map(|(token, op)| token.map(move |_| binary_op_mapper(op)))

@@ -1,17 +1,16 @@
-use chumsky::extra::Full;
-use chumsky::input::MappedInput;
 use crate::composite_parser::{enum_parser, struct_parser};
 use crate::function_parser::function_parser;
+use crate::input::ParserInput;
 use crate::misc_parsers::{maybe_statement_separator, statement_separator};
 use crate::top_level_parser::import_parser::import_parser;
-use crate::{FileInformation, ParserSpan, PosInfoWrapper};
+use crate::{FileInformation, ParserSpan};
 use ast::composite::{Enum, Struct};
 use ast::top_level::{Function, Import};
 use ast::{ASTNode, UntypedAST};
+use chumsky::extra::Full;
 use chumsky::prelude::*;
 use io::FullIO;
 use lexer::TokenType;
-use source::types::Span;
 
 /// Parses all Top-Level elements in a file.
 ///
@@ -22,7 +21,7 @@ use source::types::Span;
 /// - **file_information**: Information about the to be parsed.
 pub(crate) fn top_level_parser<'src, Loader: FullIO>(
     file_information: &'src FileInformation<Loader>,
-) -> impl Parser<'src, MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>, TopLevelElements, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> {
+) -> impl Parser<'src, ParserInput<'src>, TopLevelElements, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> {
     let imports = maybe_statement_separator()
         .ignore_then(import_parser(file_information).then_ignore(statement_separator()))
         .repeated()
@@ -71,23 +70,24 @@ enum TopLevelElement {
 
 mod import_parser {
     use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
-    use crate::{FileInformation, PosInfoWrapper};
-    use ast::ASTNode;
+    use crate::{FileInformation, ParserSpan};
     use ast::symbol::ModuleUsageNameSymbol;
     use ast::top_level::{Import, ImportRoot};
+    use ast::ASTNode;
     use chumsky::IterParser;
     use chumsky::Parser;
 
-    use chumsky::error::{EmptyErr, Rich};
+    use chumsky::error::Rich;
     use chumsky::prelude::{choice, just};
 
     use chumsky::regex::regex;
     use lexer::TokenType;
 
-    use io::FullIO;
-    use source::types::Span;
-    use std::rc::Rc;
+    use crate::input::ParserInput;
     use chumsky::extra::Full;
+    use chumsky::span::Span as ChumskySpan;
+    use io::FullIO;
+    use std::rc::Rc;
 
     /// Parses a single import.
     ///
@@ -99,22 +99,22 @@ mod import_parser {
     ///   in order to resolve import paths correctly
     pub(super) fn import_parser<'src, Loader: FullIO>(
         file_information: &'src FileInformation<Loader>,
-    ) -> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Import>, Full<Rich<'src, PosInfoWrapper<TokenType>>, (), ()>> {
+    ) -> impl Parser<'src, ParserInput<'src>, ASTNode<Import>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> {
         let ident = identifier_parser();
         let path = string_parser();
         token_parser(TokenType::Import)
             .then(path.then(token_parser(TokenType::As).ignore_then(ident).or_not()))
             .try_map(|(import, (path, usage_name)), _span| {
-                let path_end_pos = path.pos_info;
+                let path_end_pos = path.span;
                 let path = path.inner;
-                let start = import.pos_info.start();
+                let start = import.span.0.start();
                 let end = usage_name
                     .as_ref()
-                    .map(|inner| inner.pos_info)
+                    .map(|inner| inner.span)
                     .unwrap_or(path_end_pos)
-                    .end();
-
-                let path = parse_import_path(&path).ok_or(EmptyErr::default())?;
+                    .0.end();
+                let pos = import.span.context().span(start.0, end.0);
+                let path = parse_import_path(&path).ok_or(Rich::custom(pos.into(), "Invalid import".to_string()))?;
                 let use_as = usage_name
                     .map(|inner| inner.inner)
                     .unwrap_or_else(|| file_information.module_name().to_owned());
@@ -123,11 +123,7 @@ mod import_parser {
                 // Therefore, this can never panic
                 Ok(ASTNode::new(
                     Import::new(path.0, path.1, Rc::new(ModuleUsageNameSymbol::new(use_as))),
-                    Span {
-                        file_id: import.pos_info.file_id,
-                        start,
-                        end,
-                    },
+                    pos,
                 ))
             })
     }

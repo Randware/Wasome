@@ -3,7 +3,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, maybe_statement_separator, statement_separator,
     token_parser, type_parameter_declaration_parser, visibility_parser,
 };
-use crate::{PosInfoWrapper, map_visibility};
+use crate::{map_visibility, ParserSpan};
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
 use ast::symbol::{EnumSymbol, EnumVariantSymbol, StructFieldSymbol, StructSymbol};
 use ast::visibility::Visibility;
@@ -11,10 +11,13 @@ use ast::{ASTNode, UntypedAST};
 use chumsky::{IterParser, Parser};
 use lexer::TokenType;
 use std::rc::Rc;
+use chumsky::error::Rich;
+use chumsky::extra::Full;
+use crate::input::ParserInput;
 
 /// Parses a struct
 pub(crate) fn struct_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Struct<UntypedAST>>> {
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Struct<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> {
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let function = function_parser().boxed();
@@ -53,10 +56,10 @@ pub(crate) fn struct_parser<'src>()
                     .map(|((visibility, data_type), name)| {
                         let start = visibility
                             .as_ref()
-                            .map(|vis| vis.pos_info())
-                            .unwrap_or(data_type.pos_info());
+                            .map(|vis| vis.span)
+                            .unwrap_or(data_type.span);
                         // This will never panic as data_type is before name
-                        let pos = start.merge(name.pos_info).unwrap();
+                        let pos = start.merge(name.span).unwrap();
                         ASTNode::new(
                             StructField::new(
                                 Rc::new(StructFieldSymbol::<UntypedAST>::new(
@@ -65,7 +68,7 @@ pub(crate) fn struct_parser<'src>()
                                 )),
                                 map_visibility(visibility.as_ref()),
                             ),
-                            pos,
+                            pos.into(),
                         )
                     })
                     .collect::<Vec<_>>();
@@ -73,9 +76,9 @@ pub(crate) fn struct_parser<'src>()
                 //This will never panic as the start is before the closing bracket
                 let pos = visibility
                     .as_ref()
-                    .map(|vis| vis.pos_info())
-                    .unwrap_or(struct_token.pos_info())
-                    .merge(end.pos_info)
+                    .map(|vis| vis.span)
+                    .unwrap_or(struct_token.span)
+                    .merge(end.span)
                     .unwrap();
                 let type_parameters = type_parameters
                     .into_iter()
@@ -83,14 +86,14 @@ pub(crate) fn struct_parser<'src>()
                     .collect::<Vec<_>>();
                 let visibility = map_visibility(visibility.as_ref());
                 let symbol = Rc::new(StructSymbol::new(name.inner, type_parameters));
-                ASTNode::new(Struct::new(symbol, functions, fields, visibility), pos)
+                ASTNode::new(Struct::new(symbol, functions, fields, visibility), pos.0)
             },
         )
 }
 
 /// Parses an enum
 pub(crate) fn enum_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Enum<UntypedAST>>> {
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Enum<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> {
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let variant = ident.clone().then(
@@ -129,8 +132,8 @@ pub(crate) fn enum_parser<'src>()
                     .into_iter()
                     .map(|(name, opt_fields)| {
                         let (fields, end_pos) = match opt_fields {
-                            Some((f, end)) => (f, end.pos_info),
-                            None => (Vec::new(), name.pos_info),
+                            Some((f, end)) => (f, end.span),
+                            None => (Vec::new(), name.span),
                         };
                         ASTNode::new(
                             EnumVariant::new(Rc::new(EnumVariantSymbol::<UntypedAST>::new(
@@ -138,7 +141,7 @@ pub(crate) fn enum_parser<'src>()
                                 fields.into_iter().map(|field| field.inner).collect(),
                             ))),
                             // This will never panic as name is before end
-                            name.pos_info.merge(end_pos).unwrap(),
+                            name.span.merge(end_pos).unwrap().into(),
                         )
                     })
                     .collect::<Vec<_>>();
@@ -146,9 +149,9 @@ pub(crate) fn enum_parser<'src>()
                 //This will never panic as the start is before the closing bracket
                 let pos = visibility
                     .as_ref()
-                    .map(|vis| vis.pos_info())
-                    .unwrap_or(enum_token.pos_info())
-                    .merge(end.pos_info)
+                    .map(|vis| vis.span)
+                    .unwrap_or(enum_token.span)
+                    .merge(end.span)
                     .unwrap();
                 let visibility = visibility
                     .map(|_| Visibility::Public)
@@ -158,7 +161,7 @@ pub(crate) fn enum_parser<'src>()
                     .map(|type_param| type_param.inner)
                     .collect::<Vec<_>>();
                 let symbol = Rc::new(EnumSymbol::new(name.inner, type_parameters));
-                ASTNode::new(Enum::new(symbol, variants, visibility), pos)
+                ASTNode::new(Enum::new(symbol, variants, visibility), pos.0)
             },
         )
 }

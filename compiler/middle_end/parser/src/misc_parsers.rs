@@ -6,11 +6,11 @@ use chumsky::prelude::*;
 use lexer::TokenType;
 use std::rc::Rc;
 use chumsky::extra::Full;
-use chumsky::input::MappedInput;
+use crate::input::ParserInput;
 
 /// Parses data types
 pub(crate) fn datatype_parser<'src>()
--> impl Parser<'src, MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>, Spanned<UntypedDataType, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
+-> impl Parser<'src, ParserInput<'src>, Spanned<UntypedDataType, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     let identifier_with_type_parameter = identifier_with_type_parameter_parser();
     datatype_parser_internal(identifier_with_type_parameter)
 }
@@ -18,10 +18,10 @@ pub(crate) fn datatype_parser<'src>()
 fn datatype_parser_internal<'src>(
     identifier_with_type_parameter: impl Parser<
         'src,
-        MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>,
+        ParserInput<'src>,
         (Spanned<String, ParserSpan>, Vec<Spanned<UntypedDataType, ParserSpan>>), Full<Rich<'src, TokenType, ParserSpan>, (), ()>
     > + Clone,
-) -> impl Parser<'src, MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>, Spanned<UntypedDataType, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
+) -> impl Parser<'src, ParserInput<'src>, Spanned<UntypedDataType, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     choice((
         token_parser(TokenType::F32).map(|to_map| map(to_map, |_| "f32".to_string())),
         token_parser(TokenType::F64).map(|to_map| map(to_map, |_| "f64".to_string())),
@@ -30,7 +30,7 @@ fn datatype_parser_internal<'src>(
         token_parser(TokenType::S16).map(|to_map| map(to_map, |_| "s16".to_string())),
         token_parser(TokenType::U16).map(|to_map| map(to_map, |_| "u16".to_string())),
         token_parser(TokenType::S32).map(|to_map| map(to_map, |_| "s32".to_string())),
-        token_parser(TokenType::U32).map(|to_map| map(to_map, |_| "u21".to_string())),
+        token_parser(TokenType::U32).map(|to_map| map(to_map, |_| "u32".to_string())),
         token_parser(TokenType::S64).map(|to_map| map(to_map, |_| "s64".to_string())),
         token_parser(TokenType::U64).map(|to_map| map(to_map, |_| "u64".to_string())),
         token_parser(TokenType::Bool).map(|to_map| map(to_map, |_| "bool".to_string())),
@@ -63,7 +63,7 @@ fn datatype_parser_internal<'src>(
 /// Parses identifiers with possible type parameters
 pub(crate) fn identifier_with_type_parameter_parser<'src>() -> impl Parser<
     'src,
-    MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>,
+    ParserInput<'src>,
     (Spanned<String, ParserSpan>, Vec<Spanned<UntypedDataType, ParserSpan>>), Full<Rich<'src, TokenType, ParserSpan>, (), ()>
 > + Clone {
     let type_parameter_usage = type_parameter_usage_parser().boxed();
@@ -73,21 +73,21 @@ pub(crate) fn identifier_with_type_parameter_parser<'src>() -> impl Parser<
 fn identifier_with_type_parameter_parser_internal<'src>(
     type_parameter_usage: impl Parser<
         'src,
-        MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>,
+        ParserInput<'src>,
         Vec<Spanned<UntypedDataType, ParserSpan>>,
         Full<Rich<'src, TokenType, ParserSpan>, (), ()>
     > + Clone,
 ) -> impl Parser<
     'src,
-    MappedInput<'src, TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>]>,
+    ParserInput<'src>,
     (Spanned<String, ParserSpan>, Vec<Spanned<UntypedDataType, ParserSpan>>), Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
 > + Clone {
     cross_module_capable_identifier_parser().then(type_parameter_usage)
 }
 
 /// Parses identifiers
-pub(crate) fn identifier_parser<'a>()
--> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Spanned<String, ParserSpan>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+pub(crate) fn identifier_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, Spanned<String, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     select_ref! { TokenType::Identifier(x) => x.to_string() }
         .or(select_ref! { TokenType::SelfType => "self".to_string() }).spanned()
 }
@@ -102,8 +102,8 @@ pub(crate) fn identifier_parser<'a>()
 ///
 /// This can be either a cross-module identifier or a regular one.
 ///
-pub(crate) fn cross_module_capable_identifier_parser<'a>()
--> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Spanned<String, ParserSpan>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+pub(crate) fn cross_module_capable_identifier_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, Spanned<String, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     identifier_parser()
         .then(
             token_parser(TokenType::Dot)
@@ -122,8 +122,8 @@ pub(crate) fn cross_module_capable_identifier_parser<'a>()
 }
 
 /// Parses one or multiple statement separators
-pub(crate) fn statement_separator<'a>()
--> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, (), Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+pub(crate) fn statement_separator<'src>()
+-> impl Parser<'src, ParserInput<'src>, (), Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     token_parser(TokenType::StatementSeparator)
         .repeated()
         .at_least(1)
@@ -131,36 +131,36 @@ pub(crate) fn statement_separator<'a>()
 }
 
 /// Either parses a statementSeparator or nothing
-pub(crate) fn maybe_statement_separator<'a>()
--> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, (), Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+pub(crate) fn maybe_statement_separator<'src>()
+-> impl Parser<'src, ParserInput<'src>, (), Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     token_parser(TokenType::StatementSeparator)
         .or_not()
         .ignored()
 }
 
 /// Parses a single token
-pub(crate) fn token_parser<'a>(
+pub(crate) fn token_parser<'src>(
     token: TokenType,
-) -> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Spanned<TokenType, ParserSpan>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+) -> impl Parser<'src, ParserInput<'src>, Spanned<TokenType, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     just(token).spanned()
 }
 
 /// Parses a single string
-pub(crate) fn string_parser<'a>()
--> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Spanned<String, ParserSpan>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+pub(crate) fn string_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, Spanned<String, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     select_ref! { TokenType::String(x) => x.to_string() }.spanned()
 }
 
-pub(crate) fn visibility_parser<'a>()
--> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Option<Spanned<TokenType, ParserSpan>>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+pub(crate) fn visibility_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, Option<Spanned<TokenType, ParserSpan>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     token_parser(TokenType::Public).or_not()
 }
 
 /// Parses type parameters on functions, structs and enums
 ///
 /// Also allows no type parameters to be present
-pub(crate) fn type_parameter_declaration_parser<'a>()
--> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Vec<Spanned<UntypedTypeParameter, ParserSpan>>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone
+pub(crate) fn type_parameter_declaration_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, Vec<Spanned<UntypedTypeParameter, ParserSpan>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone
 {
     identifier_parser()
         .separated_by(token_parser(TokenType::ArgumentSeparator))
@@ -190,8 +190,8 @@ pub(crate) fn type_parameter_declaration_parser<'a>()
 }
 
 /// Parses a single type parameter usage
-pub(crate) fn type_parameter_usage_parser<'a>()
--> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Vec<Spanned<UntypedDataType, ParserSpan>>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone {
+pub(crate) fn type_parameter_usage_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, Vec<Spanned<UntypedDataType, ParserSpan>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
     // Allow indirect recursion as datatype_parser calls type_parameter_usage_parser through even more indirection
     let mut identifier_with_type = Recursive::declare();
     let mut datatype = Recursive::declare();
@@ -204,9 +204,9 @@ pub(crate) fn type_parameter_usage_parser<'a>()
     type_parameter_usage
 }
 
-fn type_parameter_usage_parser_internal<'a>(
-    datatype: impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Spanned<UntypedDataType, ParserSpan>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone,
-) -> impl Parser<'a, MappedInput<'a, TokenType, ParserSpan, &'a [Spanned<TokenType, ParserSpan>]>, Vec<Spanned<UntypedDataType, ParserSpan>>, Full<Rich<'a, TokenType, ParserSpan>, (), ()>> + Clone
+fn type_parameter_usage_parser_internal<'src>(
+    datatype: impl Parser<'src, ParserInput<'src>, Spanned<UntypedDataType, ParserSpan>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
+) -> impl Parser<'src, ParserInput<'src>, Vec<Spanned<UntypedDataType, ParserSpan>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone
 {
     datatype
         .separated_by(token_parser(TokenType::ArgumentSeparator))

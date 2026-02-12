@@ -9,8 +9,9 @@ use source::types::{BytePos, FileID, Span as SourceSpan};
 use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
 use std::ops::{Deref, Range};
-use chumsky::input::{Input, MappedInput};
+use chumsky::input::Input;
 use chumsky::span::{Span, Spanned, WrappingSpan};
+use crate::input::ParserInput;
 
 mod composite_parser;
 mod expression_parser;
@@ -200,10 +201,7 @@ fn parse_tokens<Loader: FullIO>(
 ) -> Option<File<UntypedAST>> {
     let filename = file_information.filename_without_extension()?.to_owned();
     let to_parse_with_file_info = prepare_tokens(to_parse, file_information.file);
-    let eof = to_parse_with_file_info.last()
-        .map(|spanned| ParserSpan::new(spanned.span.context(), spanned.span.end()..spanned.span.end()))
-        .unwrap_or(ParserSpan::new(file_information.file, BytePos(0)..BytePos(0)));
-    let input = to_parse_with_file_info.split_spanned(eof);
+    let input = ParserInput::new(&to_parse_with_file_info);
     // It's not a good idea to put this into a static to prevent recreating the parser
     // as it would require unsafe code
     let parser = top_level_parser(file_information);
@@ -282,20 +280,14 @@ fn unspan_vec<T: PartialEq + Debug, U>(
         .collect::<Vec<_>>()
 }
 
-pub(crate) fn map_visibility(visibility: Option<&PosInfoWrapper<TokenType>>) -> Visibility {
+pub(crate) fn map_visibility(visibility: Option<&Spanned<TokenType, ParserSpan>>) -> Visibility {
     visibility
         .map(|_| Visibility::Public)
         .unwrap_or(Visibility::Private)
 }
 
-pub(crate) fn convert_nonempty_input<'src>(source: &'src [Spanned<TokenType, ParserSpan>]) -> MappedInput<TokenType, ParserSpan, &'src [Spanned<TokenType, ParserSpan>], fn(&'src Spanned<TokenType, ParserSpan>) -> (&'src TokenType, &'src ParserSpan)> {
-    let eof = source.last()
-        .map(|spanned|
-            ParserSpan::new(spanned.span.context(), spanned.span.end()..spanned.span.end()))
-        // Unwrapping is fine as there must be tokens
-        .unwrap();
-    let source = source.split_spanned(eof);
-    source
+pub(crate) fn convert_nonempty_input<'src>(source: &'src [Spanned<TokenType, ParserSpan>]) -> ParserInput<'src>{
+    ParserInput::new(source)
 }
 
 #[cfg(test)]
