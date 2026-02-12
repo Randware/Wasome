@@ -59,7 +59,7 @@
         <span>Wasome</span>
       </div>
       <p class="copyright">
-        &copy; 2025 The Wasome Project. <br />
+        &copy; 2026 The Wasome Project. <br />
         <span class="dim">Designed for the future of WebAssembly.</span>
       </p>
       <div class="links">

@@ -426,13 +426,13 @@ fn main() -> s32 {
   /* Mobile Breakpoint: Hide code, optimized text */
   @media (max-width: 900px) {
     .features {
-      padding-bottom: 4rem;
-      margin-bottom: 10rem;
+      padding-bottom: 2rem;
+      margin-bottom: 4rem;
     }
 
     .why-section {
-      padding-top: 10rem;
-      padding-bottom: 10rem; /* Ensure space before footer */
+      padding-top: 4rem !important;
+      padding-bottom: 6rem !important;
       border-top: 1px solid var(--border-light);
     }
 
