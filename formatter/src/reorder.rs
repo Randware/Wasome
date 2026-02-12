@@ -36,90 +36,111 @@ pub fn categorize_keyword(token: &TokenType) -> ItemCategory {
     }
 }
 
-/// Parses tokens into top-level items.
-pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
-    let mut items = Vec::new();
-    let mut current_tokens = Vec::new();
-    let mut current_category = ItemCategory::Other;
-    let mut brace_depth: usize = 0;
-    let mut in_item = false;
-    
-    let mut iter = tokens.into_iter().peekable();
+struct TopLevelParser {
+    items: Vec<TopLevelItem>,
+    current_tokens: Vec<Token>,
+    current_category: ItemCategory,
+    brace_depth: usize,
+    in_item: bool,
+}
 
-    while let Some(token) = iter.next() {
-        match &token.kind {
-            TokenType::Import | TokenType::Struct | TokenType::Enum | TokenType::Function => {
-                if !in_item && brace_depth == 0 {
-                    // Start of a new top-level item
-                    if !current_tokens.is_empty() {
-                        items.push(TopLevelItem {
-                            category: current_category,
-                            tokens: std::mem::take(&mut current_tokens),
-                        });
-                    }
-                    current_category = categorize_keyword(&token.kind);
-                    in_item = true;
-                } else if in_item && current_category == ItemCategory::Other {
-                    // We're inside a `pub` item — now we know the actual category
-                    current_category = categorize_keyword(&token.kind);
-                }
-                current_tokens.push(token);
-            }
-            TokenType::Public => {
-                if !in_item && brace_depth == 0 {
-                    // Public modifier - start collecting but category determined by next token
-                    if !current_tokens.is_empty() {
-                        items.push(TopLevelItem {
-                            category: current_category,
-                            tokens: std::mem::take(&mut current_tokens),
-                        });
-                    }
-                    current_category = ItemCategory::Other;
-                    in_item = true;
-                }
-                current_tokens.push(token);
-            }
-            TokenType::OpenScope => {
-                brace_depth += 1;
-                current_tokens.push(token);
-            }
-            TokenType::CloseScope => {
-                brace_depth = brace_depth.saturating_sub(1);
-                current_tokens.push(token);
-                if brace_depth == 0 && in_item {
-                    items.push(TopLevelItem {
-                        category: current_category,
-                        tokens: std::mem::take(&mut current_tokens),
-                    });
-                    in_item = false;
-                    current_category = ItemCategory::Other;
-                }
-            }
-            _ => {
-                // Update category if we see a defining keyword right after `pub`.
-                //
-                // Example: For `pub struct Point { ... }`, at first this turns into `Other`,
-                // by iterating to the next token the actual Item is discovered
-                if in_item && current_category == ItemCategory::Other {
-                    let cat = categorize_keyword(&token.kind);
-                    if cat != ItemCategory::Other {
-                        current_category = cat;
-                    }
-                }
-                current_tokens.push(token);
+impl TopLevelParser {
+    fn new() -> Self {
+        Self {
+            items: Vec::new(),
+            current_tokens: Vec::new(),
+            current_category: ItemCategory::Other,
+            brace_depth: 0,
+            in_item: false,
+        }
+    }
+
+    /// Pushes the current token buffer as a finished item and resets state.
+    fn finish_current_item(&mut self) {
+        if !self.current_tokens.is_empty() {
+            self.items.push(TopLevelItem {
+                category: self.current_category,
+                tokens: std::mem::take(&mut self.current_tokens),
+            });
+        }
+        self.in_item = false;
+        self.current_category = ItemCategory::Other;
+    }
+
+    /// Begins a new top-level item, flushing any buffered tokens first.
+    fn start_new_item(&mut self, category: ItemCategory) {
+        self.finish_current_item();
+        self.current_category = category;
+        self.in_item = true;
+    }
+
+    /// Updates category from `Other` when encountering the real keyword after `pub`.
+    fn try_update_category(&mut self, token: &TokenType) {
+        if self.in_item && self.current_category == ItemCategory::Other {
+            let cat = categorize_keyword(token);
+            if cat != ItemCategory::Other {
+                self.current_category = cat;
             }
         }
     }
 
-    // Don't forget remaining tokens
-    if !current_tokens.is_empty() {
-        items.push(TopLevelItem {
-            category: current_category,
-            tokens: current_tokens,
-        });
+    fn handle_keyword(&mut self, token: Token) {
+        if !self.in_item && self.brace_depth == 0 {
+            self.start_new_item(categorize_keyword(&token.kind));
+        } else {
+            self.try_update_category(&token.kind);
+        }
+        self.current_tokens.push(token);
     }
 
-    items
+    fn handle_public(&mut self, token: Token) {
+        if !self.in_item && self.brace_depth == 0 {
+            // Category is unknown until we see the next keyword
+            // Example: For `pub struct Point { ... }`, at first this turns into `Other`,
+            // by iterating to the next token the actual Item is discovered
+            self.start_new_item(ItemCategory::Other);
+        }
+        self.current_tokens.push(token);
+    }
+
+    fn handle_open_scope(&mut self, token: Token) {
+        self.brace_depth += 1;
+        self.current_tokens.push(token);
+    }
+
+    fn handle_close_scope(&mut self, token: Token) {
+        self.brace_depth = self.brace_depth.saturating_sub(1);
+        self.current_tokens.push(token);
+        if self.brace_depth == 0 && self.in_item {
+            self.finish_current_item();
+        }
+    }
+
+    fn handle_other(&mut self, token: Token) {
+        self.try_update_category(&token.kind);
+        self.current_tokens.push(token);
+    }
+}
+
+/// Parses tokens into top-level items.
+pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
+    let mut parser = TopLevelParser::new();
+
+    for token in tokens {
+        match &token.kind {
+            TokenType::Import | TokenType::Struct | TokenType::Enum | TokenType::Function => {
+                parser.handle_keyword(token);
+            }
+            TokenType::Public => parser.handle_public(token),
+            TokenType::OpenScope => parser.handle_open_scope(token),
+            TokenType::CloseScope => parser.handle_close_scope(token),
+            _ => parser.handle_other(token),
+        }
+    }
+
+    // Flush remaining tokens
+    parser.finish_current_item();
+    parser.items
 }
 
 /// Reorders items according to the canonical order, while preserving the relative order between Items of the same kind
@@ -127,5 +148,3 @@ pub fn reorder_items(mut items: Vec<TopLevelItem>) -> Vec<TopLevelItem> {
     items.sort_by_key(|item| item.category);
     items
 }
-
-
