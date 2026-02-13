@@ -1,13 +1,16 @@
 mod command;
+mod error;
 mod execute;
+mod manifest;
 
-use anyhow::Result;
 use clap::Parser;
 
 use crate::{command::Cli, execute::Executable};
 
-fn main() -> Result<()> {
+fn main() {
     let cli = Cli::parse();
 
-    cli.execute()
+    if let Err(err) = cli.execute() {
+        println!("{}", err);
+    }
 }
