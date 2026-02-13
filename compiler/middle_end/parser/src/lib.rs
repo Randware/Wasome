@@ -11,6 +11,7 @@ use std::fmt::Debug;
 use std::ops::{Deref, Range};
 use chumsky::input::Input;
 use chumsky::span::{Span, Spanned, WrappingSpan};
+use error::diagnostic::Diagnostic;
 use crate::input::ParserInput;
 
 mod composite_parser;
@@ -21,6 +22,7 @@ mod statement_parser;
 mod top_level_parser;
 mod input;
 
+const INVALID_FILE_CODE: &str = "E1001";
 /// Newtype to bypass trait implementation rules
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 struct ParserSpan(pub SourceSpan);
@@ -181,7 +183,7 @@ impl<'a, Loader: FullIO> FileInformation<'a, Loader> {
 ///
 /// - **None**: The parsing failed // TODO: Add error handling support
 /// - **Some**: The parsing succeeded and the result is contained within
-pub fn parse<Loader: FullIO>(to_parse: FileInformation<'_, Loader>) -> Option<File<UntypedAST>> {
+pub fn parse<Loader: FullIO>(to_parse: FileInformation<'_, Loader>) -> Result<File<UntypedAST>, Diagnostic> {
     let content = to_parse.file_content();
     let mut tokens = Vec::new();
     let mut all_ok = true;
@@ -198,7 +200,7 @@ pub fn parse<Loader: FullIO>(to_parse: FileInformation<'_, Loader>) -> Option<Fi
 fn parse_tokens<Loader: FullIO>(
     to_parse: Vec<Token>,
     file_information: &FileInformation<'_, Loader>,
-) -> Option<File<UntypedAST>> {
+) -> Result<File<UntypedAST>, Diagnostic> {
     let filename = file_information.filename_without_extension()?.to_owned();
     let to_parse_with_file_info = prepare_tokens(to_parse, file_information.file);
     let input = ParserInput::new(&to_parse_with_file_info);
@@ -210,6 +212,13 @@ fn parse_tokens<Loader: FullIO>(
             File::new(filename, imports, functions, enums, structs)
         },
     )
+}
+
+fn invalid_filename_error(file: &SourceFile) -> Diagnostic {
+    Diagnostic::builder()
+        .message(format!("The at {} has an invalid name", file.path()))
+        .code(INVALID_FILE_CODE)
+        .
 }
 
 fn prepare_tokens(raw_tokens: Vec<Token>, file: FileID) -> Vec<Spanned<TokenType, ParserSpan>> {

@@ -331,6 +331,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "chumsky",
+ "error",
  "io",
  "lexer",
  "source",

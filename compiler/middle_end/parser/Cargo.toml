@@ -9,6 +9,7 @@ ast = { path = "../../ast"}
 lexer = { path = "../../lexer"}
 source = { path = "../../source"}
 io = { path = "../../io"}
+error = {path = "../../error"}
 
 [dev-dependencies]
 source = { path = "../../source", features = ["test-utils"] }
