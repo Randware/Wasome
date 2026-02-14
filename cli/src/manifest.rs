@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::{ManifestError, ManifestResult};
+use crate::manifest;
 
 pub const MANIFEST_NAME: &'static str = "waso.toml";
 pub const LIB_PATH: &'static str = "lib/";
@@ -48,7 +49,7 @@ impl Manifest {
             }
 
             if !current.pop() {
-                return Err(crate::error::ManifestError::NotFound);
+                return Err(ManifestError::NotFound);
             }
         }
     }
@@ -113,7 +114,7 @@ impl Manifest {
 
             let folder_name = format!("{}@{}", name, version);
             let dep_path = lib_root.join(&folder_name);
-            let dep_manifest_path = dep_path.join(crate::manifest::MANIFEST_NAME);
+            let dep_manifest_path = dep_path.join(manifest::MANIFEST_NAME);
 
             if !dep_manifest_path.exists() {
                 let chain_display = chain.join("/");

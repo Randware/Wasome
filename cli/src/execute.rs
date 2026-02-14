@@ -6,7 +6,7 @@ use source::SourceMap;
 use crate::{
     command::{BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs},
     error::{CliError, CliResult, ManifestError},
-    manifest::Manifest,
+    manifest::{self, Manifest},
     template::Template,
 };
 
@@ -39,7 +39,7 @@ impl Executable for CheckArgs {
         let root = manifest_path.parent().unwrap().to_path_buf();
 
         let mut source = SourceMap::new(root.clone());
-        let file_id = source.load_file(crate::manifest::MANIFEST_NAME)?;
+        let file_id = source.load_file(manifest::MANIFEST_NAME)?;
 
         let content = source.get_file(&file_id).unwrap().content();
 
