@@ -143,7 +143,9 @@ dependencies = [
  "clap",
  "error",
  "include_dir",
+ "io",
  "serde",
+ "source",
  "thiserror",
  "toml",
 ]

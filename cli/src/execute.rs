@@ -1,9 +1,11 @@
 use std::path::Path;
 
+use source::SourceMap;
+
 use crate::{
     command::{BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs},
     error::{CliError, CliResult, ManifestError},
-    manifest::Manifest,
+    manifest::{self, Manifest},
     template::Template,
 };
 
@@ -31,13 +33,26 @@ impl Executable for Command {
 impl Executable for CheckArgs {
     fn execute(self) -> CliResult<()> {
         let path = self.path.canonicalize()?;
+        let manifest_path = Manifest::find(&path)?;
+        let root = manifest_path.parent().unwrap();
 
-        let (manifest, manifest_path) = Manifest::discover(path)?;
+        let mut source = SourceMap::new(root.to_path_buf());
 
-        println!(
-            "Checking project at {}",
-            manifest_path.parent().unwrap().display()
-        );
+        let file_id = source.load_file(crate::manifest::MANIFEST_NAME)?;
+
+        let content = source.get_file(&file_id).unwrap().content();
+
+        let manifest = match Manifest::parse(content) {
+            Ok(m) => m,
+            Err(e) => match e {
+                ManifestError::Parse(toml_err) => {
+                    return Err(CliError::ManifestParse(toml_err, source, file_id));
+                }
+                _ => return Err(CliError::Manifest(e)),
+            },
+        };
+
+        //  TODO: Call driver with required information
 
         Ok(())
     }

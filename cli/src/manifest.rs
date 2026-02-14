@@ -51,15 +51,16 @@ impl Manifest {
         }
     }
 
+    /// Parse a manifest file
+    pub fn parse(content: &str) -> ManifestResult<Self> {
+        let config: Manifest = toml::from_str(content)?;
+        Ok(config)
+    }
+
     /// Attempt to load and parse the config file from the given path.
     pub fn load(path: impl AsRef<Path>) -> ManifestResult<Self> {
-        let path = path.as_ref();
-
         let content = fs::read_to_string(path)?;
-
-        let config: Manifest = toml::from_str(&content)?;
-
-        Ok(config)
+        Self::parse(&content)
     }
 
     /// Locates the manifest, loads it, and returns the pair.
