@@ -30,6 +30,9 @@ pub enum ManifestError {
 
     #[error("Failed to parse manifest: {0}")]
     Parse(#[from] toml::de::Error),
+
+    #[error("No project manifest for declared dependency '{0}' of project '{1}' found at '{2}'")]
+    MissingDependency(String, String, String),
 }
 
 pub type ManifestResult<T> = Result<T, ManifestError>;

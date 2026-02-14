@@ -1,11 +1,13 @@
+use driver::program_information::Project;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::error::ManifestResult;
+use crate::error::{ManifestError, ManifestResult};
 
 pub const MANIFEST_NAME: &'static str = "waso.toml";
+pub const LIB_PATH: &'static str = "lib/";
 
 /// The top-level configuration structure.
 #[derive(Debug, Deserialize)]
@@ -70,6 +72,83 @@ impl Manifest {
         let manifest = Self::load(&path)?;
 
         Ok((manifest, path))
+    }
+
+    /// Resolves ALL dependencies recursively.
+    pub fn resolve_dependencies(&self, project_root: &Path) -> ManifestResult<Vec<Project>> {
+        let mut resolved_projects = Vec::new();
+        let mut visited = std::collections::HashSet::new();
+
+        let initial_chain = vec![format!("{}@{}", self.project.name, self.project.version)];
+
+        self.resolve_recursive(
+            project_root,
+            &mut resolved_projects,
+            &mut visited,
+            initial_chain,
+        )?;
+
+        Ok(resolved_projects)
+    }
+
+    /// Internal recursive helper with versioned stack trace
+    fn resolve_recursive(
+        &self,
+        project_root: &Path,
+        acc: &mut Vec<Project>,
+        visited: &mut std::collections::HashSet<String>,
+        chain: Vec<String>,
+    ) -> ManifestResult<()> {
+        let deps = match &self.dependencies {
+            Some(d) => d,
+            None => return Ok(()),
+        };
+
+        let lib_root = project_root.join(LIB_PATH);
+
+        for (name, version) in deps {
+            if visited.contains(name) {
+                continue;
+            }
+
+            let folder_name = format!("{}@{}", name, version);
+            let dep_path = lib_root.join(&folder_name);
+            let dep_manifest_path = dep_path.join(crate::manifest::MANIFEST_NAME);
+
+            if !dep_manifest_path.exists() {
+                let chain_display = chain.join("/");
+
+                return Err(ManifestError::MissingDependency(
+                    folder_name.clone(),
+                    chain_display,
+                    format!("{}{}", LIB_PATH, folder_name),
+                ));
+            }
+
+            let dep_manifest = Self::load(&dep_manifest_path)?;
+
+            visited.insert(name.clone());
+
+            let relative_path = dep_path
+                .strip_prefix(project_root)
+                .unwrap_or(&dep_path)
+                .to_path_buf();
+
+            acc.push(Project::new(
+                dep_manifest.project.name.clone(),
+                relative_path,
+            ));
+
+            let mut next_chain = chain.clone();
+            next_chain.push(format!(
+                "{}@{}",
+                dep_manifest.project.name, dep_manifest.project.version
+            ));
+
+            dep_manifest.resolve_recursive(project_root, acc, visited, next_chain)?;
+        }
+
+        Ok(())
     }
 
     /// Helper to determine if the current project is a library or binary

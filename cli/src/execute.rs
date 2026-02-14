@@ -1,11 +1,12 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use driver::program_information::{ProgramInformation, Project};
 use source::SourceMap;
 
 use crate::{
     command::{BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs},
     error::{CliError, CliResult, ManifestError},
-    manifest::{self, Manifest},
+    manifest::Manifest,
     template::Template,
 };
 
@@ -33,26 +34,65 @@ impl Executable for Command {
 impl Executable for CheckArgs {
     fn execute(self) -> CliResult<()> {
         let path = self.path.canonicalize()?;
+
         let manifest_path = Manifest::find(&path)?;
-        let root = manifest_path.parent().unwrap();
+        let root = manifest_path.parent().unwrap().to_path_buf();
 
-        let mut source = SourceMap::new(root.to_path_buf());
-
+        let mut source = SourceMap::new(root.clone());
         let file_id = source.load_file(crate::manifest::MANIFEST_NAME)?;
 
         let content = source.get_file(&file_id).unwrap().content();
 
         let manifest = match Manifest::parse(content) {
             Ok(m) => m,
-            Err(e) => match e {
-                ManifestError::Parse(toml_err) => {
+            Err(e) => {
+                if let ManifestError::Parse(toml_err) = e {
                     return Err(CliError::ManifestParse(toml_err, source, file_id));
                 }
-                _ => return Err(CliError::Manifest(e)),
-            },
+
+                return Err(CliError::Manifest(e));
+            }
         };
 
-        //  TODO: Call driver with required information
+        if manifest.is_library() {
+            // NOTE: We cannot check libraries for now, since we don't have an entry point
+            println!("Skipping check for library project (no entry point)");
+            return Ok(());
+        }
+
+        let mut projects = manifest.resolve_dependencies(&root)?;
+
+        projects.push(Project::new(
+            manifest.project.name.clone(),
+            PathBuf::from("."),
+        ));
+
+        let info = ProgramInformation::new(
+            manifest.project.name.clone(),
+            root.clone(),
+            projects,
+            manifest.project.name.clone(),
+            PathBuf::from(manifest.bin.unwrap().entry),
+        );
+
+        let info = info.ok_or_else(|| {
+            // TODO: Maybe define separate error for this
+            CliError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Failed to create program information: Entry file invalid",
+            ))
+        })?;
+
+        match driver::syntax_check(&info, &mut source) {
+            Some(_) => println!(
+                "Check for project '{}' was successful",
+                manifest.project.name
+            ),
+            None => println!(
+                "Check for project '{}' was NOT successful",
+                manifest.project.name
+            ),
+        }
 
         Ok(())
     }
@@ -68,6 +108,9 @@ impl Executable for BuildArgs {
             "Compiling project at {}",
             manifest_path.parent().unwrap().display()
         );
+
+        // TODO: Compiling is not yet possible
+        todo!();
 
         Ok(())
     }
@@ -119,6 +162,9 @@ impl Executable for FmtArgs {
             "Formatting project at {}",
             manifest_path.parent().unwrap().display()
         );
+
+        // TODO: Formatting is not yet possible
+        todo!();
 
         Ok(())
     }

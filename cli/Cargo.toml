@@ -8,6 +8,7 @@ name = "waso"
 path = "src/main.rs"
 
 [dependencies]
+driver = { path = "../compiler/driver/" }
 error = { path = "../compiler/error/" }
 io = { path = "../compiler/io/" }
 source = { path = "../compiler/source/" }
