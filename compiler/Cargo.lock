@@ -461,6 +461,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "driver",
+ "error",
  "io",
  "source",
  "tempfile",
