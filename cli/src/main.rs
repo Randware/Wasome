@@ -2,6 +2,7 @@ mod command;
 mod error;
 mod execute;
 mod manifest;
+mod template;
 
 use clap::Parser;
 

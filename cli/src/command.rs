@@ -26,6 +26,8 @@ pub(crate) struct BuildArgs {
 pub(crate) struct NewArgs {
     #[arg(help = "Where to initialize new project [default: Current directory]", value_hint = ValueHint::DirPath, default_value = ".", hide_default_value = true)]
     pub(crate) path: PathBuf,
+    #[arg(long, help = "Initialize a library project")]
+    pub(crate) lib: bool,
 }
 
 #[derive(Args, Debug)]

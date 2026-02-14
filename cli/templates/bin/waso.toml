@@ -1,0 +1,9 @@
+[project]
+name = "{{PROJECT_NAME}}"
+version = "0.1.0"
+
+[bin]
+bin = "{{PROJECT_NAME}}"
+entry = "src/main.waso"
+
+[dependencies]

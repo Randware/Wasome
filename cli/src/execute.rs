@@ -1,7 +1,10 @@
+use std::path::Path;
+
 use crate::{
     command::{BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs},
     error::{CliError, CliResult, ManifestError},
     manifest::Manifest,
+    template::Template,
 };
 
 pub(crate) trait Executable {
@@ -57,15 +60,35 @@ impl Executable for BuildArgs {
 
 impl Executable for NewArgs {
     fn execute(self) -> CliResult<()> {
-        let path = self.path.canonicalize()?;
+        let path = if self.path.exists() {
+            self.path.canonicalize()?
+        } else {
+            std::env::current_dir()?.join(&self.path)
+        };
 
-        //  NOTE: This does NOT allow creating projects inside other projects, maybe we want this
-        //  to be allowed in the future
-        if Manifest::find(&path).is_ok() {
+        let start = if path.exists() {
+            path.as_path()
+        } else {
+            Path::new(".")
+        };
+
+        if Manifest::find(start).is_ok() {
             return Err(CliError::Manifest(ManifestError::AlreadyFound));
         }
 
-        println!("Creating new project at {}", path.display());
+        let name = path
+            .file_name()
+            .ok_or_else(|| CliError::Io(std::io::Error::from(std::io::ErrorKind::InvalidInput)))?
+            .to_string_lossy();
+
+        let template = match self.lib {
+            true => Template::lib(&name),
+            false => Template::bin(&name),
+        };
+
+        template.write(&path)?;
+
+        println!("Created new project at {}", path.display());
 
         Ok(())
     }
