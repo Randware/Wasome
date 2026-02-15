@@ -73,7 +73,7 @@ fn analyze_primitive_data_type(
     span: source::types::Span,
 ) -> Result<DataType, SemanticError> {
     if !to_analyze.type_parameters().is_empty() {
-        return Err(SemanticError::Custom {
+        return Err(SemanticError::InvalidUsage {
             message: "Primitives cannot have type parameters".to_string(),
             span,
         });
@@ -115,7 +115,7 @@ pub(crate) fn analyze_struct_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Struct(st) => st,
         _ => {
-            return Err(SemanticError::Custom {
+            return Err(SemanticError::InvalidUsage {
                 message: format!("'{}' is not a struct", to_analyze),
                 span,
             });
@@ -156,7 +156,7 @@ pub(crate) fn analyze_struct_usage_from_typed_type_parameters<
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Struct(st) => st,
         _ => {
-            return Err(SemanticError::Custom {
+            return Err(SemanticError::InvalidUsage {
                 message: format!("'{}' is not a struct", to_analyze),
                 span,
             });
@@ -187,7 +187,7 @@ pub(crate) fn analyze_enum_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Enum(st) => st,
         _ => {
-            return Err(SemanticError::Custom {
+            return Err(SemanticError::InvalidUsage {
                 message: format!("'{}' is not an enum", to_analyze),
                 span,
             });
@@ -279,7 +279,6 @@ pub(crate) fn analyze_function_call(
     span: source::types::Span,
 ) -> Result<FunctionCall<TypedAST>, SemanticError> {
     let call_name = to_analyze.function();
-
     let name = &call_name.0;
 
     let untyped_func_symbol = analyze_function_usage(context, name, span)?;
@@ -302,15 +301,14 @@ pub(crate) fn analyze_function_call(
     let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();
     for untyped_arg_node in to_analyze.args().iter() {
         let position = *untyped_arg_node.position();
-
         let typed_expr = analyze_expression(untyped_arg_node, context, mapper)?;
-
         typed_args.push(ASTNode::new(typed_expr, position));
     }
 
-    FunctionCall::<TypedAST>::new(typed_func_symbol, typed_args).ok_or_else(|| {
-        SemanticError::Custom {
-            message: format!("Arguments do not match signature of function '{}'", name),
+    FunctionCall::<TypedAST>::new(typed_func_symbol.clone(), typed_args).ok_or_else(|| {
+        SemanticError::ArgumentMismatch {
+            expected: typed_func_symbol.params().len(),
+            found: to_analyze.args().len(),
             span,
         }
     })
@@ -330,7 +328,7 @@ fn analyze_function_usage<'a>(
     let untyped_func_symbol = match found_symbol {
         DirectlyAvailableSymbol::Function(f) => f,
         _ => {
-            return Err(SemanticError::Custom {
+            return Err(SemanticError::InvalidUsage {
                 message: format!("'{}' is not a function", name),
                 span,
             });
@@ -359,7 +357,7 @@ pub(crate) fn analyze_method_call(
     let function_symbol = if let DirectlyAvailableSymbol::Function(func) = untyped_function_symbol {
         func
     } else {
-        return Err(SemanticError::Custom {
+        return Err(SemanticError::InvalidUsage {
             message: format!("'{}' is not a function", to_analyze.function().0),
             span,
         });
@@ -368,7 +366,7 @@ pub(crate) fn analyze_method_call(
     let struct_symbol = if let DataType::Struct(st) = struct_expr.data_type() {
         st
     } else {
-        return Err(SemanticError::Custom {
+        return Err(SemanticError::InvalidUsage {
             message: "Method called on non-struct type".to_string(),
             span: *to_analyze.struct_source().position(),
         });
@@ -377,8 +375,8 @@ pub(crate) fn analyze_method_call(
     let untyped_struct_symbol = context
         .global_elements
         .untyped_struct_symbol_from_typed(&struct_symbol)
-        .ok_or_else(|| SemanticError::Custom {
-            message: "Internal Error: Could not find untyped struct symbol".to_string(),
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Could not find untyped struct symbol".to_string(),
             span,
         })?;
 
@@ -389,7 +387,7 @@ pub(crate) fn analyze_method_call(
         span,
     )?;
 
-    let function_symbol = context.global_elements.get_typed_method_symbol(
+    let typed_function_symbol = context.global_elements.get_typed_method_symbol(
         &untyped_struct_symbol,
         struct_symbol.type_parameters(),
         Rc::new(function_symbol.clone()),
@@ -407,8 +405,11 @@ pub(crate) fn analyze_method_call(
         args.push(ASTNode::new(typed_param, *param.position()));
     }
 
-    FunctionCall::<TypedAST>::new(function_symbol, args).ok_or_else(|| SemanticError::Custom {
-        message: "Arguments do not match method signature".to_string(),
-        span,
+    FunctionCall::<TypedAST>::new(typed_function_symbol.clone(), args).ok_or_else(|| {
+        SemanticError::ArgumentMismatch {
+            expected: typed_function_symbol.params().len() - 1,
+            found: to_analyze.args().len(),
+            span,
+        }
     })
 }

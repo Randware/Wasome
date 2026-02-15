@@ -56,17 +56,15 @@ impl FunctionSymbolMapper {
     /// * `Ok(())` if a scope was successfully popped.
     pub fn exit_scope(&mut self, span: Span) -> Result<(), SemanticError> {
         if self.scope_stack.is_empty() {
-            return Err(SemanticError::Custom {
-                message: "Internal Compiler Error: Attempted to exit scope on an empty stack."
-                    .to_string(),
+            return Err(SemanticError::Internal {
+                message: "Attempted to exit scope on an empty stack.".to_string(),
                 span,
             });
         }
 
         if self.scope_stack.len() == 1 {
-            return Err(SemanticError::Custom {
-                message: "Internal Compiler Error: Attempted to pop the function's base scope."
-                    .to_string(),
+            return Err(SemanticError::Internal {
+                message: "Attempted to pop the function's base scope.".to_string(),
                 span,
             });
         }
@@ -101,11 +99,9 @@ impl FunctionSymbolMapper {
         let name = symbol.name().to_string();
 
         if current_scope.variables.contains_key(&name) {
-            return Err(SemanticError::Custom {
-                message: format!(
-                    "Error: Variable '{}' is already defined in the current scope.",
-                    name
-                ),
+            return Err(SemanticError::AlreadyDeclared {
+                name,
+                kind: "Variable".to_string(),
                 span,
             });
         }

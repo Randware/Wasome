@@ -8,24 +8,26 @@ mod symbol;
 mod top_level_sa;
 
 use crate::directory_sa::analyze_directory;
-use crate::error_sa::SemanticError;
 use crate::symbol::global_system_collector::{TraversalHelpers, collect_global_symbols};
 use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::{AST, TypedAST, UntypedAST};
+use error::diagnostic::Diagnostic; // Diagnostic importiert
 use std::ops::Deref;
 
-/// Analyzes the untyped AST and returns a fully typed AST or a SemanticError.
-pub fn analyze(to_analyze: AST<UntypedAST>) -> Result<AST<TypedAST>, SemanticError> {
+/// Analyzes the untyped AST and returns a fully typed AST or a Diagnostic.
+pub fn analyze(to_analyze: AST<UntypedAST>) -> Result<AST<TypedAST>, Diagnostic> {
     let to_alloc_in = TraversalHelpers::new();
     let root = DirectoryTraversalHelper::new_from_ast(&to_analyze);
 
-    let mut global_symbols = collect_global_symbols(&root, &to_alloc_in)?;
+    let mut global_symbols = collect_global_symbols(&root, &to_alloc_in)
+        .map_err(|e| e.to_diagnostic())?;
 
-    global_symbols.fill()?;
+    global_symbols.fill().map_err(|e| e.to_diagnostic())?;
 
     analyze_directory(to_analyze.deref(), &mut global_symbols)
         .map(|root_dir| AST::new(root_dir).unwrap())
+        .map_err(|e| e.to_diagnostic())
 }
 
 /// Resolves a symbol by its name within the given symbol table.
@@ -61,5 +63,5 @@ pub(crate) fn symbol_by_name<'a>(
     from.find(|symbol| {
         symbol.0.as_ref().map(|mun| mun.name()) == prefix_name && symbol.1.name() == name
     })
-    .map(|symbol| symbol.1)
+        .map(|symbol| symbol.1)
 }

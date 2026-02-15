@@ -45,7 +45,7 @@ pub(crate) fn analyze_expression(
             typed_call
                 .function()
                 .return_type()
-                .ok_or_else(|| SemanticError::Custom {
+                .ok_or_else(|| SemanticError::InvalidUsage {
                     message: format!("Method '{}' does not return a value", inner.function().0),
                     span,
                 })?;
@@ -92,7 +92,7 @@ pub(crate) fn analyze_non_void_function_call(
     typed_call
         .function()
         .return_type()
-        .ok_or_else(|| SemanticError::Custom {
+        .ok_or_else(|| SemanticError::InvalidUsage {
             message: format!(
                 "Function '{}' does not return a value",
                 to_analyze.function().0
@@ -142,7 +142,7 @@ fn analyze_literal(to_analyze: &str, span: Span) -> Result<Literal, SemanticErro
         return Ok(Literal::S32(s32_val));
     }
 
-    Err(SemanticError::Custom {
+    Err(SemanticError::InvalidUsage {
         message: format!("Invalid literal '{}'", to_analyze),
         span,
     })
@@ -175,7 +175,7 @@ fn analyze_unary_op(
         converted_unary_op_type,
         ASTNode::new(converted_input, postion),
     )
-    .ok_or_else(|| SemanticError::Custom {
+    .ok_or_else(|| SemanticError::InvalidUsage {
         message: "Invalid unary operation".to_string(),
         span,
     })?;
@@ -202,7 +202,7 @@ fn analyze_binary_op(
     let typed_right_node = ASTNode::new(converted_right, right_position);
 
     let analyzed = BinaryOp::<TypedAST>::new(op_type, typed_left_node, typed_right_node)
-        .ok_or_else(|| SemanticError::Custom {
+        .ok_or_else(|| SemanticError::InvalidUsage {
             message: "Invalid binary operation".to_string(),
             span,
         })?;
@@ -233,7 +233,7 @@ fn analyze_new_struct(
     })? {
         st
     } else {
-        return Err(SemanticError::Custom {
+        return Err(SemanticError::InvalidUsage {
             message: format!("'{}' is not a struct", to_analyze.symbol().0),
             span,
         });
@@ -242,7 +242,7 @@ fn analyze_new_struct(
     let struct_fields = context
         .global_elements
         .get_struct_fields(untyped_struct_symbol, struct_use.type_parameters())
-        .ok_or_else(|| SemanticError::Custom {
+        .ok_or_else(|| SemanticError::Internal {
             message: "Failed to get struct fields".to_string(),
             span,
         })?;
@@ -254,7 +254,7 @@ fn analyze_new_struct(
             let field = struct_fields
                 .iter()
                 .find(|field| param.0.deref() == field.name())
-                .ok_or_else(|| SemanticError::Custom {
+                .ok_or_else(|| SemanticError::InvalidUsage {
                     message: format!("Field '{}' not found in struct", param.0.deref()),
                     span: *param.0.position(),
                 })?
@@ -278,7 +278,7 @@ fn analyze_new_struct(
 
     let types_ok = all_struct_fields_exist_dt_match && parameter.len() == struct_fields.len();
     if !types_ok {
-        return Err(SemanticError::Custom {
+        return Err(SemanticError::InvalidUsage {
             message: "Struct initialization parameters do not match fields".to_string(),
             span,
         });
@@ -311,7 +311,7 @@ fn analyze_new_enum(
     })? {
         en
     } else {
-        return Err(SemanticError::Custom {
+        return Err(SemanticError::InvalidUsage {
             message: format!("'{}' is not an enum", to_analyze.to_create().0),
             span,
         });
@@ -320,7 +320,7 @@ fn analyze_new_enum(
     let enum_variants = context
         .global_elements
         .get_enum_variants(untyped_enum_symbol, enum_use.type_parameters())
-        .ok_or_else(|| SemanticError::Custom {
+        .ok_or_else(|| SemanticError::Internal {
             message: "Failed to get enum variants".to_string(),
             span,
         })?;
@@ -328,7 +328,7 @@ fn analyze_new_enum(
     let enum_variant = enum_variants
         .iter()
         .find(|var| var.name() == to_analyze.variant())
-        .ok_or_else(|| SemanticError::Custom {
+        .ok_or_else(|| SemanticError::InvalidUsage {
             message: format!("Variant '{}' not found in enum", to_analyze.variant()),
             span,
         })?;
@@ -347,7 +347,7 @@ fn analyze_new_enum(
         .zip(enum_variant.fields().iter())
         .all(|(found, expected)| &found.data_type() == expected)
     {
-        return Err(SemanticError::Custom {
+        return Err(SemanticError::InvalidUsage {
             message: "Enum variant initialization parameters do not match fields".to_string(),
             span,
         });
@@ -355,7 +355,7 @@ fn analyze_new_enum(
 
     let analyzed =
         NewEnum::<TypedAST>::new(enum_use, enum_variant.clone(), parameter).ok_or_else(|| {
-            SemanticError::Custom {
+            SemanticError::Internal {
                 message: "Failed to create new enum".to_string(),
                 span,
             }
@@ -375,7 +375,7 @@ fn analyze_struct_field_access(
     let source_symbol = if let DataType::Struct(st) = source_expr.data_type() {
         st
     } else {
-        return Err(SemanticError::Custom {
+        return Err(SemanticError::InvalidUsage {
             message: "Field access on non-struct type".to_string(),
             span: *to_analyze.of().position(),
         });
@@ -385,7 +385,7 @@ fn analyze_struct_field_access(
         .global_elements
         .untyped_struct_symbol_from_typed(&source_symbol);
 
-    let untyped_symbol = untyped_symbol_opt.ok_or_else(|| SemanticError::Custom {
+    let untyped_symbol = untyped_symbol_opt.ok_or_else(|| SemanticError::Internal {
         message: "Internal Error: Could not find untyped struct symbol".to_string(),
         span,
     })?;
@@ -393,7 +393,7 @@ fn analyze_struct_field_access(
     let sfs = context
         .global_elements
         .get_struct_fields(&untyped_symbol, source_symbol.type_parameters())
-        .ok_or_else(|| SemanticError::Custom {
+        .ok_or_else(|| SemanticError::Internal {
             message: "Failed to get struct fields".to_string(),
             span,
         })?;
@@ -401,7 +401,7 @@ fn analyze_struct_field_access(
     let sf = sfs
         .iter()
         .find(|sf| sf.name() == to_analyze.field())
-        .ok_or_else(|| SemanticError::Custom {
+        .ok_or_else(|| SemanticError::InvalidUsage {
             message: format!("Field '{}' not found", to_analyze.field()),
             span,
         })?
@@ -411,7 +411,7 @@ fn analyze_struct_field_access(
         ASTNode::new(source_expr, *to_analyze.of().position()),
         sf,
     )
-    .ok_or_else(|| SemanticError::Custom {
+    .ok_or_else(|| SemanticError::Internal {
         message: "Failed to create struct field access".to_string(),
         span,
     })?;

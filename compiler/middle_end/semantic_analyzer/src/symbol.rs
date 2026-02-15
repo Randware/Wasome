@@ -447,12 +447,12 @@ fn convert_struct_pre_implementation(
         .iter()
         .map(|field_node| {
             let span = *field_node.position();
-            let field = field_node.inner();
+            let variant = field_node.inner();
 
-            let dt = analyze_data_type(field.data_type(), context, span)?;
+            let dt = analyze_data_type(variant.data_type(), context, span)?;
 
             Ok(Rc::new(StructFieldSymbol::<TypedAST>::new(
-                field.name().to_owned(),
+                variant.name().to_owned(),
                 dt,
             )))
         })

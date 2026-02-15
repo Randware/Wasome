@@ -39,14 +39,16 @@ pub(crate) fn analyze_function(
     let mut func_mapper = FunctionSymbolMapper::new();
     func_mapper.set_current_function_return_type(symbol.return_type().cloned());
 
-    let span = *context.ast_reference.inner().position();
-
     for param_symbol in symbol.params().iter() {
         func_mapper
-            .add_variable(param_symbol.clone(), span)
-            .map_err(|_| SemanticError::Custom {
-                message: format!("Parameter '{}' is already declared", param_symbol.name()),
-                span,
+            .add_variable(
+                param_symbol.clone(),
+                *context.ast_reference.inner().position(),
+            )
+            .map_err(|_| SemanticError::AlreadyDeclared {
+                name: param_symbol.name().to_string(),
+                kind: "Parameter".to_string(),
+                span: *context.ast_reference.inner().position(),
             })?;
     }
 
@@ -56,11 +58,8 @@ pub(crate) fn analyze_function(
     let typed_implementation_statement = analyze_statement(&new_context, &mut func_mapper)?;
 
     if symbol.return_type().is_some() && !always_return(&typed_implementation_statement) {
-        return Err(SemanticError::Custom {
-            message: format!(
-                "Function '{}' must return a value, but not all code paths return",
-                symbol.name()
-            ),
+        return Err(SemanticError::MissingReturn {
+            func_name: symbol.name().to_string(),
             span: *context.ast_reference.inner().implementation().position(),
         });
     }

@@ -49,11 +49,9 @@ fn collect_from_directory<'a>(
         for function in file.function_iterator() {
             let function: &'a _ = to_alloc_in.functions.alloc(function);
             if map.insert_untyped_function(function).is_none() {
-                return Err(SemanticError::Custom {
-                    message: format!(
-                        "Function '{}' is already defined",
-                        function.inner().declaration().name()
-                    ),
+                return Err(SemanticError::AlreadyDeclared {
+                    name: function.inner().declaration().name().to_string(),
+                    kind: "Function".to_string(),
                     span: *function.inner().position(),
                 });
             }
@@ -62,8 +60,9 @@ fn collect_from_directory<'a>(
         for en in file.enums_iterator() {
             let en: &'a _ = to_alloc_in.enums.alloc(en);
             if map.insert_untyped_enum(en).is_none() {
-                return Err(SemanticError::Custom {
-                    message: format!("Enum '{}' is already defined", en.inner().symbol().name()),
+                return Err(SemanticError::AlreadyDeclared {
+                    name: en.inner().symbol().name().to_string(),
+                    kind: "Enum".to_string(),
                     span: *en.inner().position(),
                 });
             }
@@ -72,8 +71,9 @@ fn collect_from_directory<'a>(
         for st in file.structs_iterator() {
             let st: &'a _ = to_alloc_in.structs.alloc(st);
             if map.insert_untyped_struct(st).is_none() {
-                return Err(SemanticError::Custom {
-                    message: format!("Struct '{}' is already defined", st.inner().symbol().name()),
+                return Err(SemanticError::AlreadyDeclared {
+                    name: st.inner().symbol().name().to_string(),
+                    kind: "Struct".to_string(),
                     span: *st.inner().position(),
                 });
             }

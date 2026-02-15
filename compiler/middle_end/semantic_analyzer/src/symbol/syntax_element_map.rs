@@ -277,11 +277,13 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
             self.insert_typed_variant(type_parameters.to_vec(), root, symbol.clone(), span)?;
         }
 
-        Ok(
-            Self::get_typed_syntax_element(self, &symbol, type_parameters)
-                .unwrap()
-                .symbol_owned(),
-        )
+        Self::get_typed_syntax_element(self, &symbol, type_parameters)
+            .map(|guard| guard.symbol_owned())
+            .ok_or_else(|| SemanticError::Internal {
+                message: "Internal Error: Typed variant missing after successful insertion"
+                    .to_string(),
+                span,
+            })
     }
 
     pub fn get_pre_implementation<'b>(
@@ -353,7 +355,21 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
 
         {
             let mut guard = self.elements.get(&symbol).unwrap().borrow_mut();
-            guard.insert_typed_variant(typed_variant, typed_type_parameters.clone());
+
+            if guard
+                .insert_typed_variant(typed_variant, typed_type_parameters.clone())
+                .is_none()
+            {
+                return Err(SemanticError::InvalidUsage {
+                    message: format!(
+                        "Invalid number of type parameters for '{}'. Expected {}, found {}",
+                        symbol.name(),
+                        symbol.type_parameters().len(),
+                        typed_type_parameters.len()
+                    ),
+                    span,
+                });
+            }
         }
 
         let context = SyntaxContext::new(root, type_parameters, ast_reference.clone());
@@ -361,7 +377,16 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
 
         {
             let mut guard = self.elements.get(&symbol).unwrap().borrow_mut();
-            let typed_variant = guard.typed_variant_mut(&typed_type_parameters).unwrap();
+
+            let typed_variant =
+                guard
+                    .typed_variant_mut(&typed_type_parameters)
+                    .ok_or_else(|| SemanticError::Internal {
+                        message:
+                            "Internal Error: Typed variant missing during pre-implementation phase"
+                                .to_string(),
+                        span,
+                    })?;
             typed_variant.set_pre_implementation(pre_implementation.clone());
         }
 
@@ -370,7 +395,16 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
 
         {
             let mut guard = self.elements.get(&symbol).unwrap().borrow_mut();
-            let typed_variant = guard.typed_variant_mut(&typed_type_parameters).unwrap();
+
+            let typed_variant =
+                guard
+                    .typed_variant_mut(&typed_type_parameters)
+                    .ok_or_else(|| SemanticError::Internal {
+                        message:
+                            "Internal Error: Typed variant missing during implementation phase"
+                                .to_string(),
+                        span,
+                    })?;
             typed_variant.set_implementation(implementation);
         }
 
