@@ -1,3 +1,4 @@
+use crate::error_sa::SemanticError;
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use ast::composite::{Struct, StructField};
 use ast::file::File;
@@ -17,11 +18,11 @@ use source::types::FileID;
 /// * `global_elements` - The global registry of typed symbols (`&mut SyntaxElementMap`).
 ///
 /// # Returns
-/// * `Result<ASTNode<File<TypedAST>, PathBuf>, String>` - The typed file node on success, or an error string.
+/// * `Result<ASTNode<File<TypedAST>, PathBuf>, SemanticError>` - The typed file node on success, or a semantic error.
 pub(crate) fn analyze_file(
     untyped_file: &ASTNode<File<UntypedAST>, FileID>,
     global_elements: &mut SyntaxElementMap,
-) -> Result<ASTNode<File<TypedAST>, FileID>, String> {
+) -> Result<ASTNode<File<TypedAST>, FileID>, SemanticError> {
     let mut typed_functions = Vec::new();
     for func in untyped_file.function_iterator() {
         global_elements

@@ -1,3 +1,4 @@
+use crate::error_sa::SemanticError;
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use ast::UntypedAST;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
@@ -18,11 +19,11 @@ use typed_arena::Arena;
 ///
 /// # Returns
 /// * `Ok(GlobalSymbolMap)` - The populated map of symbols.
-/// * `Err(String)` - If a semantic error occurs during type conversion (e.g., unknown types).
+/// * `Err(SemanticError)` - If a semantic error occurs during type conversion (e.g., unknown types).
 pub fn collect_global_symbols<'a>(
     dir: &'a DirectoryTraversalHelper<'a, 'a, UntypedAST>,
     to_alloc_in: &'a TraversalHelpers<'a>,
-) -> Result<SyntaxElementMap<'a>, String> {
+) -> Result<SyntaxElementMap<'a>, SemanticError> {
     let mut map = SyntaxElementMap::new();
     collect_from_directory(dir, &mut map, to_alloc_in)?;
     Ok(map)
@@ -40,7 +41,7 @@ fn collect_from_directory<'a>(
     dir: &'a DirectoryTraversalHelper<'a, 'a, UntypedAST>,
     map: &mut SyntaxElementMap<'a>,
     to_alloc_in: &'a TraversalHelpers<'a>,
-) -> Result<(), String> {
+) -> Result<(), SemanticError> {
     for file in dir.files_iterator() {
         let file = to_alloc_in.files.alloc(file);
         for function in file.function_iterator() {

@@ -1,3 +1,4 @@
+use crate::error_sa::SemanticError;
 use crate::symbol::syntax_element_with_type_parameter_guard::{
     SyntaxElementWithTypeParameterTranslator, TypedSyntaxElement,
 };
@@ -42,7 +43,7 @@ impl<'a> SyntaxElementMap<'a> {
         &self,
         symbol: Rc<FunctionSymbol<UntypedAST>>,
         type_parameters: &[TypedTypeParameter],
-    ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
+    ) -> Result<Option<Rc<FunctionSymbol<TypedAST>>>, SemanticError> {
         self.functions
             .get_or_insert_typed_symbol(self, symbol, type_parameters)
     }
@@ -56,12 +57,17 @@ impl<'a> SyntaxElementMap<'a> {
         from_type_parameters: &[TypedTypeParameter],
         symbol: Rc<FunctionSymbol<UntypedAST>>,
         type_parameters: &[TypedTypeParameter],
-    ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
+    ) -> Result<Option<Rc<FunctionSymbol<TypedAST>>>, SemanticError> {
         let struct_of_method = self
             .structs
-            .get_typed_syntax_element_mut(from, from_type_parameters)?;
-        let methods = struct_of_method.subanalyzables();
+            .get_typed_syntax_element_mut(from, from_type_parameters);
 
+        let struct_of_method = match struct_of_method {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+
+        let methods = struct_of_method.subanalyzables();
         methods.get_or_insert_typed_symbol(self, symbol, type_parameters)
     }
 
@@ -76,7 +82,7 @@ impl<'a> SyntaxElementMap<'a> {
         &self,
         symbol: Rc<EnumSymbol<UntypedAST>>,
         type_parameters: &[TypedTypeParameter],
-    ) -> Option<Rc<EnumSymbol<TypedAST>>> {
+    ) -> Result<Option<Rc<EnumSymbol<TypedAST>>>, SemanticError> {
         self.enums
             .get_or_insert_typed_symbol(self, symbol, type_parameters)
     }
@@ -100,7 +106,7 @@ impl<'a> SyntaxElementMap<'a> {
         &self,
         symbol: Rc<StructSymbol<UntypedAST>>,
         type_parameters: &[TypedTypeParameter],
-    ) -> Option<Rc<StructSymbol<TypedAST>>> {
+    ) -> Result<Option<Rc<StructSymbol<TypedAST>>>, SemanticError> {
         self.structs
             .get_or_insert_typed_symbol(self, symbol, type_parameters)
     }
@@ -121,28 +127,18 @@ impl<'a> SyntaxElementMap<'a> {
     }
 
     /// Fills self with all typed variants that are ever used in the program
-    ///
-    /// # Tree Shaking
-    /// Only functions without type parameters (e.g., `main` or specific implementations) are used as entry points.
-    /// Any code reachable from these functions is analyzed. Unreachable generic functions or unused library code
-    /// that is not transitively referenced by a non-generic function will be ignored.
-    pub fn fill(&self) -> Option<()> {
-        let mut ok = Some(());
-        // It is sufficient to translate all functions without type parameters
-        // Anything reachable (=used by) from these functions will be translated as well
-        // The main functions may not have type parameters
-        // And anything not reachable by the main functions is unused and thus not required by codegen
+    pub fn fill(&self) -> Result<(), SemanticError> {
         let funcs = self.functions.untyped_elements();
-        funcs
-            .into_iter()
-            .filter(|func| func.as_ref().type_parameters().is_empty())
-            .for_each(|func| {
-                let typed_symbol = self.get_or_insert_typed_function_symbol(func, &[]);
-                if typed_symbol.is_none() {
-                    ok = None;
-                }
-            });
-        ok
+        for func in funcs.into_iter().filter(|func| func.as_ref().type_parameters().is_empty()) {
+            let typed_symbol = self.get_or_insert_typed_function_symbol(func.clone(), &[])?;
+            if typed_symbol.is_none() {
+                return Err(SemanticError::Custom {
+                    message: format!("Function '{}' not found in syntax map during fill phase", func.name()),
+                    span: source::types::FileID::from(0).span(0, 0),
+                });
+            }
+        }
+        Ok(())
     }
 
     pub fn function_implementations_for_untyped_symbol(
@@ -192,50 +188,18 @@ impl<'a> Default for SyntaxElementMap<'a> {
     }
 }
 
-/// Translates a single type of syntax element that has type parameters from untyped to typed
-///
-/// The process for a single element is as follows:
-/// 1. Generate the symbol
-/// 2. Initialize the sub-analyzables
-///     - Currently, only structs have non-empty sub-analyzables
-///         - Structs have methods
-///         - If syntax element A is a subanalyzable of B, then we say that B is the parent of A
-///     - If not empty, they are an instance of [`SingleSyntaxElementMap`]
-/// 2. Generate the pre-implementation
-///     - It consists of the variants for enums and fields for structs
-///     - Otherwise, it is empty
-/// 3. Generate the implementation
-///
-/// Each intermediate result is immediately inserted into the map to allow for cyclic usages
-/// (e.g.: A struct that contains itself)
-///
-/// Translating everything at once would not allow this
-///
-///
-/// The entire semantic analysis process can be described as:
-/// 1. Load all untyped elements and insert them
-/// 2. Recursively translate all elements and their dependencies
-/// 3. Take the typed translation results and put them into a typed AST
-///
-/// This uses dynamic borrow checking as static borrow checking is simply insufficient to allow
-/// the complex usage patters required
 pub(crate) struct SingleSyntaxElementMap<'a, Element: AnalyzableSyntaxElementWithTypeParameter> {
     elements: HashMap<
         Rc<Element::Symbol<UntypedAST>>,
         RefCell<SyntaxElementWithTypeParameterTranslator<'a, 'a, Element>>,
     >,
-    /// Maps typed symbols to untyped
-    /// Required as certain operations require untyped symbols and only typed symbols may be available
-    /// (e.g.: When analyzing a method call)
     untyped_symbols: RefCell<UntypedTypeParameterMap<Element>>,
-    /// All type parameters that are available here
     type_parameters: Option<Rc<TypeParameterContext>>,
 }
 
-// It doesn't get enforced, but leaving the bound away makes Element have no associated typed
 #[allow(type_alias_bounds)]
 pub(crate) type UntypedTypeParameterMap<Element: AnalyzableSyntaxElementWithTypeParameter> =
-    HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>;
+HashMap<Rc<Element::Symbol<TypedAST>>, Rc<Element::Symbol<UntypedAST>>>;
 
 impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementMap<'a, Element> {
     pub fn new_root() -> Self {
@@ -254,13 +218,6 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         }
     }
 
-    /// Inserts a new untyped syntax element
-    ///
-    /// This is only supposed to be called at the beginning of the semantic analysis process
-    ///
-    /// # Errors
-    ///
-    /// If the element already exists
     pub fn insert_untyped_element(
         &mut self,
         to_insert: Element::ASTReference<'a, 'a>,
@@ -283,25 +240,28 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
     }
 
     /// Gets a typed variant of an untyped symbol with the provided type parameters
-    ///
-    /// If it doesn't exist, it and the rest of its element is created
     pub fn get_or_insert_typed_symbol<'b>(
         &self,
         root: &'b SyntaxElementMap<'a>,
         symbol: Rc<Element::Symbol<UntypedAST>>,
         type_parameters: &[TypedTypeParameter],
-    ) -> Option<Rc<Element::Symbol<TypedAST>>> {
+    ) -> Result<Option<Rc<Element::Symbol<TypedAST>>>, SemanticError> {
         {
-            // Use an inner scope to drop the borrow and prevent panics
-            let guard = self.elements.get(&symbol)?.borrow();
+            let guard = match self.elements.get(&symbol) {
+                Some(g) => g.borrow(),
+                None => return Ok(None),
+            };
 
             if guard.typed_variant(type_parameters).is_none() {
                 drop(guard);
-                self.insert_typed_variant(type_parameters.to_vec(), root, symbol.clone())?;
+                let inserted = self.insert_typed_variant(type_parameters.to_vec(), root, symbol.clone())?;
+                if inserted.is_none() {
+                    return Ok(None);
+                }
             }
         }
-        Self::get_typed_syntax_element(self, &symbol, type_parameters)
-            .map(|syntax_element| syntax_element.symbol_owned())
+        Ok(Self::get_typed_syntax_element(self, &symbol, type_parameters)
+            .map(|syntax_element| syntax_element.symbol_owned()))
     }
 
     pub fn get_pre_implementation<'b>(
@@ -313,7 +273,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
             self.get_typed_syntax_element(symbol, type_parameters)?,
             |element| element.pre_implementation(),
         )
-        .ok()
+            .ok()
     }
 
     pub fn get_typed_syntax_element<'b>(
@@ -324,7 +284,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         Ref::filter_map(self.elements.get(symbol)?.borrow(), |guard| {
             guard.typed_variant(type_parameters)
         })
-        .ok()
+            .ok()
     }
 
     pub fn get_typed_syntax_element_mut<'b>(
@@ -336,7 +296,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
             self.elements.get(symbol)?.borrow_mut(),
             |guard| guard.typed_variant_mut(type_parameters),
         )
-        .ok()
+            .ok()
     }
 
     fn insert_typed_variant(
@@ -344,40 +304,54 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
         typed_type_parameters: Vec<TypedTypeParameter>,
         root: &SyntaxElementMap<'a>,
         symbol: Rc<<Element as AnalyzableSyntaxElementWithTypeParameter>::Symbol<UntypedAST>>,
-    ) -> Option<()> {
-        let guard = self.elements.get(&symbol)?.borrow_mut();
+    ) -> Result<Option<()>, SemanticError> {
+        let guard_opt = self.elements.get(&symbol);
+        if guard_opt.is_none() {
+            return Ok(None);
+        }
+
+        let (in_context_type_parameters, ast_reference) = {
+            let guard = guard_opt.unwrap().borrow();
+            (guard.in_context_type_parameters(), guard.ast_reference().clone())
+        };
+
         let type_parameters = Rc::new(TypeParameterContext::new(
-            guard.in_context_type_parameters(),
+            in_context_type_parameters,
             Rc::from(typed_type_parameters.clone()),
         ));
-        let ast_reference = guard.ast_reference().clone();
-        drop(guard);
+
         let typed_variant =
             TypedSyntaxElement::new(type_parameters.clone(), ast_reference.clone(), root)?;
         let typed_symbol = typed_variant.symbol_owned();
 
-        let mut guard = self.elements.get(&symbol)?.borrow_mut();
-        guard.insert_typed_variant(typed_variant, typed_type_parameters.clone());
-        drop(guard);
+        {
+            let mut guard = self.elements.get(&symbol).unwrap().borrow_mut();
+            guard.insert_typed_variant(typed_variant, typed_type_parameters.clone());
+        }
 
         let context = SyntaxContext::new(root, type_parameters, ast_reference.clone());
         let pre_implementation = Element::generate_pre_implementation(&context)?;
 
-        let mut guard = self.elements.get(&symbol)?.borrow_mut();
-        let typed_variant = guard.typed_variant_mut(&typed_type_parameters)?;
-        typed_variant.set_pre_implementation(pre_implementation.clone());
-        drop(guard);
+        {
+            let mut guard = self.elements.get(&symbol).unwrap().borrow_mut();
+            let typed_variant = guard.typed_variant_mut(&typed_type_parameters).unwrap();
+            typed_variant.set_pre_implementation(pre_implementation.clone());
+        }
 
         let implementation =
             Element::generate_implementation(typed_symbol.clone(), pre_implementation, &context)?;
 
-        let mut guard = self.elements.get(&symbol)?.borrow_mut();
-        let typed_variant = guard.typed_variant_mut(&typed_type_parameters)?;
-        typed_variant.set_implementation(implementation);
+        {
+            let mut guard = self.elements.get(&symbol).unwrap().borrow_mut();
+            let typed_variant = guard.typed_variant_mut(&typed_type_parameters).unwrap();
+            typed_variant.set_implementation(implementation);
+        }
+
         self.untyped_symbols
             .borrow_mut()
             .insert(typed_symbol, symbol);
-        Some(())
+
+        Ok(Some(()))
     }
 
     pub fn implementations_for_untyped_symbol(
@@ -406,7 +380,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
 }
 
 impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> Default
-    for SingleSyntaxElementMap<'a, Element>
+for SingleSyntaxElementMap<'a, Element>
 {
     fn default() -> Self {
         Self::new_root()

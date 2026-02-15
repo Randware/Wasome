@@ -1,3 +1,4 @@
+use crate::error_sa::SemanticError;
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use crate::symbol::{
     AnalyzableSyntaxElementWithTypeParameter, SyntaxContext, TypeParameterContext,
@@ -32,7 +33,7 @@ pub(crate) struct SyntaxElementWithTypeParameterTranslator<
 }
 
 impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
-    SyntaxElementWithTypeParameterTranslator<'a, 'b, Element>
+SyntaxElementWithTypeParameterTranslator<'a, 'b, Element>
 {
     /// Creates a new empty instance
     pub fn new(
@@ -70,7 +71,6 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
         to_insert: TypedSyntaxElement<'a, Element>,
         type_parameters: Vec<TypedTypeParameter>,
     ) -> Option<()> {
-        // TODO: Can we take the type parameters from the symbol?
         let to_insert_type_parameters = to_insert.symbol().type_parameters();
         if self.cnt_type_params() != to_insert_type_parameters.len() {
             return None;
@@ -78,7 +78,6 @@ impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
         if self.cnt_type_params() != type_parameters.len() {
             return None;
         }
-        // Prevent overriding
         if self.typed_variant(&type_parameters).is_some() {
             return None;
         }
@@ -131,16 +130,19 @@ pub(crate) struct TypedSyntaxElement<'a, Element: AnalyzableSyntaxElementWithTyp
 impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<'a, Element> {
     /// Creates a new instance
     ///
-    /// The symbol is created and the subanalyzables are initialized in the process
+    /// The symbol is created and the subanalyzables are initialized in the process.
+    /// Returns Result to propagate semantic errors from generate_typed_symbol.
     pub fn new(
         type_parameters: Rc<TypeParameterContext>,
         from: <Element as AnalyzableSyntaxElementWithTypeParameter>::ASTReference<'a, 'a>,
         global_elements: &SyntaxElementMap<'a>,
-    ) -> Option<Self> {
+    ) -> Result<Self, SemanticError> {
         let context = SyntaxContext::new(global_elements, type_parameters.clone(), from);
         let subanalyzables = Element::init_subanalyzables(&context);
+
         let symbol = Element::generate_typed_symbol(&context)?;
-        Some(Self {
+
+        Ok(Self {
             symbol,
             pre_implementation: None,
             implementation: None,
