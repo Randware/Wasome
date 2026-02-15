@@ -14,39 +14,37 @@ pub enum SemanticError {
     TypeMismatch { expected: String, found: String, span: Span },
 
     /// A generic fallback error during the refactoring process.
-    /// This will be replaced by specific error variants as we progress.
     Custom { message: String, span: Span },
 }
 
 impl SemanticError {
-    /// Converts the internal semantic error into a user-facing `Diagnostic`.
-    pub fn to_diagnostic(&self) -> Diagnostic {
+    /// Gibt die Position des Fehlers zurück.
+    pub fn span(&self) -> Span {
         match self {
-            SemanticError::UnknownType { name, span: _ } => {
-                Diagnostic::builder()
-                    .level(Level::Error)
-                    .message(format!("Unknown type '{}'", name))
-                    // TODO: Add snippet pointing to the span once we integrate SnippetBuilder
-                    .build()
-            }
-            SemanticError::UnknownSymbol { name, span: _ } => {
-                Diagnostic::builder()
-                    .level(Level::Error)
-                    .message(format!("Cannot find symbol '{}' in this scope", name))
-                    .build()
-            }
-            SemanticError::TypeMismatch { expected, found, span: _ } => {
-                Diagnostic::builder()
-                    .level(Level::Error)
-                    .message(format!("Type mismatch: expected '{}', found '{}'", expected, found))
-                    .build()
-            }
-            SemanticError::Custom { message, span: _ } => {
-                Diagnostic::builder()
-                    .level(Level::Error)
-                    .message(message.clone())
-                    .build()
-            }
+            SemanticError::UnknownType { span, .. } => *span,
+            SemanticError::UnknownSymbol { span, .. } => *span,
+            SemanticError::TypeMismatch { span, .. } => *span,
+            SemanticError::Custom { span, .. } => *span,
         }
+    }
+
+    /// Gibt die Fehlermeldung zurück.
+    pub fn message(&self) -> String {
+        match self {
+            SemanticError::UnknownType { name, .. } => format!("Unknown type '{}'", name),
+            SemanticError::UnknownSymbol { name, .. } => format!("Cannot find symbol '{}' in this scope", name),
+            SemanticError::TypeMismatch { expected, found, .. } => {
+                format!("Type mismatch: expected '{}', found '{}'", expected, found)
+            }
+            SemanticError::Custom { message, .. } => message.clone(),
+        }
+    }
+
+    /// Wandelt den internen semantischen Fehler in ein benutzerfreundliches `Diagnostic` um.
+    pub fn to_diagnostic(&self) -> Diagnostic {
+        Diagnostic::builder()
+            .level(Level::Error)
+            .message(self.message())
+            .build()
     }
 }

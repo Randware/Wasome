@@ -33,7 +33,7 @@ pub(crate) struct SyntaxElementWithTypeParameterTranslator<
 }
 
 impl<'a, 'b: 'a, Element: AnalyzableSyntaxElementWithTypeParameter>
-SyntaxElementWithTypeParameterTranslator<'a, 'b, Element>
+    SyntaxElementWithTypeParameterTranslator<'a, 'b, Element>
 {
     /// Creates a new empty instance
     pub fn new(
@@ -65,7 +65,10 @@ SyntaxElementWithTypeParameterTranslator<'a, 'b, Element>
         self.typed.get_mut(type_parameter)
     }
 
-    /// Inserts a typed variant with the provided type parameters
+    /// Inserts a typed variant with the provided type parameters.
+    ///
+    /// Returns `None` if the length of type parameters mismatches or if the variant already exists.
+    /// (Internal compiler validation).
     pub fn insert_typed_variant(
         &mut self,
         to_insert: TypedSyntaxElement<'a, Element>,
@@ -131,7 +134,7 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> TypedSyntaxElement<'
     /// Creates a new instance
     ///
     /// The symbol is created and the subanalyzables are initialized in the process.
-    /// Returns Result to propagate semantic errors from generate_typed_symbol.
+    /// Returns `Result` to propagate semantic errors from `generate_typed_symbol` cleanly to the caller.
     pub fn new(
         type_parameters: Rc<TypeParameterContext>,
         from: <Element as AnalyzableSyntaxElementWithTypeParameter>::ASTReference<'a, 'a>,

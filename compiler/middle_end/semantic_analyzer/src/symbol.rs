@@ -127,8 +127,10 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
     type Symbol<Type: ASTType> = FunctionSymbol<Type>;
     type PreImplementation = ();
     type Implementation = ASTNode<Function<TypedAST>>;
-    type ASTReference<'a, 'b> = &'a FunctionTraversalHelper<'a, 'b, UntypedAST>
-    where 'b: 'a;
+    type ASTReference<'a, 'b>
+        = &'a FunctionTraversalHelper<'a, 'b, UntypedAST>
+    where
+        'b: 'a;
     type SubAnalyzables<'a> = ();
 
     fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
@@ -157,7 +159,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableFunction {
 
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
-    ) -> Self::SubAnalyzables<'b> {}
+    ) -> Self::SubAnalyzables<'b> {
+    }
 }
 
 pub(crate) struct AnalyzableEnum;
@@ -165,8 +168,10 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
     type Symbol<Type: ASTType> = EnumSymbol<Type>;
     type PreImplementation = Vec<Rc<EnumVariantSymbol<TypedAST>>>;
     type Implementation = ASTNode<Enum<TypedAST>>;
-    type ASTReference<'a, 'b> = &'a EnumTraversalHelper<'a, 'b, UntypedAST>
-    where 'b: 'a;
+    type ASTReference<'a, 'b>
+        = &'a EnumTraversalHelper<'a, 'b, UntypedAST>
+    where
+        'b: 'a;
     type SubAnalyzables<'a> = ();
 
     fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
@@ -195,7 +200,8 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
 
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
-    ) -> Self::SubAnalyzables<'b> {}
+    ) -> Self::SubAnalyzables<'b> {
+    }
 }
 
 pub(crate) struct AnalyzableStruct;
@@ -203,8 +209,10 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
     type Symbol<Type: ASTType> = StructSymbol<Type>;
     type PreImplementation = Vec<Rc<StructFieldSymbol<TypedAST>>>;
     type Implementation = (Rc<Self::Symbol<TypedAST>>, Self::PreImplementation);
-    type ASTReference<'a, 'b> = &'a StructTraversalHelper<'a, 'b, UntypedAST>
-    where 'b: 'a;
+    type ASTReference<'a, 'b>
+        = &'a StructTraversalHelper<'a, 'b, UntypedAST>
+    where
+        'b: 'a;
     type SubAnalyzables<'a> = SingleSyntaxElementMap<'a, AnalyzableMethod>;
 
     fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
@@ -247,11 +255,13 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
     type Symbol<Type: ASTType> = FunctionSymbol<Type>;
     type PreImplementation = ();
     type Implementation = ASTNode<Function<TypedAST>>;
-    type ASTReference<'a, 'b> = (
+    type ASTReference<'a, 'b>
+        = (
         &'a StructTraversalHelper<'a, 'b, UntypedAST>,
         FunctionTraversalHelper<'a, 'b, UntypedAST>,
     )
-    where 'b: 'a;
+    where
+        'b: 'a;
     type SubAnalyzables<'a> = ();
 
     fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
@@ -281,27 +291,31 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableMethod {
 
     fn init_subanalyzables<'b>(
         _context: &SyntaxContext<'_, 'b, Self::ASTReference<'_, 'b>>,
-    ) -> Self::SubAnalyzables<'b> {}
+    ) -> Self::SubAnalyzables<'b> {
+    }
 }
 
 fn convert_function_symbol(
     context: &SyntaxContext<&FunctionTraversalHelper<UntypedAST>>,
 ) -> Result<Rc<FunctionSymbol<TypedAST>>, SemanticError> {
-    let untyped = context.ast_reference.inner().declaration();
+    let func_node = context.ast_reference.inner();
+    let span = *func_node.position();
+    let untyped = func_node.declaration();
+
     let return_type = match untyped.return_type() {
-        Some(type_name) => Some(analyze_data_type(type_name, context)?),
+        Some(type_name) => Some(analyze_data_type(type_name, context, span)?),
         None => None,
     };
 
     let mut typed_params = Vec::new();
     for param in untyped.params() {
-        let dt = analyze_data_type(param.data_type(), context)?;
+        let dt = analyze_data_type(param.data_type(), context, span)?;
         let typed_param = Rc::new(VariableSymbol::new(param.name().to_string(), dt));
         typed_params.push(typed_param);
     }
 
     let typed_type_params =
-        analyze_type_parameters_declaration(context, untyped.type_parameters().iter())?;
+        analyze_type_parameters_declaration(context, untyped.type_parameters().iter(), span)?;
 
     Ok(Rc::new(FunctionSymbol::new(
         untyped.name().to_string(),
@@ -318,9 +332,12 @@ fn convert_method_symbol(
     )>,
 ) -> Result<Rc<FunctionSymbol<TypedAST>>, SemanticError> {
     let internal_context = context.with_ast_reference(&context.ast_reference.1);
-    let untyped = context.ast_reference.1.inner().declaration();
+    let func_node = context.ast_reference.1.inner();
+    let span = *func_node.position();
+    let untyped = func_node.declaration();
+
     let return_type = match untyped.return_type() {
-        Some(type_name) => Some(analyze_data_type(type_name, &internal_context)?),
+        Some(type_name) => Some(analyze_data_type(type_name, &internal_context, span)?),
         None => None,
     };
 
@@ -336,6 +353,7 @@ fn convert_method_symbol(
         context.ast_reference.0.inner().symbol().name(),
         &type_params,
         &internal_context,
+        span,
     )?;
 
     typed_params.push(Rc::new(VariableSymbol::new(
@@ -344,13 +362,16 @@ fn convert_method_symbol(
     )));
 
     for param in untyped.params() {
-        let dt = analyze_data_type(param.data_type(), &internal_context)?;
+        let dt = analyze_data_type(param.data_type(), &internal_context, span)?;
         let typed_param = Rc::new(VariableSymbol::new(param.name().to_string(), dt));
         typed_params.push(typed_param);
     }
 
-    let typed_type_params =
-        analyze_type_parameters_declaration(&internal_context, untyped.type_parameters().iter())?;
+    let typed_type_params = analyze_type_parameters_declaration(
+        &internal_context,
+        untyped.type_parameters().iter(),
+        span,
+    )?;
 
     Ok(Rc::new(FunctionSymbol::new(
         untyped.name().to_string(),
@@ -363,9 +384,12 @@ fn convert_method_symbol(
 fn convert_enum_symbol(
     context: &SyntaxContext<&EnumTraversalHelper<UntypedAST>>,
 ) -> Result<Rc<EnumSymbol<TypedAST>>, SemanticError> {
-    let untyped = context.ast_reference.inner().symbol();
+    let enum_node = context.ast_reference.inner();
+    let span = *enum_node.position();
+    let untyped = enum_node.symbol();
+
     let typed_type_params =
-        analyze_type_parameters_declaration(context, untyped.type_parameters().iter())?;
+        analyze_type_parameters_declaration(context, untyped.type_parameters().iter(), span)?;
 
     Ok(Rc::new(EnumSymbol::new(
         untyped.name().to_string(),
@@ -380,12 +404,14 @@ fn convert_enum_pre_implementation(
 
     untyped
         .iter()
-        .map(|variant| variant.inner())
-        .map(|variant| {
+        .map(|variant_node| {
+            let span = *variant_node.position();
+            let variant = variant_node.inner();
+
             let fields = variant
                 .fields()
                 .iter()
-                .map(|field| analyze_data_type(field, context))
+                .map(|field| analyze_data_type(field, context, span))
                 .collect::<Result<Vec<_>, SemanticError>>()?;
 
             Ok(Rc::new(EnumVariantSymbol::<TypedAST>::new(
@@ -399,9 +425,12 @@ fn convert_enum_pre_implementation(
 fn convert_struct_symbol(
     context: &SyntaxContext<&StructTraversalHelper<UntypedAST>>,
 ) -> Result<Rc<StructSymbol<TypedAST>>, SemanticError> {
-    let untyped = context.ast_reference.inner().symbol();
+    let struct_node = context.ast_reference.inner();
+    let span = *struct_node.position();
+    let untyped = struct_node.symbol();
+
     let typed_type_params =
-        analyze_type_parameters_declaration(context, untyped.type_parameters().iter())?;
+        analyze_type_parameters_declaration(context, untyped.type_parameters().iter(), span)?;
 
     Ok(Rc::new(StructSymbol::new(
         untyped.name().to_string(),
@@ -416,11 +445,14 @@ fn convert_struct_pre_implementation(
 
     untyped
         .iter()
-        .map(|variant| variant.inner())
-        .map(|variant| {
-            let dt = analyze_data_type(variant.data_type(), context)?;
+        .map(|field_node| {
+            let span = *field_node.position();
+            let field = field_node.inner();
+
+            let dt = analyze_data_type(field.data_type(), context, span)?;
+
             Ok(Rc::new(StructFieldSymbol::<TypedAST>::new(
-                variant.name().to_owned(),
+                field.name().to_owned(),
                 dt,
             )))
         })

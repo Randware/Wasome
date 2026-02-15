@@ -2,6 +2,7 @@ use crate::error_sa::SemanticError;
 use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::VariableSymbol;
+use source::types::Span;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -53,18 +54,20 @@ impl FunctionSymbolMapper {
     ///
     /// # Returns
     /// * `Ok(())` if a scope was successfully popped.
-    pub fn exit_scope(&mut self) -> Result<(), SemanticError> {
+    pub fn exit_scope(&mut self, span: Span) -> Result<(), SemanticError> {
         if self.scope_stack.is_empty() {
             return Err(SemanticError::Custom {
-                message: "Internal Compiler Error: Attempted to exit scope on an empty stack.".to_string(),
-                span: source::types::FileID::from(0).span(0, 0),
+                message: "Internal Compiler Error: Attempted to exit scope on an empty stack."
+                    .to_string(),
+                span,
             });
         }
 
         if self.scope_stack.len() == 1 {
             return Err(SemanticError::Custom {
-                message: "Internal Compiler Error: Attempted to pop the function's base scope.".to_string(),
-                span: source::types::FileID::from(0).span(0, 0),
+                message: "Internal Compiler Error: Attempted to pop the function's base scope."
+                    .to_string(),
+                span,
             });
         }
 
@@ -80,11 +83,16 @@ impl FunctionSymbolMapper {
     ///
     /// # Parameters
     /// * `symbol` - The variable symbol to insert (`Rc<VariableSymbol<TypedAST>>`).
+    /// * `span` - The span of the variable being added, used for error reporting.
     ///
     /// # Returns
     /// * `Ok(())` if inserted.
     /// * `Err(SemanticError)` if a variable with the same name already exists in the current scope.
-    pub fn add_variable(&mut self, symbol: Rc<VariableSymbol<TypedAST>>) -> Result<(), SemanticError> {
+    pub fn add_variable(
+        &mut self,
+        symbol: Rc<VariableSymbol<TypedAST>>,
+        span: Span,
+    ) -> Result<(), SemanticError> {
         let current_scope = self
             .scope_stack
             .last_mut()
@@ -94,8 +102,11 @@ impl FunctionSymbolMapper {
 
         if current_scope.variables.contains_key(&name) {
             return Err(SemanticError::Custom {
-                message: format!("Error: Variable '{}' is already defined in the current scope.", name),
-                span: source::types::FileID::from(0).span(0, 0),
+                message: format!(
+                    "Error: Variable '{}' is already defined in the current scope.",
+                    name
+                ),
+                span,
             });
         }
 
