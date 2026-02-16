@@ -36,6 +36,10 @@ impl ParserSpan {
     fn merge(self, other: Self) -> Option<Self> {
         Some(Self(self.0.merge(other.0)?))
     }
+
+    fn set_end(&mut self, end: BytePos) {
+        self.0.end = end;
+    }
 }
 impl From<SourceSpan> for ParserSpan {
     fn from(value: SourceSpan) -> Self {
@@ -253,7 +257,7 @@ fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
             let expexted = expected
                 .into_iter()
                 .map(|pat| match pat {
-                    RichPattern::Token(tok) => tok.token_to_string().to_string(),
+                    RichPattern::Token(tok) => tok.token_to_printable_string().to_string(),
                     RichPattern::EndOfInput => "end of input".to_string(),
                     _ => unreachable!("This should never happen"),
                 })
@@ -261,9 +265,9 @@ fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
                 .join(" or ");
             let found = match found {
                 None => "end of input".to_string(),
-                Some(tok) => tok.token_to_string().to_string(),
+                Some(tok) => tok.token_to_printable_string().to_string(),
             };
-            format!("Expected {expexted} but found {found}")
+            format!("Expected {expexted}, but found {found}")
         }
         RichReason::Custom(msg) => msg,
     };
@@ -276,6 +280,7 @@ fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
                 .primary(span.0.start..span.0.end, msg)
                 .build(),
         )
+        .help("Provide a valid token".to_string())
         .build()
 }
 

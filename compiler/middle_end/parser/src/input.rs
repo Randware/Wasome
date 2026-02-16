@@ -3,6 +3,7 @@ use chumsky::input::{BorrowInput, ExactSizeInput, SliceInput, ValueInput};
 use chumsky::prelude::*;
 use lexer::TokenType;
 use std::ops::{Range, RangeFrom};
+use source::types::BytePos;
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct ParserInput<'src> {
@@ -55,13 +56,17 @@ impl<'src> Input<'src> for ParserInput<'src> {
     ///
     /// This implementation can produce arbitrary behavior, including panics, but **never** UB
     unsafe fn span(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Span {
-        let start = cache[(*range.start).min(cache.len() - 1)].span;
-        let end = cache[(*range.end).min(cache.len() - 1)].span;
-
-        // This will panic if the range is reversed
-        // Chumsky has no documentation regarding this
-        // So let's hope that it will never happen...
-        start.merge(end).expect("Range is reversed")
+        let mut start = cache[(*range.start).min(cache.len() - 1)].span;
+        // The upper end of the range is exclusive
+        // -1 is there to not include the end token (exclusive)
+        let end = match range.end {
+            0 => BytePos(0),
+            end if end == range.start => start.end(),
+            end => cache[(*end-1).min(cache.len() - 1)].span.end()
+        };
+        
+        start.set_end(end);
+        start
     }
 }
 

@@ -282,6 +282,13 @@ impl TokenType {
         }
     }
 
+    pub fn token_to_printable_string(&self) -> String {
+        match self {
+            TokenType::StatementSeparator => "statement separator".into(),
+            _ => format!("\"{}\"", self.token_to_string())
+        }
+    }
+
     fn escape_char(c: char) -> String {
         match c {
             '\n' => "\\n".into(),
