@@ -197,7 +197,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     fn parse_file(&self, file_location: &ModulePath, to_parse: FileID) -> Option<File<UntypedAST>> {
         let last = file_location.elements().pop()?;
         let file_information = FileInformation::new(to_parse, &last, self.load_from)?;
-        let parsed = parse(file_information)?;
+        let parsed = parse(file_information).ok()?;
         Some(parsed)
     }
 

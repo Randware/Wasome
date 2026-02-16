@@ -9,9 +9,13 @@ use source::types::{BytePos, FileID, Span as SourceSpan};
 use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
 use std::ops::{Deref, Range};
+use chumsky::error::{RichPattern, RichReason};
 use chumsky::input::Input;
+use chumsky::prelude::Rich;
 use chumsky::span::{Span, Spanned, WrappingSpan};
-use error::diagnostic::Diagnostic;
+use chumsky::util::MaybeRef;
+use error::diagnostic::{Diagnostic, Snippet};
+use lexer::tokens::{LexError, LexErrorType};
 use crate::input::ParserInput;
 
 mod composite_parser;
@@ -22,7 +26,11 @@ mod statement_parser;
 mod top_level_parser;
 mod input;
 
-const INVALID_FILE_CODE: &str = "E1001";
+const INVALID_FILE_CODE: &str = "E2001";
+const PARSING_CODE: &str = "E2002";
+const LEXING_CODE: &str = "E1001";
+
+
 /// Newtype to bypass trait implementation rules
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 struct ParserSpan(pub SourceSpan);
@@ -181,18 +189,22 @@ impl<'a, Loader: FullIO> FileInformation<'a, Loader> {
 ///
 /// # Return
 ///
-/// - **None**: The parsing failed // TODO: Add error handling support
+/// - **Err**: The parsing failed
 /// - **Some**: The parsing succeeded and the result is contained within
 pub fn parse<Loader: FullIO>(to_parse: FileInformation<'_, Loader>) -> Result<File<UntypedAST>, Diagnostic> {
     let content = to_parse.file_content();
     let mut tokens = Vec::new();
-    let mut all_ok = true;
+    let mut first_err = None;
     lex(content).for_each(|token| match token {
         Ok(inner_token) => tokens.push(inner_token),
-        Err(_) => all_ok = false,
+        Err(err) => {
+            if first_err.is_none() {
+                first_err = Some(err)
+            }
+        },
     });
-    if !all_ok {
-        return None;
+    if let Some(first_err) = first_err {
+        return Err(lexer_error(to_parse.file, first_err))
     }
     parse_tokens(tokens, &to_parse)
 }
@@ -201,26 +213,71 @@ fn parse_tokens<Loader: FullIO>(
     to_parse: Vec<Token>,
     file_information: &FileInformation<'_, Loader>,
 ) -> Result<File<UntypedAST>, Diagnostic> {
-    let filename = file_information.filename_without_extension()?.to_owned();
+    let filename = file_information.filename_without_extension()
+        .ok_or_else(|| invalid_filename_error(file_information.file_resolved()))?.to_owned();
     let to_parse_with_file_info = prepare_tokens(to_parse, file_information.file);
     let input = ParserInput::new(&to_parse_with_file_info);
     // It's not a good idea to put this into a static to prevent recreating the parser
     // as it would require unsafe code
     let parser = top_level_parser(file_information);
-    parser.parse(input).into_output().map(
+    parser.parse(input).into_result().map(
         |(imports, functions, structs, enums)| {
             File::new(filename, imports, functions, enums, structs)
         },
     )
+        .map_err(|mut err|
+                     {
+                         let err = err.pop().unwrap();
+                         parser_error(file_information.file(), err)
+                     }
+        )
 }
 
 fn invalid_filename_error(file: &SourceFile) -> Diagnostic {
     Diagnostic::builder()
-        .message(format!("The at {} has an invalid name", file.path()))
+        .message(format!("The at {} has an invalid name", file.path().to_string_lossy()))
         .code(INVALID_FILE_CODE)
-        .
+        .build()
 }
 
+fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
+    let span = *err.span();
+    let msg = match err.into_reason() {
+        RichReason::ExpectedFound { expected, found} => {
+            let expexted = expected.into_iter().map(|pat|
+                match pat {
+                    RichPattern::Token(tok) => tok.token_to_string().to_string(),
+                    RichPattern::EndOfInput => "end of input".to_string(),
+                    _ => unreachable!("This should never happen")
+                }
+            ).collect::<Vec<_>>().join(" or ");
+            let found = match found {
+                None => "end of input".to_string(),
+                Some(tok) => tok.token_to_string().to_string()
+            };
+            format!("Expected {expexted} but found {found}")
+        }
+        RichReason::Custom(msg) => msg
+    };
+    Diagnostic::builder()
+        .message("Token mismatch")
+        .code(PARSING_CODE)
+        .snippet(Snippet::builder()
+            .file(file)
+            .primary(span.0.start..span.0.end, msg).build())
+        .build()
+}
+
+fn lexer_error(file: FileID, err: LexError) -> Diagnostic {
+    let msg = err.inner.to_string();
+    Diagnostic::builder()
+        .message("Invalid token")
+        .code(LEXING_CODE)
+        .snippet(Snippet::builder()
+            .file(file)
+            .primary(err.byte_pos.start..err.byte_pos.end, msg).build())
+        .build()
+}
 fn prepare_tokens(raw_tokens: Vec<Token>, file: FileID) -> Vec<Spanned<TokenType, ParserSpan>> {
     raw_tokens
         .into_iter()
