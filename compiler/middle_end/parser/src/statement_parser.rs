@@ -1,28 +1,33 @@
 use crate::expression_parser::expression_parser;
+use crate::input::ParserInput;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{map, unspan_vec, ParserSpan};
+use crate::{ParserSpan, map, unspan_vec};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,
 };
 use ast::symbol::VariableSymbol;
 use ast::{ASTNode, UntypedAST};
+use chumsky::extra::Full;
 use chumsky::prelude::*;
+use chumsky::span::WrappingSpan;
 use lexer::TokenType;
 use std::rc::Rc;
-use chumsky::extra::Full;
-use chumsky::span::WrappingSpan;
-use crate::input::ParserInput;
 
 /// Ensures that T implements a specific trait
 ///
 /// This is only used to prevent type annotation issues without specifying the entire type
 fn narrow<
     'src,
-    T: Parser<'src, ParserInput<'src>, ASTNode<Statement<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
+    T: Parser<
+            'src,
+            ParserInput<'src>,
+            ASTNode<Statement<UntypedAST>>,
+            Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
+        > + Clone,
 >(
     input: T,
 ) -> T {
@@ -30,8 +35,12 @@ fn narrow<
 }
 
 /// Parses a single statement
-pub(crate) fn statement_parser<'src>()
--> impl Parser<'src, ParserInput<'src>, ASTNode<Statement<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> {
+pub(crate) fn statement_parser<'src>() -> impl Parser<
+    'src,
+    ParserInput<'src>,
+    ASTNode<Statement<UntypedAST>>,
+    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
+> {
     recursive(|statement| {
         let statement = narrow(statement);
         let data_type = datatype_parser();
@@ -90,19 +99,20 @@ pub(crate) fn statement_parser<'src>()
                 )
             });
 
-
         let variable_declaration = data_type
             .clone()
             .then(ident.clone())
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|((data_type, name), val)| {
-                data_type.span.merge(name.span).unwrap().make_wrapped(
-                    VariableDeclaration::<UntypedAST>::new(
+                data_type
+                    .span
+                    .merge(name.span)
+                    .unwrap()
+                    .make_wrapped(VariableDeclaration::<UntypedAST>::new(
                         Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
                         val,
-                    )
-                )
+                    ))
             });
 
         let return_statement = token_parser(TokenType::Return)
@@ -141,7 +151,9 @@ pub(crate) fn statement_parser<'src>()
                         else_statement
                             .as_ref()
                             .map(|to_map| to_map.position())
-                            .unwrap_or(then.position()).clone().into(),
+                            .unwrap_or(then.position())
+                            .clone()
+                            .into(),
                     )
                     .unwrap();
                 pos.make_wrapped(Conditional::new(cond, then, else_statement))
@@ -191,18 +203,13 @@ pub(crate) fn statement_parser<'src>()
                         })
                         .collect::<Vec<_>>();
 
-                    pos.make_wrapped(
-                        IfEnumVariant::<UntypedAST>::new(
-                            (
-                                enum_identifier.0.inner,
-                                unspan_vec(enum_identifier.1),
-                            ),
-                            enum_variant.inner,
-                            source,
-                            vars,
-                            then_statement,
-                        )
-                    )
+                    pos.make_wrapped(IfEnumVariant::<UntypedAST>::new(
+                        (enum_identifier.0.inner, unspan_vec(enum_identifier.1)),
+                        enum_variant.inner,
+                        source,
+                        vars,
+                        then_statement,
+                    ))
                 },
             );
 
@@ -239,7 +246,10 @@ pub(crate) fn statement_parser<'src>()
             )))
             .then(loop_body.clone())
             .map(|((loop_keyword, loop_type), body)| {
-                let pos = loop_keyword.span.merge(body.position().clone().into()).unwrap();
+                let pos = loop_keyword
+                    .span
+                    .merge(body.position().clone().into())
+                    .unwrap();
                 pos.make_wrapped(Loop::new(body, loop_type))
             });
 
@@ -254,9 +264,10 @@ pub(crate) fn statement_parser<'src>()
             )
             .then(token_parser(TokenType::CloseScope))
             .map(|((open, block), close)| {
-                open.span.merge(close.span).unwrap().make_wrapped(
-                    CodeBlock::new(block.into_iter().collect()),
-                )
+                open.span
+                    .merge(close.span)
+                    .unwrap()
+                    .make_wrapped(CodeBlock::new(block.into_iter().collect()))
             });
         choice((
             variable_assignment.map(|var_assign| map(var_assign, Statement::VariableAssignment)),
@@ -292,7 +303,7 @@ pub(crate) fn statement_parser<'src>()
 #[cfg(test)]
 mod tests {
     use crate::statement_parser::statement_parser;
-    use crate::test_shared::{wrap_in_ast_node, wrap_token};
+    use crate::test_shared::{convert_nonempty_input, wrap_in_ast_node, wrap_token};
     use ast::data_type::UntypedDataType;
     use ast::expression::{
         BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
@@ -303,7 +314,6 @@ mod tests {
     use chumsky::Parser;
     use lexer::TokenType;
     use std::rc::Rc;
-    use crate::convert_nonempty_input;
 
     #[test]
     fn parse() {

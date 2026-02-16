@@ -1,12 +1,11 @@
-use std::borrow::Cow;
 use logos::{Lexer, Logos};
-use std::num::{ParseFloatError, ParseIntError};
+use std::borrow::Cow;
 use std::ops::Range;
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct LexError {
     pub byte_pos: Range<usize>,
-    pub inner: LexErrorType
+    pub inner: LexErrorType,
 }
 
 impl LexError {
@@ -191,11 +190,15 @@ pub enum TokenType {
 }
 
 fn lex_float(lex: &mut Lexer<'_, TokenType>) -> Result<f64, LexError> {
-    lex.slice().parse().map_err(|_| LexError::from_lexer_and_type(lex, LexErrorType::Float(lex.slice().to_string())))
+    lex.slice().parse().map_err(|_| {
+        LexError::from_lexer_and_type(lex, LexErrorType::Float(lex.slice().to_string()))
+    })
 }
 
 fn lex_int(lex: &mut Lexer<'_, TokenType>) -> Result<i64, LexError> {
-    lex.slice().parse().map_err(|_| LexError::from_lexer_and_type(lex, LexErrorType::Int(lex.slice().to_string())))
+    lex.slice()
+        .parse()
+        .map_err(|_| LexError::from_lexer_and_type(lex, LexErrorType::Int(lex.slice().to_string())))
 }
 
 impl TokenType {
@@ -302,7 +305,10 @@ fn char_callback(lex: &mut Lexer<TokenType>) -> Result<char, LexError> {
 
     let num_chars = content.chars().count();
     if num_chars != 0 && num_chars != (1 + content.starts_with('\\') as usize) {
-        return Err(LexError::from_lexer_and_type(lex, LexErrorType::InvalidChar(content.to_string())));
+        return Err(LexError::from_lexer_and_type(
+            lex,
+            LexErrorType::InvalidChar(content.to_string()),
+        ));
     }
 
     let mut chars = content.chars();
@@ -319,7 +325,12 @@ fn char_callback(lex: &mut Lexer<TokenType>) -> Result<char, LexError> {
                 '\\' => '\\',
                 '\'' => '\'',
                 '"' => '"',
-                _ => return Err(LexError::from_lexer_and_type(lex, LexErrorType::InvalidChar(content.to_string()))),
+                _ => {
+                    return Err(LexError::from_lexer_and_type(
+                        lex,
+                        LexErrorType::InvalidChar(content.to_string()),
+                    ));
+                }
             }
         }
         _ => first_char,

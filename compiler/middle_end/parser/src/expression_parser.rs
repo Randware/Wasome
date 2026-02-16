@@ -1,48 +1,50 @@
-use chumsky::extra::Full;
+use crate::input::ParserInput;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser, token_parser,
 };
-use crate::{map, unspan_vec, ParserSpan};
+use crate::{ParserSpan, map, unspan_vec};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
     Typecast, UnaryOp, UnaryOpType,
 };
 use ast::{ASTNode, UntypedAST};
+use chumsky::extra::Full;
 use chumsky::prelude::*;
 use lexer::TokenType;
 use source::types::{BytePos, Span};
-use crate::input::ParserInput;
 
 /// Parses an expression
-pub(crate) fn expression_parser<'src>()
--> impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
+pub(crate) fn expression_parser<'src>() -> impl Parser<
+    'src,
+    ParserInput<'src>,
+    ASTNode<Expression<UntypedAST>>,
+    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
+> + Clone {
     recursive(|expr| {
-        let literal =
-            choice((
-                select_ref! {
-                    TokenType::Decimal(inner) => {
-                                if inner.fract() == 0.0 {
-                                    format!("{:.1}", inner)
-                                } else {
-                                    inner.to_string()
-                                }
+        let literal = choice((
+            select_ref! {
+                TokenType::Decimal(inner) => {
+                            if inner.fract() == 0.0 {
+                                format!("{:.1}", inner)
+                            } else {
+                                inner.to_string()
                             }
-                }.spanned(),
-                select_ref! {
-                    TokenType::Integer(inner) => inner.to_string(),
-                }.spanned(),
-                select_ref! {
-                    TokenType::CharLiteral(inner) => format!("'{}'", inner),
-                }.spanned(),
-                token_parser(TokenType::True).map(|input| map(input, |_| "true".to_string())),
-                token_parser(TokenType::False).map(|input| map(input, |_| "false".to_string())),
-            )).map(|lit| map(lit, |lit| Expression::<UntypedAST>::Literal(lit)))
-                .map(|lit| {
-                    ASTNode::new(
-                        lit.inner,
-                        lit.span.0,
-                    )
-                });
+                        }
+            }
+            .spanned(),
+            select_ref! {
+                TokenType::Integer(inner) => inner.to_string(),
+            }
+            .spanned(),
+            select_ref! {
+                TokenType::CharLiteral(inner) => format!("'{}'", inner),
+            }
+            .spanned(),
+            token_parser(TokenType::True).map(|input| map(input, |_| "true".to_string())),
+            token_parser(TokenType::False).map(|input| map(input, |_| "false".to_string())),
+        ))
+        .map(|lit| map(lit, |lit| Expression::<UntypedAST>::Literal(lit)))
+        .map(|lit| ASTNode::new(lit.inner, lit.span.0));
         let ident = identifier_parser();
         let ident_with_typ_param = identifier_with_type_parameter_parser();
 
@@ -59,10 +61,10 @@ pub(crate) fn expression_parser<'src>()
                     ),
             )
             .map(|((name, type_parameters), args)| {
-                let pos = name.span
+                let pos = name
+                    .span
                     .merge(
-                        args
-                            .last()
+                        args.last()
                             .map(|to_map| to_map.position().clone().into())
                             .unwrap_or(name.span),
                     )
@@ -125,11 +127,14 @@ pub(crate) fn expression_parser<'src>()
                     .or_not(),
             )
             .map(|(((name, type_parameters), variant_name), field_values)| {
-                let pos = name.span
+                let pos = name
+                    .span
                     .merge(
                         field_values
                             .as_ref()
-                            .and_then(|fv| fv.last().map(|last_val| last_val.position().clone().into()))
+                            .and_then(|fv| {
+                                fv.last().map(|last_val| last_val.position().clone().into())
+                            })
                             .unwrap_or(variant_name.span),
                     )
                     .unwrap();
@@ -274,9 +279,19 @@ pub(crate) fn expression_parser<'src>()
 ///
 /// **ops**: The tokens to parse and what to parse them to
 fn binary_operator_from_token_parser<'src>(
-    input: impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
+    input: impl Parser<
+        'src,
+        ParserInput<'src>,
+        ASTNode<Expression<UntypedAST>>,
+        Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
+    > + Clone,
     ops: &[(TokenType, BinaryOpType)],
-) -> impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
+) -> impl Parser<
+    'src,
+    ParserInput<'src>,
+    ASTNode<Expression<UntypedAST>>,
+    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
+> + Clone {
     let ops = ops.iter().map(|op| (token_parser(op.0.clone()), op.1));
     binary_op_parser(input, ops)
 }
@@ -285,12 +300,23 @@ fn binary_operator_from_token_parser<'src>(
 fn binary_op_parser<
     'src,
     Ignored,
-    OpParser: Parser<'src, ParserInput<'src>, Ignored, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
+    OpParser: Parser<'src, ParserInput<'src>, Ignored, Full<Rich<'src, TokenType, ParserSpan>, (), ()>>
+        + Clone,
     Ops: Iterator<Item = (OpParser, BinaryOpType)>,
 >(
-    input: impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone,
+    input: impl Parser<
+        'src,
+        ParserInput<'src>,
+        ASTNode<Expression<UntypedAST>>,
+        Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
+    > + Clone,
     ops: Ops,
-) -> impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<Rich<'src, TokenType, ParserSpan>, (), ()>> + Clone {
+) -> impl Parser<
+    'src,
+    ParserInput<'src>,
+    ASTNode<Expression<UntypedAST>>,
+    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
+> + Clone {
     input.clone().foldl(
         choice(
             ops.map(|(token, op)| token.map(move |_| binary_op_mapper(op)))
@@ -359,7 +385,7 @@ fn map_unary_op(
 #[cfg(test)]
 mod tests {
     use crate::expression_parser::expression_parser;
-    use crate::test_shared::{wrap_in_ast_node, wrap_token};
+    use crate::test_shared::{convert_nonempty_input, wrap_in_ast_node, wrap_token};
     use ast::data_type::UntypedDataType;
     use ast::expression::{
         BinaryOp, BinaryOpType, Expression, FunctionCall, Typecast, UnaryOp, UnaryOpType,
@@ -367,7 +393,6 @@ mod tests {
     use ast::{SemanticEq, UntypedAST};
     use chumsky::Parser;
     use lexer::TokenType;
-    use crate::convert_nonempty_input;
 
     #[test]
     fn parse() {

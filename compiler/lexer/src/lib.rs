@@ -10,9 +10,10 @@ pub fn lex(input: &str) -> impl Iterator<Item = Result<Token, LexError>> + '_ {
     std::iter::from_fn(move || {
         let next = lexer.next()?;
         match next {
-            Ok(kind) => {
-                Some(Ok(Token { kind, span: lexer.span() }))
-            }
+            Ok(kind) => Some(Ok(Token {
+                kind,
+                span: lexer.span(),
+            })),
             Err(e) => Some(Err(e)),
         }
     })

@@ -1,12 +1,12 @@
-use std::ops::{Range, RangeFrom};
+use crate::ParserSpan;
 use chumsky::input::{BorrowInput, ExactSizeInput, SliceInput, ValueInput};
 use chumsky::prelude::*;
 use lexer::TokenType;
-use crate::ParserSpan;
+use std::ops::{Range, RangeFrom};
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct ParserInput<'src> {
-    tokens: &'src [Spanned<TokenType, ParserSpan>]
+    tokens: &'src [Spanned<TokenType, ParserSpan>],
 }
 
 impl<'src> ParserInput<'src> {
@@ -36,7 +36,10 @@ impl<'src> Input<'src> for ParserInput<'src> {
     /// doesn't belong to cache
     ///
     /// This implementation can produce arbitrary behavior, but excluding panics and UB
-    unsafe fn next_maybe(cache: &mut Self::Cache, cursor: &mut Self::Cursor) -> Option<Self::MaybeToken> {
+    unsafe fn next_maybe(
+        cache: &mut Self::Cache,
+        cursor: &mut Self::Cursor,
+    ) -> Option<Self::MaybeToken> {
         if let Some(tok) = cache.get(*cursor) {
             *cursor += 1;
             Some(&tok.inner)
@@ -52,8 +55,8 @@ impl<'src> Input<'src> for ParserInput<'src> {
     ///
     /// This implementation can produce arbitrary behavior, including panics, but **never** UB
     unsafe fn span(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Span {
-        let start = cache[(*range.start).min(cache.len()-1)].span;
-        let end = cache[(*range.end).min(cache.len()-1)].span;
+        let start = cache[(*range.start).min(cache.len() - 1)].span;
+        let end = cache[(*range.end).min(cache.len() - 1)].span;
 
         // This will panic if the range is reversed
         // Chumsky has no documentation regarding this
@@ -92,7 +95,9 @@ impl<'src> SliceInput<'src> for ParserInput<'src> {
     ///
     /// This implementation can produce arbitrary behavior, including panics, but **never** UB
     unsafe fn slice(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Slice {
-        ParserInput { tokens: &cache[*range.start..*range.end] }
+        ParserInput {
+            tokens: &cache[*range.start..*range.end],
+        }
     }
 
     /// # Safety
@@ -102,7 +107,9 @@ impl<'src> SliceInput<'src> for ParserInput<'src> {
     ///
     /// This implementation can produce arbitrary behavior, including panics, but **never** UB
     unsafe fn slice_from(cache: &mut Self::Cache, from: RangeFrom<&Self::Cursor>) -> Self::Slice {
-        ParserInput { tokens: &cache[*from.start..] }
+        ParserInput {
+            tokens: &cache[*from.start..],
+        }
     }
 }
 
@@ -128,7 +135,10 @@ impl<'src> BorrowInput<'src> for ParserInput<'src> {
     /// doesn't belong to cache
     ///
     /// This implementation can produce arbitrary behavior, including panics, but **never** UB
-    unsafe fn next_ref(cache: &mut Self::Cache, cursor: &mut Self::Cursor) -> Option<&'src Self::Token> {
+    unsafe fn next_ref(
+        cache: &mut Self::Cache,
+        cursor: &mut Self::Cursor,
+    ) -> Option<&'src Self::Token> {
         unsafe {
             // Safety:
             // This function is only unsafe due to trait requirements and never has UB
