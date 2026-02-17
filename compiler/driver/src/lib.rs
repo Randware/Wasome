@@ -52,6 +52,12 @@ pub(crate) fn typed_ast_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
     Output = (AST<TypedAST>, &'a mut SourceMap<IO>),
 > {
     let from: for<'a> fn((_, &'a mut _)) -> Result<(_, &'a mut _), ()> =
-        |(ut_ast, sm)| analyze(ut_ast).map(|t_ast| (t_ast, sm)).ok_or(());
+        |(ut_ast, sm)| match analyze(ut_ast) {
+            Ok(t_ast) => Ok((t_ast, sm)),
+            Err(diagnostic) => {
+                let _ = diagnostic.print_snippets(sm);
+                Err(())
+            }
+        };
     load_parse_pipeline().then(from_func(from))
 }

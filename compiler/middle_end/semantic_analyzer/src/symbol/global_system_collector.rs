@@ -1,5 +1,7 @@
+use crate::error_sa::SemanticError;
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use ast::UntypedAST;
+use ast::symbol::SymbolWithTypeParameter;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
@@ -18,11 +20,11 @@ use typed_arena::Arena;
 ///
 /// # Returns
 /// * `Ok(GlobalSymbolMap)` - The populated map of symbols.
-/// * `Err(String)` - If a semantic error occurs during type conversion (e.g., unknown types).
+/// * `Err(SemanticError)` - If a semantic error occurs during type conversion (e.g., unknown types or duplicate definitions).
 pub fn collect_global_symbols<'a>(
     dir: &'a DirectoryTraversalHelper<'a, 'a, UntypedAST>,
     to_alloc_in: &'a TraversalHelpers<'a>,
-) -> Result<SyntaxElementMap<'a>, String> {
+) -> Result<SyntaxElementMap<'a>, SemanticError> {
     let mut map = SyntaxElementMap::new();
     collect_from_directory(dir, &mut map, to_alloc_in)?;
     Ok(map)
@@ -40,22 +42,41 @@ fn collect_from_directory<'a>(
     dir: &'a DirectoryTraversalHelper<'a, 'a, UntypedAST>,
     map: &mut SyntaxElementMap<'a>,
     to_alloc_in: &'a TraversalHelpers<'a>,
-) -> Result<(), String> {
+) -> Result<(), SemanticError> {
     for file in dir.files_iterator() {
         let file = to_alloc_in.files.alloc(file);
+
         for function in file.function_iterator() {
             let function: &'a _ = to_alloc_in.functions.alloc(function);
-            map.insert_untyped_function(function);
+            if map.insert_untyped_function(function).is_none() {
+                return Err(SemanticError::AlreadyDeclared {
+                    name: function.inner().declaration().name().to_string(),
+                    kind: "Function".to_string(),
+                    span: *function.inner().position(),
+                });
+            }
         }
 
         for en in file.enums_iterator() {
             let en: &'a _ = to_alloc_in.enums.alloc(en);
-            map.insert_untyped_enum(en);
+            if map.insert_untyped_enum(en).is_none() {
+                return Err(SemanticError::AlreadyDeclared {
+                    name: en.inner().symbol().name().to_string(),
+                    kind: "Enum".to_string(),
+                    span: *en.inner().position(),
+                });
+            }
         }
 
         for st in file.structs_iterator() {
             let st: &'a _ = to_alloc_in.structs.alloc(st);
-            map.insert_untyped_struct(st);
+            if map.insert_untyped_struct(st).is_none() {
+                return Err(SemanticError::AlreadyDeclared {
+                    name: st.inner().symbol().name().to_string(),
+                    kind: "Struct".to_string(),
+                    span: *st.inner().position(),
+                });
+            }
         }
     }
 

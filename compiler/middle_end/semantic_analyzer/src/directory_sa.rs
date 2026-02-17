@@ -1,3 +1,4 @@
+use crate::error_sa::SemanticError;
 use crate::file_sa::analyze_file;
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use ast::directory::Directory;
@@ -14,11 +15,11 @@ use std::path::PathBuf;
 /// * `global_elements` - The global registry of typed symbols (`&mut SyntaxElementMap`).
 ///
 /// # Returns
-/// * `Result<ASTNode<Directory<TypedAST>, PathBuf>, String>` - The typed directory node on success, or an error string.
+/// * `Result<ASTNode<Directory<TypedAST>, PathBuf>, SemanticError>` - The typed directory node on success, or a semantic error.
 pub(crate) fn analyze_directory(
     untyped_directory: &ASTNode<Directory<UntypedAST>, PathBuf>,
     global_elements: &mut SyntaxElementMap,
-) -> Result<ASTNode<Directory<TypedAST>, PathBuf>, String> {
+) -> Result<ASTNode<Directory<TypedAST>, PathBuf>, SemanticError> {
     let mut typed_subdirs = Vec::new();
     let mut typed_files = Vec::new();
 
