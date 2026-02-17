@@ -254,11 +254,13 @@ fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
     let span = *err.span();
     let msg = match err.into_reason() {
         RichReason::ExpectedFound { expected, found } => {
-            let expexted = expected
+            let expected = expected
                 .into_iter()
                 .map(|pat| match pat {
                     RichPattern::Token(tok) => tok.token_to_printable_string().to_string(),
                     RichPattern::EndOfInput => "end of input".to_string(),
+                    // Future improvement: Use custom for all other errors
+                    RichPattern::SomethingElse => "something else".to_string(),
                     _ => unreachable!("This should never happen"),
                 })
                 .collect::<Vec<_>>()
@@ -267,7 +269,7 @@ fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
                 None => "end of input".to_string(),
                 Some(tok) => tok.token_to_printable_string().to_string(),
             };
-            format!("Expected {expexted}, but found {found}")
+            format!("Expected {expected}, but found {found}")
         }
         RichReason::Custom(msg) => msg,
     };
