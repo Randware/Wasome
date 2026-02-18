@@ -79,11 +79,30 @@ impl TopLevelParser {
         }
     }
 
-    /// Begins a new top-level item, flushing any buffered tokens first.
+    /// Returns true if the buffer contains only comments and statement separators.
+    fn buffer_is_only_comments(&self) -> bool {
+        !self.current_tokens.is_empty()
+            && self.current_tokens.iter().all(|t| {
+                matches!(
+                    t.kind,
+                    TokenType::Comment(_) | TokenType::StatementSeparator
+                )
+            })
+    }
+
+    /// Begins a new top-level item.
+    /// If the buffer only contains comments/separators, they stay attached
+    /// to the new item. Otherwise the buffer is flushed as a separate item.
     fn start_new_item(&mut self, category: ItemCategory) {
-        self.finish_current_item();
-        self.current_category = category;
-        self.in_item = true;
+        if self.buffer_is_only_comments() {
+            // Keep leading comments — they belong to the next item
+            self.current_category = category;
+            self.in_item = true;
+        } else {
+            self.finish_current_item();
+            self.current_category = category;
+            self.in_item = true;
+        }
     }
 
     /// Updates category from `Other` when encountering the real keyword after `pub`.
