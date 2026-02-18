@@ -50,6 +50,7 @@ fn space_before_after(token: &TokenType) -> bool {
             | TokenType::Assign
             | TokenType::Return
             | TokenType::As
+            | TokenType::Identifier(_)
     )
 }
 
@@ -91,7 +92,6 @@ fn is_literal(token: &TokenType) -> bool {
         token,
         TokenType::Integer(_)
             | TokenType::Decimal(_)
-            | TokenType::Identifier(_)
             | TokenType::String(_)
             | TokenType::CharLiteral(_)
             | TokenType::True
