@@ -23,7 +23,7 @@ pub(crate) fn function_parser<'src>() -> impl Parser<
     ASTNode<Function<UntypedAST>>,
     Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
 > {
-    let statement = statement_parser().boxed();
+    let statement = statement_parser();
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let param = data_type
@@ -84,4 +84,5 @@ pub(crate) fn function_parser<'src>() -> impl Parser<
                 )
             },
         )
+        .boxed()
 }

@@ -172,4 +172,5 @@ pub(crate) fn enum_parser<'src>() -> impl Parser<
                 ASTNode::new(Enum::new(symbol, variants, visibility), pos.0)
             },
         )
+        .boxed()
 }
