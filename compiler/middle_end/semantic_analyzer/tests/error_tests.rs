@@ -41,7 +41,7 @@ mod tests {
 
         let mut source_map = SourceMap::<WasomeLoader>::new(root);
 
-        let untyped_ast = match generate_untyped_ast(&prog_info, &mut source_map) {
+        let untyped_ast = match generate_untyped_ast(&prog_info, &mut source_map).ok() {
             Some(ast) => ast,
             None => {
                 panic!(

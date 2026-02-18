@@ -155,6 +155,7 @@ name = "driver"
 version = "0.1.0"
 dependencies = [
  "ast",
+ "error",
  "io",
  "parser",
  "semantic_analyzer",

@@ -9,6 +9,7 @@ source = { path = "../source" }
 parser = { path = "../middle_end/parser" }
 semantic_analyzer = { path = "../middle_end/semantic_analyzer" }
 io = { path = "../io" }
+error = { path ="../error" }
 
 [dev-dependencies]
 source = { path = "../source", features = ["test-utils"] }
