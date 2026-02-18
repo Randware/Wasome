@@ -20,25 +20,26 @@ pub mod spacing;
 pub use formatter::format_source;
 pub use reorder::{categorize_keyword, ItemCategory};
 pub use spacing::requires_space;
+pub use source::SourceMap;
 
-use source::SourceMap;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Formats a Wasome source file and returns the formatted content.
-pub fn format_file<P: AsRef<Path>>(path: P) -> io::Result<String> {
-    let mut sm: SourceMap = SourceMap::new(PathBuf::from("."));
-    // load_file returns io::Result<FileID>
+/// 
+/// Requires a mutable reference to a `SourceMap` for file loading.
+pub fn format_file<P: AsRef<Path>>(sm: &mut SourceMap, path: P) -> io::Result<String> {
     let id = sm.load_file(path)?;
-    // get_file must succeed if load_file succeeded (single threaded)
     let file = sm.get_file(&id).expect("File must exist after load");
     Ok(format_source(file.content()))
 }
 
 /// Formats a Wasome source file in place.
-pub fn format_file_in_place<P: AsRef<Path>>(path: P) -> io::Result<()> {
-    let formatted = format_file(&path)?;
+/// 
+/// Requires a mutable reference to a `SourceMap`.
+pub fn format_file_in_place<P: AsRef<Path>>(sm: &mut SourceMap, path: P) -> io::Result<()> {
+    let formatted = format_file(sm, &path)?;
     fs::write(path, formatted)?;
     Ok(())
 }
