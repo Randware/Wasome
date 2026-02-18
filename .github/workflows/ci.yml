@@ -52,8 +52,9 @@ jobs:
           usesh: true
           prepare: pkg install -y rust git cmake
           run: |
+            set -e # Exit immediately if command fails
             cd compiler
-            cargo test --workspace
+            cargo test --workspace --jobs 2 # This is done to prevent OOM errors: https://github.com/Randware/Wasome/issues/33
 
       - name: Save Result
         if: always()

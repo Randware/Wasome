@@ -1,8 +1,8 @@
 use crate::{DirectoryLoader, FileLoader, PathResolver};
 use std::ffi::OsString;
 use std::fs;
-use std::fs::{DirEntry, FileType, metadata, read_dir};
-use std::io::Error;
+use std::fs::{DirEntry, FileType, metadata, read_dir, File};
+use std::io::{Error, Read};
 use std::path::{Path, PathBuf};
 
 /// Default loader for `.waso` files.
@@ -59,9 +59,9 @@ impl FileLoader for WasomeLoader {
     ///   by the internal [`BytePos`] type.
     ///
     fn load<F: AsRef<Path>>(path: F) -> Result<String, Error> {
-        let content = fs::read_to_string(&path)?;
-
-        if content.len() > (u32::MAX as usize) {
+        let mut file = File::open(&path)?;
+        let file_metadata = file.metadata()?;
+        if file_metadata.len() > (u32::MAX as u64) {
             return Err(Error::new(
                 std::io::ErrorKind::FileTooLarge,
                 format!(
@@ -70,6 +70,9 @@ impl FileLoader for WasomeLoader {
                 ),
             ));
         }
+        let mut content = String::new();
+        let _ = file.read_to_string(&mut content);
+
         Ok(content)
     }
 }
@@ -170,7 +173,7 @@ fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs::File, io::Write};
+    use std::{fs::File, io::Write, u32};
     use tempfile::tempdir;
 
     #[test]
@@ -220,6 +223,19 @@ mod tests {
 
         // USE THE GETTER! It is public, so use it.
         assert_eq!(&source_file, "Hello World");
+    }
+
+    #[test]
+    fn test_load_non_existent_file() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("ghost.waso");
+
+        let result = WasomeLoader::load(&file_path);
+
+        assert!(result.is_err(), "Should return an error for missing files");
+
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::NotFound);
     }
 
     #[test]
