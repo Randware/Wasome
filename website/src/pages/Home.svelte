@@ -88,7 +88,7 @@ fn main() -> s32 {
   <div class="content container">
     <div class="hero-grid">
       <div class="hero-text">
-        <div class="badge">currently WIP</div>
+        <div class="badge">Alpha coming soon</div>
 
         <h1>
           <span class="desktop-text">
