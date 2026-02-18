@@ -28,7 +28,7 @@ fn datatype_parser_internal<'src>(
             Vec<Spanned<UntypedDataType, ParserSpan>>,
         ),
         Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-    > + Clone,
+    > + Clone + 'src,
 ) -> impl Parser<
     'src,
     ParserInput<'src>,
@@ -71,6 +71,7 @@ fn datatype_parser_internal<'src>(
             span: pos,
         }
     }))
+        .boxed()
 }
 
 /// Parses identifiers with possible type parameters
@@ -83,7 +84,7 @@ pub(crate) fn identifier_with_type_parameter_parser<'src>() -> impl Parser<
     ),
     Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
 > + Clone {
-    let type_parameter_usage = type_parameter_usage_parser().boxed();
+    let type_parameter_usage = type_parameter_usage_parser();
     identifier_with_type_parameter_parser_internal(type_parameter_usage)
 }
 
@@ -147,6 +148,7 @@ pub(crate) fn cross_module_capable_identifier_parser<'src>() -> impl Parser<
                 span: lhs.span.merge(inner.1.span).unwrap(),
             },
         })
+        .boxed()
 }
 
 /// Parses one or multiple statement separators
@@ -251,7 +253,7 @@ pub(crate) fn type_parameter_usage_parser<'src>() -> impl Parser<
     identifier_with_type.define(identifier_with_type_parameter_parser_internal(
         type_parameter_usage.clone(),
     ));
-    type_parameter_usage
+    type_parameter_usage.boxed()
 }
 
 fn type_parameter_usage_parser_internal<'src>(

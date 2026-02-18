@@ -297,6 +297,7 @@ pub(crate) fn statement_parser<'src>() -> impl Parser<
             }),
         ))
         .map(|statement| ASTNode::new(statement.inner, statement.span.into()))
+            .boxed()
     })
 }
 
