@@ -34,104 +34,156 @@ fn is_top_level_start(token: &TokenType) -> bool {
     ) || *token == TokenType::Public
 }
 
-/// Formats a sequence of tokens.
-fn format_tokens(tokens: &[Token]) -> String {
-    let mut output = String::new();
-    let mut indent = IndentTracker::new();
-    let mut at_line_start = true;
+/// Formatting state for a token stream.
+struct TokenFormatter {
+    output: String,
+    indent: IndentTracker,
+    at_line_start: bool,
+}
 
-    for (i, token) in tokens.iter().enumerate() {
-        let prev = if i > 0 { Some(&tokens[i - 1]) } else { None };
-        let next = tokens.get(i + 1);
+impl TokenFormatter {
+    fn new() -> Self {
+        Self {
+            output: String::new(),
+            indent: IndentTracker::new(),
+            at_line_start: true,
+        }
+    }
 
-        // Skip statement separators - we handle newlines explicitly
-        if token.kind == TokenType::StatementSeparator {
-            if !at_line_start {
-                output.push('\n');
-                at_line_start = true;
+    /// Formats the given tokens and returns the result.
+    fn format(mut self, tokens: &[Token]) -> String {
+        for (i, token) in tokens.iter().enumerate() {
+            let prev = if i > 0 { Some(&tokens[i - 1]) } else { None };
+            let next = tokens.get(i + 1);
+
+            if self.handle_statement_separator(&token.kind) {
+                continue;
             }
-            continue;
+
+            self.handle_close_scope_pre(&token.kind);
+            self.insert_blank_line_before_top_level(&token.kind, prev);
+
+            let just_indented = self.write_indentation();
+            self.write_spacing(just_indented, prev, &token.kind);
+            self.write_token(&token.kind);
+            self.handle_post_token(&token.kind, next);
         }
 
-        // Handle closing brace - decrease indent first
-        if token.kind == TokenType::CloseScope {
-            indent.decrease();
-            if !at_line_start {
-                output.push('\n');
-                at_line_start = true;
+        self.ensure_trailing_newline();
+        self.output
+    }
+
+    /// Emits a newline for statement separators. Returns true if consumed.
+    fn handle_statement_separator(&mut self, kind: &TokenType) -> bool {
+        if *kind != TokenType::StatementSeparator {
+            return false;
+        }
+        if !self.at_line_start {
+            self.push_newline();
+        }
+        true
+    }
+
+    /// Dedents and starts a new line before `}`.
+    fn handle_close_scope_pre(&mut self, kind: &TokenType) {
+        if *kind != TokenType::CloseScope {
+            return;
+        }
+        self.indent.decrease();
+        if !self.at_line_start {
+            self.push_newline();
+        }
+    }
+
+    /// Blank line between top-level items.
+    fn insert_blank_line_before_top_level(&mut self, kind: &TokenType, prev: Option<&Token>) {
+        if !self.indent.is_at_top_level() || !is_top_level_start(kind) {
+            return;
+        }
+        let Some(prev_token) = prev else { return };
+        if !matches!(
+            prev_token.kind,
+            TokenType::CloseScope | TokenType::StatementSeparator
+        ) {
+            return;
+        }
+        if self.output.is_empty() || self.output.ends_with("\n\n") {
+            return;
+        }
+
+        while self.output.ends_with(' ') || self.output.ends_with('\t') {
+            self.output.pop();
+        }
+        if !self.output.ends_with('\n') {
+            self.output.push('\n');
+        }
+        self.output.push('\n');
+        self.at_line_start = true;
+    }
+
+    /// Indents at line start. Returns true if indentation was written.
+    fn write_indentation(&mut self) -> bool {
+        if !self.at_line_start {
+            return false;
+        }
+        self.output.push_str(&self.indent.as_str());
+        self.at_line_start = false;
+        true
+    }
+
+    /// Applies spacing rules between adjacent tokens.
+    fn write_spacing(&mut self, just_indented: bool, prev: Option<&Token>, kind: &TokenType) {
+        if just_indented {
+            return;
+        }
+        if let Some(prev_token) = prev {
+            if requires_space(&prev_token.kind, kind) {
+                self.output.push(' ');
             }
         }
+    }
 
-        // Check if we need a blank line before top-level items
-        if indent.is_at_top_level() && is_top_level_start(&token.kind) {
-            if let Some(prev_token) = prev {
-                if matches!(
-                    prev_token.kind,
-                    TokenType::CloseScope | TokenType::StatementSeparator
-                ) {
-                    if !output.is_empty() && !output.ends_with("\n\n") {
-                        while output.ends_with(' ') || output.ends_with('\t') {
-                            output.pop();
-                        }
-                        if !output.ends_with('\n') {
-                            output.push('\n');
-                        }
-                        output.push('\n');
-                        at_line_start = true;
-                    }
-                }
-            }
-        }
+    /// Writes the current token.
+    fn write_token(&mut self, kind: &TokenType) {
+        self.output.push_str(&token_to_string(kind));
+    }
 
-        // Add indentation at line start
-        let just_indented = at_line_start;
-        if at_line_start {
-            output.push_str(&indent.as_str());
-            at_line_start = false;
-        }
-
-        // Add space before token if needed (but not right after indentation)
-        if !just_indented {
-            if let Some(prev_token) = prev {
-                if requires_space(&prev_token.kind, &token.kind) {
-                    output.push(' ');
-                }
-            }
-        }
-
-        // Add the token
-        output.push_str(&token_to_string(&token.kind));
-
-        // Handle post-token actions
-        match &token.kind {
+    /// Newlines and indent changes after a token.
+    fn handle_post_token(&mut self, kind: &TokenType, next: Option<&Token>) {
+        match kind {
             TokenType::OpenScope => {
-                indent.increase();
-                output.push('\n');
-                at_line_start = true;
+                self.indent.increase();
+                self.push_newline();
             }
             TokenType::CloseScope => {
                 match next.map(|t| &t.kind) {
                     // Don't add newline if followed by else - they stay on same line: } else
                     Some(TokenType::Else) => {}
-                    _ => {
-                        output.push('\n');
-                        at_line_start = true;
-                    }
+                    _ => self.push_newline(),
                 }
             }
             TokenType::Comment(_) => {
-                output.push('\n');
-                at_line_start = true;
+                self.push_newline();
             }
             _ => {}
         }
     }
 
-    if !output.ends_with('\n') && !output.is_empty() {
-        output.push('\n');
+    fn push_newline(&mut self) {
+        self.output.push('\n');
+        self.at_line_start = true;
     }
 
-    output
+    fn ensure_trailing_newline(&mut self) {
+        if !self.output.ends_with('\n') && !self.output.is_empty() {
+            self.output.push('\n');
+        }
+    }
+}
+
+/// Formats a sequence of tokens.
+fn format_tokens(tokens: &[Token]) -> String {
+    TokenFormatter::new().format(tokens)
 }
 
 /// Converts a token to its string representation.

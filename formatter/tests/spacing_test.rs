@@ -1,5 +1,5 @@
 use lexer::TokenType;
-use formatter::spacing::requires_space;
+use formatter::requires_space;
 
 #[test]
 fn test_space_around_operators() {
@@ -31,7 +31,6 @@ fn test_space_after_keyword() {
 
 #[test]
 fn test_space_between_literals() {
-    // Prevents "1as" — should be "1 as"
     assert!(requires_space(&TokenType::Integer(1), &TokenType::Identifier("as".into())));
     assert!(requires_space(&TokenType::Integer(1), &TokenType::True));
 }
