@@ -19,6 +19,10 @@ const UNABLE_TO_LOAD_DIRECTORY: &str = "E4005";
 const UNRESOLVED_IMPORT_ERROR: &str = "E4006";
 
 /// Like [`syntax_check_pipeline`], but the pipeline is used immediately
+///
+/// # Errors
+///
+/// If an error is found, it is returned
 pub fn syntax_check<'a, IO: FullIO>(
     to_check: &'a ProgramInformation,
     source_map: &'a mut SourceMap<IO>,

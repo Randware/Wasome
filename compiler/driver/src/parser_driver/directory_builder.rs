@@ -1,7 +1,6 @@
 use ast::directory::Directory;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
-use error::diagnostic::Diagnostic;
 use source::types::FileID;
 use std::path::PathBuf;
 

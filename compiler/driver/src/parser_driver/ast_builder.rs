@@ -64,7 +64,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         let main_file_id = to_ret
             .load_from
             .load_file(&main_file_path)
-            .map_err(|err| Self::unable_to_load_file_error(&main_file_path, err))?;
+            .map_err(|err| Self::unable_to_load_file_error(&main_file_path, &err))?;
         to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Ok(to_ret)
     }
@@ -93,12 +93,12 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .build()
     }
 
-    fn unable_to_load_file_error(file_path: &Path, error: Error) -> Diagnostic {
+    fn unable_to_load_file_error(file_path: &Path, error: &Error) -> Diagnostic {
         Diagnostic::builder()
             .message(format!(
                 "Unable to load file {}: {}",
                 file_path.to_string_lossy(),
-                error.to_string()
+                error
             ))
             .code(UNABLE_TO_LOAD_FILE)
             // This is a generic error msg
@@ -106,12 +106,12 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .build()
     }
 
-    fn unable_to_load_directory_error(directory_path: &Path, error: Error) -> Diagnostic {
+    fn unable_to_load_directory_error(directory_path: &Path, error: &Error) -> Diagnostic {
         Diagnostic::builder()
             .message(format!(
                 "Unable to load directory {}: {}",
                 directory_path.to_string_lossy(),
-                error.to_string()
+                error
             ))
             .code(UNABLE_TO_LOAD_DIRECTORY)
             // This is a generic error msg
@@ -316,9 +316,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .build_path_buf(self.program_information.projects())
             .ok_or_else(|| Self::unresolved_import_error(import_path.1))?;
 
-        let mut imported_files = self
+        let imported_files = self
             .list_wasome_files_in_dir(&module_dir)
-            .map_err(|err| Self::unable_to_load_directory_error(&module_dir, err))?;
+            .map_err(|err| Self::unable_to_load_directory_error(&module_dir, &err))?;
         let mut err = None;
         imported_files.for_each(|file| {
             // Only load the file if it isn't loaded, yet
@@ -334,19 +334,16 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 Err(io_err) => {
                     err = Some(Self::unable_to_load_file_error(
                         &module_dir.join(file),
-                        io_err,
+                        &io_err,
                     ));
                     return;
                 }
             };
             if let Err(val) = self.add_file_handle_imports(import_path.0, loaded) {
-                err = Some(val)
-            };
+                err = Some(val);
+            }
         });
-        match err {
-            None => Ok(()),
-            Some(err) => Err(err),
-        }
+        err.map_or(Ok(()), |err| Err(err))
     }
 
     /// Checks if a file exists in the AST
