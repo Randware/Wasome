@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use driver::program_information::{ProgramInformation, Project};
+use error::diagnostic;
 use source::SourceMap;
 
 use crate::{
@@ -84,14 +85,17 @@ impl Executable for CheckArgs {
         })?;
 
         match driver::syntax_check(&info, &mut source) {
-            Some(_) => println!(
+            Ok(_) => println!(
                 "Check for project '{}' was successful",
                 manifest.project.name
             ),
-            None => println!(
-                "Check for project '{}' was NOT successful",
-                manifest.project.name
-            ),
+            Err(d) => {
+                d.print_snippets(&source)?;
+                println!(
+                    "Check for project '{}' was NOT successful",
+                    manifest.project.name
+                )
+            }
         }
 
         Ok(())
