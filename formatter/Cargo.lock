@@ -19,7 +19,12 @@ name = "formatter"
 version = "0.1.0"
 dependencies = [
  "lexer",
+ "source",
 ]
+
+[[package]]
+name = "io"
+version = "0.1.0"
 
 [[package]]
 name = "lazy_static"
@@ -106,6 +111,13 @@ name = "semver"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d767eb0aabc880b29956c35734170f26ed551a859dbd361d140cdbeca61ab1e2"
+
+[[package]]
+name = "source"
+version = "0.1.0"
+dependencies = [
+ "io",
+]
 
 [[package]]
 name = "syn"

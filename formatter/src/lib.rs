@@ -21,20 +21,24 @@ pub use formatter::format_source;
 pub use reorder::{categorize_keyword, ItemCategory};
 pub use spacing::requires_space;
 
+use source::SourceMap;
 use std::fs;
-use std::io::{self, Read, Write};
-use std::path::Path;
+use std::io;
+use std::path::{Path, PathBuf};
 
 /// Formats a Wasome source file and returns the formatted content.
 pub fn format_file<P: AsRef<Path>>(path: P) -> io::Result<String> {
-    let mut content = String::new();
-    fs::File::open(path)?.read_to_string(&mut content)?;
-    Ok(format_source(&content))
+    let mut sm: SourceMap = SourceMap::new(PathBuf::from("."));
+    // load_file returns io::Result<FileID>
+    let id = sm.load_file(path)?;
+    // get_file must succeed if load_file succeeded (single threaded)
+    let file = sm.get_file(&id).expect("File must exist after load");
+    Ok(format_source(file.content()))
 }
 
 /// Formats a Wasome source file in place.
 pub fn format_file_in_place<P: AsRef<Path>>(path: P) -> io::Result<()> {
     let formatted = format_file(&path)?;
-    fs::File::create(path)?.write_all(formatted.as_bytes())?;
+    fs::write(path, formatted)?;
     Ok(())
 }
