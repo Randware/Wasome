@@ -77,7 +77,7 @@ impl ModulePath {
     ///
     /// # Parameters
     ///
-    /// - **file** - The file to analyze
+    /// - **`file`** - The file to analyze
     /// - **`file_module`** - The module path of the file itself
     ///
     /// # Return

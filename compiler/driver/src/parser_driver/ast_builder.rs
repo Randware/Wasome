@@ -308,8 +308,6 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// There was an IO error
     ///     - This includes if `module_path` can't be resolved
-    ///
-    /// All errors are represented by a return of `None`
     fn handle_import(&mut self, import_path: (&ModulePath, Span)) -> Result<(), Diagnostic> {
         let module_dir = import_path
             .0
@@ -383,8 +381,6 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// There was an IO error, for example
     /// - Missing permissions
     /// - Directory not found
-    ///
-    /// All errors are represented by a return of `None`
     fn list_wasome_files_in_dir(
         &self,
         dir: &Path,
@@ -421,8 +417,6 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// # Errors
     ///
     /// The file could not be loaded, for example due to nonexistence
-    ///
-    /// All errors are represented by a return of `None`
     fn load_file(&mut self, mut module_path: PathBuf, file_name: &str) -> Result<FileID, Error> {
         module_path.push(file_name);
         self.load_file_combined_path(&module_path)
