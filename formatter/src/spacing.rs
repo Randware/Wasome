@@ -50,7 +50,6 @@ fn space_before_after(token: &TokenType) -> bool {
             | TokenType::Assign
             | TokenType::Return
             | TokenType::As
-            | TokenType::Identifier(_)
     )
 }
 
