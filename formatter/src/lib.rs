@@ -17,29 +17,27 @@ mod indent;
 pub mod reorder;
 pub mod spacing;
 
-pub use formatter::format_source;
 pub use reorder::{categorize_keyword, ItemCategory};
 pub use spacing::requires_space;
-pub use source::SourceMap;
 
-use std::fs;
-use std::io;
-use std::path::Path;
+use lexer::{lex, Token};
+use reorder::{parse_top_level_items, reorder_items};
+use formatter::format_tokens;
 
-/// Formats a Wasome source file and returns the formatted content.
-/// 
-/// Requires a mutable reference to a `SourceMap` for file loading.
-pub fn format_file<P: AsRef<Path>>(sm: &mut SourceMap, path: P) -> io::Result<String> {
-    let id = sm.load_file(path)?;
-    let file = sm.get_file(&id).expect("File must exist after load");
-    Ok(format_source(file.content()))
-}
+/// Formats Wasome source code and returns the formatted string.
+pub fn format_source(input: &str) -> String {
+    let tokens: Vec<Token> = lex(input).filter_map(|r| r.ok()).collect();
 
-/// Formats a Wasome source file in place.
-/// 
-/// Requires a mutable reference to a `SourceMap`.
-pub fn format_file_in_place<P: AsRef<Path>>(sm: &mut SourceMap, path: P) -> io::Result<()> {
-    let formatted = format_file(sm, &path)?;
-    fs::write(path, formatted)?;
-    Ok(())
+    if tokens.is_empty() {
+        return String::new();
+    }
+
+    // Parse and reorder top-level items
+    let items = parse_top_level_items(tokens);
+    let reordered = reorder_items(items);
+
+    // Flatten back to tokens
+    let tokens: Vec<Token> = reordered.into_iter().flat_map(|item| item.tokens).collect();
+
+    format_tokens(&tokens)
 }
