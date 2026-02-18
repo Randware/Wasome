@@ -261,7 +261,6 @@ impl StructFieldAssignment<TypedAST> {
     /// - `struct_source` doesn't evaluate to a struct
     ///
     ///
-
     pub fn new(
         struct_source: ASTNode<Expression<TypedAST>>,
         struct_field: Rc<StructFieldSymbol<TypedAST>>,
@@ -284,7 +283,6 @@ impl StructFieldAssignment<TypedAST> {
 
 impl StructFieldAssignment<UntypedAST> {
     /// Creates a new instance
-
     pub fn new(
         struct_source: ASTNode<Expression<UntypedAST>>,
         struct_field: String,
@@ -651,6 +649,10 @@ impl<Type: ASTType> LoopType<Type> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns the child statement at index
     ///
     /// The available statement are the same as in [`child_len`](LoopType::len)
@@ -768,7 +770,7 @@ mod tests {
     use crate::TypedAST;
     use crate::data_type::DataType;
     use crate::expression::{Expression, Literal};
-    use crate::test_shared::{basic_test_variable, sample_codearea};
+    use crate::test_shared::{basic_test_variable, sample_span};
 
     #[test]
     fn variable_assignment() {
@@ -818,13 +820,13 @@ mod tests {
     }
 
     fn create_literal_expr(literal: Literal) -> ASTNode<Expression<TypedAST>> {
-        ASTNode::new(Expression::Literal(literal), sample_codearea())
+        ASTNode::new(Expression::Literal(literal), sample_span())
     }
 
     fn create_literal_statement(literal: Literal) -> ASTNode<Statement<TypedAST>> {
         ASTNode::new(
             Statement::Expression(create_literal_expr(literal)),
-            sample_codearea(),
+            sample_span(),
         )
     }
 }

@@ -1,4 +1,3 @@
-use crate::composite::Enum;
 use crate::file::File;
 use crate::symbol::{
     DirectlyAvailableSymbol, EnumSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable,
@@ -11,8 +10,8 @@ use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::struct_traversal::StructTraversalHelper;
 use crate::traversal::{FunctionContainer, HasSymbols};
 use crate::{ASTNode, ASTType};
+use source::types::FileID;
 use std::iter;
-use std::path::PathBuf;
 
 /// This struct helps with traversing files
 /// It keeps a reference to a file and its parent (directory).
@@ -25,21 +24,21 @@ use std::path::PathBuf;
 /// | 'b | How long the underlying data may life |
 #[derive(Debug, Clone)]
 pub struct FileTraversalHelper<'a, 'b, Type: ASTType> {
-    inner: &'b ASTNode<File<Type>, PathBuf>,
+    inner: &'b ASTNode<File<Type>, FileID>,
     parent: &'a DirectoryTraversalHelper<'a, 'b, Type>,
 }
 
 impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     ///  Creates a new instance of self
     pub(crate) fn new(
-        inner: &'b ASTNode<File<Type>, PathBuf>,
+        inner: &'b ASTNode<File<Type>, FileID>,
         parent: &'a DirectoryTraversalHelper<'a, 'b, Type>,
     ) -> Self {
         Self { inner, parent }
     }
 
     ///  Gets the inner file
-    pub fn inner(&self) -> &'b ASTNode<File<Type>, PathBuf> {
+    pub fn inner(&self) -> &'b ASTNode<File<Type>, FileID> {
         self.inner
     }
     /// Gets the length of functions that self contains

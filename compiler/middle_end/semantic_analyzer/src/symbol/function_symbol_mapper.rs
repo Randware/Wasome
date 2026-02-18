@@ -1,6 +1,8 @@
+use crate::error_sa::SemanticError;
 use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::VariableSymbol;
+use source::types::Span;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -47,22 +49,24 @@ impl FunctionSymbolMapper {
     /// Removes the topmost scope from the stack.
     ///
     /// # Errors
-    /// *   Returns `Err` if the stack is empty (Internal Compiler Error).
-    /// *   Returns `Err` if attempting to pop the **base scope** (stack size 1). The base scope must persist for the function's lifetime.
+    /// * Returns `Err` if the stack is empty (Internal Compiler Error).
+    /// * Returns `Err` if attempting to pop the **base scope** (stack size 1). The base scope must persist for the function's lifetime.
     ///
     /// # Returns
-    /// *   `Ok(())` if a scope was successfully popped.
-    pub fn exit_scope(&mut self) -> Result<(), String> {
+    /// * `Ok(())` if a scope was successfully popped.
+    pub fn exit_scope(&mut self, span: Span) -> Result<(), SemanticError> {
         if self.scope_stack.is_empty() {
-            return Err(String::from(
-                "Internal Compiler Error: Attempted to exit scope on an empty stack.",
-            ));
+            return Err(SemanticError::Internal {
+                message: "Attempted to exit scope on an empty stack.".to_string(),
+                span,
+            });
         }
 
         if self.scope_stack.len() == 1 {
-            return Err(String::from(
-                "Internal Compiler Error: Attempted to pop the function's base scope.",
-            ));
+            return Err(SemanticError::Internal {
+                message: "Attempted to pop the function's base scope.".to_string(),
+                span,
+            });
         }
 
         self.scope_stack.pop();
@@ -77,11 +81,16 @@ impl FunctionSymbolMapper {
     ///
     /// # Parameters
     /// * `symbol` - The variable symbol to insert (`Rc<VariableSymbol<TypedAST>>`).
+    /// * `span` - The span of the variable being added, used for error reporting.
     ///
     /// # Returns
     /// * `Ok(())` if inserted.
-    /// * `Err(String)` if a variable with the same name already exists in the current scope.
-    pub fn add_variable(&mut self, symbol: Rc<VariableSymbol<TypedAST>>) -> Result<(), String> {
+    /// * `Err(SemanticError)` if a variable with the same name already exists in the current scope.
+    pub fn add_variable(
+        &mut self,
+        symbol: Rc<VariableSymbol<TypedAST>>,
+        span: Span,
+    ) -> Result<(), SemanticError> {
         let current_scope = self
             .scope_stack
             .last_mut()
@@ -90,10 +99,11 @@ impl FunctionSymbolMapper {
         let name = symbol.name().to_string();
 
         if current_scope.variables.contains_key(&name) {
-            return Err(format!(
-                "Error: Variable '{}' is already defined in the current scope.",
-                name
-            ));
+            return Err(SemanticError::AlreadyDeclared {
+                name,
+                kind: "Variable".to_string(),
+                span,
+            });
         }
 
         current_scope.variables.insert(name, symbol);

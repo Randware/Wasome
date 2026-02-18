@@ -10,6 +10,7 @@ mod module_path;
 use crate::parser_driver::ast_builder::ASTBuilder;
 use crate::program_information::ProgramInformation;
 use ast::{AST, UntypedAST};
+use error::diagnostic::Diagnostic;
 use io::FullIO;
 use source::SourceMap;
 
@@ -34,6 +35,6 @@ use source::SourceMap;
 pub fn generate_untyped_ast<Loader: FullIO>(
     program_info: &ProgramInformation,
     load_from: &mut SourceMap<Loader>,
-) -> Option<AST<UntypedAST>> {
+) -> Result<AST<UntypedAST>, Diagnostic> {
     ASTBuilder::new(program_info, load_from).map(ASTBuilder::build)
 }

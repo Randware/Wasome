@@ -16,10 +16,8 @@ use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
 use parser::{FileInformation, parse};
-use shared::code_file::CodeFile;
-use shared::code_reference::{CodeArea, CodeLocation};
 use source::SourceMap;
-use source::types::FileID;
+use source::types::{BytePos, FileID, Span};
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;
@@ -36,17 +34,16 @@ fn setup_file(name: &str, content: &str) -> (TempDir, PathBuf) {
 }
 
 // Helper functions for AST construction
-fn dummy_codearea() -> CodeArea {
-    CodeArea::new(
-        CodeLocation::new(0, 0),
-        CodeLocation::new(0, 0),
-        CodeFile::new(PathBuf::from("")),
-    )
-    .unwrap()
+fn dummy_span() -> Span {
+    Span {
+        file_id: FileID::from(0),
+        start: BytePos(0),
+        end: BytePos(0),
+    }
 }
 
 fn wrap<T: Debug>(inner: T) -> ASTNode<T> {
-    ASTNode::new(inner, dummy_codearea())
+    ASTNode::new(inner, dummy_span())
 }
 
 // --- INTEGRATION TESTS ---
@@ -1948,7 +1945,8 @@ fn test_missing_statement_separator() {
     let (sm, id) = setup_source_map(MISSING_STATEMENT_SEPARATOR);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse);
-    assert!(parsed.is_none());
+    parsed.as_ref().err().unwrap().print_snippets(&sm).unwrap();
+    assert!(parsed.is_err());
 }
 
 #[test]

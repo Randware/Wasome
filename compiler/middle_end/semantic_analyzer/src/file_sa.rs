@@ -1,9 +1,10 @@
+use crate::error_sa::SemanticError;
 use crate::symbol::syntax_element_map::SyntaxElementMap;
 use ast::composite::{Struct, StructField};
 use ast::file::File;
 use ast::top_level::{Import, ImportRoot};
 use ast::{ASTNode, TypedAST, UntypedAST};
-use std::path::PathBuf;
+use source::types::FileID;
 
 /// Analyzes a single file and converts it into its typed representation.
 ///
@@ -17,11 +18,11 @@ use std::path::PathBuf;
 /// * `global_elements` - The global registry of typed symbols (`&mut SyntaxElementMap`).
 ///
 /// # Returns
-/// * `Result<ASTNode<File<TypedAST>, PathBuf>, String>` - The typed file node on success, or an error string.
+/// * `Result<ASTNode<File<TypedAST>, PathBuf>, SemanticError>` - The typed file node on success, or a semantic error.
 pub(crate) fn analyze_file(
-    untyped_file: &ASTNode<File<UntypedAST>, PathBuf>,
+    untyped_file: &ASTNode<File<UntypedAST>, FileID>,
     global_elements: &mut SyntaxElementMap,
-) -> Result<ASTNode<File<TypedAST>, PathBuf>, String> {
+) -> Result<ASTNode<File<TypedAST>, FileID>, SemanticError> {
     let mut typed_functions = Vec::new();
     for func in untyped_file.function_iterator() {
         global_elements
@@ -59,13 +60,13 @@ pub(crate) fn analyze_file(
                             .map(|(typed, untyped)| {
                                 ASTNode::new(
                                     StructField::new(typed, untyped.visibility()),
-                                    untyped.position().clone(),
+                                    *untyped.position(),
                                 )
                             })
                             .collect(),
                         st.visibility(),
                     ),
-                    st.position().clone(),
+                    *st.position(),
                 )
             })
             .for_each(|st_impl| typed_structs.push(st_impl));
@@ -82,7 +83,7 @@ pub(crate) fn analyze_file(
 
             let new_import = Import::new(root, node.path().clone(), node.usage_name_owned());
 
-            ASTNode::new(new_import, node.position().clone())
+            ASTNode::new(new_import, *node.position())
         })
         .collect();
 
@@ -94,5 +95,5 @@ pub(crate) fn analyze_file(
         typed_structs,
     );
 
-    Ok(ASTNode::new(typed_file, untyped_file.position().clone()))
+    Ok(ASTNode::new(typed_file, *untyped_file.position()))
 }

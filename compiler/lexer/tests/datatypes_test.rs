@@ -9,78 +9,63 @@ fn test_all_datatypes() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::S8,
-            line: 1,
-            span: 4..6,
+            span: 5..7,
         },
         Token {
             kind: TokenType::S16,
-            line: 1,
-            span: 7..10,
+            span: 8..11,
         },
         Token {
             kind: TokenType::S32,
-            line: 1,
-            span: 11..14,
+            span: 12..15,
         },
         Token {
             kind: TokenType::S64,
-            line: 1,
-            span: 15..18,
+            span: 16..19,
         },
         Token {
             kind: TokenType::U8,
-            line: 1,
-            span: 19..21,
+            span: 20..22,
         },
         Token {
             kind: TokenType::U16,
-            line: 1,
-            span: 22..25,
+            span: 23..26,
         },
         Token {
             kind: TokenType::U32,
-            line: 1,
-            span: 26..29,
+            span: 27..30,
         },
         Token {
             kind: TokenType::U64,
-            line: 1,
-            span: 30..33,
+            span: 31..34,
         },
         Token {
             kind: TokenType::F32,
-            line: 1,
-            span: 34..37,
+            span: 35..38,
         },
         Token {
             kind: TokenType::F64,
-            line: 1,
-            span: 38..41,
+            span: 39..42,
         },
         Token {
             kind: TokenType::Bool,
-            line: 1,
-            span: 42..46,
+            span: 43..47,
         },
         Token {
             kind: TokenType::Char,
-            line: 1,
-            span: 47..51,
+            span: 48..52,
         },
         Token {
             kind: TokenType::SelfType,
-            line: 1,
-            span: 52..56,
+            span: 53..57,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 56..57,
+            span: 57..58,
         },
     ];
 
@@ -108,18 +93,15 @@ fn test_all_datatypes_no_spaces() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::Identifier("s8s16s32s64u8u16u32u64f32f64boolcharself".to_string()),
-            line: 1,
-            span: 4..44,
+            span: 5..45,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 44..45,
+            span: 45..46,
         },
     ];
 

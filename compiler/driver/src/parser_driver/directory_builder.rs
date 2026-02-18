@@ -1,6 +1,7 @@
 use ast::directory::Directory;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
+use source::types::FileID;
 use std::path::PathBuf;
 
 /// Builds an untyped directory
@@ -22,7 +23,7 @@ pub struct DirectoryBuilder {
     ///
     /// The position is relative to the program root
     /// Duplicates are forbidden
-    files: Vec<ASTNode<File<UntypedAST>, PathBuf>>,
+    files: Vec<ASTNode<File<UntypedAST>, FileID>>,
 }
 
 impl DirectoryBuilder {
@@ -47,7 +48,7 @@ impl DirectoryBuilder {
     ///
     /// - **Some(())** - If adding was successful
     /// - **None** - If a file with this name already exists
-    pub fn add_file_directly(&mut self, to_add: ASTNode<File<UntypedAST>, PathBuf>) -> Option<()> {
+    pub fn add_file_directly(&mut self, to_add: ASTNode<File<UntypedAST>, FileID>) -> Option<()> {
         match self.file_by_name(to_add.name()) {
             None => {
                 self.files.push(to_add);
@@ -98,7 +99,7 @@ impl DirectoryBuilder {
     /// - **None** - If a file with this name already exists
     pub fn add_file(
         &mut self,
-        to_add: ASTNode<File<UntypedAST>, PathBuf>,
+        to_add: ASTNode<File<UntypedAST>, FileID>,
         path: &[String],
     ) -> Option<()> {
         self.subdir_by_path(path).add_file_directly(to_add)
@@ -256,7 +257,7 @@ mod tests {
     use std::ops::Deref;
     use std::path::PathBuf;
 
-    fn create_dummy_file(name: &str) -> ASTNode<File<UntypedAST>, PathBuf> {
+    fn create_dummy_file(name: &str) -> ASTNode<File<UntypedAST>, FileID> {
         ASTNode::new(
             File::new(
                 name.to_string(),
@@ -265,7 +266,7 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
             ),
-            PathBuf::from(name),
+            FileID::from(0),
         )
     }
 

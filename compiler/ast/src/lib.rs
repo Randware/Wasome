@@ -27,7 +27,7 @@ use crate::symbol::{
 };
 use crate::top_level::{Import, ImportRoot};
 use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
-use shared::code_reference::CodeArea;
+use source::types::Span;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
@@ -203,7 +203,7 @@ impl<Type: ASTType> SemanticEq for AST<Type> {
 /// Use semantic_equals from [`SemanticEq`] to check semantics only
 
 #[derive(Debug)]
-pub struct ASTNode<T: Debug, Position = CodeArea> {
+pub struct ASTNode<T: Debug, Position = Span> {
     id: Id,
     inner: T,
     position: Position,
@@ -441,7 +441,7 @@ mod tests {
         ModuleUsageNameSymbol, StructFieldSymbol, StructSymbol, SymbolWithTypeParameter,
         UntypedTypeParameterSymbol, VariableSymbol,
     };
-    use crate::test_shared::{basic_test_variable, functions_into_ast, sample_codearea};
+    use crate::test_shared::{basic_test_variable, functions_into_ast, sample_span};
     use crate::top_level::{Function, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
@@ -449,8 +449,7 @@ mod tests {
     use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
     use crate::visibility::Visibility;
     use crate::{AST, ASTNode, SemanticEq, TypedAST, UntypedAST};
-    use shared::code_file::CodeFile;
-    use shared::code_reference::{CodeArea, CodeLocation};
+    use source::types::FileID;
     use std::path::PathBuf;
     use std::rc::Rc;
 
@@ -458,12 +457,12 @@ mod tests {
     fn prove_identity_vs_semantic_eq() {
         let node_a = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(5)),
-            sample_codearea(),
+            sample_span(),
         );
 
         let node_b = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(5)),
-            sample_codearea(),
+            sample_span(),
         );
 
         assert_ne!(
@@ -482,7 +481,7 @@ mod tests {
         let symbol = Rc::new(VariableSymbol::new("test".to_string(), DataType::F64));
         let statement = ASTNode::new(
             Statement::VariableDeclaration(basic_test_variable(symbol.clone()).unwrap()),
-            sample_codearea(),
+            sample_span(),
         );
 
         assert_eq!(
@@ -504,12 +503,12 @@ mod tests {
             )),
             ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![statement])),
-                sample_codearea(),
+                sample_span(),
             ),
             Visibility::Public,
         );
 
-        let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
+        let ast = functions_into_ast(vec![ASTNode::new(function, sample_span())]);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
@@ -541,14 +540,11 @@ mod tests {
                     Statement::VariableDeclaration(
                         VariableDeclaration::<TypedAST>::new(
                             symbol.clone(),
-                            ASTNode::new(
-                                Expression::Literal(Literal::F64(10.0)),
-                                sample_codearea(),
-                            ),
+                            ASTNode::new(Expression::Literal(Literal::F64(10.0)), sample_span()),
                         )
                         .unwrap(),
                     ),
-                    sample_codearea(),
+                    sample_span(),
                 ),
                 ASTNode::new(
                     Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
@@ -558,19 +554,19 @@ mod tests {
                                     symbol2.clone(),
                                     ASTNode::new(
                                         Expression::Literal(Literal::Bool(true)),
-                                        sample_codearea(),
+                                        sample_span(),
                                     ),
                                 )
                                 .unwrap(),
                             ),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                         LoopType::Infinite,
                     )))),
-                    sample_codearea(),
+                    sample_span(),
                 ),
             ])),
-            sample_codearea(),
+            sample_span(),
         );
 
         let function = Function::new(
@@ -584,7 +580,7 @@ mod tests {
             Visibility::Public,
         );
 
-        let ast = functions_into_ast(vec![ASTNode::new(function, sample_codearea())]);
+        let ast = functions_into_ast(vec![ASTNode::new(function, sample_span())]);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
         let file_traversal_helper = root_traversal_helper.file_by_name("main.waso").unwrap();
@@ -711,12 +707,12 @@ mod tests {
                                     current.clone(),
                                     ASTNode::new(
                                         Expression::Literal(Literal::S32(1)),
-                                        sample_codearea(),
+                                        sample_span(),
                                     ),
                                 )
                                 .unwrap(),
                             ),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                         ASTNode::new(
                             Statement::VariableDeclaration(
@@ -724,12 +720,12 @@ mod tests {
                                     previous.clone(),
                                     ASTNode::new(
                                         Expression::Literal(Literal::S32(0)),
-                                        sample_codearea(),
+                                        sample_span(),
                                     ),
                                 )
                                 .unwrap(),
                             ),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                         ASTNode::new(
                             Statement::ControlStructure(Box::new(ControlStructure::Loop(
@@ -742,12 +738,12 @@ mod tests {
                                                         temp.clone(),
                                                         ASTNode::new(
                                                             Expression::Variable(current.clone()),
-                                                            sample_codearea(),
+                                                            sample_span(),
                                                         ),
                                                     )
                                                     .unwrap(),
                                                 ),
-                                                sample_codearea(),
+                                                sample_span(),
                                             ),
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
@@ -761,23 +757,23 @@ mod tests {
                                                                         Expression::Variable(
                                                                             current.clone(),
                                                                         ),
-                                                                        sample_codearea(),
+                                                                        sample_span(),
                                                                     ),
                                                                     ASTNode::new(
                                                                         Expression::Variable(
                                                                             previous.clone(),
                                                                         ),
-                                                                        sample_codearea(),
+                                                                        sample_span(),
                                                                     ),
                                                                 )
                                                                 .unwrap(),
                                                             )),
-                                                            sample_codearea(),
+                                                            sample_span(),
                                                         ),
                                                     )
                                                     .unwrap(),
                                                 ),
-                                                sample_codearea(),
+                                                sample_span(),
                                             ),
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
@@ -785,12 +781,12 @@ mod tests {
                                                         previous.clone(),
                                                         ASTNode::new(
                                                             Expression::Variable(temp.clone()),
-                                                            sample_codearea(),
+                                                            sample_span(),
                                                         ),
                                                     )
                                                     .unwrap(),
                                                 ),
-                                                sample_codearea(),
+                                                sample_span(),
                                             ),
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
@@ -804,26 +800,26 @@ mod tests {
                                                                         Expression::Variable(
                                                                             nth.clone(),
                                                                         ),
-                                                                        sample_codearea(),
+                                                                        sample_span(),
                                                                     ),
                                                                     ASTNode::new(
                                                                         Expression::Literal(
                                                                             Literal::S32(1),
                                                                         ),
-                                                                        sample_codearea(),
+                                                                        sample_span(),
                                                                     ),
                                                                 )
                                                                 .unwrap(),
                                                             )),
-                                                            sample_codearea(),
+                                                            sample_span(),
                                                         ),
                                                     )
                                                     .unwrap(),
                                                 ),
-                                                sample_codearea(),
+                                                sample_span(),
                                             ),
                                         ])),
-                                        sample_codearea(),
+                                        sample_span(),
                                     ),
                                     LoopType::While(ASTNode::new(
                                         Expression::BinaryOp(Box::new(
@@ -831,36 +827,36 @@ mod tests {
                                                 BinaryOpType::Greater,
                                                 ASTNode::new(
                                                     Expression::Variable(nth.clone()),
-                                                    sample_codearea(),
+                                                    sample_span(),
                                                 ),
                                                 ASTNode::new(
                                                     Expression::Literal(Literal::S32(
                                                         1, //The fibonacci number of 1 is 1
                                                     )),
-                                                    sample_codearea(),
+                                                    sample_span(),
                                                 ),
                                             )
                                             .unwrap(),
                                         )),
-                                        sample_codearea(),
+                                        sample_span(),
                                     )),
                                 ),
                             ))),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                         ASTNode::new(
                             Statement::Return(Return::new(Some(ASTNode::new(
                                 Expression::Variable(current.clone()),
-                                sample_codearea(),
+                                sample_span(),
                             )))),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                     ])),
-                    sample_codearea(),
+                    sample_span(),
                 ),
                 Visibility::Public,
             ),
-            sample_codearea(),
+            sample_span(),
         )])
     }
 
@@ -898,22 +894,16 @@ mod tests {
                         ASTNode::new(
                             Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                                 current.clone(),
-                                ASTNode::new(
-                                    Expression::Literal("1".to_string()),
-                                    sample_codearea(),
-                                ),
+                                ASTNode::new(Expression::Literal("1".to_string()), sample_span()),
                             )),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                         ASTNode::new(
                             Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
                                 previous.clone(),
-                                ASTNode::new(
-                                    Expression::Literal("0".to_string()),
-                                    sample_codearea(),
-                                ),
+                                ASTNode::new(Expression::Literal("0".to_string()), sample_span()),
                             )),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                         ASTNode::new(
                             Statement::ControlStructure(Box::new(ControlStructure::Loop(
@@ -928,11 +918,11 @@ mod tests {
                                                             Expression::Variable(
                                                                 "current".to_string(),
                                                             ),
-                                                            sample_codearea(),
+                                                            sample_span(),
                                                         ),
                                                     ),
                                                 ),
-                                                sample_codearea(),
+                                                sample_span(),
                                             ),
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
@@ -946,21 +936,21 @@ mod tests {
                                                                         Expression::Variable(
                                                                             "current".to_string(),
                                                                         ),
-                                                                        sample_codearea(),
+                                                                        sample_span(),
                                                                     ),
                                                                     ASTNode::new(
                                                                         Expression::Variable(
                                                                             "previous".to_string(),
                                                                         ),
-                                                                        sample_codearea(),
+                                                                        sample_span(),
                                                                     ),
                                                                 ),
                                                             )),
-                                                            sample_codearea(),
+                                                            sample_span(),
                                                         ),
                                                     ),
                                                 ),
-                                                sample_codearea(),
+                                                sample_span(),
                                             ),
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
@@ -970,11 +960,11 @@ mod tests {
                                                             Expression::Variable(
                                                                 "temp".to_string(),
                                                             ),
-                                                            sample_codearea(),
+                                                            sample_span(),
                                                         ),
                                                     ),
                                                 ),
-                                                sample_codearea(),
+                                                sample_span(),
                                             ),
                                             ASTNode::new(
                                                 Statement::VariableAssignment(
@@ -988,24 +978,24 @@ mod tests {
                                                                         Expression::Variable(
                                                                             "nth".to_string(),
                                                                         ),
-                                                                        sample_codearea(),
+                                                                        sample_span(),
                                                                     ),
                                                                     ASTNode::new(
                                                                         Expression::Literal(
                                                                             "1".to_string(),
                                                                         ),
-                                                                        sample_codearea(),
+                                                                        sample_span(),
                                                                     ),
                                                                 ),
                                                             )),
-                                                            sample_codearea(),
+                                                            sample_span(),
                                                         ),
                                                     ),
                                                 ),
-                                                sample_codearea(),
+                                                sample_span(),
                                             ),
                                         ])),
-                                        sample_codearea(),
+                                        sample_span(),
                                     ),
                                     LoopType::While(ASTNode::new(
                                         Expression::BinaryOp(Box::new(
@@ -1013,35 +1003,35 @@ mod tests {
                                                 BinaryOpType::Greater,
                                                 ASTNode::new(
                                                     Expression::Variable("nth".to_string()),
-                                                    sample_codearea(),
+                                                    sample_span(),
                                                 ),
                                                 ASTNode::new(
                                                     Expression::Literal(
                                                         "1".to_string(), //The fibonacci number of 1 is 1
                                                     ),
-                                                    sample_codearea(),
+                                                    sample_span(),
                                                 ),
                                             ),
                                         )),
-                                        sample_codearea(),
+                                        sample_span(),
                                     )),
                                 ),
                             ))),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                         ASTNode::new(
                             Statement::Return(Return::new(Some(ASTNode::new(
                                 Expression::Variable("current".to_string()),
-                                sample_codearea(),
+                                sample_span(),
                             )))),
-                            sample_codearea(),
+                            sample_span(),
                         ),
                     ])),
-                    sample_codearea(),
+                    sample_span(),
                 ),
                 Visibility::Public,
             ),
-            sample_codearea(),
+            sample_span(),
         )]);
 
         let root_traversal_helper = DirectoryTraversalHelper::new_from_ast(&ast);
@@ -1093,49 +1083,18 @@ mod tests {
                         Expression::BinaryOp(Box::new(
                             BinaryOp::<TypedAST>::new(
                                 BinaryOpType::Addition,
-                                ASTNode::new(
-                                    Expression::Variable(lhs_var.clone()),
-                                    CodeArea::new(
-                                        CodeLocation::new(2, 1),
-                                        CodeLocation::new(2, 4),
-                                        CodeFile::new(PathBuf::from("add.waso")),
-                                    )
-                                    .unwrap(),
-                                ),
-                                ASTNode::new(
-                                    Expression::Variable(rhs_var.clone()),
-                                    CodeArea::new(
-                                        CodeLocation::new(2, 5),
-                                        CodeLocation::new(2, 8),
-                                        CodeFile::new(PathBuf::from("add.waso")),
-                                    )
-                                    .unwrap(),
-                                ),
+                                ASTNode::new(Expression::Variable(lhs_var.clone()), sample_span()),
+                                ASTNode::new(Expression::Variable(rhs_var.clone()), sample_span()),
                             )
                             .unwrap(),
                         )),
-                        CodeArea::new(
-                            CodeLocation::new(2, 1),
-                            CodeLocation::new(2, 8),
-                            CodeFile::new(PathBuf::from("add.waso")),
-                        )
-                        .unwrap(),
+                        sample_span(),
                     )))),
-                    CodeArea::new(
-                        CodeLocation::new(1, 0),
-                        CodeLocation::new(3, 1),
-                        CodeFile::new(PathBuf::from("add.waso")),
-                    )
-                    .unwrap(),
+                    sample_span(),
                 ),
                 Visibility::Public,
             ),
-            CodeArea::new(
-                CodeLocation::new(0, 0),
-                CodeLocation::new(3, 1),
-                CodeFile::new(PathBuf::from("add.waso")),
-            )
-            .unwrap(),
+            sample_span(),
         );
 
         let add_file = File::new(
@@ -1157,59 +1116,29 @@ mod tests {
                                 vec![
                                     ASTNode::new(
                                         Expression::Literal(Literal::S32(1)),
-                                        CodeArea::new(
-                                            CodeLocation::new(3, 5),
-                                            CodeLocation::new(3, 6),
-                                            CodeFile::new(PathBuf::from("main.waso")),
-                                        )
-                                        .unwrap(),
+                                        sample_span(),
                                     ),
                                     ASTNode::new(
                                         Expression::Literal(Literal::S32(1)),
-                                        CodeArea::new(
-                                            CodeLocation::new(3, 8),
-                                            CodeLocation::new(3, 9),
-                                            CodeFile::new(PathBuf::from("main.waso")),
-                                        )
-                                        .unwrap(),
+                                        sample_span(),
                                     ),
                                 ],
                             )
                             .unwrap(),
                         ),
-                        CodeArea::new(
-                            CodeLocation::new(3, 1),
-                            CodeLocation::new(3, 10),
-                            CodeFile::new(PathBuf::from("main.waso")),
-                        )
-                        .unwrap(),
+                        sample_span(),
                     )),
-                    CodeArea::new(
-                        CodeLocation::new(2, 0),
-                        CodeLocation::new(4, 1),
-                        CodeFile::new(PathBuf::from("main.waso")),
-                    )
-                    .unwrap(),
+                    sample_span(),
                 ),
                 Visibility::Public,
             ),
-            CodeArea::new(
-                CodeLocation::new(1, 0),
-                CodeLocation::new(4, 1),
-                CodeFile::new(PathBuf::from("main.waso")),
-            )
-            .unwrap(),
+            sample_span(),
         );
         let main_file = File::new(
             "main".to_string(),
             vec![ASTNode::new(
                 Import::new(ImportRoot::Root, vec![], testproject_symbol.clone()),
-                CodeArea::new(
-                    CodeLocation::new(0, 0),
-                    CodeLocation::new(0, 15),
-                    CodeFile::new(PathBuf::from("main.waso")),
-                )
-                .unwrap(),
+                sample_span(),
             )],
             vec![main_function],
             Vec::new(),
@@ -1221,8 +1150,8 @@ mod tests {
                 "src".to_string(),
                 Vec::new(),
                 vec![
-                    ASTNode::new(main_file, PathBuf::from("main")),
-                    ASTNode::new(add_file, PathBuf::from("add")),
+                    ASTNode::new(main_file, FileID::from(0)),
+                    ASTNode::new(add_file, FileID::from(0)),
                 ],
             ),
             PathBuf::new(),
@@ -1265,18 +1194,13 @@ mod tests {
                         vec!["nonexistent".to_string()],
                         Rc::new(ModuleUsageNameSymbol::new("testproject".to_string())),
                     ),
-                    CodeArea::new(
-                        CodeLocation::new(0, 0),
-                        CodeLocation::new(0, 10),
-                        CodeFile::new(PathBuf::from("main.waso")),
-                    )
-                    .unwrap(),
+                    sample_span(),
                 )],
                 Vec::new(),
                 Vec::new(),
                 Vec::new(),
             ),
-            PathBuf::from("main.waso"),
+            FileID::from(0),
         );
         let directory = ASTNode::new(
             Directory::new("src".to_string(), Vec::new(), vec![file]),
@@ -1375,11 +1299,7 @@ mod tests {
                                             vec![ASTNode::new(
                                                 Import::new(ImportRoot::Root, vec!["warning".to_string()],
                                                             Rc::new(ModuleUsageNameSymbol::new("warning".to_string()))),
-                                                CodeArea::new(
-                                                    CodeLocation::new(40, 0),
-                                                    CodeLocation::new(50, 0),
-                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                ).unwrap()
+                                                sample_span()
                                             )],
                                             vec![],
                                             vec![
@@ -1391,30 +1311,18 @@ mod tests {
                                                                 EnumVariant::new(
                                                                     msg_error_msg_symbol.clone()
                                                                 ),
-                                                                CodeArea::new(
-                                                                    CodeLocation::new(50, 0),
-                                                                    CodeLocation::new(75, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                ).unwrap()
+                                                                sample_span()
                                                             ),
                                                             ASTNode::new(
                                                                 EnumVariant::new(
                                                                     msg_warning_msg_symbol.clone()
                                                                 ),
-                                                                CodeArea::new(
-                                                                    CodeLocation::new(75, 0),
-                                                                    CodeLocation::new(100, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                ).unwrap()
+                                                                sample_span()
                                                             )
                                                         ],
                                                         Visibility::Public
                                                     ),
-                                                    CodeArea::new(
-                                                        CodeLocation::new(50, 0),
-                                                        CodeLocation::new(100, 0),
-                                                        CodeFile::new(PathBuf::from("message/message.waso"))
-                                                    ).unwrap()
+                                                    sample_span()
                                                 )
                                             ],
                                             vec![
@@ -1433,44 +1341,24 @@ mod tests {
                                                                                         error_msg_symbol.clone(),
                                                                                         vec![
                                                                                             (ASTNode::new(error_msg_inner_symbol.clone(),
-                                                                                                CodeArea::new(
-                                                                                                    CodeLocation::new(152, 5),
-                                                                                                    CodeLocation::new(152, 10),
-                                                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                                                ).unwrap()
+                                                                                                          sample_span()
                                                                                                           ),
                                                                                             ASTNode::new(
                                                                                                 Expression::Variable(
                                                                                                     error_msg_new_inner_param.clone()
                                                                                                 ),
-                                                                                                CodeArea::new(
-                                                                                                    CodeLocation::new(152, 10),
-                                                                                                    CodeLocation::new(152, 20),
-                                                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                                                ).unwrap()))
+                                                                                                sample_span()))
                                                                                         ],
                                                                                     ))
                                                                                 ),
-                                                                                CodeArea::new(
-                                                                                    CodeLocation::new(151, 0),
-                                                                                    CodeLocation::new(169, 0),
-                                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                                ).unwrap()
+                                                                                sample_span()
                                                                             ))
                                                                         )),
-                                                                        CodeArea::new(
-                                                                            CodeLocation::new(151, 0),
-                                                                            CodeLocation::new(169, 0),
-                                                                            CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                        ).unwrap()
+                                                                        sample_span()
                                                                     ),
                                                                     Visibility::Public
                                                                 ),
-                                                                CodeArea::new(
-                                                                    CodeLocation::new(150, 0),
-                                                                    CodeLocation::new(170, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                ).unwrap()
+                                                                sample_span()
                                                             ),
                                                             ASTNode::new(
                                                                 Function::new(
@@ -1482,35 +1370,19 @@ mod tests {
                                                                                     Box::new(StructFieldAccess::<TypedAST>::new(
                                                                                         ASTNode::new(
                                                                                             Expression::Variable(error_msg_get_inner_self_param.clone()),
-                                                                                            CodeArea::new(
-                                                                                                CodeLocation::new(171, 10),
-                                                                                                CodeLocation::new(171, 20),
-                                                                                                CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                                            ).unwrap()
+                                                                                            sample_span()
                                                                                         ),
                                                                                         error_msg_inner_symbol.clone()
                                                                                     ).unwrap())
                                                                                 ),
-                                                                                CodeArea::new(
-                                                                                    CodeLocation::new(171, 0),
-                                                                                    CodeLocation::new(189, 0),
-                                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                                ).unwrap()
+                                                                                sample_span()
                                                                             ))
                                                                         )),
-                                                                        CodeArea::new(
-                                                                            CodeLocation::new(171, 0),
-                                                                            CodeLocation::new(189, 0),
-                                                                            CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                        ).unwrap()
+                                                                        sample_span()
                                                                     ),
                                                                     Visibility::Public
                                                                 ),
-                                                                CodeArea::new(
-                                                                    CodeLocation::new(170, 0),
-                                                                    CodeLocation::new(190, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                ).unwrap()
+                                                                sample_span()
                                                             )
                                                         ],
                                                         vec![
@@ -1519,24 +1391,16 @@ mod tests {
                                                                     error_msg_inner_symbol.clone(),
                                                                     Visibility::Public
                                                                 ),
-                                                                CodeArea::new(
-                                                                    CodeLocation::new(110, 0),
-                                                                    CodeLocation::new(111, 0),
-                                                                    CodeFile::new(PathBuf::from("message/message.waso"))
-                                                                ).unwrap()
+                                                                sample_span()
                                                             )
                                                         ],
                                                         Visibility::Private
                                                     ),
-                                                    CodeArea::new(
-                                                        CodeLocation::new(100, 0),
-                                                        CodeLocation::new(200, 1),
-                                                        CodeFile::new(PathBuf::from("message/message.waso"))
-                                                    ).unwrap()
+                                                    sample_span()
                                                 )
                                             ]
                                         ),
-                                        PathBuf::from("message/message.waso")
+                                        FileID::from(0)
                                     )
                                 ],
                             ),
@@ -1569,44 +1433,24 @@ mod tests {
                                                                                         warning_msg_symbol.clone(),
                                                                                         vec![
                                                                                             (ASTNode::new(warning_msg_inner_symbol.clone(),
-                                                                                                CodeArea::new(
-                                                                                                    CodeLocation::new(152, 5),
-                                                                                                    CodeLocation::new(152, 10),
-                                                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                                                ).unwrap()
+                                                                                                          sample_span()
                                                                                                           ),
                                                                                             ASTNode::new(
                                                                                                 Expression::Variable(
                                                                                                     warning_msg_new_inner_param.clone()
                                                                                                 ),
-                                                                                                CodeArea::new(
-                                                                                                    CodeLocation::new(152, 10),
-                                                                                                    CodeLocation::new(152, 20),
-                                                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                                                ).unwrap()))
+                                                                                                sample_span()))
                                                                                         ],
                                                                                     ))
                                                                                 ),
-                                                                                CodeArea::new(
-                                                                                    CodeLocation::new(151, 0),
-                                                                                    CodeLocation::new(169, 0),
-                                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                                ).unwrap()
+                                                                                sample_span()
                                                                             ))
                                                                         )),
-                                                                        CodeArea::new(
-                                                                            CodeLocation::new(151, 0),
-                                                                            CodeLocation::new(169, 0),
-                                                                            CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                        ).unwrap()
+                                                                        sample_span()
                                                                     ),
                                                                     Visibility::Public
                                                                 ),
-                                                                CodeArea::new(
-                                                                    CodeLocation::new(150, 0),
-                                                                    CodeLocation::new(170, 0),
-                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                ).unwrap()
+                                                                sample_span()
                                                             ),
                                                             ASTNode::new(
                                                                 Function::new(
@@ -1618,35 +1462,19 @@ mod tests {
                                                                                     Box::new(StructFieldAccess::<TypedAST>::new(
                                                                                         ASTNode::new(
                                                                                             Expression::Variable(warning_msg_get_inner_self_param.clone()),
-                                                                                            CodeArea::new(
-                                                                                                CodeLocation::new(171, 10),
-                                                                                                CodeLocation::new(171, 20),
-                                                                                                CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                                            ).unwrap()
+                                                                                            sample_span()
                                                                                         ),
                                                                                         warning_msg_inner_symbol.clone()
                                                                                     ).unwrap())
                                                                                 ),
-                                                                                CodeArea::new(
-                                                                                    CodeLocation::new(171, 0),
-                                                                                    CodeLocation::new(189, 0),
-                                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                                ).unwrap()
+                                                                                sample_span()
                                                                             ))
                                                                         )),
-                                                                        CodeArea::new(
-                                                                            CodeLocation::new(171, 0),
-                                                                            CodeLocation::new(189, 0),
-                                                                            CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                        ).unwrap()
+                                                                        sample_span()
                                                                     ),
                                                                     Visibility::Public
                                                                 ),
-                                                                CodeArea::new(
-                                                                    CodeLocation::new(170, 0),
-                                                                    CodeLocation::new(190, 0),
-                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                ).unwrap()
+                                                                sample_span()
                                                             )
                                                         ],
                                                         vec![
@@ -1655,24 +1483,16 @@ mod tests {
                                                                     warning_msg_inner_symbol.clone(),
                                                                     Visibility::Public
                                                                 ),
-                                                                CodeArea::new(
-                                                                    CodeLocation::new(110, 0),
-                                                                    CodeLocation::new(111, 0),
-                                                                    CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                                ).unwrap()
+                                                                sample_span()
                                                             )
                                                         ],
                                                         Visibility::Public
                                                     ),
-                                                    CodeArea::new(
-                                                        CodeLocation::new(100, 0),
-                                                        CodeLocation::new(200, 1),
-                                                        CodeFile::new(PathBuf::from("warning/warning.waso"))
-                                                    ).unwrap()
+                                                    sample_span()
                                                 )
                                             ]
                                         ),
-                                        PathBuf::from("warning/warning.waso")
+                                        FileID::from(0)
                                     )
                                 ],
                             ),
@@ -1686,19 +1506,11 @@ mod tests {
                                 ASTNode::new(
                                     Import::new(ImportRoot::Root, vec!["warning".to_string()],
                                     Rc::new(ModuleUsageNameSymbol::new("warning".to_string()))),
-                                    CodeArea::new(
-                                        CodeLocation::new(10, 0),
-                                        CodeLocation::new(20, 0),
-                                        CodeFile::new(PathBuf::from("main.waso".to_string()))
-                                    ).unwrap()),
+                                    sample_span()),
                                 ASTNode::new(
                                     Import::new(ImportRoot::Root, vec!["message".to_string()],
                                                 Rc::new(ModuleUsageNameSymbol::new("warning".to_string()))),
-                                    CodeArea::new(
-                                        CodeLocation::new(40, 0),
-                                        CodeLocation::new(50, 0),
-                                        CodeFile::new(PathBuf::from("main.waso".to_string()))
-                                    ).unwrap())
+                                    sample_span())
                             ],
                             vec![ASTNode::new(
                                 Function::new(
@@ -1728,26 +1540,17 @@ mod tests {
                                                                                                         Expression::Literal(
                                                                                                             Literal::Char('e' as u32)
                                                                                                         ),
-                                                                                                        CodeArea::new(
-                                                                                                            CodeLocation::new(110, 20),
-                                                                                                            CodeLocation::new(110, 25),
-                                                                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                                        sample_span()
                                                                                                     )
                                                                                                 ]
                                                                                             ).unwrap()
                                                                                         ),
-                                                                                        CodeArea::new(
-                                                                                            CodeLocation::new(110, 15),
-                                                                                            CodeLocation::new(110, 25),
-                                                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                        sample_span()
                                                                                     )
                                                                                 ]
                                                                             ).unwrap())
                                                                         ),
-                                                                        CodeArea::new(
-                                                                            CodeLocation::new(110, 10),
-                                                                            CodeLocation::new(110, 30),
-                                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()),
+                                                                        sample_span()),
                                                                     vec![
                                                                         main_fn_warning_symbol.clone()
                                                                     ],
@@ -1760,51 +1563,33 @@ mod tests {
                                                                                         vec![
                                                                                             ASTNode::new(
                                                                                                 Expression::Variable(main_fn_warning_symbol.clone()),
-                                                                                                CodeArea::new(
-                                                                                                    CodeLocation::new(111, 10),
-                                                                                                    CodeLocation::new(111, 20),
-                                                                                                    CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                                sample_span()
                                                                                             )
                                                                                         ]
                                                                                     ).unwrap()
                                                                                 ),
-                                                                                CodeArea::new(
-                                                                                    CodeLocation::new(111, 0),
-                                                                                    CodeLocation::new(119, 1),
-                                                                                    CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                                sample_span()
                                                                             )
                                                                         ),
-                                                                        CodeArea::new(
-                                                                            CodeLocation::new(111, 0),
-                                                                            CodeLocation::new(119, 1),
-                                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                                        sample_span()
                                                                     ),
                                                                 ).unwrap()
                                                             )
                                                         )),
-                                                        CodeArea::new(
-                                                            CodeLocation::new(110, 0),
-                                                            CodeLocation::new(120, 1),
-                                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                                        sample_span()
                                                     )
                                                 ]
                                             )
                                         ),
-                                        CodeArea::new(
-                                            CodeLocation::new(110, 0),
-                                            CodeLocation::new(190, 1),
-                                            CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                        sample_span()
                                     ),
                                     Visibility::Public
                                 ),
-                                CodeArea::new(
-                                    CodeLocation::new(100, 0),
-                                    CodeLocation::new(200, 1),
-                                    CodeFile::new(PathBuf::from("main.waso"))).unwrap()
+                                sample_span()
                             )],
                             vec![],
                             vec![]),
-                                     PathBuf::from("main.waso"))]),
+                                     FileID::from(0))]),
                 PathBuf::new()
             )
         ).unwrap();
@@ -1860,7 +1645,7 @@ mod tests {
         let name = "test".to_string();
         let arg = ASTNode::new(
             Expression::<UntypedAST>::Literal("10".to_string()),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<UntypedAST>::new((name, Vec::new()), vec![arg]);
         assert_eq!("test", call.function().0);
@@ -1880,7 +1665,7 @@ mod tests {
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(10)),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
         assert_eq!(None, call);
@@ -1902,7 +1687,7 @@ mod tests {
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
         assert_eq!(None, call.as_ref().unwrap().function().return_type());
@@ -1910,7 +1695,7 @@ mod tests {
 
         let arg2 = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),
-            sample_codearea(),
+            sample_span(),
         );
         let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
         assert!(call.semantic_eq(&call2));
@@ -1941,15 +1726,10 @@ mod tests {
                                 Vec::new(),
                                 Visibility::Public,
                             ),
-                            CodeArea::new(
-                                CodeLocation::new(110, 0),
-                                CodeLocation::new(190, 1),
-                                CodeFile::new(PathBuf::from("main.waso")),
-                            )
-                            .unwrap(),
+                            sample_span(),
                         )],
                     ),
-                    PathBuf::from("main.waso"),
+                    FileID::from(0),
                 )],
             ),
             PathBuf::from("src"),
@@ -1984,15 +1764,10 @@ mod tests {
                                 Vec::new(),
                                 Visibility::Public,
                             ),
-                            CodeArea::new(
-                                CodeLocation::new(110, 0),
-                                CodeLocation::new(190, 1),
-                                CodeFile::new(PathBuf::from("main.waso")),
-                            )
-                            .unwrap(),
+                            sample_span(),
                         )],
                     ),
-                    PathBuf::from("main.waso"),
+                    FileID::from(0),
                 )],
             ),
             PathBuf::from("src"),
@@ -2020,18 +1795,12 @@ pub(crate) mod test_shared {
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
     use crate::{AST, ASTNode, ASTType, TypedAST};
-    use shared::code_file::CodeFile;
-    use shared::code_reference::{CodeArea, CodeLocation};
+    use source::types::{FileID, Span};
     use std::path::PathBuf;
     use std::rc::Rc;
 
-    pub(crate) fn sample_codearea() -> CodeArea {
-        CodeArea::new(
-            CodeLocation::new(0, 0),
-            CodeLocation::new(0, 10),
-            CodeFile::new(PathBuf::from("test/test")),
-        )
-        .unwrap()
+    pub(crate) fn sample_span() -> Span {
+        FileID::from(0).span(0, 10)
     }
 
     pub(crate) fn basic_test_variable(
@@ -2039,7 +1808,7 @@ pub(crate) mod test_shared {
     ) -> Option<VariableDeclaration<TypedAST>> {
         VariableDeclaration::<TypedAST>::new(
             symbol,
-            ASTNode::new(Expression::Literal(Literal::F64(14.0)), sample_codearea()),
+            ASTNode::new(Expression::Literal(Literal::F64(14.0)), sample_span()),
         )
     }
 
@@ -2048,8 +1817,6 @@ pub(crate) mod test_shared {
     ) -> AST<Type> {
         let mut src_path = PathBuf::new();
         src_path.push("src");
-        let mut main_path = src_path.clone();
-        main_path.push("main.waso");
         AST::new(ASTNode::new(
             Directory::new(
                 "src".to_string(),
@@ -2062,7 +1829,7 @@ pub(crate) mod test_shared {
                         Vec::new(),
                         Vec::new(),
                     ),
-                    main_path,
+                    FileID::from(0),
                 )],
             ),
             PathBuf::new(),

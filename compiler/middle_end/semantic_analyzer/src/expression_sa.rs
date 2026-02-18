@@ -1,3 +1,4 @@
+use crate::error_sa::SemanticError;
 use crate::mics_sa::{
     analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call,
     analyze_struct_usage,
@@ -13,159 +14,146 @@ use ast::expression::{
 use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::{ASTNode, TypedAST, UntypedAST};
+use source::types::Span;
 use std::ops::Deref;
 use std::rc::Rc;
 
 /// Analyzes an untyped expression and converts it into a typed `Expression`.
 ///
 /// # Parameters
-/// * `to_analyze` - The expression to be analyzed (`Expression<UntypedAST>`).
-/// * `symbol_mapper` - Mutable reference to `FunctionSymbolMapper` used for resolving symbols and tracking type information during analysis.
+/// * `to_analyze` - The expression to be analyzed, wrapped in an ASTNode to provide the Span (`&ASTNode<Expression<UntypedAST>>`).
+/// * `context` - The syntax context.
+/// * `function_symbol_mapper` - Mutable reference to `FunctionSymbolMapper` used for resolving symbols and tracking type information during analysis.
 ///
 /// # Returns
-/// * `Some(Expression<TypedAST>)` if the expression and all nested sub-expressions can be successfully analyzed and typed.
-/// * `None` if analysis or conversion fails for the expression or any of its sub-expressions. Failure context is not provided.
+/// * `Ok(Expression<TypedAST>)` if the expression and all nested sub-expressions can be successfully analyzed and typed.
+/// * `Err(SemanticError)` if analysis or conversion fails.
 pub(crate) fn analyze_expression(
-    to_analyze: &Expression<UntypedAST>,
+    to_analyze: &ASTNode<Expression<UntypedAST>>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Expression<TypedAST>> {
-    Some(match to_analyze {
+) -> Result<Expression<TypedAST>, SemanticError> {
+    let span = *to_analyze.position();
+    Ok(match to_analyze.deref() {
         Expression::FunctionCall(inner) => {
             let typed_call =
-                analyze_non_void_function_call(inner, context, function_symbol_mapper)?;
+                analyze_non_void_function_call(inner, context, function_symbol_mapper, span)?;
             Expression::FunctionCall(typed_call)
         }
         Expression::MethodCall(inner) => {
-            let typed_call = analyze_method_call(inner, function_symbol_mapper, context)?;
-            typed_call.function().return_type()?;
+            let typed_call = analyze_method_call(inner, function_symbol_mapper, context, span)?;
+            typed_call
+                .function()
+                .return_type()
+                .ok_or_else(|| SemanticError::InvalidUsage {
+                    message: format!("Method '{}' does not return a value", inner.function().0),
+                    span,
+                })?;
             Expression::FunctionCall(typed_call)
         }
-        Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper)?,
-        Expression::Literal(inner) => Expression::Literal(analyze_literal(inner)?),
-        Expression::UnaryOp(inner) => {
-            Expression::UnaryOp(analyze_unary_op(inner, context, function_symbol_mapper)?)
-        }
-        Expression::BinaryOp(inner) => {
-            Expression::BinaryOp(analyze_binary_op(inner, context, function_symbol_mapper)?)
-        }
-        Expression::NewStruct(nstr) => {
-            Expression::NewStruct(analyze_new_struct(nstr, context, function_symbol_mapper)?)
-        }
+        Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper, span)?,
+        Expression::Literal(inner) => Expression::Literal(analyze_literal(inner, span)?),
+        Expression::UnaryOp(inner) => Expression::UnaryOp(analyze_unary_op(
+            inner,
+            context,
+            function_symbol_mapper,
+            span,
+        )?),
+        Expression::BinaryOp(inner) => Expression::BinaryOp(analyze_binary_op(
+            inner,
+            context,
+            function_symbol_mapper,
+            span,
+        )?),
+        Expression::NewStruct(nstr) => Expression::NewStruct(analyze_new_struct(
+            nstr,
+            context,
+            function_symbol_mapper,
+            span,
+        )?),
         Expression::NewEnum(ne) => {
-            Expression::NewEnum(analyze_new_enum(ne, context, function_symbol_mapper)?)
+            Expression::NewEnum(analyze_new_enum(ne, context, function_symbol_mapper, span)?)
         }
         Expression::StructFieldAccess(sfa) => Expression::StructFieldAccess(
-            analyze_struct_field_access(sfa, context, function_symbol_mapper)?,
+            analyze_struct_field_access(sfa, context, function_symbol_mapper, span)?,
         ),
     })
 }
 
-/// Analyzes an untyped `FunctionCall`, resolves the function symbol, recursively analyzes all arguments,
-/// and delegates the final argument count and type checking to the `FunctionCall::new` constructor.
-///
-/// This function also enforces that the called function must have a return type.
-///
-/// # Parameters
-/// * `to_analyze` - The untyped `FunctionCall` structure.
-/// * `function_symbol_mapper` - The mapper for resolving the function symbol and analyzing nested expressions.
-///
-/// # Returns
-/// * `Some(FunctionCall<TypedAST>)` on success.
-/// * `None` on semantic error (undeclared function, argument mismatch, argument analysis failure, or if the function returns `void`).
 pub(crate) fn analyze_non_void_function_call(
     to_analyze: &FunctionCall<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<FunctionCall<TypedAST>> {
-    let typed_call = analyze_function_call(to_analyze, function_symbol_mapper, context)?;
+    span: Span,
+) -> Result<FunctionCall<TypedAST>, SemanticError> {
+    let typed_call = analyze_function_call(to_analyze, function_symbol_mapper, context, span)?;
 
     // Non-void function calls must return something
-    typed_call.function().return_type()?;
-    Some(typed_call)
+    typed_call
+        .function()
+        .return_type()
+        .ok_or_else(|| SemanticError::InvalidUsage {
+            message: format!(
+                "Function '{}' does not return a value",
+                to_analyze.function().0
+            ),
+            span,
+        })?;
+    Ok(typed_call)
 }
 
-/// Analyzes the use of a variable within an expression.
-///
-/// This function looks up the variable by name in the symbol mapper to ensure it has been declared
-/// and retrieves its typed symbol.
-///
-/// # Parameters
-/// * `variable_name` - The name of the variable (`&str`) to look up.
-/// * `function_symbol_mapper` - The mapper for scope and symbol resolution.
-///
-/// # Returns
-/// * `Some(Expression<TypedAST>)` if the variable is found.
-/// * `None` otherwise (semantic error).
 fn analyze_variable_use(
     variable_name: &str,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Expression<TypedAST>> {
-    let typed_symbol: Rc<VariableSymbol<TypedAST>> =
-        function_symbol_mapper.lookup_variable(variable_name)?;
+    span: Span,
+) -> Result<Expression<TypedAST>, SemanticError> {
+    let typed_symbol: Rc<VariableSymbol<TypedAST>> = function_symbol_mapper
+        .lookup_variable(variable_name)
+        .ok_or_else(|| SemanticError::UnknownSymbol {
+            name: variable_name.to_string(),
+            span,
+        })?;
 
-    Some(Expression::Variable(typed_symbol))
+    Ok(Expression::Variable(typed_symbol))
 }
 
-/// Analyzes a literal string and converts it into a `Literal` type.
-///
-/// # Parsing Limits
-/// *   **F64**: Uses `f64::parse`. Accepts standard float representations. Special values like `inf` or `NaN` are accepted.
-/// *   **S32**: Uses `i32::parse`. Returns `None` if the literal exceeds `i32` bounds.
-/// *   **Char**: Expects the string to be wrapped in single quotes (e.g., `'c'`).
-///     - It does *not* support escape sequences
-///         - (e.g., `'\n'` passed as a 2-char string will fail) and strictly expects the inner content to be parseable as a single `char`.
-///         - The lexer already resolves escape sequences, so we don't need to handle them here
-///
-///
-/// # Parameters
-/// * `to_analyze` - The literal string to be analyzed.
-///
-/// # Returns
-/// * `Some(Literal)` if the string can be successfully recognized and converted as a literal.
-/// * `None` if the analysis or conversion fails.
-fn analyze_literal(to_analyze: &str) -> Option<Literal> {
+fn analyze_literal(to_analyze: &str, span: Span) -> Result<Literal, SemanticError> {
     if to_analyze == "true" {
-        return Some(Literal::Bool(true));
+        return Ok(Literal::Bool(true));
     }
     if to_analyze == "false" {
-        return Some(Literal::Bool(false));
+        return Ok(Literal::Bool(false));
     }
 
     if to_analyze.starts_with('\'') && to_analyze.ends_with('\'') {
         let inner = &to_analyze[1..to_analyze.len() - 1];
         if let Ok(c) = inner.parse::<char>() {
-            return Some(Literal::Char(c as u32));
+            return Ok(Literal::Char(c as u32));
         }
     }
 
     if to_analyze.contains('.')
         && let Ok(f64_val) = to_analyze.parse::<f64>()
     {
-        return Some(Literal::F64(f64_val));
+        return Ok(Literal::F64(f64_val));
     }
 
     if let Ok(s32_val) = to_analyze.parse::<i32>() {
-        return Some(Literal::S32(s32_val));
+        return Ok(Literal::S32(s32_val));
     }
 
-    None
+    Err(SemanticError::InvalidUsage {
+        message: format!("Invalid literal '{}'", to_analyze),
+        span,
+    })
 }
 
-/// Creates a new instance of `UnaryOp`.
-///
-/// # Parameters
-/// * `to_analyze` - The unary operation to be analyzed.
-/// * `symbol_mapper` - The mapper for resolving symbols.
-///
-/// # Returns
-/// * `Some(Box<UnaryOp<TypedAST>>)` if the unary operation and its operand can be analyzed and converted to a typed form.
-/// * `None` if analysis or conversion fails.
 fn analyze_unary_op(
     to_analyze: &UnaryOp<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Box<UnaryOp<TypedAST>>> {
+    span: Span,
+) -> Result<Box<UnaryOp<TypedAST>>, SemanticError> {
     let (op_type, expression) = (to_analyze.op_type(), to_analyze.input());
 
     let converted_input = analyze_expression(expression, context, function_symbol_mapper)?;
@@ -173,7 +161,7 @@ fn analyze_unary_op(
     let converted_unary_op_type = match op_type {
         UnaryOpType::Typecast(inner) => {
             let data_type = inner.target();
-            let analyzed_data_type = analyze_data_type(data_type, context)?;
+            let analyzed_data_type = analyze_data_type(data_type, context, span)?;
             let typed_typecast = Typecast::<TypedAST>::new(analyzed_data_type);
             UnaryOpType::Typecast(typed_typecast)
         }
@@ -181,83 +169,105 @@ fn analyze_unary_op(
         UnaryOpType::Not => UnaryOpType::Not,
     };
 
-    let postion = expression.position().clone();
+    let postion = *expression.position();
 
     let analyzed = UnaryOp::<TypedAST>::new(
         converted_unary_op_type,
         ASTNode::new(converted_input, postion),
-    )?;
-    Some(Box::new(analyzed))
+    )
+    .ok_or_else(|| SemanticError::InvalidUsage {
+        message: "Invalid unary operation".to_string(),
+        span,
+    })?;
+
+    Ok(Box::new(analyzed))
 }
 
-/// Creates a new instance of `BinaryOp`.
-///
-/// # Parameters
-/// * `to_analyze` - The Binary operation to be analyzed.
-/// * `symbol_mapper` - The mapper for resolving symbols.
-///
-/// # Returns
-/// * `Some(Box<BinaryOp<TypedAST>>)` if the Binary operation and its operand can be analyzed and converted to a typed form.
-/// * `None` if analysis or conversion fails.
 fn analyze_binary_op(
     to_analyze: &BinaryOp<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Box<BinaryOp<TypedAST>>> {
+    span: Span,
+) -> Result<Box<BinaryOp<TypedAST>>, SemanticError> {
     let (op_type, left_expr, right_expr) =
         (to_analyze.op_type(), to_analyze.left(), to_analyze.right());
 
     let converted_left = analyze_expression(left_expr, context, function_symbol_mapper)?;
     let converted_right = analyze_expression(right_expr, context, function_symbol_mapper)?;
 
-    let left_position = left_expr.position().clone();
-    let right_position = right_expr.position().clone();
+    let left_position = *left_expr.position();
+    let right_position = *right_expr.position();
 
     let typed_left_node = ASTNode::new(converted_left, left_position);
     let typed_right_node = ASTNode::new(converted_right, right_position);
 
-    let analyzed = BinaryOp::<TypedAST>::new(op_type, typed_left_node, typed_right_node)?;
+    let analyzed = BinaryOp::<TypedAST>::new(op_type, typed_left_node, typed_right_node)
+        .ok_or_else(|| SemanticError::InvalidUsage {
+            message: "Invalid binary operation".to_string(),
+            span,
+        })?;
 
-    Some(Box::new(analyzed))
+    Ok(Box::new(analyzed))
 }
 
 fn analyze_new_struct(
     to_analyze: &NewStruct<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Box<NewStruct<TypedAST>>> {
-    let struct_use = analyze_struct_usage(&to_analyze.symbol().0, &to_analyze.symbol().1, context)?;
+    span: Span,
+) -> Result<Box<NewStruct<TypedAST>>, SemanticError> {
+    let struct_use = analyze_struct_usage(
+        &to_analyze.symbol().0,
+        &to_analyze.symbol().1,
+        context,
+        span,
+    )?;
+
     let untyped_struct_symbol = if let DirectlyAvailableSymbol::Struct(st) = symbol_by_name(
         &to_analyze.symbol().0,
         context.ast_reference.symbols_available_at(),
-    )? {
+    )
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.symbol().0.clone(),
+        span,
+    })? {
         st
     } else {
-        return None;
+        return Err(SemanticError::InvalidUsage {
+            message: format!("'{}' is not a struct", to_analyze.symbol().0),
+            span,
+        });
     };
 
     let struct_fields = context
         .global_elements
-        .get_struct_fields(untyped_struct_symbol, struct_use.type_parameters())?;
+        .get_struct_fields(untyped_struct_symbol, struct_use.type_parameters())
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Failed to get struct fields".to_string(),
+            span,
+        })?;
+
     let parameter = to_analyze
         .parameters()
         .iter()
         .map(|param| {
-            Some((
-                ASTNode::new(
-                    struct_fields
-                        .iter()
-                        .find(|field| param.0.deref() == field.name())?
-                        .clone(),
-                    param.0.position().clone(),
-                ),
-                ASTNode::new(
-                    analyze_expression(&param.1, context, function_symbol_mapper)?,
-                    param.1.position().clone(),
-                ),
+            let field = struct_fields
+                .iter()
+                .find(|field| param.0.deref() == field.name())
+                .ok_or_else(|| SemanticError::InvalidUsage {
+                    message: format!("Field '{}' not found in struct", param.0.deref()),
+                    span: *param.0.position(),
+                })?
+                .clone();
+
+            let expr = analyze_expression(&param.1, context, function_symbol_mapper)?;
+
+            Ok((
+                ASTNode::new(field, *param.0.position()),
+                ASTNode::new(expr, *param.1.position()),
             ))
         })
-        .collect::<Option<Vec<_>>>()?;
+        .collect::<Result<Vec<_>, SemanticError>>()?;
 
     let all_struct_fields_exist_dt_match = struct_fields.iter().all(|field| {
         parameter
@@ -265,107 +275,178 @@ fn analyze_new_struct(
             .find(|param| param.0.name() == field.name())
             .is_some_and(|val| &val.1.data_type() == field.data_type())
     });
+
     let types_ok = all_struct_fields_exist_dt_match && parameter.len() == struct_fields.len();
     if !types_ok {
-        return None;
+        return Err(SemanticError::InvalidUsage {
+            message: "Struct initialization parameters do not match fields".to_string(),
+            span,
+        });
     }
-    let analyzed = NewStruct::<TypedAST>::new(struct_use, parameter);
 
-    Some(Box::new(analyzed))
+    let analyzed = NewStruct::<TypedAST>::new(struct_use, parameter);
+    Ok(Box::new(analyzed))
 }
 
 fn analyze_new_enum(
     to_analyze: &NewEnum<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Box<NewEnum<TypedAST>>> {
+    span: Span,
+) -> Result<Box<NewEnum<TypedAST>>, SemanticError> {
     let enum_use = analyze_enum_usage(
         &to_analyze.to_create().0,
         &to_analyze.to_create().1,
         context,
+        span,
     )?;
+
     let untyped_enum_symbol = if let DirectlyAvailableSymbol::Enum(en) = symbol_by_name(
         &to_analyze.to_create().0,
         context.ast_reference.symbols_available_at(),
-    )? {
+    )
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.to_create().0.clone(),
+        span,
+    })? {
         en
     } else {
-        return None;
+        return Err(SemanticError::InvalidUsage {
+            message: format!("'{}' is not an enum", to_analyze.to_create().0),
+            span,
+        });
     };
 
     let enum_variants = context
         .global_elements
-        .get_enum_variants(untyped_enum_symbol, enum_use.type_parameters())?;
+        .get_enum_variants(untyped_enum_symbol, enum_use.type_parameters())
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Failed to get enum variants".to_string(),
+            span,
+        })?;
+
     let enum_variant = enum_variants
         .iter()
-        .find(|var| var.name() == to_analyze.variant())?;
+        .find(|var| var.name() == to_analyze.variant())
+        .ok_or_else(|| SemanticError::InvalidUsage {
+            message: format!("Variant '{}' not found in enum", to_analyze.variant()),
+            span,
+        })?;
+
     let parameter = to_analyze
         .parameters()
         .iter()
         .map(|param| {
-            Some(ASTNode::new(
-                analyze_expression(param, context, function_symbol_mapper)?,
-                param.position().clone(),
-            ))
+            let expr = analyze_expression(param, context, function_symbol_mapper)?;
+            Ok(ASTNode::new(expr, *param.position()))
         })
-        .collect::<Option<Vec<_>>>()?;
+        .collect::<Result<Vec<_>, SemanticError>>()?;
 
     if !parameter
         .iter()
         .zip(enum_variant.fields().iter())
         .all(|(found, expected)| &found.data_type() == expected)
     {
-        return None;
+        return Err(SemanticError::InvalidUsage {
+            message: "Enum variant initialization parameters do not match fields".to_string(),
+            span,
+        });
     }
-    let analyzed = NewEnum::<TypedAST>::new(enum_use, enum_variant.clone(), parameter)?;
 
-    Some(Box::new(analyzed))
+    let analyzed =
+        NewEnum::<TypedAST>::new(enum_use, enum_variant.clone(), parameter).ok_or_else(|| {
+            SemanticError::Internal {
+                message: "Failed to create new enum".to_string(),
+                span,
+            }
+        })?;
+
+    Ok(Box::new(analyzed))
 }
 
 fn analyze_struct_field_access(
     to_analyze: &StructFieldAccess<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Box<StructFieldAccess<TypedAST>>> {
+    span: Span,
+) -> Result<Box<StructFieldAccess<TypedAST>>, SemanticError> {
     let source_expr = analyze_expression(to_analyze.of(), context, function_symbol_mapper)?;
 
     let source_symbol = if let DataType::Struct(st) = source_expr.data_type() {
         st
     } else {
-        return None;
+        return Err(SemanticError::InvalidUsage {
+            message: "Field access on non-struct type".to_string(),
+            span: *to_analyze.of().position(),
+        });
     };
-    let sfs = context.global_elements.get_struct_fields(
-        context
-            .global_elements
-            .untyped_struct_symbol_from_typed(&source_symbol)
-            .as_deref()?,
-        source_symbol.type_parameters(),
-    )?;
+
+    let untyped_symbol_opt = context
+        .global_elements
+        .untyped_struct_symbol_from_typed(&source_symbol);
+
+    let untyped_symbol = untyped_symbol_opt.ok_or_else(|| SemanticError::Internal {
+        message: "Internal Error: Could not find untyped struct symbol".to_string(),
+        span,
+    })?;
+
+    let sfs = context
+        .global_elements
+        .get_struct_fields(&untyped_symbol, source_symbol.type_parameters())
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Failed to get struct fields".to_string(),
+            span,
+        })?;
+
     let sf = sfs
         .iter()
-        .find(|sf| sf.name() == to_analyze.field())?
+        .find(|sf| sf.name() == to_analyze.field())
+        .ok_or_else(|| SemanticError::InvalidUsage {
+            message: format!("Field '{}' not found", to_analyze.field()),
+            span,
+        })?
         .clone();
 
-    Some(Box::new(StructFieldAccess::<TypedAST>::new(
-        ASTNode::new(source_expr, to_analyze.of().position().clone()),
+    let analyzed = StructFieldAccess::<TypedAST>::new(
+        ASTNode::new(source_expr, *to_analyze.of().position()),
         sf,
-    )?))
+    )
+    .ok_or_else(|| SemanticError::Internal {
+        message: "Failed to create struct field access".to_string(),
+        span,
+    })?;
+
+    Ok(Box::new(analyzed))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ast::expression::Literal;
+    use source::types::FileID;
 
     /// Tests the helper function `analyze_literal`.
     /// It ensures that string representations of booleans, chars, floats, and integers are correctly parsed into their `Literal` enum variants.
     #[test]
     fn analyze_literal_recognizes_values() {
-        assert_eq!(analyze_literal("true"), Some(Literal::Bool(true)));
-        assert_eq!(analyze_literal("false"), Some(Literal::Bool(false)));
-        assert_eq!(analyze_literal("'\n'"), Some(Literal::Char('\n' as u32)));
-        assert_eq!(analyze_literal("3.14"), Some(Literal::F64(3.14)));
-        assert_eq!(analyze_literal("42"), Some(Literal::S32(42)));
-        assert_eq!(analyze_literal("nope"), None);
+        let dummy_span = FileID::from(0).span(0, 0);
+        assert_eq!(
+            analyze_literal("true", dummy_span).unwrap(),
+            Literal::Bool(true)
+        );
+        assert_eq!(
+            analyze_literal("false", dummy_span).unwrap(),
+            Literal::Bool(false)
+        );
+        assert_eq!(
+            analyze_literal("'\n'", dummy_span).unwrap(),
+            Literal::Char('\n' as u32)
+        );
+        assert_eq!(
+            analyze_literal("3.14", dummy_span).unwrap(),
+            Literal::F64(3.14)
+        );
+        assert_eq!(analyze_literal("42", dummy_span).unwrap(), Literal::S32(42));
+        assert!(analyze_literal("nope", dummy_span).is_err());
     }
 }

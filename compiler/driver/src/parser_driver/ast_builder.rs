@@ -1,12 +1,18 @@
 use crate::parser_driver::directory_builder::DirectoryBuilder;
 use crate::parser_driver::module_path::{ModulePath, ModulePathProjectRelative};
 use crate::program_information::ProgramInformation;
+use crate::{
+    INVALID_CHARS_IN_MAIN_FILE, MAIN_FILE_PATH_EMPTY, MAIN_FILE_PROJECT_NOT_FOUND,
+    UNABLE_TO_LOAD_DIRECTORY, UNABLE_TO_LOAD_FILE, UNRESOLVED_IMPORT_ERROR,
+};
 use ast::file::File;
 use ast::{AST, ASTNode, UntypedAST};
+use error::diagnostic::{Diagnostic, Snippet};
 use io::FullIO;
 use parser::{FileInformation, parse};
 use source::SourceMap;
-use source::types::FileID;
+use source::types::{FileID, Span};
+use std::io::Error;
 use std::path::{Path, PathBuf};
 
 /// All valid wasome file extensions
@@ -31,21 +37,99 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Return
     ///
-    /// - **None** - If there was an error during building
-    /// - **Some(Self)** - Otherwise
-    pub fn new(from: &'a ProgramInformation, load_from: &'a mut SourceMap<Loader>) -> Option<Self> {
+    /// - **Err** - If there was an error during building
+    /// - **Ok(Self)** - Otherwise
+    pub fn new(
+        from: &'a ProgramInformation,
+        load_from: &'a mut SourceMap<Loader>,
+    ) -> Result<Self, Diagnostic> {
         let mut to_ret = Self {
             root: DirectoryBuilder::new(from.name().to_owned(), PathBuf::new()),
             load_from,
             program_information: from,
         };
-        let main_file_location = Self::extract_main_file_module(from)?;
-        let mut main_file_path = main_file_location.build_path_buf(from.projects())?;
-        let main_file_name = from.main_file().iter().next_back()?.to_str()?;
+        let main_file_location = Self::extract_main_file_module(from)
+            .ok_or_else(Self::main_file_non_utf8_chars_error)?;
+        let mut main_file_path = main_file_location
+            .build_path_buf(from.projects())
+            .ok_or_else(Self::main_file_project_not_found_error)?;
+        let main_file_name = from
+            .main_file()
+            .iter()
+            .next_back()
+            .ok_or_else(Self::main_file_path_empty_error)?
+            .to_str()
+            .ok_or_else(Self::main_file_non_utf8_chars_error)?;
         main_file_path.push(main_file_name);
-        let main_file_id = to_ret.load_from.load_file(main_file_path).ok()?;
-        to_ret.add_file_handle_imports(&main_file_location, main_file_id, main_file_name)?;
-        Some(to_ret)
+        let main_file_id = to_ret
+            .load_from
+            .load_file(&main_file_path)
+            .map_err(|err| Self::unable_to_load_file_error(&main_file_path, &err))?;
+        to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
+        Ok(to_ret)
+    }
+
+    fn main_file_non_utf8_chars_error() -> Diagnostic {
+        Diagnostic::builder()
+            .message("The main file path may not contain non-UTF8 chars")
+            .code(INVALID_CHARS_IN_MAIN_FILE)
+            .help("Only use valid UTF-8 characters")
+            .build()
+    }
+
+    fn main_file_project_not_found_error() -> Diagnostic {
+        Diagnostic::builder()
+            .message("The project of the main file could not be found")
+            .code(MAIN_FILE_PROJECT_NOT_FOUND)
+            .help("Provide a valid main file path")
+            .build()
+    }
+
+    fn main_file_path_empty_error() -> Diagnostic {
+        Diagnostic::builder()
+            .message("The path of the main file is empty")
+            .code(MAIN_FILE_PATH_EMPTY)
+            .help("Provide a valid main file path")
+            .build()
+    }
+
+    fn unable_to_load_file_error(file_path: &Path, error: &Error) -> Diagnostic {
+        Diagnostic::builder()
+            .message(format!(
+                "Unable to load file {}: {}",
+                file_path.to_string_lossy(),
+                error
+            ))
+            .code(UNABLE_TO_LOAD_FILE)
+            // This is a generic error msg
+            // So giving help is not easily possible
+            .build()
+    }
+
+    fn unable_to_load_directory_error(directory_path: &Path, error: &Error) -> Diagnostic {
+        Diagnostic::builder()
+            .message(format!(
+                "Unable to load directory {}: {}",
+                directory_path.to_string_lossy(),
+                error
+            ))
+            .code(UNABLE_TO_LOAD_DIRECTORY)
+            // This is a generic error msg
+            // So giving help is not easily possible
+            .build()
+    }
+
+    fn unresolved_import_error(pos: Span) -> Diagnostic {
+        Diagnostic::builder()
+            .message("Unable to resolve import")
+            .code(UNRESOLVED_IMPORT_ERROR)
+            .snippet(
+                Snippet::builder()
+                    .file(pos.file_id)
+                    .primary(pos.start..pos.end, "Unable to find the referenced file")
+                    .build(),
+            )
+            .build()
     }
 
     /// Turns this into an actual untyped AST
@@ -105,18 +189,15 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// - There is a syntax error
     /// - `file_location` is empty
-    ///
-    /// All errors are represented by a return of `None`
     fn add_file_handle_imports(
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
-        file_name: &str,
-    ) -> Option<()> {
-        let imports_information = self.handle_file(file_location, to_add, file_name)?;
+    ) -> Result<(), Diagnostic> {
+        let imports_information = self.handle_file(file_location, to_add)?;
         imports_information
             .into_iter()
-            .map(|path| self.handle_import(&path))
+            .map(|path| self.handle_import((&path.0, path.1)))
             .try_fold((), |_a, b| b)
     }
 
@@ -139,17 +220,18 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// - There is a syntax error in the file
     /// - `file_location` is empty
     ///
-    /// All errors are represented by a return of `None`
+    /// # Panics
+    ///
+    /// - The file already exists
     fn handle_file(
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
-        file_name: &str,
-    ) -> Option<Vec<ModulePath>> {
+    ) -> Result<Vec<(ModulePath, Span)>, Diagnostic> {
         let parsed = self.parse_file(file_location, to_add)?;
         let imports_information = ModulePath::from_file(&parsed, file_location);
-        self.add_file(file_location, parsed, file_name)?;
-        Some(imports_information)
+        self.add_file(file_location, parsed, to_add).unwrap();
+        Ok(imports_information)
     }
 
     /// Adds a file to the AST
@@ -162,19 +244,17 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Errors
     ///
-    /// If the project of `file_location` can't be found in self
+    /// If file already exists
     ///
     /// All errors are represented by a return of `None`
     fn add_file(
         &mut self,
         file_location: &ModulePath,
         file: File<UntypedAST>,
-        file_name: &str,
+        file_id: FileID,
     ) -> Option<()> {
-        let mut file_path = file_location.build_path_buf(self.program_information.projects())?;
-        file_path.push(file_name);
         self.root
-            .add_file(ASTNode::new(file, file_path), &file_location.elements())?;
+            .add_file(ASTNode::new(file, file_id), &file_location.elements())?;
         Some(())
     }
 
@@ -194,15 +274,21 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// # Errors
     ///
-    /// - `file_location` is empty
     /// - The file contains syntax errors
     ///
-    /// All errors are represented by a return of `None`
-    fn parse_file(&self, file_location: &ModulePath, to_parse: FileID) -> Option<File<UntypedAST>> {
-        let last = file_location.elements().pop()?;
-        let file_information = FileInformation::new(to_parse, &last, self.load_from)?;
+    /// # Panics
+    ///
+    /// - **`FileID`** is not in the [`SourceMap`] of self
+    fn parse_file(
+        &self,
+        file_location: &ModulePath,
+        to_parse: FileID,
+    ) -> Result<File<UntypedAST>, Diagnostic> {
+        // This can never panic as a ModulePath can never be empty
+        let last = file_location.elements().pop().unwrap();
+        let file_information = FileInformation::new(to_parse, &last, self.load_from).unwrap();
         let parsed = parse(file_information)?;
-        Some(parsed)
+        Ok(parsed)
     }
 
     /// Handles an import
@@ -222,36 +308,40 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// There was an IO error
     ///     - This includes if `module_path` can't be resolved
-    ///
-    /// All errors are represented by a return of `None`
-    fn handle_import(&mut self, import_path: &ModulePath) -> Option<()> {
-        let module_dir = import_path.build_path_buf(self.program_information.projects())?;
+    fn handle_import(&mut self, import_path: (&ModulePath, Span)) -> Result<(), Diagnostic> {
+        let module_dir = import_path
+            .0
+            .build_path_buf(self.program_information.projects())
+            .ok_or_else(|| Self::unresolved_import_error(import_path.1))?;
 
-        let mut imported_files = self.list_wasome_files_in_dir(&module_dir)?;
-        if imported_files.all(|file| {
+        let imported_files = self
+            .list_wasome_files_in_dir(&module_dir)
+            .map_err(|err| Self::unable_to_load_directory_error(&module_dir, &err))?;
+        let mut err = None;
+        imported_files.for_each(|file| {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
             // All wasome files must have a file extension
             // So this will never panic
-            if self.does_file_exist_in_ast(import_path, &file[0..file.rfind('.').unwrap()]) {
+            if self.does_file_exist_in_ast(import_path.0, &file[0..file.rfind('.').unwrap()]) {
                 // We don't load the file, but there is no error
-                return true;
+                return;
             }
-            let Some(loaded) = self.load_file(module_dir.clone(), &file) else {
-                return false;
+            let loaded = match self.load_file(module_dir.clone(), &file) {
+                Ok(val) => val,
+                Err(io_err) => {
+                    err = Some(Self::unable_to_load_file_error(
+                        &module_dir.join(file),
+                        &io_err,
+                    ));
+                    return;
+                }
             };
-            if self
-                .add_file_handle_imports(import_path, loaded, &file)
-                .is_none()
-            {
-                return false;
+            if let Err(val) = self.add_file_handle_imports(import_path.0, loaded) {
+                err = Some(val);
             }
-            true
-        }) {
-            Some(())
-        } else {
-            None
-        }
+        });
+        err.map_or(Ok(()), |err| Err(err))
     }
 
     /// Checks if a file exists in the AST
@@ -291,15 +381,12 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// There was an IO error, for example
     /// - Missing permissions
     /// - Directory not found
-    ///
-    /// All errors are represented by a return of `None`
     fn list_wasome_files_in_dir(
         &self,
         dir: &Path,
-    ) -> Option<impl Iterator<Item = String> + 'static> {
-        Some(
-            Loader::list_files(self.program_information.path().join(dir))
-                .ok()?
+    ) -> Result<impl Iterator<Item = String> + 'static, Error> {
+        Ok(
+            Loader::list_files(self.program_information.path().join(dir))?
                 // Skip files with non-UTF8 filenames
                 // They might be non-wasome files so we don't want to hard-fail
                 .filter_map(|file_name| file_name.into_string().ok())
@@ -330,15 +417,13 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// # Errors
     ///
     /// The file could not be loaded, for example due to nonexistence
-    ///
-    /// All errors are represented by a return of `None`
-    fn load_file(&mut self, mut module_path: PathBuf, file_name: &str) -> Option<FileID> {
+    fn load_file(&mut self, mut module_path: PathBuf, file_name: &str) -> Result<FileID, Error> {
         module_path.push(file_name);
         self.load_file_combined_path(&module_path)
     }
 
     /// Like [`Self::load_file`], but the filepath is already combined
-    fn load_file_combined_path(&mut self, module_path: &Path) -> Option<FileID> {
-        self.load_from.load_file(module_path).ok()
+    fn load_file_combined_path(&mut self, module_path: &Path) -> Result<FileID, Error> {
+        self.load_from.load_file(module_path)
     }
 }

@@ -1,3 +1,4 @@
+use crate::error_sa::SemanticError;
 use crate::expression_sa::analyze_expression;
 use crate::mics_sa::{
     analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call,
@@ -24,68 +25,73 @@ use std::rc::Rc;
 /// are resolved via the `global_map` and local variables via the `function_symbol_mapper`.
 ///
 /// # Panics
-/// *   Panics if it encounters a `Statement::VoidFunctionCall`. It assumes the untyped AST will never produce a `VoidFunctionCall` directly (these are generated during this analysis phase).
+/// * Panics if it encounters a `Statement::VoidFunctionCall`. It assumes the untyped AST will never produce a `VoidFunctionCall` directly (these are generated during this analysis phase).
 ///
 /// # Parameters
 /// * `context` - The syntax context containing the traversal helper and available symbols.
 /// * `function_symbol_mapper` - Provides current function context (return type, local scopes) (`&mut FunctionSymbolMapper`).
 ///
 /// # Returns
-/// * `Some(Statement<TypedAST>)` if the statement and its children were successfully analyzed.
-/// * `None` if a semantic error occurs (e.g., type mismatch, unknown variable).
+/// * `Ok(Statement<TypedAST>)` if the statement and its children were successfully analyzed.
+/// * `Err(SemanticError)` if a semantic error occurs (e.g., type mismatch, unknown variable).
 pub(crate) fn analyze_statement(
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Statement<TypedAST>> {
+) -> Result<Statement<TypedAST>, SemanticError> {
     let to_analyze = context.ast_reference.clone();
     let statement_to_analyze = to_analyze.inner();
+    let span = *statement_to_analyze.position();
+
     match statement_to_analyze.deref() {
         Statement::VariableAssignment(inner) => {
-            let assigned = analyze_variable_assignment(inner, function_symbol_mapper, context)?;
-            Some(Statement::VariableAssignment(assigned))
+            let assigned =
+                analyze_variable_assignment(inner, function_symbol_mapper, context, span)?;
+            Ok(Statement::VariableAssignment(assigned))
         }
         Statement::VariableDeclaration(inner) => {
-            let declared = analyze_variable_declaration(inner, context, function_symbol_mapper)?;
-            Some(Statement::VariableDeclaration(declared))
+            let declared =
+                analyze_variable_declaration(inner, context, function_symbol_mapper, span)?;
+            Ok(Statement::VariableDeclaration(declared))
         }
         Statement::Expression(inner) => {
-            let void_call = try_analyze_void_function_call(context, function_symbol_mapper);
-            if let Some(inner) = void_call {
-                Some(Statement::VoidFunctionCall(inner))
-            } else if let Some(inner) =
-                try_analyze_void_method_call(context, function_symbol_mapper)
+            if let Some(void_call) =
+                try_analyze_void_function_call(context, function_symbol_mapper)?
             {
-                Some(Statement::VoidFunctionCall(inner))
+                Ok(Statement::VoidFunctionCall(void_call))
+            } else if let Some(void_method) =
+                try_analyze_void_method_call(context, function_symbol_mapper)?
+            {
+                Ok(Statement::VoidFunctionCall(void_method))
             } else {
-                // We pass the helper as context so the expression can resolve symbols valid at this location
                 let typed_expr = analyze_expression(inner, context, function_symbol_mapper)?;
-                Some(Statement::Expression(ASTNode::new(
+                Ok(Statement::Expression(ASTNode::new(
                     typed_expr,
-                    inner.position().clone(),
+                    *inner.position(),
                 )))
             }
         }
         Statement::Return(inner) => {
-            let typed_ret = analyze_return(inner, context, function_symbol_mapper)?;
-            Some(Statement::Return(typed_ret))
+            let typed_ret = analyze_return(inner, context, function_symbol_mapper, span)?;
+            Ok(Statement::Return(typed_ret))
         }
         Statement::ControlStructure(crtl) => {
             let typed_cs = Box::new(analyze_control_structure(
                 crtl.as_ref(),
                 context,
                 function_symbol_mapper,
+                span,
             )?);
-            Some(Statement::ControlStructure(typed_cs))
+            Ok(Statement::ControlStructure(typed_cs))
         }
         Statement::Codeblock(_) => {
             let analyzed_cb = analyze_codeblock(context, function_symbol_mapper)?;
-            Some(Statement::Codeblock(analyzed_cb))
+            Ok(Statement::Codeblock(analyzed_cb))
         }
         Statement::VoidFunctionCall(_) => {
             panic!("Void function calls are not allowed in the untyped AST")
         }
-        Statement::Break => analyze_break(context),
-        Statement::StructFieldAssignment(sfa) => Some(Statement::StructFieldAssignment(
+        Statement::Break => analyze_break(context, span),
+        Statement::StructFieldAssignment(sfa) => Ok(Statement::StructFieldAssignment(
             analyze_struct_field_assignment(sfa, context, function_symbol_mapper)?,
         )),
     }
@@ -94,51 +100,63 @@ pub(crate) fn analyze_statement(
 fn try_analyze_void_function_call(
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<FunctionCall<TypedAST>> {
+) -> Result<Option<FunctionCall<TypedAST>>, SemanticError> {
     let to_analyze = &context.ast_reference;
     let statement_to_analyze = to_analyze.inner();
+    let span = *statement_to_analyze.position();
+
     let expr = if let Statement::Expression(inner) = statement_to_analyze.deref() {
         inner
     } else {
-        return None;
+        return Ok(None);
     };
     let call = match expr.deref() {
         Expression::FunctionCall(call) => call,
-        _ => return None,
+        _ => return Ok(None),
     };
 
-    let call = analyze_function_call(call, function_symbol_mapper, context)?;
+    let call = analyze_function_call(call, function_symbol_mapper, context, span)?;
     if call.function().return_type().is_some() {
-        return None;
+        return Ok(None);
     }
-    Some(call)
+    Ok(Some(call))
 }
 
 fn try_analyze_void_method_call(
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<FunctionCall<TypedAST>> {
+) -> Result<Option<FunctionCall<TypedAST>>, SemanticError> {
     let to_analyze = &context.ast_reference;
     let statement_to_analyze = to_analyze.inner();
+    let span = *statement_to_analyze.position();
+
     let expr = if let Statement::Expression(inner) = statement_to_analyze.deref() {
         inner
     } else {
-        return None;
+        return Ok(None);
     };
     let call = match expr.deref() {
         Expression::MethodCall(call) => call,
-        _ => return None,
+        _ => return Ok(None),
     };
 
-    let symbol = symbol_by_name(&call.function().0, to_analyze.symbols_available_at())?;
+    let symbol = match symbol_by_name(&call.function().0, to_analyze.symbols_available_at()) {
+        Some(s) => s,
+        None => return Ok(None),
+    };
 
     if let DirectlyAvailableSymbol::Function(func) = symbol {
-        func.return_type()?;
+        if func.return_type().is_none() {
+            return Ok(None);
+        }
     } else {
-        return None;
+        return Ok(None);
     };
-    analyze_method_call(call, function_symbol_mapper, context)
+
+    let typed_call = analyze_method_call(call, function_symbol_mapper, context, span)?;
+    Ok(Some(typed_call))
 }
+
 /// Analyzes a variable assignment (re-assignment of an existing variable).
 ///
 /// It checks if the variable exists in the current scope and if the type of the assigned value matches.
@@ -152,25 +170,43 @@ fn try_analyze_void_method_call(
 /// * `context` - The syntax context providing the scope and symbol resolution.
 ///
 /// # Returns
-/// * `Some(VariableAssignment<TypedAST>)` if the variable exists and types match.
-/// * `None` if the variable is not found or types mismatch.
+/// * `Ok(VariableAssignment<TypedAST>)` if the variable exists and types match.
+/// * `Err(SemanticError)` if the variable is not found or types mismatch.
 fn analyze_variable_assignment(
     to_analyze: &VariableAssignment<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
-) -> Option<VariableAssignment<TypedAST>> {
+    span: source::types::Span,
+) -> Result<VariableAssignment<TypedAST>, SemanticError> {
     let var_name = to_analyze.variable();
-    let typed_variable_symbol = function_symbol_mapper.lookup_variable(var_name)?;
-
     let untyped_val = to_analyze.value();
+
+    let typed_variable_symbol = function_symbol_mapper
+        .lookup_variable(var_name)
+        .ok_or_else(|| SemanticError::UnknownSymbol {
+            name: var_name.to_string(),
+            span,
+        })?;
+
     let typed_value_expr = analyze_expression(untyped_val, context, function_symbol_mapper)?;
 
     if typed_variable_symbol.data_type() != &typed_value_expr.data_type() {
-        return None;
+        return Err(SemanticError::TypeMismatch {
+            expected: format!("{:?}", typed_variable_symbol.data_type()),
+            found: format!("{:?}", typed_value_expr.data_type()),
+            span: *untyped_val.position(),
+        });
     }
 
-    let typed_node = ASTNode::new(typed_value_expr, untyped_val.position().clone());
-    VariableAssignment::<TypedAST>::new(typed_variable_symbol, typed_node)
+    let typed_node = ASTNode::new(typed_value_expr, *untyped_val.position());
+
+    VariableAssignment::<TypedAST>::new(typed_variable_symbol, typed_node).ok_or_else(|| {
+        SemanticError::Internal {
+            message: "Failed to create variable assignment (internal validation failed)"
+                .to_string(),
+            span,
+        }
+    })
 }
 
 /// Analyzes a variable declaration (creation of a new local variable).
@@ -188,38 +224,45 @@ fn analyze_variable_assignment(
 /// * `function_symbol_mapper` - Used to register the new variable in the current scope.
 ///
 /// # Returns
-/// * `Some(VariableDeclaration<TypedAST>)` if the variable is successfully declared.
-/// * `None` if the type cannot be inferred or resolved, or if registration fails.
+/// * `Ok(VariableDeclaration<TypedAST>)` if the variable is successfully declared.
+/// * `Err(SemanticError)` if the type cannot be inferred or resolved, or if registration fails.
 fn analyze_variable_declaration(
     to_analyze: &VariableDeclaration<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<VariableDeclaration<TypedAST>> {
+    span: source::types::Span,
+) -> Result<VariableDeclaration<TypedAST>, SemanticError> {
     let untyped_val = to_analyze.value();
-
     let typed_value_expr = analyze_expression(untyped_val, context, function_symbol_mapper)?;
 
     let declared_type_name = to_analyze.variable().data_type();
-    let resolved_declared_type = analyze_data_type(declared_type_name, context)?;
+    let resolved_declared_type = analyze_data_type(declared_type_name, context, span)?;
 
-    // Type Check
     if resolved_declared_type != typed_value_expr.data_type() {
-        return None;
+        return Err(SemanticError::TypeMismatch {
+            expected: format!("{:?}", resolved_declared_type),
+            found: format!("{:?}", typed_value_expr.data_type()),
+            span: *untyped_val.position(),
+        });
     }
 
     let var_name = to_analyze.variable().name().to_string();
-    let typed_variable_symbol = Rc::new(VariableSymbol::new(var_name, resolved_declared_type));
+    let typed_variable_symbol = Rc::new(VariableSymbol::new(
+        var_name.clone(),
+        resolved_declared_type,
+    ));
 
-    if function_symbol_mapper
-        .add_variable(typed_variable_symbol.clone())
-        .is_err()
-    {
-        return None;
-    }
+    function_symbol_mapper.add_variable(typed_variable_symbol.clone(), span)?;
 
-    let typed_node = ASTNode::new(typed_value_expr, untyped_val.position().clone());
+    let typed_node = ASTNode::new(typed_value_expr, *untyped_val.position());
 
-    VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_node)
+    VariableDeclaration::<TypedAST>::new(typed_variable_symbol, typed_node).ok_or_else(|| {
+        SemanticError::Internal {
+            message: "Failed to create variable declaration (internal validation failed)"
+                .to_string(),
+            span,
+        }
+    })
 }
 
 /// Analyzes a return statement.
@@ -230,33 +273,46 @@ fn analyze_variable_declaration(
 /// * `function_symbol_mapper` - Used to check against the function's expected return type.
 ///
 /// # Returns
-/// * `Some(Return<TypedAST>)` if the return value matches the function signature.
-/// * `None` if types mismatch or the return value is invalid.
+/// * `Ok(Return<TypedAST>)` if the return value matches the function signature.
+/// * `Err(SemanticError)` if types mismatch or the return value is invalid.
 fn analyze_return(
     to_analyze: &Return<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Return<TypedAST>> {
+    span: source::types::Span,
+) -> Result<Return<TypedAST>, SemanticError> {
     let expected_return_type = function_symbol_mapper
         .get_current_function_return_type()
         .cloned();
     let untyped_return_value = to_analyze.to_return();
 
     match (expected_return_type, untyped_return_value) {
-        (None, None) => Some(Return::new(None)),
+        (None, None) => Ok(Return::new(None)),
 
         (Some(expected), Some(expr_node)) => {
             let typed_expr = analyze_expression(expr_node, context, function_symbol_mapper)?;
 
             if typed_expr.data_type() != expected {
-                return None;
+                return Err(SemanticError::TypeMismatch {
+                    expected: format!("{:?}", expected),
+                    found: format!("{:?}", typed_expr.data_type()),
+                    span: *expr_node.position(),
+                });
             }
 
-            let typed_node = ASTNode::new(typed_expr, expr_node.position().clone());
-            Some(Return::new(Some(typed_node)))
+            let typed_node = ASTNode::new(typed_expr, *expr_node.position());
+            Ok(Return::new(Some(typed_node)))
         }
 
-        _ => None,
+        (None, Some(expr_node)) => Err(SemanticError::InvalidUsage {
+            message: "Void function must not return a value".to_string(),
+            span: *expr_node.position(),
+        }),
+
+        (Some(_), None) => Err(SemanticError::InvalidUsage {
+            message: "Missing return value".to_string(),
+            span,
+        }),
     }
 }
 
@@ -273,13 +329,14 @@ fn analyze_return(
 /// * `function_symbol_mapper` - Context for scope and variable management.
 ///
 /// # Returns
-/// * `Some(ControlStructure<TypedAST>)` if the structure and its blocks are valid.
-/// * `None` if analysis fails.
+/// * `Ok(ControlStructure<TypedAST>)` if the structure and its blocks are valid.
+/// * `Err(SemanticError)` if analysis fails.
 fn analyze_control_structure(
     to_analyze: &ControlStructure<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<ControlStructure<TypedAST>> {
+    span: source::types::Span,
+) -> Result<ControlStructure<TypedAST>, SemanticError> {
     match to_analyze {
         ControlStructure::Conditional(cond) => {
             analyze_conditional(cond, context, function_symbol_mapper)
@@ -288,9 +345,8 @@ fn analyze_control_structure(
         ControlStructure::Loop(lp) => {
             analyze_loop(lp, context, function_symbol_mapper).map(ControlStructure::Loop)
         }
-
         ControlStructure::IfEnumVariant(iev) => {
-            analyze_if_enum_variant(iev, context, function_symbol_mapper)
+            analyze_if_enum_variant(iev, context, function_symbol_mapper, span)
                 .map(ControlStructure::IfEnumVariant)
         }
     }
@@ -306,52 +362,66 @@ fn analyze_control_structure(
 /// * `function_symbol_mapper` - Manages scopes for the then/else blocks.
 ///
 /// # Returns
-/// * `Some(Conditional<TypedAST>)` if the condition is boolean and blocks are valid.
-/// * `None` if analysis fails.
+/// * `Ok(Conditional<TypedAST>)` if the condition is boolean and blocks are valid.
+/// * `Err(SemanticError)` if analysis fails.
 fn analyze_conditional(
     to_analyze: &Conditional<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Conditional<TypedAST>> {
+) -> Result<Conditional<TypedAST>, SemanticError> {
+    let span = *context.ast_reference.inner().position();
     let untyped_condition = to_analyze.condition();
 
     let typed_condition_expr =
         analyze_expression(untyped_condition, context, function_symbol_mapper)?;
 
-    let typed_condition = ASTNode::new(typed_condition_expr, untyped_condition.position().clone());
+    let typed_condition = ASTNode::new(typed_condition_expr, *untyped_condition.position());
 
     if typed_condition.data_type() != DataType::Bool {
-        return None;
+        return Err(SemanticError::ConditionNotBoolean {
+            span: *untyped_condition.position(),
+        });
     }
 
     function_symbol_mapper.enter_scope();
-    // Unwrap:
-    // A conditional always has a 0th statement (then-statement)
+
     let sth = context.ast_reference.get_child(0).unwrap();
     let then_context = context.with_ast_reference(&sth);
-    let then_position = then_context.ast_reference.inner().position().clone();
+    let then_position = *then_context.ast_reference.inner().position();
 
-    let typed_then_statement = analyze_statement(&then_context, function_symbol_mapper)?;
+    let typed_then_statement = match analyze_statement(&then_context, function_symbol_mapper) {
+        Ok(stmt) => stmt,
+        Err(e) => {
+            let _ = function_symbol_mapper.exit_scope(span);
+            return Err(e);
+        }
+    };
+
     let typed_then_node = ASTNode::new(typed_then_statement, then_position);
-    let _ = function_symbol_mapper.exit_scope();
+    let _ = function_symbol_mapper.exit_scope(span);
 
     let typed_else_statement = if to_analyze.else_statement().is_some() {
         function_symbol_mapper.enter_scope();
-        // Unwrap:
-        // We checked that the conditional has a 1st statement (else-statement)
+
         let sth = context.ast_reference.get_child(1).unwrap();
         let else_context = context.with_ast_reference(&sth);
-        let else_position = else_context.ast_reference.inner().position().clone();
+        let else_position = *else_context.ast_reference.inner().position();
 
-        let typed_block = analyze_statement(&else_context, function_symbol_mapper)?;
+        let typed_block = match analyze_statement(&else_context, function_symbol_mapper) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                let _ = function_symbol_mapper.exit_scope(span);
+                return Err(e);
+            }
+        };
         let typed_block_node = ASTNode::new(typed_block, else_position);
-        let _ = function_symbol_mapper.exit_scope();
+        let _ = function_symbol_mapper.exit_scope(span);
         Some(typed_block_node)
     } else {
         None
     };
 
-    Some(Conditional::new(
+    Ok(Conditional::new(
         typed_condition,
         typed_then_node,
         typed_else_statement,
@@ -368,120 +438,132 @@ fn analyze_conditional(
 /// * `function_symbol_mapper` - Manages scopes for the loop body.
 ///
 /// # Returns
-/// * `Some(Loop<TypedAST>)` if the loop structure and body are valid.
-/// * `None` if analysis fails.
+/// * `Ok(Loop<TypedAST>)` if the loop structure and body are valid.
+/// * `Err(SemanticError)` if analysis fails.
 fn analyze_loop(
     to_analyze: &Loop<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<Loop<TypedAST>> {
+) -> Result<Loop<TypedAST>, SemanticError> {
+    let span = *context.ast_reference.inner().position();
     function_symbol_mapper.enter_scope();
 
-    let typed_loop_type = match to_analyze.loop_type() {
-        LoopType::Infinite => LoopType::Infinite,
+    let inner_res = (|| -> Result<Loop<TypedAST>, SemanticError> {
+        let typed_loop_type = match to_analyze.loop_type() {
+            LoopType::Infinite => LoopType::Infinite,
+            LoopType::While(condition) => {
+                let typed_condition_expr =
+                    analyze_expression(condition, context, function_symbol_mapper)?;
+                let typed_condition = ASTNode::new(typed_condition_expr, *condition.position());
 
-        LoopType::While(condition) => {
-            let typed_condition_expr =
-                analyze_expression(condition, context, function_symbol_mapper)?;
-            let typed_condition = ASTNode::new(typed_condition_expr, condition.position().clone());
-
-            if typed_condition.data_type() != DataType::Bool {
-                let _ = function_symbol_mapper.exit_scope();
-                return None;
+                if typed_condition.data_type() != DataType::Bool {
+                    return Err(SemanticError::ConditionNotBoolean {
+                        span: *condition.position(),
+                    });
+                }
+                LoopType::While(typed_condition)
             }
-            LoopType::While(typed_condition)
-        }
+            LoopType::For { cond, .. } => {
+                let sth = context.ast_reference.get_child(0).unwrap();
+                let start_context = context.with_ast_reference(&sth);
+                let start_position = *start_context.ast_reference.inner().position();
 
-        LoopType::For {
-            // We get start and after each separately to have a traversal helper
-            start: _,
-            cond,
-            after_each: _,
-        } => {
-            // Unwrap:
-            // A for loop always has a 0th substatement (before)
-            let sth = context.ast_reference.get_child(0).unwrap();
-            let start_context = context.with_ast_reference(&sth);
-            let start_position = start_context.ast_reference.inner().position().clone();
+                let typed_start_stmt = analyze_statement(&start_context, function_symbol_mapper)?;
+                let typed_start_node = ASTNode::new(typed_start_stmt, start_position);
 
-            let typed_start_stmt = analyze_statement(&start_context, function_symbol_mapper)?;
-            let typed_start_node = ASTNode::new(typed_start_stmt, start_position);
+                let typed_cond_expr = analyze_expression(cond, context, function_symbol_mapper)?;
+                let typed_cond_node = ASTNode::new(typed_cond_expr, *cond.position());
 
-            let typed_cond_expr = analyze_expression(cond, context, function_symbol_mapper)?;
-            let typed_cond_node = ASTNode::new(typed_cond_expr, cond.position().clone());
+                if typed_cond_node.data_type() != DataType::Bool {
+                    return Err(SemanticError::ConditionNotBoolean {
+                        span: *cond.position(),
+                    });
+                }
 
-            if typed_cond_node.data_type() != DataType::Bool {
-                let _ = function_symbol_mapper.exit_scope();
-                return None;
+                let sth = context.ast_reference.get_child(2).unwrap();
+                let after_each_context = context.with_ast_reference(&sth);
+                let after_each_position = *after_each_context.ast_reference.inner().position();
+
+                let typed_after_each_stmt =
+                    analyze_statement(&after_each_context, function_symbol_mapper)?;
+                let typed_after_each_node =
+                    ASTNode::new(typed_after_each_stmt, after_each_position);
+
+                LoopType::For {
+                    start: typed_start_node,
+                    cond: typed_cond_node,
+                    after_each: typed_after_each_node,
+                }
             }
+        };
 
-            // Unwrap:
-            // A for loop always has a 2nd substatement (after)
-            let sth = context.ast_reference.get_child(2).unwrap();
-            let after_each_context = context.with_ast_reference(&sth);
-            let after_each_position = after_each_context.ast_reference.inner().position().clone();
+        let body_index = if matches!(to_analyze.loop_type(), LoopType::For { .. }) {
+            1
+        } else {
+            to_analyze.loop_type().len() - 1
+        };
 
-            let typed_after_each_stmt =
-                analyze_statement(&after_each_context, function_symbol_mapper)?;
-            let typed_after_each_node = ASTNode::new(typed_after_each_stmt, after_each_position);
+        let sth = context.ast_reference.get_child(body_index).unwrap();
+        let to_loop_on_context = context.with_ast_reference(&sth);
+        let to_loop_on_position = *to_loop_on_context.ast_reference.inner().position();
 
-            LoopType::For {
-                start: typed_start_node,
-                cond: typed_cond_node,
-                after_each: typed_after_each_node,
-            }
-        }
-    };
+        let typed_to_loop_on_stmt = analyze_statement(&to_loop_on_context, function_symbol_mapper)?;
+        let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, to_loop_on_position);
 
-    let body_index = if matches!(to_analyze.loop_type(), LoopType::For { .. }) {
-        1
-    } else {
-        to_analyze.loop_type().len() - 1
-    };
+        Ok(Loop::new(typed_to_loop_on, typed_loop_type))
+    })();
 
-    // Unwrap:
-    // A for loop always has a statement at `body_index` as it is either:
-    // 1. The statement is at position 1 of a foor loop
-    // 2. The statement is the last child statement
-    // Both of these must exist
-    let sth = context.ast_reference.get_child(body_index).unwrap();
-    let to_loop_on_context = context.with_ast_reference(&sth);
-    let to_loop_on_position = to_loop_on_context.ast_reference.inner().position().clone();
-
-    let typed_to_loop_on_stmt = analyze_statement(&to_loop_on_context, function_symbol_mapper)?;
-    let typed_to_loop_on = ASTNode::new(typed_to_loop_on_stmt, to_loop_on_position);
-
-    let _ = function_symbol_mapper.exit_scope();
-
-    Some(Loop::new(typed_to_loop_on, typed_loop_type))
+    let _ = function_symbol_mapper.exit_scope(span);
+    inner_res
 }
 
 fn analyze_if_enum_variant(
     to_analyze: &IfEnumVariant<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<IfEnumVariant<TypedAST>> {
+    span: source::types::Span,
+) -> Result<IfEnumVariant<TypedAST>, SemanticError> {
     let condition_enum = analyze_enum_usage(
         &to_analyze.condition_enum().0,
         &to_analyze.condition_enum().1,
         context,
+        span,
     )?;
 
     let untyped_enum_symbol = if let DirectlyAvailableSymbol::Enum(en) = symbol_by_name(
         &to_analyze.condition_enum().0,
         context.ast_reference.symbols_available_at(),
-    )? {
+    )
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.condition_enum().0.clone(),
+        span,
+    })? {
         en
     } else {
-        return None;
+        return Err(SemanticError::InvalidUsage {
+            message: "Not an enum type".to_string(),
+            span,
+        });
     };
 
     let enum_variants = context
         .global_elements
-        .get_enum_variants(untyped_enum_symbol, condition_enum.type_parameters())?;
+        .get_enum_variants(untyped_enum_symbol, condition_enum.type_parameters())
+        .ok_or_else(|| SemanticError::InvalidUsage {
+            message: "Could not retrieve enum variants".to_string(),
+            span,
+        })?;
+
     let enum_variant = enum_variants
         .iter()
-        .find(|variant| variant.name() == to_analyze.condition_enum_variant())?
+        .find(|variant| variant.name() == to_analyze.condition_enum_variant())
+        .ok_or_else(|| SemanticError::InvalidUsage {
+            message: format!(
+                "Enum variant '{}' not found",
+                to_analyze.condition_enum_variant()
+            ),
+            span,
+        })?
         .clone();
 
     let typed_condition_expr = analyze_expression(
@@ -492,47 +574,52 @@ fn analyze_if_enum_variant(
 
     let typed_condition = ASTNode::new(
         typed_condition_expr,
-        to_analyze.assignment_expression().position().clone(),
+        *to_analyze.assignment_expression().position(),
     );
 
     if typed_condition.data_type() != DataType::Bool {
-        return None;
+        return Err(SemanticError::ConditionNotBoolean {
+            span: *to_analyze.assignment_expression().position(),
+        });
     }
 
     function_symbol_mapper.enter_scope();
-    let variables = to_analyze
-        .variables()
-        .iter()
-        .map(|var| {
-            let declared_type_name = var.data_type();
-            let resolved_declared_type = analyze_data_type(declared_type_name, context)?;
+    let inner_res1 = (|| -> Result<_, SemanticError> {
+        let variables = to_analyze
+            .variables()
+            .iter()
+            .map(|var| {
+                let declared_type_name = var.data_type();
+                let resolved_declared_type = analyze_data_type(declared_type_name, context, span)?;
 
-            let var_name = var.name().to_string();
-            Some(Rc::new(VariableSymbol::new(
-                var_name,
-                resolved_declared_type,
-            )))
-        })
-        .collect::<Option<Vec<_>>>()?;
-    if !variables
-        .iter()
-        .all(|var| function_symbol_mapper.add_variable(var.clone()).is_ok())
-    {
-        return None;
-    }
+                let var_name = var.name().to_string();
+                Ok(Rc::new(VariableSymbol::new(
+                    var_name,
+                    resolved_declared_type,
+                )))
+            })
+            .collect::<Result<Vec<_>, SemanticError>>()?;
 
-    function_symbol_mapper.enter_scope();
+        for var in &variables {
+            function_symbol_mapper.add_variable(var.clone(), span)?;
+        }
 
-    // Unwrap:
-    // A IfEnumVariant always has a 0th statement (then-statement)
-    let sth = context.ast_reference.get_child(0).unwrap();
-    let then_context = context.with_ast_reference(&sth);
-    let then_position = then_context.ast_reference.inner().position().clone();
+        function_symbol_mapper.enter_scope();
+        let inner_res2 = (|| -> Result<_, SemanticError> {
+            let sth = context.ast_reference.get_child(0).unwrap();
+            let then_context = context.with_ast_reference(&sth);
+            let then_position = *then_context.ast_reference.inner().position();
 
-    let typed_then_statement = analyze_statement(&then_context, function_symbol_mapper)?;
-    let typed_then_node = ASTNode::new(typed_then_statement, then_position);
-    let _ = function_symbol_mapper.exit_scope();
-    let _ = function_symbol_mapper.exit_scope();
+            let typed_then_statement = analyze_statement(&then_context, function_symbol_mapper)?;
+            let typed_then_node = ASTNode::new(typed_then_statement, then_position);
+            Ok((variables, typed_then_node))
+        })();
+        let _ = function_symbol_mapper.exit_scope(span);
+        inner_res2
+    })();
+    let _ = function_symbol_mapper.exit_scope(span);
+
+    let (variables, typed_then_node) = inner_res1?;
 
     IfEnumVariant::<TypedAST>::new(
         condition_enum,
@@ -541,6 +628,10 @@ fn analyze_if_enum_variant(
         variables,
         typed_then_node,
     )
+    .ok_or_else(|| SemanticError::Internal {
+        message: "Failed to create if-enum-variant structure".to_string(),
+        span,
+    })
 }
 
 /// Analyzes a code block (a list of statements).
@@ -553,32 +644,34 @@ fn analyze_if_enum_variant(
 /// * `function_symbol_mapper` - Context used to create a new scope for the block.
 ///
 /// # Returns
-/// * `Some(CodeBlock<TypedAST>)` if all statements in the block are valid.
-/// * `None` if any statement fails analysis.
+/// * `Ok(CodeBlock<TypedAST>)` if all statements in the block are valid.
+/// * `Err(SemanticError)` if any statement fails analysis.
 fn analyze_codeblock(
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<CodeBlock<TypedAST>> {
+) -> Result<CodeBlock<TypedAST>, SemanticError> {
+    let span = *context.ast_reference.inner().position();
     function_symbol_mapper.enter_scope();
-    let mut typed_statements = Vec::new();
-    let count = context.ast_reference.amount_children();
 
-    for i in 0..count {
-        // Unwrap:
-        // This can never panic as we never reach or exceed the length of child statements
-        let sth = context.ast_reference.get_child(i).unwrap();
-        let child_context = context.with_ast_reference(&sth);
-        let child_position = child_context.ast_reference.inner().position().clone();
-        // Recursively analyze each statement
-        if let Some(stmt) = analyze_statement(&child_context, function_symbol_mapper) {
+    let inner_res = (|| -> Result<CodeBlock<TypedAST>, SemanticError> {
+        let mut typed_statements = Vec::new();
+        let count = context.ast_reference.amount_children();
+
+        for i in 0..count {
+            // Unwrap:
+            // This can never panic as we never reach or exceed the length of child statements
+            let sth = context.ast_reference.get_child(i).unwrap();
+            let child_context = context.with_ast_reference(&sth);
+            let child_position = *child_context.ast_reference.inner().position();
+            // Recursively analyze each statement
+            let stmt = analyze_statement(&child_context, function_symbol_mapper)?;
             typed_statements.push(ASTNode::new(stmt, child_position));
-        } else {
-            let _ = function_symbol_mapper.exit_scope();
-            return None;
         }
-    }
-    let _ = function_symbol_mapper.exit_scope();
-    Some(CodeBlock::new(typed_statements))
+        Ok(CodeBlock::new(typed_statements))
+    })();
+
+    let _ = function_symbol_mapper.exit_scope(span);
+    inner_res
 }
 
 /// Analyzes a break statement.
@@ -594,11 +687,12 @@ fn analyze_codeblock(
 /// * `context` - The syntax context (used to check validity context by traversing parents).
 ///
 /// # Returns
-/// * `Some(Statement::Break)` if inside a loop.
-/// * `None` if used outside a loop.
+/// * `Ok(Statement::Break)` if inside a loop.
+/// * `Err(SemanticError)` if used outside a loop.
 fn analyze_break(
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
-) -> Option<Statement<TypedAST>> {
+    span: source::types::Span,
+) -> Result<Statement<TypedAST>, SemanticError> {
     let to_analyze = &context.ast_reference;
     let mut current_loc_opt = Some(to_analyze.location());
 
@@ -606,39 +700,64 @@ fn analyze_break(
         if let Statement::ControlStructure(crtl) = current_loc.referenced_statement()
             && let ControlStructure::Loop(_) = crtl.as_ref()
         {
-            return Some(Statement::Break);
+            return Ok(Statement::Break);
         }
         current_loc_opt = current_loc.parent_statement();
     }
-    None
+
+    Err(SemanticError::BreakOutsideLoop { span })
 }
 
 fn analyze_struct_field_assignment(
     to_analyze: &StructFieldAssignment<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
-) -> Option<StructFieldAssignment<TypedAST>> {
+) -> Result<StructFieldAssignment<TypedAST>, SemanticError> {
     let struct_source =
         analyze_expression(to_analyze.struct_source(), context, function_symbol_mapper)?;
-    let struct_source = ASTNode::new(struct_source, to_analyze.struct_source().position().clone());
+    let struct_source = ASTNode::new(struct_source, *to_analyze.struct_source().position());
 
     let to_assign_to = if let DataType::Struct(st) = struct_source.data_type() {
         st
     } else {
-        return None;
+        return Err(SemanticError::InvalidUsage {
+            message: "Field assignment target must be a struct".to_string(),
+            span: *to_analyze.struct_source().position(),
+        });
     };
+
     let untyped_symbol = context
         .global_elements
-        .untyped_struct_symbol_from_typed(&to_assign_to)?;
+        .untyped_struct_symbol_from_typed(&to_assign_to)
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Untyped struct symbol missing".to_string(),
+            span: *to_analyze.struct_source().position(),
+        })?;
+
     let fields = context
         .global_elements
-        .get_struct_fields(&untyped_symbol, to_assign_to.type_parameters())?;
+        .get_struct_fields(&untyped_symbol, to_assign_to.type_parameters())
+        .ok_or_else(|| SemanticError::InvalidUsage {
+            message: "Could not retrieve struct fields".to_string(),
+            span: *to_analyze.struct_source().position(),
+        })?;
+
     let field = fields
         .iter()
-        .find(|field| field.name() == to_analyze.struct_field())?
+        .find(|field| field.name() == to_analyze.struct_field())
+        .ok_or_else(|| SemanticError::InvalidUsage {
+            message: format!("Field '{}' not found in struct", to_analyze.struct_field()),
+            span: *to_analyze.struct_source().position(),
+        })?
         .clone();
 
     let value = analyze_expression(to_analyze.value(), context, function_symbol_mapper)?;
-    let value = ASTNode::new(value, to_analyze.struct_source().position().clone());
-    StructFieldAssignment::<TypedAST>::new(struct_source, field, value)
+    let value = ASTNode::new(value, *to_analyze.struct_source().position());
+
+    StructFieldAssignment::<TypedAST>::new(struct_source, field, value).ok_or_else(|| {
+        SemanticError::Internal {
+            message: "Failed to create struct field assignment".to_string(),
+            span: *to_analyze.struct_source().position(),
+        }
+    })
 }

@@ -1,21 +1,28 @@
+use crate::input::ParserInput;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, token_parser, type_parameter_declaration_parser,
     visibility_parser,
 };
 use crate::statement_parser::statement_parser;
-use crate::{PosInfoWrapper, combine_code_areas_succeeding, remove_pos_info_from_vec};
+use crate::{ParserSpan, map_visibility, unspan_vec};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::Function;
-use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
 use chumsky::IterParser;
 use chumsky::Parser;
+use chumsky::error::Rich;
+use chumsky::extra::Full;
+use chumsky::span::{Spanned, WrappingSpan};
 use lexer::TokenType;
 use std::rc::Rc;
 
 /// Parses a single function
-pub(crate) fn function_parser<'src>()
--> impl Parser<'src, &'src [PosInfoWrapper<TokenType>], ASTNode<Function<UntypedAST>>> {
+pub(crate) fn function_parser<'src>() -> impl Parser<
+    'src,
+    ParserInput<'src>,
+    ASTNode<Function<UntypedAST>>,
+    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
+> {
     let statement = statement_parser().boxed();
     let data_type = datatype_parser();
     let ident = identifier_parser();
@@ -23,10 +30,11 @@ pub(crate) fn function_parser<'src>()
         .clone()
         .then(ident.clone())
         .map(|(data_type, name)| {
-            PosInfoWrapper::new(
-                Rc::new(VariableSymbol::new(name.inner, data_type.inner)),
-                combine_code_areas_succeeding(&data_type.pos_info, &name.pos_info),
-            )
+            data_type
+                .span
+                .merge(name.span)
+                .unwrap()
+                .make_wrapped(Rc::new(VariableSymbol::new(name.inner, data_type.inner)))
         });
 
     visibility_parser()
@@ -38,7 +46,7 @@ pub(crate) fn function_parser<'src>()
                     param
                         .clone()
                         .separated_by(token_parser(TokenType::ArgumentSeparator))
-                        .collect::<Vec<PosInfoWrapper<Rc<VariableSymbol<UntypedAST>>>>>()
+                        .collect::<Vec<Spanned<Rc<VariableSymbol<UntypedAST>>, ParserSpan>>>()
                         .delimited_by(
                             token_parser(TokenType::OpenParen),
                             token_parser(TokenType::CloseParen),
@@ -53,23 +61,21 @@ pub(crate) fn function_parser<'src>()
         .then(statement)
         .map(
             |(((visibility, ((name, type_parameters), params)), return_type), implementation)| {
-                let pos = combine_code_areas_succeeding(
-                    visibility
-                        .as_ref()
-                        .map(|vis| vis.pos_info())
-                        .unwrap_or(name.pos_info()),
-                    implementation.position(),
-                );
-                let visibility = visibility
-                    .map(|_| Visibility::Public)
-                    .unwrap_or(Visibility::Private);
+                let pos = visibility
+                    .as_ref()
+                    .map(|vis| vis.span)
+                    .unwrap_or(name.span)
+                    .merge(implementation.position().clone().into())
+                    .unwrap()
+                    .into();
+                let visibility = map_visibility(visibility.as_ref());
                 ASTNode::new(
                     Function::new(
                         Rc::new(FunctionSymbol::new(
                             name.inner,
                             return_type.map(|to_map| to_map.inner),
                             params.into_iter().map(|param| param.inner).collect(),
-                            remove_pos_info_from_vec(type_parameters),
+                            unspan_vec(type_parameters),
                         )),
                         implementation,
                         visibility,

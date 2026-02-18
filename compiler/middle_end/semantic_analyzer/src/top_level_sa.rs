@@ -1,9 +1,10 @@
+use crate::error_sa::SemanticError;
 use crate::statement_sa::analyze_statement;
 use crate::symbol::SyntaxContext;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::composite::{Enum, EnumVariant};
 use ast::statement::{ControlStructure, Statement};
-use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol};
+use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, SymbolWithTypeParameter};
 use ast::top_level::Function;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -19,7 +20,7 @@ use std::rc::Rc;
 /// Requires the function's signature to be present in the global symbol map prior to execution.
 ///
 /// # Panics
-/// *   Panics if function parameters conflict (assumes upstream uniqueness guarantees).
+/// * Panics if function parameters conflict (assumes upstream uniqueness guarantees).
 ///
 /// # Control Flow Analysis
 /// Checks if the function always returns a value (if a return type is declared) using `always_return`.
@@ -29,34 +30,47 @@ use std::rc::Rc;
 /// * `context` - The syntax context containing the function traversal helper for the body.
 ///
 /// # Returns
-/// * `Some(Function<TypedAST>)` if the body is semantically correct.
-/// * `None` if analysis fails (e.g., type or scope errors, or symbol missing in global map).
+/// * `Ok(Function<TypedAST>)` if the body is semantically correct.
+/// * `Err(SemanticError)` if analysis fails (e.g., type or scope errors, missing return statement).
 pub(crate) fn analyze_function(
     symbol: Rc<FunctionSymbol<TypedAST>>,
     context: &SyntaxContext<&FunctionTraversalHelper<UntypedAST>>,
-) -> Option<ASTNode<Function<TypedAST>>> {
+) -> Result<ASTNode<Function<TypedAST>>, SemanticError> {
     let mut func_mapper = FunctionSymbolMapper::new();
     func_mapper.set_current_function_return_type(symbol.return_type().cloned());
 
     for param_symbol in symbol.params().iter() {
-        func_mapper.add_variable(param_symbol.clone()).ok()?;
+        func_mapper
+            .add_variable(
+                param_symbol.clone(),
+                *context.ast_reference.inner().position(),
+            )
+            .map_err(|_| SemanticError::AlreadyDeclared {
+                name: param_symbol.name().to_string(),
+                kind: "Parameter".to_string(),
+                span: *context.ast_reference.inner().position(),
+            })?;
     }
 
     let sth = StatementTraversalHelper::new_root(context.ast_reference);
     let new_context = context.with_ast_reference(&sth);
+
     let typed_implementation_statement = analyze_statement(&new_context, &mut func_mapper)?;
 
     if symbol.return_type().is_some() && !always_return(&typed_implementation_statement) {
-        // We have to return a value but don't
-        return None;
+        return Err(SemanticError::MissingReturn {
+            func_name: symbol.name().to_string(),
+            span: *context.ast_reference.inner().implementation().position(),
+        });
     }
+
     let to_analyze = &context.ast_reference;
-    let code_area = to_analyze.inner().implementation().position().clone();
+    let code_area = *to_analyze.inner().implementation().position();
     let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
 
-    Some(ASTNode::new(
+    Ok(ASTNode::new(
         Function::new(symbol, implementation_node, to_analyze.inner().visibility()),
-        to_analyze.inner().position().clone(),
+        *to_analyze.inner().position(),
     ))
 }
 
@@ -72,13 +86,11 @@ pub(crate) fn analyze_enum(
             variants
                 .into_iter()
                 .zip(untyped_enum.variants().iter())
-                .map(|(typed, untyped)| {
-                    ASTNode::new(EnumVariant::new(typed), untyped.position().clone())
-                })
+                .map(|(typed, untyped)| ASTNode::new(EnumVariant::new(typed), *untyped.position()))
                 .collect(),
             untyped_enum.visibility(),
         ),
-        untyped_enum.position().clone(),
+        *untyped_enum.position(),
     )
 }
 
@@ -96,8 +108,8 @@ pub(crate) fn analyze_enum(
 /// resolved and not added.
 ///
 /// # Limitations
-/// *   **Loops**: Infinite loops (`loop { ... }` or `while (true) { ... }`) are **not** considered to "return", even though they diverge.
-/// *   **Code Blocks**: Only the **last** statement in a code block is checked. If an early return exists but is not the last statement (e.g., followed by unreachable code), it might not be detected.
+/// * **Loops**: Infinite loops (`loop { ... }` or `while (true) { ... }`) are **not** considered to "return", even though they diverge.
+/// * **Code Blocks**: Only the **last** statement in a code block is checked. If an early return exists but is not the last statement (e.g., followed by unreachable code), it might not be detected.
 fn always_return(to_check: &Statement<TypedAST>) -> bool {
     match to_check {
         Statement::Return(_) => true,
