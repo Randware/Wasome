@@ -101,10 +101,9 @@ impl TokenFormatter {
             return;
         }
         let Some(prev_token) = prev else { return };
-        if !matches!(
-            prev_token.kind,
-            TokenType::CloseScope | TokenType::StatementSeparator | TokenType::Semicolon
-        ) {
+        // Only skip blank line if the previous token is a modifier (e.g. `pub`) or a comment (doc comment).
+        // Otherwise, we enforce separation to handle missing newlines (e.g. chaos test).
+        if matches!(prev_token.kind, TokenType::Public | TokenType::Comment(_)) {
             return;
         }
         if self.output.is_empty() || self.output.ends_with("\n\n") {
