@@ -49,6 +49,7 @@ fn space_before_after(token: &TokenType) -> bool {
             | TokenType::And
             | TokenType::Assign
             | TokenType::Return
+            | TokenType::As
     )
 }
 
@@ -62,7 +63,6 @@ fn space_after(token: &TokenType) -> bool {
             | TokenType::Loop
             | TokenType::Struct
             | TokenType::Enum
-            | TokenType::As
             | TokenType::Public
             | TokenType::New
             | TokenType::Import

@@ -42,6 +42,9 @@ struct TopLevelParser {
     current_category: ItemCategory,
     brace_depth: usize,
     in_item: bool,
+    /// Set when a closing brace completes an item, but we defer finishing
+    /// so a trailing `;` can be grouped with the same item.
+    pending_finish: bool,
 }
 
 impl TopLevelParser {
@@ -52,6 +55,7 @@ impl TopLevelParser {
             current_category: ItemCategory::Other,
             brace_depth: 0,
             in_item: false,
+            pending_finish: false,
         }
     }
 
@@ -64,7 +68,15 @@ impl TopLevelParser {
             });
         }
         self.in_item = false;
+        self.pending_finish = false;
         self.current_category = ItemCategory::Other;
+    }
+
+    /// If a finish is pending, flush now before starting something new.
+    fn flush_pending(&mut self) {
+        if self.pending_finish {
+            self.finish_current_item();
+        }
     }
 
     /// Begins a new top-level item, flushing any buffered tokens first.
@@ -85,6 +97,7 @@ impl TopLevelParser {
     }
 
     fn handle_keyword(&mut self, token: Token) {
+        self.flush_pending();
         if !self.in_item && self.brace_depth == 0 {
             self.start_new_item(categorize_keyword(&token.kind));
         } else {
@@ -94,16 +107,15 @@ impl TopLevelParser {
     }
 
     fn handle_public(&mut self, token: Token) {
+        self.flush_pending();
         if !self.in_item && self.brace_depth == 0 {
-            // Category is unknown until we see the next keyword
-            // Example: For `pub struct Point { ... }`, at first this turns into `Other`,
-            // by iterating to the next token the actual Item is discovered
             self.start_new_item(ItemCategory::Other);
         }
         self.current_tokens.push(token);
     }
 
     fn handle_open_scope(&mut self, token: Token) {
+        self.flush_pending();
         self.brace_depth += 1;
         self.current_tokens.push(token);
     }
@@ -112,11 +124,24 @@ impl TopLevelParser {
         self.brace_depth = self.brace_depth.saturating_sub(1);
         self.current_tokens.push(token);
         if self.brace_depth == 0 && self.in_item {
+            // Defer finishing so a trailing `;` stays with this item
+            self.pending_finish = true;
+        }
+    }
+
+    fn handle_semicolon(&mut self, token: Token) {
+        self.current_tokens.push(token);
+        // If we were waiting to finish after `}`, now finish with the `;` included
+        if self.pending_finish {
             self.finish_current_item();
         }
     }
 
     fn handle_other(&mut self, token: Token) {
+        // Statement separators are allowed between `}` and `;`
+        if self.pending_finish && !matches!(token.kind, TokenType::StatementSeparator) {
+            self.finish_current_item();
+        }
         self.try_update_category(&token.kind);
         self.current_tokens.push(token);
     }
@@ -134,6 +159,7 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
             TokenType::Public => parser.handle_public(token),
             TokenType::OpenScope => parser.handle_open_scope(token),
             TokenType::CloseScope => parser.handle_close_scope(token),
+            TokenType::Semicolon => parser.handle_semicolon(token),
             _ => parser.handle_other(token),
         }
     }

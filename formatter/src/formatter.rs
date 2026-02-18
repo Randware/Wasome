@@ -66,7 +66,7 @@ impl TokenFormatter {
             let just_indented = self.write_indentation();
             self.write_spacing(just_indented, prev, &token.kind);
             self.write_token(&token.kind);
-            self.handle_post_token(&token.kind, next);
+            self.handle_post_token(&token.kind, prev, next);
         }
 
         self.ensure_trailing_newline();
@@ -103,7 +103,7 @@ impl TokenFormatter {
         let Some(prev_token) = prev else { return };
         if !matches!(
             prev_token.kind,
-            TokenType::CloseScope | TokenType::StatementSeparator
+            TokenType::CloseScope | TokenType::StatementSeparator | TokenType::Semicolon
         ) {
             return;
         }
@@ -149,7 +149,12 @@ impl TokenFormatter {
     }
 
     /// Newlines and indent changes after a token.
-    fn handle_post_token(&mut self, kind: &TokenType, next: Option<&Token>) {
+    fn handle_post_token(
+        &mut self,
+        kind: &TokenType,
+        prev: Option<&Token>,
+        next: Option<&Token>,
+    ) {
         match kind {
             TokenType::OpenScope => {
                 self.indent.increase();
@@ -157,9 +162,15 @@ impl TokenFormatter {
             }
             TokenType::CloseScope => {
                 match next.map(|t| &t.kind) {
-                    // Don't add newline if followed by else - they stay on same line: } else
-                    Some(TokenType::Else) => {}
+                    Some(TokenType::Else) | Some(TokenType::Semicolon) => {}
                     _ => self.push_newline(),
+                }
+            }
+            TokenType::Semicolon => {
+                if let Some(p) = prev {
+                    if matches!(p.kind, TokenType::CloseScope) {
+                        self.push_newline();
+                    }
                 }
             }
             TokenType::Comment(_) => {
