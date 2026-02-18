@@ -1,8 +1,9 @@
 <script>
-  import { highlight } from '../lib/highlighter';
+  import { highlight } from "../lib/highlighter";
 
-  export let code = '';
+  export let code = "";
   export let readonly = false;
+  export let lang = "wasome";
 
   let area;
   let pre;
@@ -15,12 +16,12 @@
   }
 
   function handleKeydown(e) {
-    if (e.key === 'Tab') {
+    if (e.key === "Tab") {
       e.preventDefault();
       const start = area.selectionStart;
       const end = area.selectionEnd;
       const value = area.value;
-      area.value = value.substring(0, start) + '    ' + value.substring(end);
+      area.value = value.substring(0, start) + "    " + value.substring(end);
       area.selectionStart = area.selectionEnd = start + 4;
       code = area.value;
     }
@@ -29,8 +30,9 @@
 
 <div class="code-editor-container">
   <!-- The syntax highlighted layer -->
-  <pre aria-hidden="true" bind:this={pre}>{@html highlight(code)}<br/></pre>
-  
+  <pre aria-hidden="true" bind:this={pre}>{@html highlight(code, lang)}<br
+    /></pre>
+
   <!-- The interactive inputs layer -->
   <textarea
     bind:this={area}
@@ -49,12 +51,13 @@
     position: relative;
     width: 100%;
     height: 100%;
-    background-color: #0A0A0A;
-    overflow: hidden;
+    background-color: #0a0a0a;
+    overflow: auto;
     border-radius: 0 0 8px 8px; /* Bottom rounded only */
   }
 
-  textarea, pre {
+  textarea,
+  pre {
     position: absolute;
     top: 0;
     left: 0;
@@ -63,13 +66,13 @@
     margin: 0;
     padding: 1.5rem;
     border: none;
-    
+
     /* Font Sync Critical */
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
     font-size: 14px;
     line-height: 1.5;
     letter-spacing: normal;
-    
+
     white-space: pre;
     overflow: auto;
     box-sizing: border-box;
@@ -87,7 +90,7 @@
     z-index: 2;
     color: transparent;
     background: transparent;
-    caret-color: #FACC15;
+    caret-color: #facc15;
     resize: none;
     outline: none;
   }

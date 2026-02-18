@@ -1,26 +1,27 @@
 <script>
-  import { steps } from '../lib/tutorial';
-  import Mascot from '../components/Mascot.svelte';
-  import Typewriter from '../components/Typewriter.svelte';
-  import CodeEditor from '../components/CodeEditor.svelte';
-  
-  let currentStepIndex = 0;
-  let code = steps[0].code;
-  let output = 'Waiting to run...';
-  let isTalking = false;
-  let isRunning = false;
-  
-  // Sync code when step changes
-  $: currentStep = steps[currentStepIndex];
-  $: {
+  import { steps } from "../lib/tutorial";
+  import Mascot from "../components/Mascot.svelte";
+  import Typewriter from "../components/Typewriter.svelte";
+  import CodeEditor from "../components/CodeEditor.svelte";
+  import { Play } from "lucide-svelte";
+
+  let currentStepIndex = $state(0);
+  let code = $state(steps[0].code);
+  let output = $state("Waiting to run...");
+  let isTalking = $state(false);
+  let isRunning = $state(false);
+
+  let currentStep = $derived(steps[currentStepIndex]);
+
+  $effect(() => {
     code = currentStep.code;
-    output = 'Waiting to run...';
-  }
+    output = "Waiting to run...";
+  });
 
   function handleTyping(typing) {
     isTalking = typing;
   }
-  
+
   function nextStep() {
     if (currentStepIndex < steps.length - 1) {
       currentStepIndex++;
@@ -35,47 +36,59 @@
 
   async function runCode() {
     isRunning = true;
-    output = 'Compiling...';
+    output = "Compiling...";
     setTimeout(() => {
       isRunning = false;
-      output = 'Error: Wasome Compiler Backend is offline.\n(This is a placeholder for the tour)';
+      output =
+        "Error: Wasome Compiler Backend is offline.\n(This is a placeholder for the tour)";
     }, 1000);
   }
 </script>
 
-<div class="walkthrough-container">
-  <!-- Left Side: Guide -->
+<div class="walkthrough-container page-animate">
   <aside class="guide-panel">
     <div class="mascot-area">
       <Mascot talking={isTalking} />
     </div>
-    
+
     <div class="content-area">
       <h3>{currentStep.title}</h3>
       <Typewriter text={currentStep.content} onTyping={handleTyping} />
     </div>
 
     <div class="controls">
-      <button class="nav-btn" on:click={prevStep} disabled={currentStepIndex === 0}>
+      <button
+        class="nav-btn"
+        onclick={prevStep}
+        disabled={currentStepIndex === 0}
+      >
         &larr; Back
       </button>
-      <span class="step-indicator">{currentStepIndex + 1} / {steps.length}</span>
-      <button class="nav-btn primary" on:click={nextStep} disabled={currentStepIndex === steps.length - 1}>
+      <span class="step-indicator">{currentStepIndex + 1} / {steps.length}</span
+      >
+      <button
+        class="nav-btn primary"
+        onclick={nextStep}
+        disabled={currentStepIndex === steps.length - 1}
+      >
         Next &rarr;
       </button>
     </div>
   </aside>
 
-  <!-- Right Side: Editor -->
   <main class="editor-panel">
     <div class="editor-header">
       <div class="filename">tour.waso</div>
-      <button class="run-btn" on:click={runCode} disabled={isRunning}>
-        {#if isRunning}Running...{:else}▶ Run Code{/if}
+      <button class="run-btn" onclick={runCode} disabled={isRunning}>
+        {#if isRunning}
+          <span class="spinner"></span> Running...
+        {:else}
+          <Play size={14} /> Run Code
+        {/if}
       </button>
     </div>
     <div class="editor-body">
-      <CodeEditor bind:code={code} />
+      <CodeEditor bind:code />
     </div>
     <div class="output-panel">
       <div class="output-header">Output</div>
@@ -91,10 +104,9 @@
     background: #000;
   }
 
-  /* Guide Panel */
   .guide-panel {
     width: 400px;
-    background: #0A0A0A;
+    background: #0a0a0a;
     border-right: 1px solid var(--border-light);
     display: flex;
     flex-direction: column;
@@ -121,7 +133,7 @@
     font-size: 1.5rem;
   }
 
-  p {
+  .content-area :global(p) {
     color: var(--text-secondary);
     line-height: 1.7;
     white-space: pre-line;
@@ -171,18 +183,17 @@
     cursor: not-allowed;
   }
 
-  /* Editor Panel */
   .editor-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
     background: #050505;
-    overflow: hidden; /* Ensure it respects container bounds */
+    overflow: hidden;
   }
 
   .editor-header {
     height: 50px;
-    flex-shrink: 0; /* Prevent shrinking */
+    flex-shrink: 0;
     background: #111;
     border-bottom: 1px solid var(--border-light);
     display: flex;
@@ -195,36 +206,64 @@
     color: var(--text-muted);
     font-family: var(--font-mono);
     font-size: 0.9rem;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--primary);
   }
 
   .run-btn {
-    background: #222;
-    color: #fff;
-    border: 1px solid #333;
-    padding: 0.3rem 1rem;
+    background: var(--primary);
+    color: #000;
+    border: none;
+    padding: 0.4rem 1.2rem;
     border-radius: 4px;
     font-size: 0.9rem;
+    font-weight: 600;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .run-btn:hover:not(:disabled) {
+    background: var(--primary-dim);
+    box-shadow: 0 0 12px rgba(250, 204, 21, 0.2);
+  }
+
+  .run-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
     background: #333;
-    border-color: #444;
+    color: #888;
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .editor-body {
     flex: 2;
     position: relative;
-    min-height: 0; /* Important for flex child with overflow */
+    min-height: 0;
   }
 
   .output-panel {
     flex: 1;
     border-top: 1px solid var(--border-light);
-    background: #0A0A0A;
+    background: #0a0a0a;
     display: flex;
     flex-direction: column;
-    min-height: 0; /* Important for flex child with overflow */
+    min-height: 0;
   }
 
   .output-header {
@@ -264,12 +303,17 @@
     }
 
     .mascot-area {
-      height: 150px;
+      height: 120px;
       margin-bottom: 1rem;
     }
-    
+
+    .mascot-area :global(.mascot-container) {
+      width: 160px;
+      height: 160px;
+    }
+
     .content-area {
-        min-height: 150px; /* Prevent layout shift when text is empty */
+      min-height: 150px;
     }
 
     .editor-panel {
@@ -279,14 +323,14 @@
     }
 
     .editor-body {
-      height: 400px; /* Fixed height for editor on mobile */
-      min-height: 400px; /* Force minimum */
+      height: 400px;
+      min-height: 400px;
       flex: none;
     }
 
     .output-panel {
-      height: 200px; /* Fixed height for output */
-      min-height: 200px; /* Force minimum */
+      height: 200px;
+      min-height: 200px;
       flex: none;
     }
   }

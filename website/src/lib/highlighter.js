@@ -1,7 +1,7 @@
 const grammars = {
   wasome: {
-    comments: [ /(\/\/.*$)/gm ],
-    strings: [ /("[^"]*")/g ],
+    comments: [/(\/{2}.*$)/gm],
+    strings: [/("[^"]*")/g],
     tokens: [
       { regex: /\b(fn|struct|enum|if|else|loop|break|return|import|new|true|false)\b/g, class: 'hl-keyword' },
       { regex: /\b(s8|s16|s32|s64|u8|u16|u32|u64|f32|f64|bool|char|void)\b/g, class: 'hl-type' },
@@ -10,8 +10,8 @@ const grammars = {
     ]
   },
   bash: {
-    comments: [ /(#.*$)/gm ],
-    strings: [ /("[^"]*")/g, /('[^']*')/g ],
+    comments: [/(#.*$)/gm],
+    strings: [/("[^"]*")/g, /('[^']*')/g],
     tokens: [
       { regex: /\b(curl|sh|sudo|apt|git|npm|node|echo|cd|ls|mkdir|rm)\b/g, class: 'hl-keyword' },
       { regex: /(https?:\/\/[^\s]+)/g, class: 'hl-string' },
@@ -21,21 +21,55 @@ const grammars = {
     ]
   },
   powershell: {
-    comments: [ /(#.*$)/gm ],
-    strings: [ /("[^"]*")/g, /('[^']*')/g ],
+    comments: [/(#.*$)/gm],
+    strings: [/("[^"]*")/g, /('[^']*')/g],
     tokens: [
       { regex: /\b(iwr|iex|Invoke-WebRequest|Invoke-Expression|Write-Host|Get-Command)\b/gi, class: 'hl-keyword' },
       { regex: /(https?:\/\/[^\s]+)/g, class: 'hl-string' },
       { regex: /(\|)/g, class: 'hl-keyword' },
       { regex: /(-[a-zA-Z]+)\b/g, class: 'hl-type' }
     ]
+  },
+  toml: {
+    comments: [/(#.*$)/gm],
+    strings: [/("""[\s\S]*?""")/g, /("(?:[^"\\]|\\.)*")/g, /('(?:[^'\\]|\\.)*')/g],
+    tokens: [
+      { regex: /(\[[\w.\-]+\])/g, class: 'hl-keyword' },
+      { regex: /\b(true|false)\b/g, class: 'hl-keyword' },
+      { regex: /^(\s*[\w.\-]+)\s*(?==)/gm, class: 'hl-type' },
+      { regex: /\b(\d+(\.\d+)?)\b/g, class: 'hl-number' }
+    ]
+  },
+  json: {
+    comments: [],
+    strings: [/("(?:[^"\\]|\\.)*")\s*(?=:)/g, /:\s*("(?:[^"\\]|\\.)*")/g],
+    tokens: [
+      { regex: /\b(true|false|null)\b/g, class: 'hl-keyword' },
+      { regex: /\b(-?\d+(\.\d+)?([eE][+-]?\d+)?)\b/g, class: 'hl-number' }
+    ]
   }
 };
+
+const extMap = {
+  '.waso': 'wasome',
+  '.toml': 'toml',
+  '.json': 'json',
+  '.sh': 'bash',
+  '.ps1': 'powershell',
+  '.md': 'wasome',
+  '.txt': 'wasome'
+};
+
+export function detectLang(filename) {
+  if (!filename) return 'wasome';
+  const dot = filename.lastIndexOf('.');
+  if (dot === -1) return 'wasome';
+  return extMap[filename.substring(dot)] || 'wasome';
+}
 
 export function highlight(code, lang = 'wasome') {
   if (!code) return '';
 
-  // Escape HTML to prevent injection and rendering issues
   let result = code
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -45,35 +79,31 @@ export function highlight(code, lang = 'wasome') {
 
   let tokens = [];
   let tokenIndex = 0;
-  
+
   const save = (match, cls) => {
     const key = `__TOKEN_${tokenIndex++}__`;
     tokens.push({ key, val: `<span class="${cls}">${match}</span>` });
     return key;
   };
 
-  // 1. Comments
   if (grammar.comments) {
     grammar.comments.forEach(regex => {
       result = result.replace(regex, m => save(m, 'hl-comment'));
     });
   }
-  
-  // 2. Strings
+
   if (grammar.strings) {
     grammar.strings.forEach(regex => {
       result = result.replace(regex, m => save(m, 'hl-string'));
     });
   }
 
-  // 3. Tokens (Keywords, Types, etc.)
   if (grammar.tokens) {
     grammar.tokens.forEach(token => {
       result = result.replace(token.regex, m => save(m, token.class));
     });
   }
 
-  // Restore
   tokens.forEach(t => {
     result = result.replace(t.key, t.val);
   });

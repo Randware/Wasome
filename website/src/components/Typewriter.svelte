@@ -27,7 +27,7 @@
         clearInterval(interval);
         onTyping(false);
       }
-    }, 30); // Speed
+    }, 18);
   }
   
   onDestroy(() => {

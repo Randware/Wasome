@@ -14,6 +14,7 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "lucide-svelte": "^0.574.0",
     "playwright": "^1.58.0"
   }
 }

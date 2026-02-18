@@ -1,14 +1,14 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy } from "svelte";
 
   let canvas;
   let ctx;
   let animationId;
   let width, height;
 
-  const COLOR_BG = '#050505';
-  const COLOR_STAR = '255, 255, 255';
-  const COLOR_PRIMARY = '250, 204, 21'; // Wasome Yellow (rgb 250, 204, 21)
+  const COLOR_BG = "#050505";
+  const COLOR_STAR = "255, 255, 255";
+  const COLOR_PRIMARY = "250, 204, 21"; // Wasome Yellow (rgb 250, 204, 21)
 
   // Configuration
   const STAR_COUNT = 80;
@@ -54,8 +54,8 @@
     draw(ctx) {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      ctx.fillStyle = this.isSpecial 
-        ? `rgba(${COLOR_PRIMARY}, 0.8)` 
+      ctx.fillStyle = this.isSpecial
+        ? `rgba(${COLOR_PRIMARY}, 0.8)`
         : `rgba(${COLOR_STAR}, 0.6)`;
       ctx.fill();
     }
@@ -91,15 +91,15 @@
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < CONNECT_DIST) {
-          const opacity = 1 - (dist / CONNECT_DIST);
+          const opacity = 1 - dist / CONNECT_DIST;
           ctx.beginPath();
           // If either star is special, line is slightly yellow
           if (starA.isSpecial || starB.isSpecial) {
-             ctx.strokeStyle = `rgba(${COLOR_PRIMARY}, ${opacity * 0.3})`;
-             ctx.lineWidth = 1;
+            ctx.strokeStyle = `rgba(${COLOR_PRIMARY}, ${opacity * 0.3})`;
+            ctx.lineWidth = 1;
           } else {
-             ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.15})`;
-             ctx.lineWidth = 0.5;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.15})`;
+            ctx.lineWidth = 0.5;
           }
           ctx.moveTo(starA.x, starA.y);
           ctx.lineTo(starB.x, starB.y);
@@ -109,7 +109,7 @@
     }
 
     // Draw Stars on top
-    stars.forEach(star => {
+    stars.forEach((star) => {
       star.update();
       star.draw(ctx);
     });
@@ -126,25 +126,25 @@
   }
 
   onMount(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       width = window.innerWidth;
       height = window.innerHeight;
       if (canvas) {
         canvas.width = width;
         canvas.height = height;
-        ctx = canvas.getContext('2d');
+        ctx = canvas.getContext("2d");
         initStars();
         loop();
       }
-      window.addEventListener('resize', resize);
-      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener("resize", resize);
+      window.addEventListener("mousemove", handleMouseMove);
     }
   });
 
   onDestroy(() => {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('resize', resize);
-      window.removeEventListener('mousemove', handleMouseMove);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", handleMouseMove);
       cancelAnimationFrame(animationId);
     }
   });
@@ -161,7 +161,8 @@
     inset: 0;
     z-index: -1;
     overflow: hidden;
-    background: #050505; 
+    background: #050505;
+    will-change: transform;
   }
 
   canvas {
@@ -175,7 +176,7 @@
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 200px; 
+    height: 200px;
     background: linear-gradient(to bottom, transparent, #050505);
     pointer-events: none;
   }
