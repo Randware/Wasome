@@ -212,8 +212,8 @@ fn main() -> s32 {
     <div class="animate-on-scroll" style="animation-delay: 0.15s">
       <h3><Wrench size={24} color="var(--primary)" /> Tooling that Works</h3>
       <p>
-        Built-in formatter, linter, and package manager. The Wasome ecosystem is
-        designed to get you up and running in seconds.
+        Built-in formatter, syntax checker, and package manager. The Wasome
+        ecosystem is designed to get you up and running in seconds.
       </p>
     </div>
     <div class="animate-on-scroll" style="animation-delay: 0.2s">
