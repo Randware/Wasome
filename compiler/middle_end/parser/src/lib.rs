@@ -260,7 +260,7 @@ fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
                     RichPattern::Token(tok) => tok.token_to_printable_string().to_string(),
                     RichPattern::EndOfInput => "end of input".to_string(),
                     // Future improvement: Use custom for all other errors
-                    RichPattern::SomethingElse => "something else".to_string(),
+                    RichPattern::SomethingElse | RichPattern::Any => "something else".to_string(),
                     _ => unreachable!("This should never happen"),
                 })
                 .collect::<Vec<_>>()
