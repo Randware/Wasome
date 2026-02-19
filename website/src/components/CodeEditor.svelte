@@ -47,22 +47,19 @@
 
 <style>
   .code-editor-container {
-    display: block; /* Ensure it takes space */
-    position: relative;
+    display: grid;
     width: 100%;
     height: 100%;
+    min-height: 200px;
     background-color: #0a0a0a;
     overflow: auto;
-    border-radius: 0 0 8px 8px; /* Bottom rounded only */
+    border-radius: 0 0 8px 8px;
+    -webkit-overflow-scrolling: touch;
   }
 
   textarea,
   pre {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    grid-area: 1 / 1 / 2 / 2;
     margin: 0;
     padding: 1.5rem;
     border: none;
@@ -78,11 +75,12 @@
     box-sizing: border-box;
     text-align: left;
     tab-size: 4;
+    min-height: 100%;
   }
 
   pre {
     z-index: 1;
-    color: #e4e4e7; /* Default text color for non-highlighted tokens */
+    color: #e4e4e7;
     pointer-events: none;
   }
 
@@ -98,5 +96,13 @@
   textarea::selection {
     background: rgba(250, 204, 21, 0.2);
     color: transparent;
+  }
+
+  /* Prevent iOS auto-zoom on focus */
+  @media (max-width: 768px) {
+    textarea,
+    pre {
+      font-size: 16px;
+    }
   }
 </style>

@@ -2,13 +2,13 @@
   import { onMount } from "svelte";
   import { highlight, detectLang } from "../lib/highlighter";
   import { fallbackExamples, fallbackTree } from "../data/examples";
-  import { Folder, FolderOpen } from "lucide-svelte";
+  import { Folder, FolderOpen, AlertTriangle } from "lucide-svelte";
 
   const API_BASE = "https://api.github.com/repos/Randware/Wasome/contents/";
   const RAW_BASE = "https://raw.githubusercontent.com/Randware/Wasome/main/";
   const DIR_CACHE_KEY = "wasome_dir_cache";
   const FILE_CACHE_KEY = "wasome_file_cache";
-  const CACHE_DURATION = 24 * 60 * 60 * 1000;
+  const CACHE_DURATION = 12 * 60 * 60 * 1000;
 
   let tree = $state(structuredClone(fallbackTree));
   let openTabs = $state([]);
@@ -58,6 +58,10 @@
 
     try {
       const res = await fetch(API_BASE + path);
+      if (res.status === 403 || res.status === 429) {
+        rateLimited = true;
+        return null;
+      }
       if (!res.ok) throw new Error("API error");
       const items = await res.json();
       const mapped = items.map((i) => ({
@@ -102,6 +106,10 @@
     try {
       const url = downloadUrl || RAW_BASE + path;
       const res = await fetch(url);
+      if (res.status === 403 || res.status === 429) {
+        rateLimited = true;
+        return "// GitHub API rate limit reached. Try again later or view cached examples.";
+      }
       if (!res.ok) throw new Error("Fetch error");
       const text = await res.text();
       fileCache[path] = text;
@@ -264,9 +272,13 @@
       >.
     </p>
     {#if rateLimited}
-      <p class="rate-limit-note">
-        Some folders may be unavailable — GitHub API rate limit reached.
-      </p>
+      <div class="rate-limit-banner">
+        <AlertTriangle size={16} />
+        <span
+          >GitHub API rate limit reached — cached content is still available.
+          Limits reset hourly.</span
+        >
+      </div>
     {/if}
   </div>
 
@@ -329,7 +341,15 @@
                     class="empty-folder-hint"
                     style="padding-left: {12 + (depth + 1) * 16}px"
                   >
-                    Empty folder
+                    {#if rateLimited}
+                      <AlertTriangle
+                        size={12}
+                        color="rgba(250, 204, 21, 0.7)"
+                      />
+                      <span>Rate limited</span>
+                    {:else}
+                      Empty folder
+                    {/if}
                   </div>
                 {:else}
                   {#each sortItems(item.children) as child}
@@ -508,10 +528,17 @@
     font-size: 1.2rem;
   }
 
-  .rate-limit-note {
-    font-size: 0.85rem !important;
-    color: rgba(250, 204, 21, 0.7) !important;
-    margin-top: 0.5rem;
+  .rate-limit-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(250, 204, 21, 0.08);
+    border: 1px solid rgba(250, 204, 21, 0.2);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: rgba(250, 204, 21, 0.85);
   }
 
   .ide-container {
@@ -561,6 +588,9 @@
     font-style: italic;
     color: var(--text-secondary);
     opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
 
   .tree-item {

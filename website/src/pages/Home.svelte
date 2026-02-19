@@ -201,12 +201,12 @@ fn main() -> s32 {
     </div>
     <div class="animate-on-scroll" style="animation-delay: 0.1s">
       <h3>
-        <Database size={24} color="var(--primary)" /> Zero Garbage Collection
+        <Database size={24} color="var(--primary)" /> Reference Counted Memory
       </h3>
       <p>
-        Manage memory manually or use linear memory patterns. Wasome gives you
-        control without the complexity of C++. Perfect for games, audio
-        processing, and high-performance visualizations.
+        Memory is reference counted. Objects get freed when nothing points to
+        them anymore. No GC pauses, no tracing, no surprises. Cleanup is
+        deterministic, so you always know when resources are released.
       </p>
     </div>
     <div class="animate-on-scroll" style="animation-delay: 0.15s">

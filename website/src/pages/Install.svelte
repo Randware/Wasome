@@ -3,6 +3,7 @@
   import { fade, slide } from "svelte/transition";
   import { highlight } from "../lib/highlighter";
   import { navigate } from "../lib/router";
+  import { Rocket, BookOpen, Sparkles } from "lucide-svelte";
 
   let os = "unknown";
   let installCommand = "";
@@ -143,12 +144,12 @@
 
     <div class="next-steps-grid">
       <div class="step-card">
-        <h3>🚀 Next Steps</h3>
+        <h3><Rocket size={18} color="var(--primary)" /> Next Steps</h3>
         <p>Once installed, verify the installation by running:</p>
         <div class="mini-code">wasome --version</div>
       </div>
       <div class="step-card">
-        <h3>📚 Documentation</h3>
+        <h3><BookOpen size={18} color="var(--primary)" /> Documentation</h3>
         <p>
           Ready to build? Check out the <a
             href="/docs"
@@ -161,7 +162,7 @@
         </p>
       </div>
       <div class="step-card">
-        <h3>🌟 Take the Tour</h3>
+        <h3><Sparkles size={18} color="var(--primary)" /> Take the Tour</h3>
         <p>
           New to Wasome? Our interactive <a
             href="/walkthrough"
@@ -286,6 +287,11 @@
     display: flex;
     align-items: center;
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .command-box::-webkit-scrollbar {
+    display: none;
   }
 
   code {
