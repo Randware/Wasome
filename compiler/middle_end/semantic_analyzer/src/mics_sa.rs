@@ -1,0 +1,415 @@
+use crate::error_sa::SemanticError;
+use crate::expression_sa::analyze_expression;
+use crate::symbol::SyntaxContext;
+use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
+use crate::symbol_by_name;
+use ast::data_type::{DataType, Typed, UntypedDataType};
+use ast::expression::{Expression, FunctionCall, MethodCall};
+use ast::symbol::{
+    DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter,
+};
+use ast::traversal::HasSymbols;
+use ast::traversal::statement_traversal::StatementTraversalHelper;
+use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
+use ast::{ASTNode, TypedAST, UntypedAST};
+use std::rc::Rc;
+
+/// A helper function that resolves the type names into the right types.
+///
+/// # Resolution Order
+/// 1.  **Primitives**: Checks if the name matches a primitive type (e.g., `s32`, `bool`).
+/// 2.  **Type Parameters**: Checks if the name matches a generic type parameter in the current context.
+/// 3.  **Structs**: Checks if the name corresponds to a known struct.
+/// 4.  **Enums**: Checks if the name corresponds to a known enum.
+///
+/// # Parameters
+/// * `to_analyze` - The untyped data type to analyze (`&UntypedDataType`).
+/// * `context` - The syntax context containing available symbols and type parameters.
+///
+/// # Returns
+/// * `Ok(DataType)` if the string matches a known type.
+/// * `Err(SemanticError)` otherwise.
+pub(crate) fn analyze_data_type<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
+    to_analyze: &UntypedDataType,
+    context: &SyntaxContext<&T>,
+    span: source::types::Span,
+) -> Result<DataType, SemanticError> {
+    let resolved_type = analyze_primitive_data_type(to_analyze, span)
+        .ok()
+        .or_else(|| {
+            analyze_type_parameter(to_analyze.name(), context, span)
+                .ok()
+                .map(|tp| tp.data_type().clone())
+        })
+        .or_else(|| {
+            analyze_struct_usage(
+                to_analyze.name(),
+                to_analyze.type_parameters(),
+                context,
+                span,
+            )
+            .ok()
+            .map(DataType::Struct)
+        })
+        .or_else(|| {
+            analyze_enum_usage(
+                to_analyze.name(),
+                to_analyze.type_parameters(),
+                context,
+                span,
+            )
+            .ok()
+            .map(DataType::Enum)
+        });
+
+    resolved_type.ok_or_else(|| SemanticError::UnknownType {
+        name: to_analyze.name().to_string(),
+        span,
+    })
+}
+
+fn analyze_primitive_data_type(
+    to_analyze: &UntypedDataType,
+    span: source::types::Span,
+) -> Result<DataType, SemanticError> {
+    if !to_analyze.type_parameters().is_empty() {
+        return Err(SemanticError::InvalidUsage {
+            message: "Primitives cannot have type parameters".to_string(),
+            span,
+        });
+    }
+    match to_analyze.name() {
+        "char" => Ok(DataType::Char),
+        "u8" => Ok(DataType::U8),
+        "s8" => Ok(DataType::S8),
+        "u16" => Ok(DataType::U16),
+        "s16" => Ok(DataType::S16),
+        "u32" => Ok(DataType::U32),
+        "s32" => Ok(DataType::S32),
+        "u64" => Ok(DataType::U64),
+        "s64" => Ok(DataType::S64),
+        "bool" => Ok(DataType::Bool),
+        "f32" => Ok(DataType::F32),
+        "f64" => Ok(DataType::F64),
+        _ => Err(SemanticError::UnknownType {
+            name: to_analyze.name().to_string(),
+            span,
+        }),
+    }
+}
+
+pub(crate) fn analyze_struct_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
+    to_analyze: &str,
+    type_parameters: &[UntypedDataType],
+    context: &SyntaxContext<&T>,
+    span: source::types::Span,
+) -> Result<Rc<StructSymbol<TypedAST>>, SemanticError> {
+    let untyped_symbol =
+        symbol_by_name(to_analyze, context.ast_reference.symbols()).ok_or_else(|| {
+            SemanticError::UnknownSymbol {
+                name: to_analyze.to_string(),
+                span,
+            }
+        })?;
+
+    let untyped_symbol = match untyped_symbol {
+        DirectlyAvailableSymbol::Struct(st) => st,
+        _ => {
+            return Err(SemanticError::InvalidUsage {
+                message: format!("'{}' is not a struct", to_analyze),
+                span,
+            });
+        }
+    };
+
+    let type_parameters = analyze_type_parameters_providing(
+        untyped_symbol.type_parameters(),
+        type_parameters,
+        context,
+        span,
+    )?;
+
+    context.global_elements.get_typed_struct_symbol(
+        Rc::new(untyped_symbol.clone()),
+        &type_parameters,
+        span,
+    )
+}
+
+pub(crate) fn analyze_struct_usage_from_typed_type_parameters<
+    'a,
+    T: Clone + HasSymbols<'a, UntypedAST>,
+>(
+    to_analyze: &str,
+    type_parameters: &[TypedTypeParameter],
+    context: &SyntaxContext<&T>,
+    span: source::types::Span,
+) -> Result<Rc<StructSymbol<TypedAST>>, SemanticError> {
+    let untyped_symbol =
+        symbol_by_name(to_analyze, context.ast_reference.symbols()).ok_or_else(|| {
+            SemanticError::UnknownSymbol {
+                name: to_analyze.to_string(),
+                span,
+            }
+        })?;
+
+    let untyped_symbol = match untyped_symbol {
+        DirectlyAvailableSymbol::Struct(st) => st,
+        _ => {
+            return Err(SemanticError::InvalidUsage {
+                message: format!("'{}' is not a struct", to_analyze),
+                span,
+            });
+        }
+    };
+
+    context.global_elements.get_typed_struct_symbol(
+        Rc::new(untyped_symbol.clone()),
+        type_parameters,
+        span,
+    )
+}
+
+pub(crate) fn analyze_enum_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
+    to_analyze: &str,
+    type_parameters: &[UntypedDataType],
+    context: &SyntaxContext<&T>,
+    span: source::types::Span,
+) -> Result<Rc<EnumSymbol<TypedAST>>, SemanticError> {
+    let untyped_symbol =
+        symbol_by_name(to_analyze, context.ast_reference.symbols()).ok_or_else(|| {
+            SemanticError::UnknownSymbol {
+                name: to_analyze.to_string(),
+                span,
+            }
+        })?;
+
+    let untyped_symbol = match untyped_symbol {
+        DirectlyAvailableSymbol::Enum(st) => st,
+        _ => {
+            return Err(SemanticError::InvalidUsage {
+                message: format!("'{}' is not an enum", to_analyze),
+                span,
+            });
+        }
+    };
+
+    let type_parameters = analyze_type_parameters_providing(
+        untyped_symbol.type_parameters(),
+        type_parameters,
+        context,
+        span,
+    )?;
+
+    context.global_elements.get_typed_enum_symbol(
+        Rc::new(untyped_symbol.clone()),
+        &type_parameters,
+        span,
+    )
+}
+
+pub(crate) fn analyze_type_parameter_full<'a, T: Clone>(
+    to_analyze: &UntypedTypeParameter,
+    context: &'a SyntaxContext<&T>,
+    span: source::types::Span,
+) -> Result<&'a TypedTypeParameter, SemanticError> {
+    analyze_type_parameter(to_analyze.inner().name(), context, span)
+}
+
+pub(crate) fn analyze_type_parameter<'a, T: Clone>(
+    to_analyze: &str,
+    context: &'a SyntaxContext<&T>,
+    span: source::types::Span,
+) -> Result<&'a TypedTypeParameter, SemanticError> {
+    context
+        .type_parameter_context
+        .lookup_typed_type_parameter(to_analyze)
+        .ok_or_else(|| SemanticError::UnknownType {
+            name: to_analyze.to_string(),
+            span,
+        })
+}
+
+pub(crate) fn analyze_type_parameters_declaration<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
+    context: &SyntaxContext<&T>,
+    to_analyze: impl Iterator<Item = &'a UntypedTypeParameter>,
+    span: source::types::Span,
+) -> Result<Vec<TypedTypeParameter>, SemanticError> {
+    to_analyze
+        .map(|tp| analyze_type_parameter_full(tp, context, span).cloned())
+        .collect::<Result<Vec<_>, _>>()
+}
+
+pub(crate) fn analyze_type_parameter_providing<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
+    to_analyze: &UntypedTypeParameter,
+    with: &UntypedDataType,
+    context: &SyntaxContext<&T>,
+    span: source::types::Span,
+) -> Result<TypedTypeParameter, SemanticError> {
+    Ok(TypedTypeParameter::new(
+        to_analyze.inner().name().to_owned(),
+        analyze_data_type(with, context, span)?,
+    ))
+}
+
+fn analyze_type_parameters_providing<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
+    type_parameters: &[UntypedTypeParameter],
+    fillings: &[UntypedDataType],
+    context: &SyntaxContext<&T>,
+    span: source::types::Span,
+) -> Result<Vec<TypedTypeParameter>, SemanticError> {
+    fillings
+        .iter()
+        .zip(type_parameters.iter())
+        .map(|(filling, param)| analyze_type_parameter_providing(param, filling, context, span))
+        .collect::<Result<Vec<_>, _>>()
+}
+
+/// Analyzes a function call
+///
+/// Does not care if the function call is void or not
+///
+/// # Panics
+/// Panics if the function symbol exists in the AST but is missing from the global element map.
+/// This indicates a failure in the "Stage 2" symbol collection pass.
+pub(crate) fn analyze_function_call(
+    to_analyze: &FunctionCall<UntypedAST>,
+    mapper: &mut FunctionSymbolMapper,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    span: source::types::Span,
+) -> Result<FunctionCall<TypedAST>, SemanticError> {
+    let call_name = to_analyze.function();
+    let name = &call_name.0;
+
+    let untyped_func_symbol = analyze_function_usage(context, name, span)?;
+
+    let type_parameters = analyze_type_parameters_providing(
+        untyped_func_symbol.type_parameters(),
+        &to_analyze.function().1,
+        context,
+        span,
+    )?;
+
+    let typed_func_symbol = context
+        .global_elements
+        .get_or_insert_typed_function_symbol(
+            Rc::new(untyped_func_symbol.clone()),
+            &type_parameters,
+            span,
+        )?;
+
+    let mut typed_args: Vec<ASTNode<Expression<TypedAST>>> = Vec::new();
+    for untyped_arg_node in to_analyze.args().iter() {
+        let position = *untyped_arg_node.position();
+        let typed_expr = analyze_expression(untyped_arg_node, context, mapper)?;
+        typed_args.push(ASTNode::new(typed_expr, position));
+    }
+
+    FunctionCall::<TypedAST>::new(typed_func_symbol.clone(), typed_args).ok_or_else(|| {
+        SemanticError::ArgumentMismatch {
+            expected: typed_func_symbol.params().len(),
+            found: to_analyze.args().len(),
+            span,
+        }
+    })
+}
+
+fn analyze_function_usage<'a>(
+    context: &SyntaxContext<&'a StatementTraversalHelper<UntypedAST>>,
+    name: &str,
+    span: source::types::Span,
+) -> Result<&'a FunctionSymbol<UntypedAST>, SemanticError> {
+    let found_symbol = symbol_by_name(name, context.ast_reference.symbols_available_at())
+        .ok_or_else(|| SemanticError::UnknownSymbol {
+            name: name.to_string(),
+            span,
+        })?;
+
+    let untyped_func_symbol = match found_symbol {
+        DirectlyAvailableSymbol::Function(f) => f,
+        _ => {
+            return Err(SemanticError::InvalidUsage {
+                message: format!("'{}' is not a function", name),
+                span,
+            });
+        }
+    };
+    Ok(untyped_func_symbol)
+}
+
+pub(crate) fn analyze_method_call(
+    to_analyze: &MethodCall,
+    mapper: &mut FunctionSymbolMapper,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    span: source::types::Span,
+) -> Result<FunctionCall<TypedAST>, SemanticError> {
+    let struct_expr = analyze_expression(to_analyze.struct_source(), context, mapper)?;
+
+    let untyped_function_symbol = symbol_by_name(
+        &to_analyze.function().0,
+        context.ast_reference.symbols_available_at(),
+    )
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.function().0.clone(),
+        span,
+    })?;
+
+    let function_symbol = if let DirectlyAvailableSymbol::Function(func) = untyped_function_symbol {
+        func
+    } else {
+        return Err(SemanticError::InvalidUsage {
+            message: format!("'{}' is not a function", to_analyze.function().0),
+            span,
+        });
+    };
+
+    let struct_symbol = if let DataType::Struct(st) = struct_expr.data_type() {
+        st
+    } else {
+        return Err(SemanticError::InvalidUsage {
+            message: "Method called on non-struct type".to_string(),
+            span: *to_analyze.struct_source().position(),
+        });
+    };
+
+    let untyped_struct_symbol = context
+        .global_elements
+        .untyped_struct_symbol_from_typed(&struct_symbol)
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Could not find untyped struct symbol".to_string(),
+            span,
+        })?;
+
+    let typed_type_parameters = analyze_type_parameters_providing(
+        function_symbol.type_parameters(),
+        &to_analyze.function().1,
+        context,
+        span,
+    )?;
+
+    let typed_function_symbol = context.global_elements.get_typed_method_symbol(
+        &untyped_struct_symbol,
+        struct_symbol.type_parameters(),
+        Rc::new(function_symbol.clone()),
+        &typed_type_parameters,
+        span,
+    )?;
+
+    let mut args = vec![ASTNode::new(
+        struct_expr,
+        *to_analyze.struct_source().position(),
+    )];
+
+    for param in to_analyze.args().iter() {
+        let typed_param = analyze_expression(param, context, mapper)?;
+        args.push(ASTNode::new(typed_param, *param.position()));
+    }
+
+    FunctionCall::<TypedAST>::new(typed_function_symbol.clone(), args).ok_or_else(|| {
+        SemanticError::ArgumentMismatch {
+            expected: typed_function_symbol.params().len() - 1,
+            found: to_analyze.args().len(),
+            span,
+        }
+    })
+}

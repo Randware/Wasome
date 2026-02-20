@@ -1,7 +1,7 @@
 use crate::{DirectoryLoader, FileLoader, PathResolver};
 use std::ffi::OsString;
-use std::fs::{self, File};
-use std::fs::{DirEntry, FileType, metadata, read_dir};
+use std::fs;
+use std::fs::{DirEntry, FileType, metadata, read_dir, File};
 use std::io::{Error, Read};
 use std::path::{Path, PathBuf};
 

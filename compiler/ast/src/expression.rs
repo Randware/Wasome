@@ -1,5 +1,5 @@
-use crate::data_type::{DataType, Typed};
-use crate::symbol::FunctionSymbol;
+use crate::data_type::{DataType, Typed, UntypedDataType};
+use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol};
 use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
 use std::rc::Rc;
 
@@ -13,10 +13,18 @@ use std::rc::Rc;
 pub enum Expression<Type: ASTType> {
     /// This is only valid if there is a return value and not void
     FunctionCall(FunctionCall<Type>),
+    /// Only valid in the untyped AST
+    /// Use `FunctionCall` in the typed AST
+    ///
+    /// Constructing it anyway can lead to arbitiary behavior, including panics
+    MethodCall(Box<MethodCall>),
     Variable(Type::VariableUse),
     Literal(Type::LiteralType),
     UnaryOp(Box<UnaryOp<Type>>), // The boxes prevent this from becoming an infinitely sized type
     BinaryOp(Box<BinaryOp<Type>>),
+    NewStruct(Box<NewStruct<Type>>),
+    NewEnum(Box<NewEnum<Type>>),
+    StructFieldAccess(Box<StructFieldAccess<Type>>),
 }
 
 impl Typed for Expression<TypedAST> {
@@ -25,11 +33,16 @@ impl Typed for Expression<TypedAST> {
         match self {
             // Unwrap safety:
             // It may only exist if the return type is not void
-            Ex::FunctionCall(inner) => *inner.function().return_type().unwrap(),
+            Ex::FunctionCall(inner) => inner.function().return_type().unwrap().clone(),
+            // This is invalid in the typed AST
+            Ex::MethodCall(_) => panic!(),
             Ex::Literal(inner) => inner.data_type(),
             Ex::UnaryOp(inner) => inner.data_type(),
             Ex::BinaryOp(inner) => inner.data_type(),
-            Ex::Variable(inner) => *inner.data_type(),
+            Ex::Variable(inner) => inner.data_type().clone(),
+            Expression::NewStruct(inner) => inner.data_type(),
+            Expression::NewEnum(inner) => inner.data_type(),
+            Expression::StructFieldAccess(inner) => inner.data_type(),
         }
     }
 }
@@ -41,11 +54,19 @@ impl<Type: ASTType> SemanticEq for Expression<Type> {
             (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
+            (Exp::MethodCall(inner), Exp::MethodCall(other_inner)) => {
+                inner.semantic_eq(other_inner)
+            }
             (Exp::Variable(inner), Exp::Variable(other_inner)) => inner.semantic_eq(other_inner),
             // For Literals, there are no inner structs with ids
             (Exp::Literal(_), Exp::Literal(_)) => self == other,
             (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_eq(other_inner),
             (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => inner.semantic_eq(other_inner),
+            (Exp::NewStruct(inner), Exp::NewStruct(other_inner)) => inner.semantic_eq(other_inner),
+            (Exp::NewEnum(inner), Exp::NewEnum(other_inner)) => inner.semantic_eq(other_inner),
+            (Exp::StructFieldAccess(inner), Exp::StructFieldAccess(other_inner)) => {
+                inner.semantic_eq(other_inner)
+            }
             _ => false,
         }
     }
@@ -96,7 +117,7 @@ pub struct UnaryOp<Type: ASTType> {
 }
 
 impl<Type: ASTType> UnaryOp<Type> {
-    pub fn input(&self) -> &Expression<Type> {
+    pub fn input(&self) -> &ASTNode<Expression<Type>> {
         &self.input
     }
 
@@ -161,7 +182,7 @@ impl Typed for UnaryOp<TypedAST> {
 /// The type of a unary operator
 ///
 /// It only provides the operator type and not the operands
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOpType<Type: ASTType> {
     /// Section 3 lang spec, subtract operator with only one operand
     Negative,
@@ -241,7 +262,7 @@ impl<Type: ASTType> Typecast<Type> {
 }
 
 impl Typecast<TypedAST> {
-    /// Returns what a specific type typecasted with self would return
+    /// Returns what a specific type type-casted with self would return
     ///
     /// # Parameters
     ///
@@ -250,10 +271,10 @@ impl Typecast<TypedAST> {
     ///
     /// # Return
     ///
-    /// - Some(result) if to_process can be casted to result
+    /// - Some(result) if to_process can be cast to result
     /// - None if there is no cast available
     pub fn result_type(&self, to_process: DataType) -> Option<DataType> {
-        match (to_process, self.target) {
+        match (to_process, &self.target) {
             (DataType::S8 | DataType::U16, DataType::U8)
             | (DataType::U8 | DataType::S16, DataType::S8)
             | (DataType::S16 | DataType::U32 | DataType::U8, DataType::U16)
@@ -263,7 +284,7 @@ impl Typecast<TypedAST> {
             | (DataType::S64 | DataType::U32, DataType::U64)
             | (DataType::U64 | DataType::S32 | DataType::F64, DataType::S64)
             | (DataType::S32 | DataType::F64, DataType::F32)
-            | (DataType::S64 | DataType::F32, DataType::F64) => Some(self.target),
+            | (DataType::S64 | DataType::F32, DataType::F64) => Some(self.target.clone()),
             _ => None,
         }
     }
@@ -294,16 +315,16 @@ impl<Type: ASTType> SemanticEq for BinaryOp<Type> {
 }
 
 impl<Type: ASTType> BinaryOp<Type> {
-    pub fn left(&self) -> &Expression<Type> {
+    pub fn left(&self) -> &ASTNode<Expression<Type>> {
         &self.left
     }
 
-    pub fn right(&self) -> &Expression<Type> {
+    pub fn right(&self) -> &ASTNode<Expression<Type>> {
         &self.right
     }
 
-    pub fn op_type(&self) -> &BinaryOpType {
-        &self.op_type
+    pub fn op_type(&self) -> BinaryOpType {
+        self.op_type
     }
 }
 
@@ -451,7 +472,7 @@ impl BinaryOpType {
     /// Returns the type of data from putting the two input types through an arithmetic operator
     /// (lang spec, section 3)
     fn arithmetic_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(left, right)?;
+        eq_return_option(&left, &right)?;
         match left {
             DataType::U8
             | DataType::S8
@@ -470,7 +491,7 @@ impl BinaryOpType {
     /// Returns the type of data from putting the two input types through an integer only operator
     /// (lang spec, section 3)
     fn int_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(left, right)?;
+        eq_return_option(&left, &right)?;
         match left {
             DataType::U8
             | DataType::S8
@@ -487,7 +508,7 @@ impl BinaryOpType {
     /// Returns the type of data from putting the two input types through a bool only (such as or) operator
     /// (lang spec, section 3)
     fn bool_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(left, right)?;
+        eq_return_option(&left, &right)?;
         match left {
             DataType::Bool => Some(left),
             _ => None,
@@ -497,11 +518,198 @@ impl BinaryOpType {
     /// Returns the type of data from putting the two input types through a comparison operator
     /// (lang spec, section 3)
     fn comparison_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(left, right)?;
+        eq_return_option(&left, &right)?;
         if left == DataType::Bool || left == DataType::Char {
             return None;
         }
         Some(DataType::Bool)
+    }
+}
+
+/// The creation of an instance of a struct
+///
+/// e.g.: new Struct(10, a, 'b')
+///
+/// # Type safety
+///
+/// Checks of the amount and type of the parameters are neither done in the typed nor the untyped variants
+///
+/// In the typed AST, it is considered an error to have new struct expressions with invalid types, so the checking
+/// needs to happen externally
+#[derive(Debug, PartialEq)]
+pub struct NewStruct<Type: ASTType> {
+    symbol: Type::StructUse,
+    /// The field and the value
+    parameters: Vec<(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)>,
+}
+
+impl<Type: ASTType> NewStruct<Type> {
+    pub fn new(
+        symbol: Type::StructUse,
+        parameters: Vec<(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)>,
+    ) -> Self {
+        Self { symbol, parameters }
+    }
+
+    pub fn symbol(&self) -> &Type::StructUse {
+        &self.symbol
+    }
+
+    pub fn parameters(&self) -> &[(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)] {
+        &self.parameters
+    }
+}
+
+impl Typed for NewStruct<TypedAST> {
+    fn data_type(&self) -> DataType {
+        DataType::Struct(self.symbol().clone())
+    }
+}
+
+impl<Type: ASTType> SemanticEq for NewStruct<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.parameters().len() == other.parameters().len()
+            && self
+                .parameters()
+                .iter()
+                .zip(other.parameters().iter())
+                .all(|(lhs, rhs)| lhs.0.semantic_eq(&rhs.0) && lhs.1.semantic_eq(&rhs.1))
+            && self.symbol().semantic_eq(other.symbol())
+    }
+}
+
+/// The creation of an instance of an enum
+///
+/// e.g.: Enum::Variant(1, true)
+///
+/// ## Variant checking
+///
+/// It is not checked that the variant belongs to the symbol.
+/// A mismatch is an error in the typed ast and thus needs to be checked externally
+#[derive(Debug, PartialEq)]
+pub struct NewEnum<Type: ASTType> {
+    to_create: Type::EnumUse,
+    variant: Type::EnumVariantUse,
+    parameters: Vec<ASTNode<Expression<Type>>>,
+}
+
+impl<Type: ASTType> NewEnum<Type> {
+    pub fn to_create(&self) -> &Type::EnumUse {
+        &self.to_create
+    }
+
+    pub fn variant(&self) -> &Type::EnumVariantUse {
+        &self.variant
+    }
+
+    pub fn parameters(&self) -> &[ASTNode<Expression<Type>>] {
+        &self.parameters
+    }
+}
+
+impl NewEnum<UntypedAST> {
+    pub fn new(
+        to_create: <UntypedAST as ASTType>::EnumUse,
+        variant: String,
+        parameters: Vec<ASTNode<Expression<UntypedAST>>>,
+    ) -> Self {
+        Self {
+            to_create,
+            variant,
+            parameters,
+        }
+    }
+}
+
+impl NewEnum<TypedAST> {
+    /// Creates a new NewEnum
+    /// Returns none if the types of the parameters and of the variant don't match
+    pub fn new(
+        symbol: Rc<EnumSymbol<TypedAST>>,
+        variant: Rc<EnumVariantSymbol<TypedAST>>,
+        parameters: Vec<ASTNode<Expression<TypedAST>>>,
+    ) -> Option<Self> {
+        if variant.fields().len() != parameters.iter().len()
+            || variant
+                .fields()
+                .iter()
+                .zip(parameters.iter().map(|param| param.data_type()))
+                .any(|(a, b)| a != &b)
+        {
+            // Type mismatch
+            return None;
+        }
+        Some(Self {
+            to_create: symbol,
+            variant,
+            parameters,
+        })
+    }
+}
+
+impl Typed for NewEnum<TypedAST> {
+    fn data_type(&self) -> DataType {
+        DataType::Enum(self.to_create().clone())
+    }
+}
+
+impl<Type: ASTType> SemanticEq for NewEnum<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.parameters().semantic_eq(other.parameters())
+            && self.variant().semantic_eq(other.variant())
+            && self.to_create().semantic_eq(other.to_create())
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct StructFieldAccess<Type: ASTType> {
+    of: ASTNode<Expression<Type>>,
+    field: Type::StructFieldUse,
+}
+
+impl StructFieldAccess<UntypedAST> {
+    pub fn new(of: ASTNode<Expression<UntypedAST>>, field: String) -> Self {
+        Self { of, field }
+    }
+}
+
+impl StructFieldAccess<TypedAST> {
+    /// Tries to create a new StructFieldAccess
+    ///
+    /// Returns None if the return type of of is not a struct
+    ///
+    /// Note that it must be externally checked that field belongs to the struct being accessed
+    pub fn new(
+        of: ASTNode<Expression<TypedAST>>,
+        field: Rc<StructFieldSymbol<TypedAST>>,
+    ) -> Option<Self> {
+        if let DataType::Struct(_) = of.data_type() {
+            Some(Self { of, field })
+        } else {
+            None
+        }
+    }
+}
+
+impl<Type: ASTType> StructFieldAccess<Type> {
+    pub fn of(&self) -> &ASTNode<Expression<Type>> {
+        &self.of
+    }
+
+    pub fn field(&self) -> &Type::StructFieldUse {
+        &self.field
+    }
+}
+
+impl Typed for StructFieldAccess<TypedAST> {
+    fn data_type(&self) -> DataType {
+        self.field().data_type().clone()
+    }
+}
+
+impl<Type: ASTType> SemanticEq for StructFieldAccess<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.of().semantic_eq(other.of()) && self.field().semantic_eq(other.field())
     }
 }
 
@@ -556,16 +764,66 @@ impl FunctionCall<TypedAST> {
 
 impl FunctionCall<UntypedAST> {
     /// Creates a new function call
-    pub fn new(function: String, args: Vec<ASTNode<Expression<UntypedAST>>>) -> Self {
+    pub fn new(
+        function: <UntypedAST as ASTType>::FunctionCallSymbol,
+        args: Vec<ASTNode<Expression<UntypedAST>>>,
+    ) -> Self {
         Self { function, args }
+    }
+}
+
+/// A method call
+///
+/// Only valid in the untyped AST
+///
+/// In the typed AST, this is a function call with the struct as the first parameter
+#[derive(Debug, PartialEq)]
+pub struct MethodCall {
+    struct_source: ASTNode<Expression<UntypedAST>>,
+    function: (String, Vec<UntypedDataType>),
+    args: Vec<ASTNode<Expression<UntypedAST>>>,
+}
+
+impl MethodCall {
+    pub fn new(
+        struct_source: ASTNode<Expression<UntypedAST>>,
+        function: (String, Vec<UntypedDataType>),
+        args: Vec<ASTNode<Expression<UntypedAST>>>,
+    ) -> Self {
+        Self {
+            struct_source,
+            function,
+            args,
+        }
+    }
+
+    pub fn struct_source(&self) -> &ASTNode<Expression<UntypedAST>> {
+        &self.struct_source
+    }
+
+    pub fn function(&self) -> &(String, Vec<UntypedDataType>) {
+        &self.function
+    }
+
+    pub fn args(&self) -> &Vec<ASTNode<Expression<UntypedAST>>> {
+        &self.args
+    }
+}
+
+impl SemanticEq for MethodCall {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self.struct_source().semantic_eq(other.struct_source())
+            && self.function().semantic_eq(other.function())
+            && self.args.semantic_eq(&other.args)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::symbol::VariableSymbol;
-    use crate::test_shared::sample_codearea;
+    use crate::symbol::{SymbolWithTypeParameter, VariableSymbol};
+    use crate::test_shared::sample_span;
+
     #[test]
     fn binary_op_type() {
         let add = BinaryOpType::Addition;
@@ -922,24 +1180,21 @@ mod tests {
                     Expression::UnaryOp(Box::new(
                         UnaryOp::<TypedAST>::new(
                             UnaryOpType::Typecast(Typecast::new(DataType::S64)),
-                            ASTNode::new(Expression::Literal(Literal::S32(5)), sample_codearea()),
+                            ASTNode::new(Expression::Literal(Literal::S32(5)), sample_span()),
                         )
                         .unwrap(),
                     )),
-                    sample_codearea(),
+                    sample_span(),
                 ),
                 ASTNode::new(
                     Expression::UnaryOp(Box::new(
                         UnaryOp::<TypedAST>::new(
                             UnaryOpType::Typecast(Typecast::new(DataType::S64)),
-                            ASTNode::new(
-                                Expression::Literal(Literal::F64(10.3)),
-                                sample_codearea(),
-                            ),
+                            ASTNode::new(Expression::Literal(Literal::F64(10.3)), sample_span()),
                         )
                         .unwrap(),
                     )),
-                    sample_codearea(),
+                    sample_span(),
                 ),
             )
             .unwrap(),
@@ -951,10 +1206,10 @@ mod tests {
         let name = "test".to_string();
         let arg = ASTNode::new(
             Expression::<UntypedAST>::Literal("10".to_string()),
-            sample_codearea(),
+            sample_span(),
         );
-        let call = FunctionCall::<UntypedAST>::new(name, vec![arg]);
-        assert_eq!("test", call.function());
+        let call = FunctionCall::<UntypedAST>::new((name, Vec::new()), vec![arg]);
+        assert_eq!("test", call.function().0);
         assert_eq!(1, call.args().len());
     }
 
@@ -967,10 +1222,11 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(10)),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
         assert_eq!(None, call);
@@ -988,10 +1244,11 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
         assert_eq!(None, call.as_ref().unwrap().function().return_type());
@@ -999,7 +1256,7 @@ mod tests {
 
         let arg2 = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::Bool(true)),
-            sample_codearea(),
+            sample_span(),
         );
         let call2 = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg2]);
         assert!(call.semantic_eq(&call2));
@@ -1037,10 +1294,10 @@ mod tests {
             DataType::S64,
         ];
 
-        for &int_type in &int_types {
-            assert_eq!(None, add.result_type(int_type, DataType::F32));
-            assert_eq!(None, mul.result_type(int_type, DataType::F64));
-            assert_eq!(None, div.result_type(int_type, DataType::F32));
+        for int_type in &int_types {
+            assert_eq!(None, add.result_type(int_type.clone(), DataType::F32));
+            assert_eq!(None, mul.result_type(int_type.clone(), DataType::F64));
+            assert_eq!(None, div.result_type(int_type.clone(), DataType::F32));
         }
     }
 
@@ -1119,10 +1376,11 @@ mod tests {
                 "test1".to_string(),
                 DataType::Bool,
             ))],
+            Vec::new(),
         ));
         let arg = ASTNode::new(
             Expression::<TypedAST>::Literal(Literal::S32(10)),
-            sample_codearea(),
+            sample_span(),
         );
         let call = FunctionCall::<TypedAST>::new(symbol.clone(), vec![arg]);
         assert_eq!(None, call);

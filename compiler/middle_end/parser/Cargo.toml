@@ -4,11 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-chumsky = { version = "1.0.0-alpha.8", features = ["regex"] }
+chumsky = { version = "0.12.0", features = ["regex"] }
 ast = { path = "../../ast"}
 lexer = { path = "../../lexer"}
-shared = { path = "../../shared"}
 source = { path = "../../source"}
+io = { path = "../../io"}
+error = {path = "../../error"}
 
 [dev-dependencies]
+source = { path = "../../source", features = ["test-utils"] }
 tempfile.workspace = true
