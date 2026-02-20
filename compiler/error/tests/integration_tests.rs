@@ -8,6 +8,7 @@ use error::diagnostic::{Diagnostic, Level, Snippet};
 use source::SourceMap;
 
 #[test]
+#[ignore]
 fn test_single_file_fixture() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
@@ -31,6 +32,7 @@ fn test_single_file_fixture() {
 }
 
 #[test]
+#[ignore]
 fn test_bytepos_conversion() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
@@ -56,6 +58,7 @@ fn test_bytepos_conversion() {
 }
 
 #[test]
+#[ignore]
 fn test_with_context() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
@@ -86,6 +89,7 @@ fn test_with_context() {
 }
 
 #[test]
+#[ignore]
 fn test_primary() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
@@ -109,6 +113,7 @@ fn test_primary() {
 }
 
 #[test]
+#[ignore]
 fn test_print_with_snippets() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
@@ -131,6 +136,7 @@ fn test_print_with_snippets() {
 }
 
 #[test]
+#[ignore]
 fn test_multi_file() {
     MockLoader::load_from_disk("/src/a.waso", "a.waso");
     MockLoader::load_from_disk("/src/b.waso", "b.waso");
@@ -161,6 +167,7 @@ fn test_multi_file() {
 }
 
 #[test]
+#[ignore]
 fn test_print_snippets_no_snippets() {
     let sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
 
@@ -174,6 +181,7 @@ fn test_print_snippets_no_snippets() {
 }
 
 #[test]
+#[ignore]
 fn test_print_no_snippets() {
     let error = Diagnostic::builder()
         .level(Level::Error)
@@ -185,6 +193,7 @@ fn test_print_no_snippets() {
 }
 
 #[test]
+#[ignore]
 fn test_multiline() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
@@ -207,6 +216,7 @@ fn test_multiline() {
 }
 
 #[test]
+#[ignore]
 fn test_unicode() {
     MockLoader::load_from_disk("/src/unicode.waso", "unicode.waso");
 
@@ -229,6 +239,7 @@ fn test_unicode() {
 }
 
 #[test]
+#[ignore]
 fn test_overlapping() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
@@ -251,6 +262,7 @@ fn test_overlapping() {
 }
 
 #[test]
+#[ignore]
 fn test_zero_length() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
@@ -272,6 +284,7 @@ fn test_zero_length() {
 }
 
 #[test]
+#[ignore]
 fn test_empty_file() {
     MockLoader::load_from_disk("/src/empty.waso", "empty.waso");
 

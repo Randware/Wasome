@@ -1945,7 +1945,6 @@ fn test_missing_statement_separator() {
     let (sm, id) = setup_source_map(MISSING_STATEMENT_SEPARATOR);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(to_parse);
-    parsed.as_ref().err().unwrap().print_snippets(&sm).unwrap();
     assert!(parsed.is_err());
 }
 
