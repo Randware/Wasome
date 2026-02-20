@@ -1,0 +1,12 @@
+pub struct Container<T> {
+    T data
+}
+
+pub enum Result<T, E> {
+    Ok(T)
+    Err(E)
+}
+
+pub fn create_container<T>(T val) -> Container<T> {
+    -> new Container<T> { data <- val }
+}

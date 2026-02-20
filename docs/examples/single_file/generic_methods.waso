@@ -1,0 +1,18 @@
+struct Wrapper<T> {
+    T item
+
+    fn get_item() -> T {
+        -> self.item
+    }
+
+    fn update<U>(U extra) -> T {
+        U temp <- extra
+        -> self.item
+    }
+}
+
+fn main() {
+    Wrapper<s32> w <- new Wrapper<s32> { item <- 42 }
+    s32 val <- w.get_item()
+    s32 old <- w.update<bool>(true)
+}

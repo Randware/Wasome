@@ -71,6 +71,16 @@ impl FileID {
         }
     }
 }
+
+// This is for testing purposes only
+// The FileID should always be valid in the actual code
+#[cfg(feature = "test-utils")]
+impl From<u32> for FileID {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
 /// A handle to a file span which is incredibly cheap to copy, store, and pass around.
 ///
 /// This struct is composed of three `u32` fields (`file_id`, `start`, and `end`), making it only 12 bytes in size.

@@ -9,38 +9,31 @@ fn test_math_operators() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::Addition,
-            line: 1,
-            span: 4..5,
+            span: 5..6,
         },
         Token {
             kind: TokenType::Subtraction,
-            line: 1,
-            span: 6..7,
+            span: 7..8,
         },
         Token {
             kind: TokenType::Multiplication,
-            line: 1,
-            span: 8..9,
+            span: 9..10,
         },
         Token {
             kind: TokenType::Slash,
-            line: 1,
-            span: 10..11,
+            span: 11..12,
         },
         Token {
             kind: TokenType::Modulo,
-            line: 1,
-            span: 12..13,
+            span: 13..14,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 13..14,
+            span: 14..15,
         },
     ];
 
@@ -67,78 +60,71 @@ fn test_logic_operators() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::LessThan,
-            line: 1,
-            span: 4..5,
+            span: 5..6,
         },
         Token {
             kind: TokenType::GreaterThan,
-            line: 1,
-            span: 6..7,
+            span: 7..8,
         },
         Token {
             kind: TokenType::LessThanEqual,
-            line: 1,
-            span: 8..10,
+            span: 9..11,
         },
         Token {
             kind: TokenType::GreaterThanEqual,
-            line: 1,
-            span: 11..13,
+            span: 12..14,
         },
         Token {
             kind: TokenType::NotEqual,
-            line: 1,
-            span: 14..16,
+            span: 15..17,
         },
         Token {
             kind: TokenType::Comparison,
-            line: 1,
-            span: 17..19,
+            span: 18..20,
         },
         Token {
-            kind: TokenType::LShift,
-            line: 1,
-            span: 20..22,
+            kind: TokenType::LessThan,
+            span: 21..22,
         },
         Token {
-            kind: TokenType::RShift,
-            line: 1,
-            span: 23..25,
+            kind: TokenType::LessThan,
+            span: 22..23,
+        },
+        Token {
+            kind: TokenType::GreaterThan,
+            span: 24..25,
+        },
+        Token {
+            kind: TokenType::GreaterThan,
+            span: 25..26,
         },
         Token {
             kind: TokenType::Or,
-            line: 1,
-            span: 26..28,
+            span: 27..29,
         },
         Token {
             kind: TokenType::BitOr,
-            line: 1,
-            span: 29..30,
+            span: 30..31,
         },
         Token {
             kind: TokenType::And,
-            line: 1,
-            span: 31..33,
+            span: 32..34,
         },
         Token {
             kind: TokenType::BitAnd,
-            line: 1,
-            span: 34..35,
+            span: 35..36,
         },
         Token {
             kind: TokenType::Not,
-            line: 1,
-            span: 36..37,
+            span: 37..38,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 37..38,
+            span: 38..39,
         },
     ];
 
@@ -170,33 +156,27 @@ fn test_greedy_tokens() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::Or,
-            line: 1,
-            span: 4..6,
+            span: 5..7,
         },
         Token {
             kind: TokenType::BitOr,
-            line: 1,
-            span: 6..7,
+            span: 7..8,
         },
         Token {
             kind: TokenType::And,
-            line: 1,
-            span: 8..10,
+            span: 9..11,
         },
         Token {
             kind: TokenType::BitAnd,
-            line: 1,
-            span: 10..11,
+            span: 11..12,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 11..12,
+            span: 12..13,
         },
     ];
 

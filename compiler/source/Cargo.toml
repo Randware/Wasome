@@ -6,5 +6,10 @@ edition = "2024"
 [dependencies]
 io = { path = "../io" }
 
+# Access to test helper functions that can be dangerous in actual code
+# Currently only allows FileIDs to be created from u32s
+[features]
+test-utils = []
+
 [dev-dependencies]
 tempfile.workspace = true

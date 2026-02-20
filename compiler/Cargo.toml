@@ -2,12 +2,14 @@
 resolver = "3"
 members = [
   "ast",
-  "codegen",
+  "error",
   "lexer",
-  "shared",
   "source",
   "io",
   "middle_end/parser",
+  "driver",
+  "middle_end/semantic_analyzer",
+  "codegen",
 ]
 
 [workspace.dependencies]

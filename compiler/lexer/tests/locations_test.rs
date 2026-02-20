@@ -11,43 +11,35 @@ fn test_location() {
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::S32,
-            line: 1,
-            span: 4..7,
+            span: 5..8,
         },
         Token {
             kind: TokenType::Identifier("var1".to_string()),
-            line: 1,
-            span: 8..12,
+            span: 9..13,
         },
         Token {
             kind: TokenType::Assign,
-            line: 1,
-            span: 13..15,
+            span: 14..16,
         },
         Token {
             kind: TokenType::Integer(10),
-            line: 1,
-            span: 16..18,
+            span: 17..19,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 18..19,
+            span: 19..20,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 4..5,
+            span: 24..25,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 3,
-            span: 4..5,
+            span: 29..30,
         },
     ];
 

@@ -1,3 +1,7 @@
+// The leading blank lines are intentional
+
+
+
 pub fn public_func() {}
 
 fn bitwise(u32 a, u32 b) -> u32 {
