@@ -63,11 +63,32 @@
 
   function resize() {
     if (!canvas) return;
-    width = window.innerWidth;
-    height = window.innerHeight;
+    const newWidth = window.innerWidth;
+    const newHeight = window.innerHeight;
+
+    // Ignore height-only changes under 150px (mobile URL bar show/hide)
+    const widthChanged = newWidth !== width;
+    const heightDelta = Math.abs(newHeight - height);
+    if (!widthChanged && heightDelta > 0 && heightDelta < 150) return;
+
+    const oldWidth = width || newWidth;
+    const oldHeight = height || newHeight;
+    width = newWidth;
+    height = newHeight;
     canvas.width = width;
     canvas.height = height;
-    initStars();
+
+    // Scale existing star positions proportionally instead of reinitializing
+    if (stars.length > 0 && oldWidth > 0 && oldHeight > 0) {
+      const sx = width / oldWidth;
+      const sy = height / oldHeight;
+      for (const star of stars) {
+        star.x *= sx;
+        star.y *= sy;
+      }
+    } else {
+      initStars();
+    }
   }
 
   function initStars() {
