@@ -78,16 +78,10 @@ impl Manifest {
     /// Resolves ALL dependencies recursively.
     pub fn resolve_dependencies(&self, project_root: &Path) -> ManifestResult<Vec<Project>> {
         let mut resolved_projects = Vec::new();
-        let mut visited = std::collections::HashSet::new();
 
         let initial_chain = vec![format!("{}@{}", self.project.name, self.project.version)];
 
-        self.resolve_recursive(
-            project_root,
-            &mut resolved_projects,
-            &mut visited,
-            initial_chain,
-        )?;
+        self.resolve_recursive(project_root, &mut resolved_projects, initial_chain)?;
 
         Ok(resolved_projects)
     }
@@ -97,7 +91,6 @@ impl Manifest {
         &self,
         project_root: &Path,
         acc: &mut Vec<Project>,
-        visited: &mut std::collections::HashSet<String>,
         chain: Vec<String>,
     ) -> ManifestResult<()> {
         let deps = match &self.dependencies {
@@ -108,10 +101,6 @@ impl Manifest {
         let lib_root = project_root.join(LIB_PATH);
 
         for (name, version) in deps {
-            if visited.contains(name) {
-                continue;
-            }
-
             let folder_name = format!("{}@{}", name, version);
             let dep_path = lib_root.join(&folder_name);
             let dep_manifest_path = dep_path.join(manifest::MANIFEST_NAME);
@@ -128,16 +117,14 @@ impl Manifest {
 
             let dep_manifest = Self::load(&dep_manifest_path)?;
 
-            visited.insert(name.clone());
-
-            let relative_path = dep_path
+            let dep_root_path = dep_path
                 .strip_prefix(project_root)
                 .unwrap_or(&dep_path)
                 .to_path_buf();
 
             acc.push(Project::new(
                 dep_manifest.project.name.clone(),
-                relative_path,
+                dep_root_path.clone(),
             ));
 
             let mut next_chain = chain.clone();
@@ -146,7 +133,7 @@ impl Manifest {
                 dep_manifest.project.name, dep_manifest.project.version
             ));
 
-            dep_manifest.resolve_recursive(project_root, acc, visited, next_chain)?;
+            dep_manifest.resolve_recursive(&dep_root_path.to_path_buf(), acc, next_chain)?;
         }
 
         Ok(())
