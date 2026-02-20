@@ -77,11 +77,7 @@ impl Executable for CheckArgs {
         );
 
         let info = info.ok_or_else(|| {
-            // TODO: Maybe define separate error for this
-            CliError::Io(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Failed to create program information: Entry file invalid",
-            ))
+            CliError::Manifest(ManifestError::EmptyEntryFile(manifest.project.name.clone()))
         })?;
 
         match driver::syntax_check(&info, &mut source) {

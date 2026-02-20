@@ -51,6 +51,12 @@ fn main() -> io::Result<()> {
                             .build()
                             .print()?;
                     }
+                    error::ManifestError::EmptyEntryFile(_) => {
+                        builder
+                            .help("Try adding code to the projects entry file")
+                            .build()
+                            .print()?;
+                    }
                     error::ManifestError::Parse(_) => {
                         panic!("Manifest parse errors should never be returned standalone")
                     }

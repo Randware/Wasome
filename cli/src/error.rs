@@ -31,6 +31,9 @@ pub enum ManifestError {
     #[error("Failed to parse manifest: {0}")]
     Parse(#[from] toml::de::Error),
 
+    #[error("Empty entry file for project '{0}'")]
+    EmptyEntryFile(String),
+
     #[error("No project manifest for declared dependency '{0}' of project '{1}' found at '{2}'")]
     MissingDependency(String, String, String),
 }
