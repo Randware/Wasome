@@ -86,11 +86,7 @@ impl<'ctx> LLVMContext<'ctx> {
             }
         }
         module
-            .run_passes(
-                self.opt_level.to_pass_builder_string(),
-                &self.machine,
-                passes,
-            )
+            .run_passes(self.opt_level.as_llvm_pipeline(), &self.machine, passes)
             .expect("Could not run passes");
         self.modules.insert(name, module)
     }
