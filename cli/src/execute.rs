@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use driver::program_information::{ProgramInformation, Project};
-use error::diagnostic;
+use error::diagnostic::{Diagnostic, Level};
 use source::SourceMap;
 
 use crate::{
@@ -57,7 +57,11 @@ impl Executable for CheckArgs {
 
         if manifest.is_library() {
             // NOTE: We cannot check libraries for now, since we don't have an entry point
-            println!("Skipping check for library project (no entry point)");
+            Diagnostic::builder()
+                .level(Level::Error)
+                .message("Cannot check library project (no entry point)")
+                .build()
+                .print()?;
             return Ok(());
         }
 
@@ -81,16 +85,19 @@ impl Executable for CheckArgs {
         })?;
 
         match driver::syntax_check(&info, &mut source) {
-            Ok(_) => println!(
-                "Check for project '{}' was successful",
-                manifest.project.name
-            ),
+            Ok(_) => Diagnostic::builder()
+                .level(Level::Info)
+                .message("Check was successful")
+                .build()
+                .print()?,
             Err(d) => {
                 d.print_snippets(&source)?;
-                println!(
-                    "Check for project '{}' was NOT successful",
-                    manifest.project.name
-                )
+
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message("Check was not successful")
+                    .build()
+                    .print()?;
             }
         }
 
@@ -104,10 +111,14 @@ impl Executable for BuildArgs {
 
         let (manifest, manifest_path) = Manifest::discover(path)?;
 
-        println!(
-            "Compiling project at {}",
-            manifest_path.parent().unwrap().display()
-        );
+        Diagnostic::builder()
+            .level(Level::Info)
+            .message(format!(
+                "Compiling project at {}",
+                manifest_path.parent().unwrap().display()
+            ))
+            .build()
+            .print()?;
 
         // TODO: Compiling is not yet possible
         todo!();
@@ -146,7 +157,11 @@ impl Executable for NewArgs {
 
         template.write(&path)?;
 
-        println!("Created new project at {}", path.display());
+        Diagnostic::builder()
+            .level(Level::Info)
+            .message(format!("Created new project at {}", path.display()))
+            .build()
+            .print()?;
 
         Ok(())
     }
@@ -158,10 +173,14 @@ impl Executable for FmtArgs {
 
         let (manifest, manifest_path) = Manifest::discover(path)?;
 
-        println!(
-            "Formatting project at {}",
-            manifest_path.parent().unwrap().display()
-        );
+        Diagnostic::builder()
+            .level(Level::Info)
+            .message(format!(
+                "Formatting project at {}",
+                manifest_path.parent().unwrap().display()
+            ))
+            .build()
+            .print()?;
 
         // TODO: Formatting is not yet possible
         todo!();
