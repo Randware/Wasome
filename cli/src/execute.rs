@@ -37,6 +37,16 @@ impl Executable for CheckArgs {
         let path = self.path.canonicalize()?;
 
         let manifest_path = Manifest::find(&path)?;
+
+        Diagnostic::builder()
+            .level(Level::Info)
+            .message(format!(
+                "Checking project at {}",
+                manifest_path.parent().unwrap().display()
+            ))
+            .build()
+            .print()?;
+
         let root = manifest_path.parent().unwrap().to_path_buf();
 
         let mut source = SourceMap::new(root.clone());
