@@ -176,9 +176,6 @@ impl<'a, S: ?Sized> Renderer<'a, S> {
 
         self.render_help()?;
 
-        // Add padding after the diagnostic
-        writeln!(self.writer)?;
-
         Ok(())
     }
 
