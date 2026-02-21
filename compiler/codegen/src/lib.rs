@@ -14,7 +14,8 @@ use crate::{context::LLVMContext, types::OptLevel};
 
 pub struct Codegen<'ctx> {
     ast: AST<TypedAST>,
-    context: LLVMContext<'ctx>,
+    context: &'ctx Context,
+    opt_level: OptLevel,
     output: PathBuf,
 }
 
@@ -29,7 +30,8 @@ impl<'ctx> Codegen<'ctx> {
     ) -> Self {
         Self {
             ast,
-            context: LLVMContext::new(context, opt_level),
+            context,
+            opt_level,
             output,
         }
     }

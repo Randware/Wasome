@@ -15,6 +15,9 @@ pub enum CodegenError<'src> {
     #[error("Entry block definition failed")]
     BlockCreationFailure,
 
+    #[error("Duplicate project name detected: '{0}'")]
+    DuplicateProjectName(String),
+
     #[error("Feature '{0}' is not yet implemented in backend")]
     Unimplemented(&'static str, Span),
 

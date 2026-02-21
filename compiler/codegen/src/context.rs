@@ -67,28 +67,36 @@ impl<'ctx> LLVMContext<'ctx> {
         self.dump_ir(std::io::stdout())
     }
 
+    /// Adds a module.
+    ///
+    /// If the module with that name is not present, [`None`] is returned.
+    ///
+    /// If the there is a module with the same name, the module is updated, and the old
+    /// modules is returned.
     pub fn add_module(&mut self, module_name: impl Into<String>) -> Option<Module<'ctx>> {
         let name = module_name.into();
         let module = self.context.create_module(&name);
         module.set_triple(&self.machine.get_triple());
         module.set_data_layout(&self.machine.get_target_data().get_data_layout());
 
-        let passes = PassBuilderOptions::create();
+        self.modules.insert(name, module)
+    }
 
-        match self.opt_level {
-            OptLevel::O0 => {
-                // This ensures compilation is fast
+    pub fn apply_passes(&mut self) {
+        self.modules.values_mut().for_each(|module| {
+            let passes = PassBuilderOptions::create();
+
+            // Explicitly lock down expensive passes at O0
+            if self.opt_level == OptLevel::O0 {
                 passes.set_loop_vectorization(false);
                 passes.set_loop_unrolling(false);
+                passes.set_loop_interleaving(false);
             }
-            _ => {
-                // Trust string pipeline
-            }
-        }
-        module
-            .run_passes(self.opt_level.as_llvm_pipeline(), &self.machine, passes)
-            .expect("Could not run passes");
-        self.modules.insert(name, module)
+
+            module
+                .run_passes(self.opt_level.as_llvm_pipeline(), &self.machine, passes)
+                .expect("Could not run passes");
+        });
     }
 
     pub fn get_module(&self, name: impl AsRef<str>) -> Option<&Module<'ctx>> {
