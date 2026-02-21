@@ -8,12 +8,12 @@ use inkwell::{
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
 };
 
-use crate::types::{CodegenTypes, OptLevel};
+use crate::types::{CodegenTypes, ModuleContext, OptLevel};
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
-    modules: HashMap<String, Module<'ctx>>,
+    modules: HashMap<String, ModuleContext<'ctx>>,
     machine: TargetMachine,
     types: CodegenTypes<'ctx>,
     opt_level: OptLevel,
@@ -53,7 +53,7 @@ impl<'ctx> LLVMContext<'ctx> {
 
     pub fn dump_ir<W: Write>(&self, mut output: W) -> Result<(), std::io::Error> {
         for module in self.modules.values() {
-            let ir_string = module.print_to_string();
+            let ir_string = module.inner.print_to_string();
 
             output.write_all(ir_string.to_bytes())?;
 
@@ -73,13 +73,13 @@ impl<'ctx> LLVMContext<'ctx> {
     ///
     /// If the there is a module with the same name, the module is updated, and the old
     /// modules is returned.
-    pub fn add_module(&mut self, module_name: impl Into<String>) -> Option<Module<'ctx>> {
+    pub fn add_module(&mut self, module_name: impl Into<String>) -> Option<ModuleContext<'ctx>> {
         let name = module_name.into();
         let module = self.context.create_module(&name);
         module.set_triple(&self.machine.get_triple());
         module.set_data_layout(&self.machine.get_target_data().get_data_layout());
 
-        self.modules.insert(name, module)
+        self.modules.insert(name, module.into())
     }
 
     pub fn apply_passes(&mut self) {
@@ -94,12 +94,13 @@ impl<'ctx> LLVMContext<'ctx> {
             }
 
             module
+                .inner
                 .run_passes(self.opt_level.as_llvm_pipeline(), &self.machine, passes)
                 .expect("Could not run passes");
         });
     }
 
-    pub fn get_module(&self, name: impl AsRef<str>) -> Option<&Module<'ctx>> {
+    pub fn get_module(&self, name: impl AsRef<str>) -> Option<&ModuleContext<'ctx>> {
         self.modules.get(name.as_ref())
     }
 

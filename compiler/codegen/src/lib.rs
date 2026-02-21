@@ -2,6 +2,7 @@ mod context;
 mod errors;
 mod generators;
 mod memory;
+mod symbols;
 mod temp;
 mod types;
 use std::path::PathBuf;

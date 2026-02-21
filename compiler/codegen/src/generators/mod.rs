@@ -1,6 +1,6 @@
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 
-use crate::{Codegen, context::LLVMContext, errors::CodegenError};
+use crate::{Codegen, context::LLVMContext, errors::CodegenError, types::ModuleContext};
 
 impl<'ctx> Codegen<'ctx> {
     pub fn compile(&mut self) -> Result<(), CodegenError<'_>> {
@@ -15,6 +15,7 @@ impl<'ctx> Codegen<'ctx> {
     ) -> Result<(), CodegenError<'_>> {
         let helper = DirectoryTraversalHelper::new_from_ast(&self.ast);
 
+        // Pass 1
         for project in helper.subdirectories_iterator() {
             llvm_context
                 .add_module(project.inner().name())
@@ -23,6 +24,24 @@ impl<'ctx> Codegen<'ctx> {
                 })?;
         }
 
+        // Pass 2
+        for project in helper.subdirectories_iterator() {
+            let project_name = project.inner().name();
+            let module = llvm_context
+                .get_module(project_name)
+                .ok_or_else(|| CodegenError::Ice("LLVM module is missing".to_string()))?;
+
+            todo!("Call compile_file")
+        }
+
+        todo!()
+    }
+
+    pub fn compile_file(
+        &mut self,
+        context: &mut LLVMContext<'ctx>,
+        module: ModuleContext<'ctx>,
+    ) -> Result<(), CodegenError<'_>> {
         todo!()
     }
 }
