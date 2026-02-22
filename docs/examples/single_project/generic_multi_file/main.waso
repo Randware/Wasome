@@ -1,6 +1,6 @@
 import "./"
 
 fn main() {
-    generic_multi_file.Container<s32> c <- generic_multi_file.create_container<s32>(100)
-    generic_multi_file.Result<s32, bool> r <- generic_multi_file.Result<s32, bool>::Ok(c.data)
+    generic_multi_file.Container[s32] c <- generic_multi_file.create_container[s32](100)
+    generic_multi_file.Result[s32, bool] r <- generic_multi_file.Result[s32, bool]::Ok(c.data)
 }

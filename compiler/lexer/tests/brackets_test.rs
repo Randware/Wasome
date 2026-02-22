@@ -1,9 +1,9 @@
-use lexer::{Token, TokenType, lex};
+use lexer::{lex, Token, TokenType};
 
 #[test]
 fn test_all_brackets() {
     let input = r#"
-    { } ( )
+    { } ( ) [ ]
      "#;
 
     let expected_tokens = vec![
@@ -28,8 +28,16 @@ fn test_all_brackets() {
             span: 11..12,
         },
         Token {
+            kind: TokenType::OpenGeneric,
+            span: 13..14,
+        },
+        Token {
+            kind: TokenType::CloseGeneric,
+            span: 15..16,
+        },
+        Token {
             kind: TokenType::StatementSeparator,
-            span: 12..13,
+            span: 16..17,
         },
     ];
 
