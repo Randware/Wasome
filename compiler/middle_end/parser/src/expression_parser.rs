@@ -2,10 +2,10 @@ use crate::input::ParserInput;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser, token_parser,
 };
-use crate::{ParserSpan, map, unspan_vec};
+use crate::{map, unspan_vec, ParserSpan};
 use ast::expression::{
-    BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
-    Typecast, UnaryOp, UnaryOpType,
+    BinaryOp, BinaryOpType, Expression, FunctionCall, MethodCall, NewEnum, NewStruct,
+    StructFieldAccess, Typecast, UnaryOp, UnaryOpType,
 };
 use ast::{ASTNode, UntypedAST};
 use chumsky::extra::Full;
@@ -48,8 +48,7 @@ pub(crate) fn expression_parser<'src>() -> impl Parser<
         let ident = identifier_parser();
         let ident_with_typ_param = identifier_with_type_parameter_parser();
 
-        let call = ident_with_typ_param
-            .clone()
+        let function_call = ident_with_typ_param
             .clone()
             .then(
                 expr.clone()
@@ -150,7 +149,7 @@ pub(crate) fn expression_parser<'src>() -> impl Parser<
             });
 
         let base = choice((
-            call,
+            function_call,
             literal,
             // New struct / enum is before variable to prevent is being parsed as a variable
             new_struct,
@@ -161,6 +160,36 @@ pub(crate) fn expression_parser<'src>() -> impl Parser<
                 token_parser(TokenType::CloseParen),
             ),
         ));
+
+        let method_call = base
+            .clone()
+            .then_ignore(token_parser(TokenType::Dot))
+            .then(identifier_with_type_parameter_parser())
+            .then_ignore(token_parser(TokenType::OpenParen))
+            .then(
+                expr.clone()
+                    .separated_by(token_parser(TokenType::ArgumentSeparator))
+                    .collect::<Vec<ASTNode<Expression<UntypedAST>>>>(),
+            )
+            .then(token_parser(TokenType::CloseParen))
+            .map(|(((source, method), args), end)| {
+                let pos = source.position().merge(end.span.0).unwrap();
+                ASTNode::new(
+                    Expression::<UntypedAST>::MethodCall(Box::new(MethodCall::new(
+                        source,
+                        (
+                            method.0.inner,
+                            method
+                                .1
+                                .into_iter()
+                                .map(|type_param| type_param.inner)
+                                .collect(),
+                        ),
+                        args,
+                    ))),
+                    pos,
+                )
+            });
 
         let sfa =
             base.clone()
@@ -176,7 +205,7 @@ pub(crate) fn expression_parser<'src>() -> impl Parser<
                     )
                 });
 
-        let simple_combined = sfa.or(base);
+        let simple_combined = choice((method_call, sfa, base));
 
         let typecast = simple_combined.foldl(
             token_parser(TokenType::As)
