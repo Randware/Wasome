@@ -291,7 +291,7 @@ impl TokenType {
     pub fn token_to_printable_string(&self) -> String {
         match self {
             TokenType::StatementSeparator => "statement separator".into(),
-            _ => format!("\"{}\"", self.token_to_string())
+            _ => format!("\"{}\"", self.token_to_string()),
         }
     }
 

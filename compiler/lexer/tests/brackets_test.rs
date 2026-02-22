@@ -1,4 +1,4 @@
-use lexer::{Token, TokenType, lex};
+use lexer::{lex, Token, TokenType};
 
 #[test]
 fn test_all_brackets() {
