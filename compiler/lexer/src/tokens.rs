@@ -1,7 +1,6 @@
 use logos::{Lexer, Logos};
 use std::borrow::Cow;
 use std::ops::Range;
-use crate::TokenType::{CloseScope, OpenScope};
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct LexError {

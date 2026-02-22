@@ -1,5 +1,5 @@
 use crate::input::ParserInput;
-use crate::{ParserSpan, map};
+use crate::{map, ParserSpan};
 use ast::data_type::UntypedDataType;
 use ast::symbol::UntypedTypeParameterSymbol;
 use ast::type_parameter::UntypedTypeParameter;
@@ -28,7 +28,8 @@ fn datatype_parser_internal<'src>(
             Vec<Spanned<UntypedDataType, ParserSpan>>,
         ),
         Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-    > + Clone + 'src,
+    > + Clone
+    + 'src,
 ) -> impl Parser<
     'src,
     ParserInput<'src>,
@@ -71,7 +72,7 @@ fn datatype_parser_internal<'src>(
             span: pos,
         }
     }))
-        .boxed()
+    .boxed()
 }
 
 /// Parses identifiers with possible type parameters
@@ -215,8 +216,8 @@ pub(crate) fn type_parameter_declaration_parser<'src>() -> impl Parser<
         .at_least(1)
         .collect::<Vec<_>>()
         .delimited_by(
-            token_parser(TokenType::LessThan),
-            token_parser(TokenType::GreaterThan),
+            token_parser(TokenType::OpenGeneric),
+            token_parser(TokenType::CloseGeneric),
         )
         .or_not()
         .map(|parameters| {
@@ -274,8 +275,8 @@ fn type_parameter_usage_parser_internal<'src>(
         .at_least(1)
         .collect::<Vec<_>>()
         .delimited_by(
-            token_parser(TokenType::LessThan),
-            token_parser(TokenType::GreaterThan),
+            token_parser(TokenType::OpenGeneric),
+            token_parser(TokenType::CloseGeneric),
         )
         .or_not()
         .map(|parameters| parameters.unwrap_or(Vec::new()))
@@ -285,8 +286,8 @@ fn type_parameter_usage_parser_internal<'src>(
 mod tests {
     use crate::misc_parsers::datatype_parser;
     use crate::test_shared::{convert_nonempty_input, wrap_token};
-    use ast::SemanticEq;
     use ast::data_type::UntypedDataType;
+    use ast::SemanticEq;
     use chumsky::Parser;
     use lexer::TokenType;
 
@@ -294,12 +295,12 @@ mod tests {
     fn parse_nested_datatype() {
         let tokens = vec![
             wrap_token(TokenType::Identifier("Box".to_string())),
-            wrap_token(TokenType::LessThan),
+            wrap_token(TokenType::OpenGeneric),
             wrap_token(TokenType::Identifier("Option".to_string())),
-            wrap_token(TokenType::LessThan),
+            wrap_token(TokenType::OpenGeneric),
             wrap_token(TokenType::U32),
-            wrap_token(TokenType::GreaterThan),
-            wrap_token(TokenType::GreaterThan),
+            wrap_token(TokenType::CloseGeneric),
+            wrap_token(TokenType::CloseGeneric),
         ];
         let res = datatype_parser()
             .parse(convert_nonempty_input(&tokens))
