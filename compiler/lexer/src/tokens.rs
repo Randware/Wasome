@@ -1,6 +1,7 @@
 use logos::{Lexer, Logos};
 use std::borrow::Cow;
 use std::ops::Range;
+use crate::TokenType::{CloseScope, OpenScope};
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct LexError {
@@ -141,6 +142,10 @@ pub enum TokenType {
     OpenScope,
     #[token("}")]
     CloseScope,
+    #[token("[")]
+    OpenGeneric,
+    #[token("]")]
+    CloseGeneric,
     #[token("(")]
     OpenParen,
     #[token(")")]
@@ -257,6 +262,8 @@ impl TokenType {
             // Delimiters
             OpenScope => "{".into(),
             CloseScope => "}".into(),
+            OpenGeneric => "[".into(),
+            CloseGeneric => "]".into(),
             OpenParen => "(".into(),
             CloseParen => ")".into(),
             Dot => ".".into(),
