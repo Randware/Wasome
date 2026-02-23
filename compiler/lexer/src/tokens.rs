@@ -141,6 +141,10 @@ pub enum TokenType {
     OpenScope,
     #[token("}")]
     CloseScope,
+    #[token("[")]
+    OpenGeneric,
+    #[token("]")]
+    CloseGeneric,
     #[token("(")]
     OpenParen,
     #[token(")")]
@@ -257,6 +261,8 @@ impl TokenType {
             // Delimiters
             OpenScope => "{".into(),
             CloseScope => "}".into(),
+            OpenGeneric => "[".into(),
+            CloseGeneric => "]".into(),
             OpenParen => "(".into(),
             CloseParen => ")".into(),
             Dot => ".".into(),
@@ -285,7 +291,7 @@ impl TokenType {
     pub fn token_to_printable_string(&self) -> String {
         match self {
             TokenType::StatementSeparator => "statement separator".into(),
-            _ => format!("\"{}\"", self.token_to_string())
+            _ => format!("\"{}\"", self.token_to_string()),
         }
     }
 
