@@ -209,7 +209,6 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// # Parameters
     ///
     /// - **`file_location`** - The location of the file
-    /// - **file** - The file to handle
     /// - **`file_name`** - The filename on disk (e.g.: with file extension)
     ///
     /// # Returns
@@ -240,7 +239,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// # Parameter
     ///
     /// - **`file_location`** - Where to add the file
-    /// - **file** - The file to add
+    /// - **`file`** - The file to add
     /// - **`file_name`** - The filename on disk (e.g.: with file extension)
     ///
     /// # Errors
@@ -299,11 +298,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// Should a file already exist, nothing is done
     ///
-    /// The import is only provided via it's import path
-    ///
     /// # Parameter
     ///
-    /// - **`module_path`** - The import path
+    /// - **`module_path`** - Information about the import to handle
     ///
     /// # Errors
     ///
@@ -437,7 +434,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
 ///     - This attachment only exists conceptually and is not represented in the data structure
 struct ImportInformation {
     /// A path to the referenced Module
-    /// Must be valid for the attached [`SourceMap`]
+    /// This does **not** have to be valid and may reference a non-existent module
     path: ModulePath,
     /// Must be inside the attached [`SourceMap`]
     span: Span,
@@ -468,7 +465,9 @@ impl ImportInformation {
     ///
     /// # Return
     ///
-    /// A list of all resolved import paths with the position of the import
+    /// A list of information of all imports inside the file
+    ///     - They will be attached to the [`SourceMap`] `file` was loaded with.
+    ///       See [`ImportInformation`] for more information about attachment.
     pub fn from_file(file: &File<UntypedAST>, file_module: &ModulePath) -> Vec<Self> {
         file.imports()
             .iter()
