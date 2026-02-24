@@ -427,3 +427,34 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         self.load_from.load_file(module_path)
     }
 }
+
+/// Information about an import
+///
+/// Used for loading imported files and handling errors that might occur during this process
+///
+/// May only exist in combination with a [´SourceMap´]
+///     - This attachment only exists conceptually and is not represented in the data structure
+struct ImportInformation {
+    /// A path to the referenced Module
+    /// Must be valid for the attached [`SourceMap`]
+    path: ModulePath,
+    /// Must be inside the attached [`SourceMap`]
+    span: Span,
+}
+
+impl ImportInformation {
+    /// Created a new instance of Self
+    ///
+    /// Note that no constraints are checked and that this is the responsibility of the caller
+    pub fn new(path: ModulePath, span: Span) -> Self {
+        Self { path, span }
+    }
+
+    pub fn path(&self) -> &ModulePath {
+        &self.path
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+}
