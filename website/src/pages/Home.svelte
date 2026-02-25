@@ -229,7 +229,7 @@ fn main() -> s32 {
 <style>
   .hero-section {
     position: relative;
-    padding: 8rem 0 12rem;
+    padding: 8rem 0 10rem;
     min-height: 100vh;
     min-height: 100svh;
     display: flex;
@@ -432,7 +432,7 @@ fn main() -> s32 {
 
   /* ── Features ── */
   .features {
-    padding: 8rem 0;
+    padding: 10rem 0;
     border-top: 1px solid rgba(255, 255, 255, 0.03);
     position: relative;
     z-index: 2;
@@ -593,7 +593,7 @@ fn main() -> s32 {
     }
 
     .hero-section {
-      padding: 6rem 0 8rem;
+      padding: 6rem 0 6rem;
       min-height: auto;
     }
 
