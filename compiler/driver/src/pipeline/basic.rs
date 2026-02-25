@@ -26,7 +26,7 @@ where
 
 /// See [`super::from_infallible_func`]
 ///
-/// `Input`, `Output` and `Error are not type parameters here to allow them to have higher-rank
+/// `Input`, `Output` and `Error` are not type parameters here to allow them to have higher-rank
 /// lifetimes and allow for pipeline reusability.
 pub struct FromFunc<Func> {
     func: Func,

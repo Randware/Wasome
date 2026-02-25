@@ -1,8 +1,5 @@
 use crate::program_information::Project;
-use ast::UntypedAST;
-use ast::file::File;
 use ast::top_level::ImportRoot;
-use source::types::Span;
 use std::iter::once;
 use std::path::PathBuf;
 
@@ -71,36 +68,6 @@ impl ModulePath {
             relative_to_project: ModulePathProjectRelative::new(path),
             project,
         })
-    }
-
-    /// Extracts all module paths referenced by imports of a file
-    ///
-    /// # Parameters
-    ///
-    /// - **`file`** - The file to analyze
-    /// - **`file_module`** - The module path of the file itself
-    ///
-    /// # Return
-    ///
-    /// A list of all resolved import paths with the position of the import
-    pub fn from_file(file: &File<UntypedAST>, file_module: &Self) -> Vec<(Self, Span)> {
-        file.imports()
-            .iter()
-            .map(|import| {
-                // A file may not have empty imports relative to the root
-                // [`Self::from_import_information`] has this as its sole error condition
-                // Therefore, this will never panic
-                (
-                    Self::from_import_information(
-                        file_module,
-                        import.root(),
-                        import.path().clone(),
-                    )
-                    .unwrap(),
-                    *import.position(),
-                )
-            })
-            .collect::<Vec<_>>()
     }
 
     /// Constructs the physical file system path for this module
