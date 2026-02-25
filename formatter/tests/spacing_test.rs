@@ -31,6 +31,6 @@ fn test_space_after_keyword() {
 
 #[test]
 fn test_space_between_literals() {
-    assert!(requires_space(&TokenType::Integer(1), &TokenType::Identifier("as".into())));
+    assert!(requires_space(&TokenType::Integer(1), &TokenType::Identifier("x".into())));
     assert!(requires_space(&TokenType::Integer(1), &TokenType::True));
 }

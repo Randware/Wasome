@@ -6,7 +6,6 @@ use crate::indent::IndentTracker;
 use crate::reorder::{categorize_keyword, ItemCategory};
 use crate::spacing::requires_space;
 use lexer::{Token, TokenType};
-use std::borrow::Cow;
 
 /// Checks if a token starts a top-level item.
 fn is_top_level_start(token: &TokenType) -> bool {
@@ -126,7 +125,7 @@ impl TokenFormatter {
 
     /// Writes the current token.
     fn write_token(&mut self, kind: &TokenType) {
-        self.output.push_str(&token_to_string(kind));
+        self.output.push_str(&kind.to_text());
     }
 
     /// Newlines and indent changes after a token.
@@ -176,99 +175,4 @@ impl TokenFormatter {
 /// Formats a sequence of tokens.
 pub fn format_tokens(tokens: &[Token]) -> String {
     TokenFormatter::new().format(tokens)
-}
-
-/// Converts a token to its string representation.
-/// Uses Cow to avoid heap allocations for static strings.
-fn token_to_string(token: &TokenType) -> Cow<'_, str> {
-    use TokenType::*;
-
-    match token {
-        // Primitive types
-        S8 => "s8".into(),
-        S16 => "s16".into(),
-        S32 => "s32".into(),
-        S64 => "s64".into(),
-        U8 => "u8".into(),
-        U16 => "u16".into(),
-        U32 => "u32".into(),
-        U64 => "u64".into(),
-        F32 => "f32".into(),
-        F64 => "f64".into(),
-        Bool => "bool".into(),
-        Char => "char".into(),
-        SelfType => "self".into(),
-
-        // Literals - require owned strings
-        Identifier(s) | String(s) | Comment(s) => Cow::Borrowed(s),
-        Decimal(f) => {
-            let s = f.to_string();
-            if s.contains('.') {
-                Cow::Owned(s)
-            } else {
-                Cow::Owned(format!("{}.0", s))
-            }
-        }
-        Integer(i) => Cow::Owned(i.to_string()),
-        CharLiteral(c) => Cow::Owned(format!("'{}'", escape_char(*c))),
-        True => "true".into(),
-        False => "false".into(),
-
-        // Operators
-        Addition => "+".into(),
-        Subtraction => "-".into(),
-        Multiplication => "*".into(),
-        Modulo => "%".into(),
-        Slash => "/".into(),
-        LessThan => "<".into(),
-        GreaterThan => ">".into(),
-        LessThanEqual => "<=".into(),
-        GreaterThanEqual => ">=".into(),
-        NotEqual => "!=".into(),
-        Comparison => "==".into(),
-        LShift => "<<".into(),
-        RShift => ">>".into(),
-        BitOr => "|".into(),
-        Or => "||".into(),
-        BitAnd => "&".into(),
-        And => "&&".into(),
-        Not => "!".into(),
-
-        // Delimiters
-        OpenScope => "{".into(),
-        CloseScope => "}".into(),
-        OpenParen => "(".into(),
-        CloseParen => ")".into(),
-        Dot => ".".into(),
-        Semicolon => ";".into(),
-        PathSeparator => "::".into(),
-        ArgumentSeparator => ",".into(),
-        StatementSeparator => "".into(),
-
-        // Keywords
-        Function => "fn".into(),
-        If => "if".into(),
-        Else => "else".into(),
-        Loop => "loop".into(),
-        Struct => "struct".into(),
-        Enum => "enum".into(),
-        As => "as".into(),
-        Public => "pub".into(),
-        New => "new".into(),
-        Import => "import".into(),
-        Return => "->".into(),
-        Assign => "<-".into(),
-    }
-}
-
-fn escape_char(c: char) -> String {
-    match c {
-        '\n' => "\\n".into(),
-        '\t' => "\\t".into(),
-        '\r' => "\\r".into(),
-        '\0' => "\\0".into(),
-        '\\' => "\\\\".into(),
-        '\'' => "\\'".into(),
-        _ => c.to_string(),
-    }
 }

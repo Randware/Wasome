@@ -98,6 +98,10 @@ fn is_literal(token: &TokenType) -> bool {
     )
 }
 
+fn is_identifier(token: &TokenType) -> bool {
+    matches!(token, TokenType::Identifier(_))
+}
+
 /// Determines if a space is required between two adjacent tokens.
 pub fn requires_space(prev: &TokenType, current: &TokenType) -> bool {
     if no_space_before(current) || no_space_after(prev) {
@@ -112,7 +116,8 @@ pub fn requires_space(prev: &TokenType, current: &TokenType) -> bool {
         && *current != TokenType::StatementSeparator;
     let space_between_identifiers = matches!(prev, TokenType::Identifier(_))
         && matches!(current, TokenType::Identifier(_));
-    let space_around_literals = is_literal(prev) && is_literal(current);
+    let space_around_literals = is_literal(prev) || is_literal(current);
+    let space_around_identifiers = is_identifier(prev) || is_identifier(current);
 
     space_around_operators
         || space_after_keyword
@@ -120,6 +125,7 @@ pub fn requires_space(prev: &TokenType, current: &TokenType) -> bool {
         || space_after_brace
         || space_between_identifiers
         || space_around_literals
+        || space_around_identifiers
 }
 
 #[cfg(test)]
