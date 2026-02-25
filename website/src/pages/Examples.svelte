@@ -177,10 +177,15 @@
 
     let content = fileCache[path];
 
-    const fallbackKey = name.replace(".waso", "");
-    if (!content && fallbackExamples[fallbackKey]) {
-      content = fallbackExamples[fallbackKey];
-      fileCache[path] = content;
+    if (!content) {
+      // Only use hardcoded fallbacks when rate-limited
+      if (rateLimited) {
+        const fallbackKey = name.replace(".waso", "");
+        if (fallbackExamples[fallbackKey]) {
+          content = fallbackExamples[fallbackKey];
+          fileCache[path] = content;
+        }
+      }
     }
 
     if (!content) {
@@ -250,6 +255,30 @@
       }
     } catch {}
 
+    // If not rate-limited, prefetch live directory trees for all top-level dirs
+    if (!rateLimited) {
+      const prefetchPromises = tree.map(async (node) => {
+        if (node.type === "dir") {
+          const items = await fetchDir(node.path);
+          if (items) {
+            node.children = sortItems(items);
+          }
+        }
+      });
+      await Promise.all(prefetchPromises);
+      tree = [...tree];
+
+      // Prefetch file contents for single_file children
+      const singleFile = tree.find((n) => n.name === "single_file");
+      if (singleFile?.children) {
+        const fileFetches = singleFile.children
+          .filter((c) => c.type === "file")
+          .map((c) => fetchFile(c.path, c.download_url));
+        await Promise.all(fileFetches);
+      }
+    }
+
+    // Expand single_file and open the first file
     const singleFile = tree.find((n) => n.name === "single_file");
     if (singleFile) {
       singleFile.expanded = true;
