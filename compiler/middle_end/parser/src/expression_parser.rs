@@ -250,19 +250,12 @@ pub(crate) fn expression_parser<'src>() -> impl Parser<
             ],
         );
 
-        let bitshift = binary_op_parser(
+        let bitshift = binary_operator_from_token_parser(
             sum,
-            vec![
-                (
-                    token_parser(TokenType::LessThan).repeated().exactly(2),
-                    BinaryOpType::LeftShift,
-                ),
-                (
-                    token_parser(TokenType::GreaterThan).repeated().exactly(2),
-                    BinaryOpType::RightShift,
-                ),
-            ]
-            .into_iter(),
+            &[
+                (TokenType::LShift, BinaryOpType::LeftShift),
+                (TokenType::RShift, BinaryOpType::RightShift),
+            ],
         )
         .boxed();
 
