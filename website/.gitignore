@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Generated fallback examples (fetched from GitHub on first run)
+src/data/generated
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
