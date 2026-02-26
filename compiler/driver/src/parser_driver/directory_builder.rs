@@ -1,9 +1,9 @@
+use crate::parser_driver::module_path::ModulePath;
 use ast::directory::Directory;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST};
 use source::types::FileID;
 use std::path::PathBuf;
-use crate::parser_driver::module_path::ModulePath;
 
 /// Builds an untyped directory
 #[derive(Debug)]
@@ -267,9 +267,9 @@ impl DirectoryBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ast::file::File;
     use ast::ASTNode;
     use ast::UntypedAST;
-    use ast::file::File;
     use std::ops::Deref;
     use std::path::PathBuf;
 

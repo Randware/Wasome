@@ -6,12 +6,12 @@ use crate::{
     UNABLE_TO_LOAD_DIRECTORY, UNABLE_TO_LOAD_FILE, UNRESOLVED_IMPORT_ERROR,
 };
 use ast::file::File;
-use ast::{AST, ASTNode, UntypedAST};
+use ast::{ASTNode, UntypedAST, AST};
 use error::diagnostic::{Diagnostic, Snippet};
 use io::FullIO;
-use parser::{FileInformation, parse};
-use source::SourceMap;
+use parser::{parse, FileInformation};
 use source::types::{FileID, Span};
+use source::SourceMap;
 use std::io::Error;
 use std::path::{Path, PathBuf};
 
