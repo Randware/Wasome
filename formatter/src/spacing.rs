@@ -20,10 +20,7 @@ fn no_space_before(token: &TokenType) -> bool {
 fn no_space_after(token: &TokenType) -> bool {
     matches!(
         token,
-        TokenType::OpenParen
-            | TokenType::Dot
-            | TokenType::PathSeparator
-            | TokenType::Not
+        TokenType::OpenParen | TokenType::Dot | TokenType::PathSeparator | TokenType::Not
     )
 }
 
@@ -67,7 +64,6 @@ fn space_after(token: &TokenType) -> bool {
             | TokenType::Public
             | TokenType::New
             | TokenType::Import
-
             | TokenType::S8
             | TokenType::S16
             | TokenType::S32
@@ -80,7 +76,6 @@ fn space_after(token: &TokenType) -> bool {
             | TokenType::F64
             | TokenType::Bool
             | TokenType::Char
-
             | TokenType::ArgumentSeparator
             | TokenType::Semicolon
     )
@@ -113,9 +108,10 @@ pub fn requires_space(prev: &TokenType, current: &TokenType) -> bool {
     let space_around_operators = space_before_after(current) || space_before_after(prev);
     let space_after_keyword = space_after(prev);
     let space_before_brace = *current == TokenType::OpenScope;
-    let space_after_brace = *prev == TokenType::CloseScope
-        && *current != TokenType::StatementSeparator;
-    let space_around_literals_identifiers = (is_literal(prev) || is_identifier(prev)) && (is_literal(current) || is_identifier(current));
+    let space_after_brace =
+        *prev == TokenType::CloseScope && *current != TokenType::StatementSeparator;
+    let space_around_literals_identifiers = (is_literal(prev) || is_identifier(prev))
+        && (is_literal(current) || is_identifier(current));
 
     space_around_operators
         || space_after_keyword
@@ -130,29 +126,47 @@ mod tests {
 
     #[test]
     fn test_space_around_operators() {
-        assert!(requires_space(&TokenType::Identifier("x".into()), &TokenType::Addition));
+        assert!(requires_space(
+            &TokenType::Identifier("x".into()),
+            &TokenType::Addition
+        ));
         assert!(requires_space(&TokenType::Addition, &TokenType::Integer(5)));
     }
 
     #[test]
     fn test_no_space_in_parens() {
-        assert!(!requires_space(&TokenType::OpenParen, &TokenType::Identifier("x".into())));
-        assert!(!requires_space(&TokenType::Identifier("x".into()), &TokenType::CloseParen));
+        assert!(!requires_space(
+            &TokenType::OpenParen,
+            &TokenType::Identifier("x".into())
+        ));
+        assert!(!requires_space(
+            &TokenType::Identifier("x".into()),
+            &TokenType::CloseParen
+        ));
     }
 
     #[test]
     fn test_space_after_type() {
-        assert!(requires_space(&TokenType::S32, &TokenType::Identifier("x".into())));
+        assert!(requires_space(
+            &TokenType::S32,
+            &TokenType::Identifier("x".into())
+        ));
     }
 
     #[test]
     fn test_space_after_comma() {
-        assert!(requires_space(&TokenType::ArgumentSeparator, &TokenType::S32));
+        assert!(requires_space(
+            &TokenType::ArgumentSeparator,
+            &TokenType::S32
+        ));
     }
 
     #[test]
     fn test_space_after_keyword() {
-        assert!(requires_space(&TokenType::Function, &TokenType::Identifier("main".into())));
+        assert!(requires_space(
+            &TokenType::Function,
+            &TokenType::Identifier("main".into())
+        ));
         assert!(requires_space(&TokenType::If, &TokenType::OpenParen));
     }
 }

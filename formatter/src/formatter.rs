@@ -3,7 +3,7 @@
 //! Processes tokens and produces formatted output.
 
 use crate::indent::IndentTracker;
-use crate::reorder::{categorize_keyword, ItemCategory};
+use crate::reorder::{ItemCategory, categorize_keyword};
 use crate::spacing::requires_space;
 use lexer::{Token, TokenType};
 
@@ -129,23 +129,16 @@ impl TokenFormatter {
     }
 
     /// Newlines and indent changes after a token.
-    fn handle_post_token(
-        &mut self,
-        kind: &TokenType,
-        prev: Option<&Token>,
-        next: Option<&Token>,
-    ) {
+    fn handle_post_token(&mut self, kind: &TokenType, prev: Option<&Token>, next: Option<&Token>) {
         match kind {
             TokenType::OpenScope => {
                 self.indent.increase();
                 self.push_newline();
             }
-            TokenType::CloseScope => {
-                match next.map(|t| &t.kind) {
-                    Some(TokenType::Else) | Some(TokenType::Semicolon) => {}
-                    _ => self.push_newline(),
-                }
-            }
+            TokenType::CloseScope => match next.map(|t| &t.kind) {
+                Some(TokenType::Else) | Some(TokenType::Semicolon) => {}
+                _ => self.push_newline(),
+            },
             TokenType::Semicolon => {
                 if let Some(p) = prev {
                     if matches!(p.kind, TokenType::CloseScope) {
