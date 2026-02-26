@@ -3,6 +3,7 @@ use ast::file::File;
 use ast::{ASTNode, UntypedAST};
 use source::types::FileID;
 use std::path::PathBuf;
+use crate::parser_driver::module_path::ModulePath;
 
 /// Builds an untyped directory
 #[derive(Debug)]
@@ -15,7 +16,8 @@ pub struct DirectoryBuilder {
     name: String,
     /// The subdirectories
     ///
-    /// They are implicitly created and don't need manual handling by the caller
+    /// They are typically implicitly created and don't need manual handling by the caller
+    ///     - It is however possible to manually ensure that they exist.
     ///
     /// Duplicates are forbidden
     subdirectories: Vec<DirectoryBuilder>,
@@ -56,6 +58,20 @@ impl DirectoryBuilder {
             }
             Some(_) => None,
         }
+    }
+
+    /// This ensures that a provided module exists
+    ///
+    /// Should the module already exist, this changes nothing
+    ///
+    /// Should the module not exist, it and all required parent modules (parent directories) are
+    /// created.
+    ///
+    /// # Parameter
+    ///
+    /// - **`path`** - The path of the module that should exist
+    pub fn ensure_module_exists(&mut self, path: &ModulePath) {
+        self.subdir_by_path(&path.elements());
     }
 
     /// Attempts to add a directory
@@ -117,7 +133,7 @@ impl DirectoryBuilder {
     /// # Return
     ///
     /// **The directory**
-    pub fn subdir_by_path(&mut self, path: &[String]) -> &mut Self {
+    fn subdir_by_path(&mut self, path: &[String]) -> &mut Self {
         match path.first() {
             None => self,
             Some(dir_name) => {
@@ -146,7 +162,7 @@ impl DirectoryBuilder {
     ///
     /// - **None** - The directory does not exist
     /// - **Some(directory)** - The directory was found
-    pub fn subdir_by_path_nonmutating(&self, path: &[String]) -> Option<&Self> {
+    fn subdir_by_path_nonmutating(&self, path: &[String]) -> Option<&Self> {
         match path.first() {
             None => Some(self),
             Some(dir_name) => {
