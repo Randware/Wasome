@@ -7,6 +7,7 @@ fn no_space_before(token: &TokenType) -> bool {
     matches!(
         token,
         TokenType::CloseParen
+            | TokenType::OpenGeneric
             | TokenType::CloseScope
             | TokenType::ArgumentSeparator
             | TokenType::Semicolon
