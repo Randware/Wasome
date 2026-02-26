@@ -311,7 +311,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .path()
             .build_path_buf(self.program_information.projects())
             .ok_or_else(|| Self::unresolved_import_error(import_path))?;
-
+        // Ensures that the module exists even if empty
+        // See https://github.com/Randware/Wasome/issues/45 for more information
+        self.root.ensure_module_exists(import_path.path());
         let imported_files = self
             .list_wasome_files_in_dir(&module_dir)
             .map_err(|err| Self::unable_to_load_directory_error(&module_dir, &err))?;
