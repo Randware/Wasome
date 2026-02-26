@@ -93,12 +93,12 @@ impl TopLevelParser {
 
     /// Begins a new top-level item.
     /// If the buffer only contains comments/separators, they stay attached
-    /// to the new item. Otherwise the buffer is flushed as a separate item.
+    /// to the new item. Otherwise, the buffer is flushed as a separate item.
     fn start_new_item(&mut self, category: ItemCategory) {
+        // Keep leading comments — they belong to the next item
         if !self.buffer_is_only_comments() {
             self.finish_current_item();
         }
-        // Keep leading comments — they belong to the next item
         self.current_category = category;
         self.in_item = true;
     }
