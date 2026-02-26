@@ -115,15 +115,12 @@ pub fn requires_space(prev: &TokenType, current: &TokenType) -> bool {
     let space_before_brace = *current == TokenType::OpenScope;
     let space_after_brace = *prev == TokenType::CloseScope
         && *current != TokenType::StatementSeparator;
-    let space_between_identifiers = matches!(prev, TokenType::Identifier(_))
-        && matches!(current, TokenType::Identifier(_));
     let space_around_literals_identifiers = (is_literal(prev) || is_identifier(prev)) && (is_literal(current) || is_identifier(current));
 
     space_around_operators
         || space_after_keyword
         || space_before_brace
         || space_after_brace
-        || space_between_identifiers
         || space_around_literals_identifiers
 }
 
