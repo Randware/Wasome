@@ -3,7 +3,7 @@
 use lexer::TokenType;
 
 /// Tokens that SHOULD NOT have a space BEFORE them
-fn no_space_before(token: &TokenType) -> bool {
+const fn no_space_before(token: &TokenType) -> bool {
     matches!(
         token,
         TokenType::CloseParen
@@ -17,7 +17,7 @@ fn no_space_before(token: &TokenType) -> bool {
 }
 
 /// Tokens that SHOULD NOT have a space AFTER them
-fn no_space_after(token: &TokenType) -> bool {
+const fn no_space_after(token: &TokenType) -> bool {
     matches!(
         token,
         TokenType::OpenParen | TokenType::Dot | TokenType::PathSeparator | TokenType::Not
@@ -25,7 +25,7 @@ fn no_space_after(token: &TokenType) -> bool {
 }
 
 /// Tokens that SHOULD be wrapped in spaces on BOTH sides
-fn space_before_after(token: &TokenType) -> bool {
+const fn space_before_after(token: &TokenType) -> bool {
     matches!(
         token,
         TokenType::Addition
@@ -52,7 +52,7 @@ fn space_before_after(token: &TokenType) -> bool {
 }
 
 /// Tokens that SHOULD have a space AFTER them
-fn space_after(token: &TokenType) -> bool {
+const fn space_after(token: &TokenType) -> bool {
     matches!(
         token,
         TokenType::Function
@@ -82,7 +82,7 @@ fn space_after(token: &TokenType) -> bool {
 }
 
 /// Returns true if the token is a literal value.
-fn is_literal(token: &TokenType) -> bool {
+const fn is_literal(token: &TokenType) -> bool {
     matches!(
         token,
         TokenType::Integer(_)
@@ -94,11 +94,12 @@ fn is_literal(token: &TokenType) -> bool {
     )
 }
 
-fn is_identifier(token: &TokenType) -> bool {
+const fn is_identifier(token: &TokenType) -> bool {
     matches!(token, TokenType::Identifier(_))
 }
 
 /// Determines if a space is required between two adjacent tokens.
+#[must_use]
 pub fn requires_space(prev: &TokenType, current: &TokenType) -> bool {
     if no_space_before(current) || no_space_after(prev) {
         return false;

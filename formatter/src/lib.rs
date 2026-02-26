@@ -25,8 +25,9 @@ use lexer::{Token, lex};
 use reorder::{parse_top_level_items, reorder_items};
 
 /// Formats Wasome source code and returns the formatted string.
+#[must_use]
 pub fn format_source(input: &str) -> String {
-    let tokens: Vec<Token> = lex(input).filter_map(|r| r.ok()).collect();
+    let tokens: Vec<Token> = lex(input).filter_map(Result::ok).collect();
 
     if tokens.is_empty() {
         return String::new();

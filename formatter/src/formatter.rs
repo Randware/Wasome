@@ -23,7 +23,7 @@ struct TokenFormatter {
 }
 
 impl TokenFormatter {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             output: String::new(),
             indent: IndentTracker::new(),
@@ -116,10 +116,10 @@ impl TokenFormatter {
         if just_indented {
             return;
         }
-        if let Some(prev_token) = prev {
-            if requires_space(&prev_token.kind, kind) {
-                self.output.push(' ');
-            }
+        if let Some(prev_token) = prev
+            && requires_space(&prev_token.kind, kind)
+        {
+            self.output.push(' ');
         }
     }
 
@@ -136,14 +136,14 @@ impl TokenFormatter {
                 self.push_newline();
             }
             TokenType::CloseScope => match next.map(|t| &t.kind) {
-                Some(TokenType::Else) | Some(TokenType::Semicolon) => {}
+                Some(TokenType::Else | TokenType::Semicolon) => {}
                 _ => self.push_newline(),
             },
             TokenType::Semicolon => {
-                if let Some(p) = prev {
-                    if matches!(p.kind, TokenType::CloseScope) {
-                        self.push_newline();
-                    }
+                if let Some(p) = prev
+                    && matches!(p.kind, TokenType::CloseScope)
+                {
+                    self.push_newline();
                 }
             }
             TokenType::Comment(_) => {
