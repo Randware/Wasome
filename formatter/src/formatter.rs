@@ -125,7 +125,7 @@ impl TokenFormatter {
 
     /// Writes the current token.
     fn write_token(&mut self, kind: &TokenType) {
-        self.output.push_str(&kind.to_text());
+        self.output.push_str(&kind.as_text());
     }
 
     /// Newlines and indent changes after a token.

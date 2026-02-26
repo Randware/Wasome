@@ -211,7 +211,7 @@ fn lex_int(lex: &mut Lexer<'_, TokenType>) -> Result<i64, LexError> {
 impl TokenType {
     /// Converts a token to its string representation.
     /// Uses Cow to avoid heap allocations for static strings.
-    pub fn to_text(&self) -> Cow<'_, str> {
+    pub fn as_text(&self) -> Cow<'_, str> {
         use TokenType::*;
 
         match self {
@@ -298,7 +298,7 @@ impl TokenType {
     pub fn to_printable_string(&self) -> String {
         match self {
             TokenType::StatementSeparator => "statement separator".into(),
-            _ => format!("\"{}\"", self.to_text()),
+            _ => format!("\"{}\"", self.as_text()),
         }
     }
 
