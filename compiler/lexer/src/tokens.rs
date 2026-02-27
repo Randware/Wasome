@@ -1,5 +1,6 @@
 use logos::{Lexer, Logos};
 use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
 use std::ops::Range;
 
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -208,7 +209,9 @@ fn lex_int(lex: &mut Lexer<'_, TokenType>) -> Result<i64, LexError> {
 }
 
 impl TokenType {
-    pub fn token_to_string(&self) -> Cow<'_, str> {
+    /// Converts a token to its string representation.
+    /// Uses Cow to avoid heap allocations for static strings.
+    pub fn as_text(&self) -> Cow<'_, str> {
         use TokenType::*;
 
         match self {
@@ -292,10 +295,10 @@ impl TokenType {
         }
     }
 
-    pub fn token_to_printable_string(&self) -> String {
+    pub fn to_printable_string(&self) -> String {
         match self {
             TokenType::StatementSeparator => "statement separator".into(),
-            _ => format!("\"{}\"", self.token_to_string()),
+            _ => format!("\"{}\"", self.as_text()),
         }
     }
 
@@ -309,6 +312,12 @@ impl TokenType {
             '\'' => "\\'".into(),
             _ => c.to_string(),
         }
+    }
+}
+
+impl Display for TokenType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.to_printable_string().as_str())
     }
 }
 
