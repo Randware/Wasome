@@ -65,7 +65,10 @@ impl DirectoryBuilder {
     /// Should the module already exist, this changes nothing
     ///
     /// Should the module not exist, it and all required parent modules (parent directories) are
-    /// created.
+    /// created
+    ///
+    /// Note that modules may exist for any reason even if they weren't explicitly
+    /// created by this method
     ///
     /// # Parameter
     ///
@@ -267,6 +270,7 @@ impl DirectoryBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser_driver::module_path::ModulePathProjectRelative;
     use ast::file::File;
     use ast::ASTNode;
     use ast::UntypedAST;
@@ -507,5 +511,19 @@ mod tests {
 
         assert!(builder.subdir_by_name_mut("sub").is_some());
         assert!(builder.subdir_by_name_mut("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_ensure_module_exists() {
+        let mut builder = DirectoryBuilder::new("root".to_string(), PathBuf::from("root"));
+
+        let module = ModulePath::new(
+            ModulePathProjectRelative::new(vec!["b".to_string(), "c".to_string()]),
+            "a".to_string(),
+        );
+        builder.ensure_module_exists(&module);
+        builder
+            .subdir_by_path_nonmutating(&module.elements())
+            .unwrap();
     }
 }
