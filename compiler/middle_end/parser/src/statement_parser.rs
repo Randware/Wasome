@@ -5,7 +5,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{ParserSpan, map, unspan_vec};
+use crate::{map, unspan_vec, ParserSpan};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,

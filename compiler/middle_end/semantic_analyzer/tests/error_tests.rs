@@ -39,7 +39,7 @@ mod tests {
         )
         .expect("Failed to create ProgramInformation");
 
-        let mut source_map = SourceMap::<WasomeLoader>::new(root);
+        let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
 
         let untyped_ast = match generate_untyped_ast(&prog_info, &mut source_map).ok() {
             Some(ast) => ast,
@@ -76,7 +76,7 @@ mod tests {
         )
         .expect("Failed to create ProgramInformation");
 
-        let mut source_map = SourceMap::<WasomeLoader>::new(root);
+        let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
         let untyped_ast = generate_untyped_ast(&prog_info, &mut source_map)
             .expect("Parsing failed in smoke test (file not found or syntax error)");
 

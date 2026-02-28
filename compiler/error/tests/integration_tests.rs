@@ -12,7 +12,7 @@ use source::SourceMap;
 fn test_single_file_fixture() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
@@ -36,7 +36,7 @@ fn test_single_file_fixture() {
 fn test_bytepos_conversion() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let span = main_id.span(88, 89);
@@ -62,7 +62,7 @@ fn test_bytepos_conversion() {
 fn test_with_context() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
@@ -93,7 +93,7 @@ fn test_with_context() {
 fn test_primary() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
@@ -117,7 +117,7 @@ fn test_primary() {
 fn test_print_with_snippets() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
@@ -141,7 +141,7 @@ fn test_multi_file() {
     MockLoader::load_from_disk("/src/a.waso", "a.waso");
     MockLoader::load_from_disk("/src/b.waso", "b.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let a_id = sm.load_file("a.waso").expect("Failed to load file");
     let b_id = sm.load_file("b.waso").expect("Failed to load file");
 
@@ -169,7 +169,7 @@ fn test_multi_file() {
 #[test]
 #[ignore]
 fn test_print_snippets_no_snippets() {
-    let sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
 
     let error = Diagnostic::builder()
         .level(Level::Error)
@@ -197,7 +197,7 @@ fn test_print_no_snippets() {
 fn test_multiline() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
@@ -220,7 +220,7 @@ fn test_multiline() {
 fn test_unicode() {
     MockLoader::load_from_disk("/src/unicode.waso", "unicode.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let unicode_id = sm.load_file("unicode.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
@@ -243,7 +243,7 @@ fn test_unicode() {
 fn test_overlapping() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
@@ -266,7 +266,7 @@ fn test_overlapping() {
 fn test_zero_length() {
     MockLoader::load_from_disk("/src/main.waso", "main.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let main_id = sm.load_file("main.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
@@ -288,7 +288,7 @@ fn test_zero_length() {
 fn test_empty_file() {
     MockLoader::load_from_disk("/src/empty.waso", "empty.waso");
 
-    let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/src"));
+    let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/src"));
     let empty_id = sm.load_file("empty.waso").expect("Failed to load file");
 
     let error = Diagnostic::builder()
