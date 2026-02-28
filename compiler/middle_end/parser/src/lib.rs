@@ -224,7 +224,7 @@ fn parse_tokens<Loader: FullIO>(
         .ok_or_else(|| invalid_filename_error(file_information.file_resolved()))?
         .to_owned();
     let to_parse_with_file_info = prepare_tokens(to_parse, file_information.file);
-    let input = ParserInput::new(&to_parse_with_file_info);
+    let input = ParserInput::new(&to_parse_with_file_info, file_information.file);
     // It's not a good idea to put this into a static to prevent recreating the parser
     // as it would require unsafe code
     let parser = top_level_parser(file_information);
@@ -349,6 +349,6 @@ pub(crate) mod test_shared {
     pub(crate) fn convert_nonempty_input(
         source: &[Spanned<TokenType, ParserSpan>],
     ) -> ParserInput<'_> {
-        ParserInput::new(source)
+        ParserInput::new(source, FileID::from(0))
     }
 }
