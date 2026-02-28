@@ -13,6 +13,9 @@ pub enum CliError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Could not compile project")]
+    CompilationFailed,
 }
 
 pub type CliResult<T> = Result<T, CliError>;

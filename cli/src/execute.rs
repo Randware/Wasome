@@ -139,6 +139,8 @@ impl Executable for CheckArgs {
                     .message("Check was not successful")
                     .build()
                     .print()?;
+
+                return Err(CliError::CompilationFailed);
             }
         }
 
