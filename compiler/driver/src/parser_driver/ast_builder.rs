@@ -3,12 +3,12 @@ use crate::parser_driver::directory_builder::DirectoryBuilder;
 use crate::parser_driver::module_path::{ModulePath, ModulePathProjectRelative};
 use crate::program_information::ProgramInformation;
 use ast::file::File;
-use ast::{AST, ASTNode, UntypedAST};
+use ast::{ASTNode, UntypedAST, AST};
 
 use io::FullIO;
-use parser::{FileInformation, parse};
-use source::SourceMap;
+use parser::{parse, FileInformation};
 use source::types::{FileID, Span};
+use source::SourceMap;
 use std::io::Error;
 use std::path::{Path, PathBuf};
 
@@ -46,22 +46,24 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             program_information: from,
         };
         let main_file_location = Self::extract_main_file_module(from)
-            .ok_or_else(DriverError::main_file_non_utf8_chars_error)?;
+            .ok_or_else(|| DriverError::MainFileNonUtf8Chars)?;
         let mut main_file_path = main_file_location
             .build_path_buf(from.projects())
-            .ok_or_else(DriverError::main_file_project_not_found_error)?;
+            .ok_or_else(|| DriverError::MainFileProjectNotFound)?;
         let main_file_name = from
             .main_file()
             .iter()
             .next_back()
-            .ok_or_else(DriverError::main_file_path_empty_error)?
+            .ok_or_else(|| DriverError::MainFilePathEmpty)?
             .to_str()
-            .ok_or_else(DriverError::main_file_non_utf8_chars_error)?;
+            .ok_or_else(|| DriverError::MainFileNonUtf8Chars)?;
         main_file_path.push(main_file_name);
-        let main_file_id = to_ret
-            .load_from
-            .load_file(&main_file_path)
-            .map_err(|err| DriverError::unable_to_load_file_error(main_file_path, err))?;
+        let main_file_id = to_ret.load_from.load_file(&main_file_path).map_err(|err| {
+            DriverError::UnableToLoadFile {
+                path: main_file_path,
+                source: err,
+            }
+        })?;
         to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Ok(to_ret)
     }
@@ -244,11 +246,16 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         let module_dir = import_path
             .path()
             .build_path_buf(self.program_information.projects())
-            .ok_or_else(|| DriverError::unresolved_import_error(import_path.span()))?;
+            .ok_or_else(|| DriverError::UnresolvedImport {
+                span: import_path.span(),
+            })?;
 
-        let imported_files = self
-            .list_wasome_files_in_dir(&module_dir)
-            .map_err(|err| DriverError::unable_to_load_directory_error(module_dir.clone(), err))?;
+        let imported_files = self.list_wasome_files_in_dir(&module_dir).map_err(|err| {
+            DriverError::UnableToLoadDirectory {
+                path: module_dir.clone(),
+                source: err,
+            }
+        })?;
         let mut err: Option<DriverError> = None;
         imported_files.for_each(|file| {
             // Only load the file if it isn't loaded, yet
@@ -262,10 +269,10 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             let loaded = match self.load_file(module_dir.clone(), &file) {
                 Ok(val) => val,
                 Err(io_err) => {
-                    err = Some(DriverError::unable_to_load_file_error(
-                        module_dir.join(file),
-                        io_err,
-                    ));
+                    err = Some(DriverError::UnableToLoadFile {
+                        path: module_dir.join(file),
+                        source: io_err,
+                    });
                     return;
                 }
             };
