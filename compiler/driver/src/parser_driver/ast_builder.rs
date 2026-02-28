@@ -1,13 +1,9 @@
+use crate::error::DriverError;
 use crate::parser_driver::directory_builder::DirectoryBuilder;
 use crate::parser_driver::module_path::{ModulePath, ModulePathProjectRelative};
 use crate::program_information::ProgramInformation;
-use crate::{
-    INVALID_CHARS_IN_MAIN_FILE, MAIN_FILE_PATH_EMPTY, MAIN_FILE_PROJECT_NOT_FOUND,
-    UNABLE_TO_LOAD_DIRECTORY, UNABLE_TO_LOAD_FILE, UNRESOLVED_IMPORT_ERROR,
-};
 use ast::file::File;
 use ast::{ASTNode, UntypedAST, AST};
-use error::diagnostic::{Diagnostic, Snippet};
 use io::FullIO;
 use parser::{parse, FileInformation};
 use source::types::{FileID, Span};
@@ -42,95 +38,33 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     pub fn new(
         from: &'a ProgramInformation,
         load_from: &'a mut SourceMap<Loader>,
-    ) -> Result<Self, Diagnostic> {
+    ) -> Result<Self, DriverError> {
         let mut to_ret = Self {
             root: DirectoryBuilder::new(from.name().to_owned(), PathBuf::new()),
             load_from,
             program_information: from,
         };
         let main_file_location = Self::extract_main_file_module(from)
-            .ok_or_else(Self::main_file_non_utf8_chars_error)?;
+            .ok_or_else(|| DriverError::MainFileNonUtf8Chars)?;
         let mut main_file_path = main_file_location
             .build_path_buf(from.projects())
-            .ok_or_else(Self::main_file_project_not_found_error)?;
+            .ok_or_else(|| DriverError::MainFileProjectNotFound)?;
         let main_file_name = from
             .main_file()
             .iter()
             .next_back()
-            .ok_or_else(Self::main_file_path_empty_error)?
+            .ok_or_else(|| DriverError::MainFilePathEmpty)?
             .to_str()
-            .ok_or_else(Self::main_file_non_utf8_chars_error)?;
+            .ok_or_else(|| DriverError::MainFileNonUtf8Chars)?;
         main_file_path.push(main_file_name);
-        let main_file_id = to_ret
-            .load_from
-            .load_file(&main_file_path)
-            .map_err(|err| Self::unable_to_load_file_error(&main_file_path, &err))?;
+        let main_file_id = to_ret.load_from.load_file(&main_file_path).map_err(|err| {
+            DriverError::UnableToLoadFile {
+                path: main_file_path,
+                source: err,
+            }
+        })?;
         to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Ok(to_ret)
-    }
-
-    fn main_file_non_utf8_chars_error() -> Diagnostic {
-        Diagnostic::builder()
-            .message("The main file path may not contain non-UTF8 chars")
-            .code(INVALID_CHARS_IN_MAIN_FILE)
-            .help("Only use valid UTF-8 characters")
-            .build()
-    }
-
-    fn main_file_project_not_found_error() -> Diagnostic {
-        Diagnostic::builder()
-            .message("The project of the main file could not be found")
-            .code(MAIN_FILE_PROJECT_NOT_FOUND)
-            .help("Provide a valid main file path")
-            .build()
-    }
-
-    fn main_file_path_empty_error() -> Diagnostic {
-        Diagnostic::builder()
-            .message("The path of the main file is empty")
-            .code(MAIN_FILE_PATH_EMPTY)
-            .help("Provide a valid main file path")
-            .build()
-    }
-
-    fn unable_to_load_file_error(file_path: &Path, error: &Error) -> Diagnostic {
-        Diagnostic::builder()
-            .message(format!(
-                "Unable to load file {}: {}",
-                file_path.to_string_lossy(),
-                error
-            ))
-            .code(UNABLE_TO_LOAD_FILE)
-            // This is a generic error msg
-            // So giving help is not easily possible
-            .build()
-    }
-
-    fn unable_to_load_directory_error(directory_path: &Path, error: &Error) -> Diagnostic {
-        Diagnostic::builder()
-            .message(format!(
-                "Unable to load directory {}: {}",
-                directory_path.to_string_lossy(),
-                error
-            ))
-            .code(UNABLE_TO_LOAD_DIRECTORY)
-            // This is a generic error msg
-            // So giving help is not easily possible
-            .build()
-    }
-
-    fn unresolved_import_error(pos: &ImportInformation) -> Diagnostic {
-        let pos = pos.span();
-        Diagnostic::builder()
-            .message("Unable to resolve import")
-            .code(UNRESOLVED_IMPORT_ERROR)
-            .snippet(
-                Snippet::builder()
-                    .file(pos.file_id)
-                    .primary(pos.start..pos.end, "Unable to find the referenced file")
-                    .build(),
-            )
-            .build()
     }
 
     /// Turns this into an actual untyped AST
@@ -194,7 +128,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
-    ) -> Result<(), Diagnostic> {
+    ) -> Result<(), DriverError> {
         let imports_information = self.handle_file(file_location, to_add)?;
         imports_information
             .into_iter()
@@ -227,7 +161,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
-    ) -> Result<Vec<ImportInformation>, Diagnostic> {
+    ) -> Result<Vec<ImportInformation>, DriverError> {
         let parsed = self.parse_file(file_location, to_add)?;
         let imports_information = ImportInformation::from_file(&parsed, file_location);
         self.add_file(file_location, parsed, to_add).unwrap();
@@ -283,11 +217,12 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &self,
         file_location: &ModulePath,
         to_parse: FileID,
-    ) -> Result<File<UntypedAST>, Diagnostic> {
+    ) -> Result<File<UntypedAST>, DriverError> {
         // This can never panic as a ModulePath can never be empty
         let last = file_location.elements().pop().unwrap();
         let file_information = FileInformation::new(to_parse, &last, self.load_from).unwrap();
-        let parsed = parse(file_information)?;
+        let parsed = parse(file_information)
+            .map_err(<error::diagnostic::Diagnostic as Into<DriverError>>::into)?;
         Ok(parsed)
     }
 
@@ -306,17 +241,22 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// There was an IO error
     ///     - This includes if `module_path` can't be resolved
-    fn handle_import(&mut self, import_path: &ImportInformation) -> Result<(), Diagnostic> {
+    fn handle_import(&mut self, import_path: &ImportInformation) -> Result<(), DriverError> {
         let module_dir = import_path
             .path()
             .build_path_buf(self.program_information.projects())
-            .ok_or_else(|| Self::unresolved_import_error(import_path))?;
+            .ok_or_else(|| DriverError::UnresolvedImport {
+                span: import_path.span(),
+            })?;
         // Ensures that the module exists even if empty
         // See https://github.com/Randware/Wasome/issues/45 for more information
         self.root.ensure_module_exists(import_path.path());
         let imported_files: Vec<_> = self
             .list_wasome_files_in_dir(&module_dir)
-            .map_err(|err| Self::unable_to_load_directory_error(&module_dir, &err))?
+            .map_err(|err| DriverError::UnableToLoadDirectory {
+                path: module_dir.clone(),
+                source: err,
+            })?
             .collect();
         for file in imported_files {
             // Only load the file if it isn't loaded, yet
@@ -327,8 +267,12 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 // We don't load the file, but there is no error
                 return Ok(());
             }
-            let loaded = self.load_file(module_dir.clone(), &file)
-                .map_err(|err| Self::unable_to_load_file_error(&module_dir.join(&file), &err))?;
+            let loaded = self.load_file(module_dir.clone(), &file).map_err(|err| {
+                DriverError::UnableToLoadFile {
+                    path: module_dir.join(file),
+                    source: err,
+                }
+            })?;
             self.add_file_handle_imports(import_path.path(), loaded)?;
         }
         Ok(())
