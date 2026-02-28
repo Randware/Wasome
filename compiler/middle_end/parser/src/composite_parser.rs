@@ -1,27 +1,23 @@
+use crate::error::ParserError;
 use crate::function_parser::function_parser;
 use crate::input::ParserInput;
+use crate::map_visibility;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, maybe_statement_separator, statement_separator,
     token_parser, type_parameter_declaration_parser, visibility_parser,
 };
-use crate::{ParserSpan, map_visibility};
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
 use ast::symbol::{EnumSymbol, EnumVariantSymbol, StructFieldSymbol, StructSymbol};
 use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
-use chumsky::error::Rich;
 use chumsky::extra::Full;
 use chumsky::{IterParser, Parser};
 use lexer::TokenType;
 use std::rc::Rc;
 
 /// Parses a struct
-pub(crate) fn struct_parser<'src>() -> impl Parser<
-    'src,
-    ParserInput<'src>,
-    ASTNode<Struct<UntypedAST>>,
-    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-> {
+pub(crate) fn struct_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Struct<UntypedAST>>, Full<ParserError, (), ()>> {
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let function = function_parser().boxed();
@@ -96,12 +92,8 @@ pub(crate) fn struct_parser<'src>() -> impl Parser<
 }
 
 /// Parses an enum
-pub(crate) fn enum_parser<'src>() -> impl Parser<
-    'src,
-    ParserInput<'src>,
-    ASTNode<Enum<UntypedAST>>,
-    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-> {
+pub(crate) fn enum_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Enum<UntypedAST>>, Full<ParserError, (), ()>> {
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let variant = ident.clone().then(

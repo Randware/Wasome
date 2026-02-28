@@ -1,16 +1,16 @@
 use crate::composite_parser::{enum_parser, struct_parser};
+use crate::error::ParserError;
 use crate::function_parser::function_parser;
 use crate::input::ParserInput;
 use crate::misc_parsers::{maybe_statement_separator, statement_separator};
 use crate::top_level_parser::import_parser::import_parser;
-use crate::{FileInformation, ParserSpan};
+use crate::FileInformation;
 use ast::composite::{Enum, Struct};
 use ast::top_level::{Function, Import};
 use ast::{ASTNode, UntypedAST};
 use chumsky::extra::Full;
 use chumsky::prelude::*;
 use io::FullIO;
-use lexer::TokenType;
 
 /// Parses all Top-Level elements in a file.
 ///
@@ -21,12 +21,7 @@ use lexer::TokenType;
 /// - **file_information**: Information about the to be parsed.
 pub(crate) fn top_level_parser<'src, Loader: FullIO>(
     file_information: &'src FileInformation<Loader>,
-) -> impl Parser<
-    'src,
-    ParserInput<'src>,
-    TopLevelElements,
-    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-> {
+) -> impl Parser<'src, ParserInput<'src>, TopLevelElements, Full<ParserError, (), ()>> {
     let imports = maybe_statement_separator()
         .ignore_then(import_parser(file_information).then_ignore(statement_separator()))
         .repeated()
@@ -74,15 +69,15 @@ enum TopLevelElement {
 }
 
 mod import_parser {
+    use crate::error::ParserError;
     use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
-    use crate::{FileInformation, ParserSpan};
-    use ast::ASTNode;
+    use crate::FileInformation;
     use ast::symbol::ModuleUsageNameSymbol;
     use ast::top_level::{Import, ImportRoot};
+    use ast::ASTNode;
     use chumsky::IterParser;
     use chumsky::Parser;
 
-    use chumsky::error::Rich;
     use chumsky::prelude::{choice, just};
 
     use chumsky::regex::regex;
@@ -104,12 +99,7 @@ mod import_parser {
     ///   in order to resolve import paths correctly
     pub(super) fn import_parser<'src, Loader: FullIO>(
         file_information: &'src FileInformation<Loader>,
-    ) -> impl Parser<
-        'src,
-        ParserInput<'src>,
-        ASTNode<Import>,
-        Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-    > {
+    ) -> impl Parser<'src, ParserInput<'src>, ASTNode<Import>, Full<ParserError, (), ()>> {
         let ident = identifier_parser();
         let path = string_parser();
         token_parser(TokenType::Import)
@@ -126,7 +116,7 @@ mod import_parser {
                     .end();
                 let pos = import.span.context().span(start.0, end.0);
                 let path = parse_import_path(&path)
-                    .ok_or(Rich::custom(pos.into(), "Invalid import".to_string()))?;
+                    .ok_or_else(|| ParserError::new(pos.into(), None, vec![]))?;
                 let use_as = usage_name
                     .map(|inner| inner.inner)
                     .unwrap_or_else(|| file_information.module_name().to_owned());

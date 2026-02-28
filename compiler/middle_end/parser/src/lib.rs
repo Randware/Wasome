@@ -1,22 +1,22 @@
+use crate::error::ParserError;
 use crate::input::ParserInput;
 use crate::top_level_parser::top_level_parser;
-use ast::UntypedAST;
 use ast::file::File;
 use ast::visibility::Visibility;
-use chumsky::Parser;
-use chumsky::error::{RichPattern, RichReason};
-use chumsky::prelude::Rich;
+use ast::UntypedAST;
 use chumsky::span::{Span, Spanned, WrappingSpan};
-use error::diagnostic::{Diagnostic, Snippet};
+use chumsky::Parser;
 use io::FullIO;
 use lexer::tokens::LexError;
-use lexer::{Token, TokenType, lex};
+use lexer::{lex, Token, TokenType};
 use source::types::{BytePos, FileID, Span as SourceSpan};
 use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
 use std::ops::Range;
+use ::error::diagnostic::{Diagnostic, Snippet};
 
 mod composite_parser;
+mod error;
 mod expression_parser;
 mod function_parser;
 mod input;
@@ -250,29 +250,27 @@ fn invalid_filename_error(file: &SourceFile) -> Diagnostic {
         .build()
 }
 
-fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
-    let span = *err.span();
-    let msg = match err.into_reason() {
-        RichReason::ExpectedFound { expected, found } => {
-            let expected = expected
-                .into_iter()
-                .map(|pat| match pat {
-                    RichPattern::Token(tok) => tok.to_printable_string().to_string(),
-                    RichPattern::EndOfInput => "end of input".to_string(),
-                    // Future improvement: Use custom for all other errors
-                    RichPattern::SomethingElse | RichPattern::Any => "something else".to_string(),
-                    _ => unreachable!("This should never happen"),
-                })
-                .collect::<Vec<_>>()
-                .join(" or ");
-            let found = match found {
-                None => "end of input".to_string(),
-                Some(tok) => tok.to_printable_string().to_string(),
-            };
-            format!("Expected {expected}, but found {found}")
-        }
-        RichReason::Custom(msg) => msg,
+fn parser_error(file: FileID, err: ParserError) -> Diagnostic {
+    let span = *err.position();
+    let found_str = err
+        .found()
+        .map(|t| t.to_printable_string())
+        .unwrap_or_else(|| "end of input".to_string());
+
+    let msg = if err.expected().is_empty() {
+        format!("Unexpected {}", found_str)
+    } else if err.expected().len() == 1 {
+        format!("Expected {}, found {}", err.expected()[0], found_str)
+    } else {
+        let expected_str = err
+            .expected()
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("Expected {}, found {}", expected_str, found_str)
     };
+
     Diagnostic::builder()
         .message("Token mismatch")
         .code(PARSING_CODE)
@@ -327,8 +325,8 @@ pub(crate) fn map_visibility(visibility: Option<&Spanned<TokenType, ParserSpan>>
 
 #[cfg(test)]
 pub(crate) mod test_shared {
-    use crate::ParserSpan;
     use crate::input::ParserInput;
+    use crate::ParserSpan;
     use ast::ASTNode;
     use chumsky::span::Spanned;
     use lexer::TokenType;

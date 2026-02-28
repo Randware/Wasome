@@ -2,8 +2,8 @@ use crate::ParserSpan;
 use chumsky::input::{BorrowInput, ExactSizeInput, SliceInput, ValueInput};
 use chumsky::prelude::*;
 use lexer::TokenType;
-use std::ops::{Range, RangeFrom};
 use source::types::BytePos;
+use std::ops::{Range, RangeFrom};
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct ParserInput<'src> {
@@ -62,9 +62,9 @@ impl<'src> Input<'src> for ParserInput<'src> {
         let end = match range.end {
             0 => BytePos(0),
             end if end == range.start => start.end(),
-            end => cache[(*end-1).min(cache.len() - 1)].span.end()
+            end => cache[(*end - 1).min(cache.len() - 1)].span.end(),
         };
-        
+
         start.set_end(end);
         start
     }
