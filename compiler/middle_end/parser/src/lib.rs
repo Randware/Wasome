@@ -6,6 +6,7 @@ use ast::visibility::Visibility;
 use ast::UntypedAST;
 use chumsky::span::{Span, Spanned, WrappingSpan};
 use chumsky::Parser;
+use ::error::diagnostic::{Diagnostic, Snippet};
 use io::FullIO;
 use lexer::tokens::LexError;
 use lexer::{lex, Token, TokenType};
@@ -13,7 +14,6 @@ use source::types::{BytePos, FileID, Span as SourceSpan};
 use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
 use std::ops::Range;
-use ::error::diagnostic::{Diagnostic, Snippet};
 
 mod composite_parser;
 mod error;
