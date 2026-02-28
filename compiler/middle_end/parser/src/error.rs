@@ -42,38 +42,6 @@ pub const PARSING_CODE: &str = "E2002";
 /// system to communicate what the parser was expecting when it encountered
 /// an unexpected token or end of input.
 ///
-/// # Variants
-///
-/// - `Token(TokenType)`: A specific token type was expected. Use this when you
-///   need to specify a particular token from the `TokenType` enum.
-///
-/// - `Identifier`: An identifier (variable name, function name, etc.) was expected.
-///   This is used for any alphanumeric identifier starting with a letter or underscore.
-///
-/// - `String`: A string literal was expected. String literals are enclosed in double quotes.
-///
-/// - `Decimal`: A decimal number (floating-point) was expected. These can contain
-///   a decimal point and exponent notation.
-///
-/// - `Integer`: An integer literal was expected. These are whole numbers without
-///   a decimal point.
-///
-/// - `Char`: A character literal was expected. Character literals are enclosed in
-///   single quotes and contain exactly one character.
-///
-/// - `Custom(String)`: A custom description of what was expected. Use this for
-///   specific format requirements or context-dependent expectations that don't
-///   fit the other variants.
-///
-/// # Example
-///
-/// ```ignore
-/// // In a parser, add expected context:
-/// identifier_parser().map_err(|err: ParserError| {
-///     err.with_expected(vec![ExpectedItem::Identifier])
-/// })
-/// ```
-///
 /// # Display
 ///
 /// The `Display` implementation provides user-friendly descriptions suitable
@@ -123,12 +91,6 @@ impl Display for ExpectedItem {
 /// Chumsky's `Error` and `LabelError` traits, allowing seamless integration with
 /// the parser framework while providing rich, semantic error messages.
 ///
-/// # Fields
-///
-/// - `position`: The span (source location) where the error occurred
-/// - `found`: The token type that was found (or `None` if end of input)
-/// - `expected`: A list of `ExpectedItem` values describing what was expected
-///
 /// # Error Message Format
 ///
 /// The error message format depends on whether expected items are present:
@@ -147,14 +109,7 @@ impl Display for ExpectedItem {
 /// 1. **Via Chumsky's `LabelError` trait**: When a primitive parser fails,
 ///    `expected_found()` is called to create a basic error with no expected items.
 ///
-/// 2. **Via `map_err`**: After a parser, use `map_err` to add semantic context:
-///
-/// ```ignore
-/// just(Token::Identifier)
-///     .map_err(|err: ParserError| {
-///         err.with_expected(vec![ExpectedItem::Identifier])
-///     })
-/// ```
+/// 2. **Via `map_err`**: After a parser, use `Self::map_err` to add semantic context:
 ///
 /// # Merging Errors
 ///
@@ -164,6 +119,9 @@ impl Display for ExpectedItem {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParserError {
     position: ParserSpan,
+    /// The actually found token
+    ///
+    /// None means end of input
     found: Option<TokenType>,
     expected: Vec<ExpectedItem>,
 }
@@ -180,17 +138,6 @@ impl ParserError {
     /// # Returns
     ///
     /// A new `ParserError` instance with the provided fields.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let error = ParserError::new(
-    ///     span,
-    ///     Some(TokenType::If),
-    ///     vec![ExpectedItem::Identifier],
-    /// );
-    /// // Error message: "Expected identifier, found 'if'"
-    /// ```
     pub fn new(
         position: ParserSpan,
         found: Option<TokenType>,
@@ -223,16 +170,6 @@ impl ParserError {
     ///
     /// An `Option` containing a reference to the `TokenType` that was found,
     /// or `None` if end of input was encountered.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// if let Some(token_type) = error.found() {
-    ///     println!("Found unexpected token: {}", token_type);
-    /// } else {
-    ///     println!("Unexpected end of input");
-    /// }
-    /// ```
     pub fn found(&self) -> Option<&TokenType> {
         self.found.as_ref()
     }
@@ -246,14 +183,6 @@ impl ParserError {
     /// # Returns
     ///
     /// A slice of `ExpectedItem` values describing what was expected.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// for expected in error.expected() {
-    ///     println!("Expected: {}", expected);
-    /// }
-    /// ```
     pub fn expected(&self) -> &[ExpectedItem] {
         &self.expected
     }
@@ -271,20 +200,7 @@ impl ParserError {
     /// # Returns
     ///
     /// A new `ParserError` with the updated expected items.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// just(Token::Identifier)
-    ///     .map_err(|err: ParserError| {
-    ///         err.with_expected(vec![ExpectedItem::Identifier])
-    ///     })
-    /// ```
-    ///
-    /// # Note
-    ///
-    /// This method replaces all existing expected items. To add to the list,
-    /// get the current expected items, append the new ones, and call `with_expected`.
+
     pub fn with_expected(mut self, expected: Vec<ExpectedItem>) -> Self {
         self.expected = expected;
         self
@@ -307,16 +223,6 @@ impl ParserError {
 ///
 /// This allows Chumsky to provide helpful error messages like:
 /// "Expected '{', ';', '(', '[', found '}'" when multiple alternatives fail.
-///
-/// # Example
-///
-/// Consider a parser that accepts either a block statement or a semicolon-terminated
-/// statement. If neither matches, the errors are merged:
-///
-/// ```ignore
-/// // Block parser fails, expects '{'
-/// // Semicolon parser fails, expects ';'
-/// // Merged error: "Expected '{', ';', found '}'"
 /// ```
 impl<'a> Error<'a, crate::input::ParserInput<'a>> for ParserError {
     fn merge(mut self, mut other: Self) -> Self {
@@ -342,16 +248,6 @@ impl<'a> Error<'a, crate::input::ParserInput<'a>> for ParserError {
 ///    borrowed token references)
 /// 2. Creates a `ParserError` with the span and found token
 /// 3. Sets the expected list to empty (semantic context is added via `map_err`)
-///
-/// # Example
-///
-/// ```ignore
-/// // Base error from Chumsky (no semantic context):
-/// ParserError { position: span, found: Some(If), expected: [] }
-///
-/// // After map_err with semantic context:
-/// ParserError { position: span, found: Some(If), expected: [Identifier] }
-/// // Message: "Expected identifier, found 'if'"
 /// ```
 impl<'a> LabelError<'a, crate::input::ParserInput<'a>, chumsky::DefaultExpected<'a, TokenType>>
     for ParserError
@@ -385,15 +281,6 @@ impl<'a> LabelError<'a, crate::input::ParserInput<'a>, chumsky::DefaultExpected<
 ///
 /// - No expected items: "Unexpected {found}"
 /// - Single expected item: "Expected {expected}, found {found}"
-/// - Multiple expected items: "Expected {expected1}, {expected2}, ..., found {found}"
-///
-/// # Example
-///
-/// ```ignore
-/// let parser_error = ParserError::new(span, Some(TokenType::If), vec![ExpectedItem::Identifier]);
-/// let diagnostic: Diagnostic = parser_error.into();
-/// // Diagnostic message: "Expected identifier, found 'if'"
-/// ```
 impl Into<Diagnostic> for ParserError {
     fn into(self) -> Diagnostic {
         let span = *self.position();
