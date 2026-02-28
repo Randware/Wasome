@@ -1,14 +1,14 @@
 use crate::input::ParserInput;
 use crate::top_level_parser::top_level_parser;
+use ::error::diagnostic::{Diagnostic, Snippet};
+use ast::UntypedAST;
 use ast::file::File;
 use ast::visibility::Visibility;
-use ast::UntypedAST;
-use chumsky::span::{Span, Spanned, WrappingSpan};
 use chumsky::Parser;
-use ::error::diagnostic::{Diagnostic, Snippet};
+use chumsky::span::{Span, Spanned, WrappingSpan};
 use io::FullIO;
 use lexer::tokens::LexError;
-use lexer::{lex, Token, TokenType};
+use lexer::{Token, TokenType, lex};
 use source::types::{BytePos, FileID, Span as SourceSpan};
 use source::{SourceFile, SourceMap};
 use std::fmt::Debug;
@@ -289,8 +289,8 @@ pub(crate) fn map_visibility(visibility: Option<&Spanned<TokenType, ParserSpan>>
 
 #[cfg(test)]
 pub(crate) mod test_shared {
-    use crate::input::ParserInput;
     use crate::ParserSpan;
+    use crate::input::ParserInput;
     use ast::ASTNode;
     use chumsky::span::Spanned;
     use lexer::TokenType;

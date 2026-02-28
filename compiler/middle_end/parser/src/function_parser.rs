@@ -5,14 +5,14 @@ use crate::misc_parsers::{
     visibility_parser,
 };
 use crate::statement_parser::statement_parser;
-use crate::{map_visibility, unspan_vec, ParserSpan};
+use crate::{ParserSpan, map_visibility, unspan_vec};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
 use ast::top_level::Function;
 use ast::{ASTNode, UntypedAST};
-use chumsky::extra::Full;
-use chumsky::span::{Spanned, WrappingSpan};
 use chumsky::IterParser;
 use chumsky::Parser;
+use chumsky::extra::Full;
+use chumsky::span::{Spanned, WrappingSpan};
 use lexer::TokenType;
 use std::rc::Rc;
 

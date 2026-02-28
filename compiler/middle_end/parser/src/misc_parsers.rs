@@ -1,6 +1,6 @@
 use crate::error::{ExpectedItem, ParserError};
 use crate::input::ParserInput;
-use crate::{map, ParserSpan};
+use crate::{ParserSpan, map};
 use ast::data_type::UntypedDataType;
 use ast::symbol::UntypedTypeParameterSymbol;
 use ast::type_parameter::UntypedTypeParameter;
@@ -298,8 +298,8 @@ fn type_parameter_usage_parser_internal<'src>(
 mod tests {
     use crate::misc_parsers::datatype_parser;
     use crate::test_shared::{convert_nonempty_input, wrap_token};
-    use ast::data_type::UntypedDataType;
     use ast::SemanticEq;
+    use ast::data_type::UntypedDataType;
     use chumsky::Parser;
     use lexer::TokenType;
 

@@ -1,10 +1,10 @@
+use crate::FileInformation;
 use crate::composite_parser::{enum_parser, struct_parser};
 use crate::error::ParserError;
 use crate::function_parser::function_parser;
 use crate::input::ParserInput;
 use crate::misc_parsers::{maybe_statement_separator, statement_separator};
 use crate::top_level_parser::import_parser::import_parser;
-use crate::FileInformation;
 use ast::composite::{Enum, Struct};
 use ast::top_level::{Function, Import};
 use ast::{ASTNode, UntypedAST};
@@ -69,12 +69,12 @@ enum TopLevelElement {
 }
 
 mod import_parser {
+    use crate::FileInformation;
     use crate::error::{ExpectedItem, ParserError};
     use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
-    use crate::FileInformation;
+    use ast::ASTNode;
     use ast::symbol::ModuleUsageNameSymbol;
     use ast::top_level::{Import, ImportRoot};
-    use ast::ASTNode;
     use chumsky::IterParser;
     use chumsky::Parser;
 
