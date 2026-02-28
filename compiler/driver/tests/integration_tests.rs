@@ -21,6 +21,8 @@ const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/m
 const MULTI_PROJECT_LIB_OPS: &str =
     include_str!("test_programs/multi-project/min/lib/math/ops.waso");
 
+const EMPTY_IMPORT_MAIN: &str = include_str!("test_programs/multi-project/empty_import/app/main.waso");
+
 const CIRCULAR_A: &str = include_str!("test_programs/single_project/circular/a/a.waso");
 const CIRCULAR_B: &str = include_str!("test_programs/single_project/circular/b/b.waso");
 
@@ -177,6 +179,52 @@ fn test_multi_project_program() {
             .iter()
             .any(|f| f.declaration().name() == "op")
     );
+}
+
+// This is for https://github.com/Randware/Wasome/issues/45
+#[test]
+fn test_empty_import_program() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let path = root.join("empty_import/app/main.waso");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::create_dir_all(root.join("empty_import/lib")).unwrap();
+    fs::write(path, EMPTY_IMPORT_MAIN).unwrap();
+
+
+    let root = dir.path().to_path_buf().join("empty_import");
+    let main_file = PathBuf::from("main.waso");
+
+    let prog_info = ProgramInformation::new(
+        "empty_import".to_string(),
+        root.clone(),
+        vec![
+            Project::new("app".to_string(), PathBuf::from("app")),
+            Project::new("lib".to_string(), PathBuf::from("lib")),
+        ],
+        "app".to_string(),
+        main_file,
+    )
+        .unwrap();
+
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
+
+    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+
+    let root_node = ast.deref();
+
+    // Check app project
+    let app_dir = root_node
+        .subdirectory_by_name("app")
+        .expect("app dir not found");
+    let main_file_node = app_dir.file_by_name("main").expect("main not found");
+    assert_eq!(main_file_node.imports().len(), 1); // imports lib/math
+
+    // Check lib project
+    root_node
+        .subdirectory_by_name("lib")
+        .expect("lib dir not found");
+
 }
 
 #[test]
