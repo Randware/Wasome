@@ -59,6 +59,7 @@ impl Executable for CheckArgs {
                 if let ManifestError::Parse(toml_err) = e {
                     return Err(CliError::ManifestParse(toml_err, source, file_id));
                 }
+
                 return Err(CliError::Manifest(e));
             }
         };
@@ -95,7 +96,16 @@ impl Executable for CheckArgs {
             .unwrap_or(&entry_file)
             .to_path_buf();
 
-        let mut projects = manifest.resolve_dependencies(&root)?;
+        let mut projects = match manifest.resolve_dependencies(&root) {
+            Ok(p) => p,
+            Err(e) => {
+                if let ManifestError::Parse(toml_err) = e {
+                    return Err(CliError::ManifestParse(toml_err, source, file_id));
+                }
+
+                return Err(CliError::Manifest(e));
+            }
+        };
 
         projects.push(Project::new(
             manifest.project.name.clone(),

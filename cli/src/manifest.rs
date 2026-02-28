@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::dependencies::DependencyResolver;
 use crate::error::{ManifestError, ManifestResult};
 use crate::manifest;
 
@@ -91,24 +92,24 @@ impl Manifest {
             None => return Ok(()),
         };
 
-        let lib_root = project_root.join(LIB_PATH);
-
         for (name, version) in deps {
-            let folder_name = format!("{}@{}", name, version);
-            let dep_path = lib_root.join(&folder_name);
-            let dep_manifest_path = dep_path.join(manifest::MANIFEST_FILE);
+            let resolver = DependencyResolver::new(project_root.to_path_buf());
 
-            if !dep_manifest_path.exists() {
-                let chain_display = chain.join("/");
+            let dep_id = format!("{}@{}", name, version);
 
-                return Err(ManifestError::MissingDependency(
-                    folder_name.clone(),
-                    chain_display,
-                    format!("{}{}", LIB_PATH, folder_name),
-                ));
-            }
+            let dep_path = match resolver.locate(name, version) {
+                Some(path) => path,
+                None => {
+                    let chain_display = chain.join("/");
 
-            let dep_manifest = Self::load(&dep_manifest_path)?;
+                    return Err(ManifestError::MissingDependency(
+                        dep_id.clone(),
+                        chain_display,
+                    ));
+                }
+            };
+
+            let dep_manifest = Manifest::load(dep_path.join(manifest::MANIFEST_FILE))?;
 
             let dep_root_path = dep_path
                 .strip_prefix(project_root)

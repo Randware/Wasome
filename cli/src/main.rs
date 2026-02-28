@@ -1,4 +1,5 @@
 mod command;
+mod dependencies;
 mod error;
 mod execute;
 mod manifest;
@@ -64,6 +65,12 @@ fn main() -> io::Result<()> {
                             .help(
                                 "Make sure your project only has either a 'main.waso' or 'lib.waso' file",
                             )
+                            .build()
+                            .print()?;
+                    }
+                    error::ManifestError::MissingDependency(_, _) => {
+                        builder
+                            .help("Make sure you have a local or global version of the dependency available and its manifest is valid")
                             .build()
                             .print()?;
                     }

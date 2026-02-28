@@ -37,8 +37,8 @@ pub enum ManifestError {
     #[error("Multiple entries for project '{0}'")]
     MultipleEntries(String),
 
-    #[error("No project manifest for declared dependency '{0}' of project '{1}' found at '{2}'")]
-    MissingDependency(String, String, String),
+    #[error("Dependency '{0}' (required by '{1}') could not be resolved")]
+    MissingDependency(String, String),
 }
 
 pub type ManifestResult<T> = Result<T, ManifestError>;
