@@ -312,18 +312,19 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .build_path_buf(self.program_information.projects())
             .ok_or_else(|| Self::unresolved_import_error(import_path))?;
 
-        let imported_files = self
+        let imported_files: Vec<_> = self
             .list_wasome_files_in_dir(&module_dir)
-            .map_err(|err| Self::unable_to_load_directory_error(&module_dir, &err))?;
+            .map_err(|err| Self::unable_to_load_directory_error(&module_dir, &err))?
+            .collect();
         let mut err = None;
-        imported_files.into_iter().for_each(|file| {
+        for file in imported_files {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
             // All wasome files must have a file extension
             // So this will never panic
             if self.does_file_exist_in_ast(import_path.path(), &file[0..file.rfind('.').unwrap()]) {
                 // We don't load the file, but there is no error
-                return;
+                return Ok(());
             }
             let loaded = match self.load_file(module_dir.clone(), &file) {
                 Ok(val) => val,
@@ -332,13 +333,13 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                         &module_dir.join(file),
                         &io_err,
                     ));
-                    return;
+                    return Ok(());
                 }
             };
             if let Err(val) = self.add_file_handle_imports(import_path.path(), loaded) {
                 err = Some(val);
             }
-        });
+        }
         err.map_or(Ok(()), Err)
     }
 
@@ -379,21 +380,22 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// There was an IO error, for example
     /// - Missing permissions
     /// - Directory not found
-    fn list_wasome_files_in_dir(&self, dir: &Path) -> Result<Vec<String>, Error> {
+    fn list_wasome_files_in_dir<'b>(
+        &'b self,
+        dir: &'b Path,
+    ) -> Result<impl Iterator<Item = String> + 'b, Error> {
         Ok(self
             .load_from
             .loader()
             .list_files(self.program_information.path().join(dir))?
             // Skip files with non-UTF8 filenames
             // They might be non-wasome files so we don't want to hard-fail
-            .into_iter()
             .filter_map(|file_name| file_name.into_string().ok())
             .filter(|file| {
                 WASOME_FILE_ENDINGS
                     .iter()
                     .any(|ending| file.ends_with(ending))
-            })
-            .collect())
+            }))
     }
 
     /// Loads a file into the `SourceMap` and returns the `FileID` handle to it
