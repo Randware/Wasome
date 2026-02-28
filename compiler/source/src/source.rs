@@ -366,6 +366,7 @@ mod tests {
     static MOCK_FS: LazyLock<Mutex<HashMap<PathBuf, String>>> =
         LazyLock::new(|| Mutex::new(HashMap::new()));
 
+    #[derive(Default)]
     struct MockLoader;
     impl MockLoader {
         fn save(path: &str, content: &str) {
@@ -402,7 +403,7 @@ mod tests {
         let content = "fn main() { -> 0; }";
         MockLoader::save(filename, content);
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
 
         let id = sm.load_file(filename).expect("Should load existing file");
 
@@ -413,7 +414,7 @@ mod tests {
     /// Tests if the SourceMap returns an error if we try to load a missing file
     #[test]
     fn test_load_non_existent_file() {
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
 
         let result = sm.load_file("/ghost_file.waso");
 
@@ -428,7 +429,7 @@ mod tests {
         let filename = "/cached.waso";
         MockLoader::save(filename, "content");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
 
         let id1 = sm.load_file(filename).unwrap();
         let id2 = sm.load_file(filename).unwrap();
@@ -445,7 +446,7 @@ mod tests {
         MockLoader::save("/a.waso", "A");
         MockLoader::save("/b.waso", "B");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
 
         let id_a_1 = sm.load_file("/a.waso").unwrap();
         let id_b_1 = sm.load_file("/b.waso").unwrap();
@@ -461,7 +462,7 @@ mod tests {
         let filename = "/windows.waso";
         MockLoader::save(filename, "a\r\nb");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
         let file = sm.get_file(&id).unwrap();
 
@@ -491,7 +492,7 @@ mod tests {
         // Line 2: "✨" (3 bytes) + " = 1;"
         MockLoader::save(filename, "let \n✨ = 1;");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         // Target the '=' sign after the sparkles.
@@ -520,7 +521,7 @@ mod tests {
     #[test]
     fn test_empty_file() {
         MockLoader::save("/empty.waso", "");
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file("/empty.waso").unwrap();
 
         // Should verify that looking up index 0 doesn't panic and returns line 1, col 1 (or 0)
@@ -543,7 +544,7 @@ mod tests {
         let filename = "/no_eof.waso";
         MockLoader::save(filename, "line1\nline2"); // No \n after line2
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         // Check 'l' in "line2"
@@ -568,7 +569,7 @@ mod tests {
         let filename = "/slice.waso";
         MockLoader::save(filename, "let foo = 10;");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         // "foo" is bytes 4, 5, 6 (0-based)
@@ -586,7 +587,7 @@ mod tests {
     fn test_empty_slice() {
         let filename = "/empty_slice.waso";
         MockLoader::save(filename, "");
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         let span = Span {
@@ -609,7 +610,7 @@ mod tests {
         }
         MockLoader::save(filename, &content);
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"), MockLoader);
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         // Look up the very last 'a'

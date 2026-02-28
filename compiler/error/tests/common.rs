@@ -9,6 +9,7 @@ use io::{FileLoader, PathResolver};
 pub static MOCK_FS: LazyLock<Mutex<HashMap<PathBuf, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+#[derive(Default)]
 pub struct MockLoader;
 
 impl MockLoader {

@@ -22,7 +22,7 @@ fn test_workflow_load_and_lookup() {
     let content = "fn main() {\n    let x = 10;\n}";
     let (dir, _path) = setup_file("main.waso", content);
 
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf(), WasomeLoader);
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
 
     let id = sm
         .load_file("main.waso")
@@ -49,7 +49,7 @@ fn test_unicode_handling_sparkles() {
     let content = "a\n✨b";
     let (dir, _) = setup_file("sparkles.waso", content);
 
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf(), WasomeLoader);
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
     let id = sm.load_file("sparkles.waso").unwrap();
 
     // We want to point to 'b'
@@ -68,7 +68,7 @@ fn test_unicode_handling_sparkles() {
 #[test]
 fn test_caching_behavior() {
     let (dir, file_path) = setup_file("cache.waso", "v1");
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf(), WasomeLoader);
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
 
     let id1 = sm.load_file("cache.waso").unwrap();
 
@@ -96,7 +96,7 @@ fn test_relative_path_resolution() {
     let mut file = File::create(&file_path).unwrap();
     write!(file, "code").unwrap();
 
-    let mut sm: SourceMap = SourceMap::new(root.to_path_buf(), WasomeLoader);
+    let mut sm: SourceMap = SourceMap::with_default(root.to_path_buf());
 
     let result = sm.load_file("src/lib/math.waso");
     assert!(result.is_ok());
@@ -105,7 +105,7 @@ fn test_relative_path_resolution() {
 #[test]
 fn test_error_file_not_found() {
     let dir = tempdir().unwrap();
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf(), WasomeLoader);
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
 
     let result = sm.load_file("missing.waso");
 
@@ -116,7 +116,7 @@ fn test_error_file_not_found() {
 #[test]
 fn test_span_slicing() {
     let (dir, _) = setup_file("slice.waso", "12345");
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf(), WasomeLoader);
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
     let id = sm.load_file("slice.waso").unwrap();
 
     let span = id.span(1, 4); // "234"
@@ -130,7 +130,7 @@ fn test_cross_file_span_merging() {
     let file_path_b = dir.path().join("b.waso");
     File::create(&file_path_b).unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(dir.path().to_path_buf(), WasomeLoader);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(dir.path().to_path_buf());
 
     let id_a = sm.load_file("a.waso").unwrap();
     let id_b = sm.load_file("b.waso").unwrap();
