@@ -316,7 +316,6 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .list_wasome_files_in_dir(&module_dir)
             .map_err(|err| Self::unable_to_load_directory_error(&module_dir, &err))?
             .collect();
-        let mut err = None;
         for file in imported_files {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
@@ -326,21 +325,11 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 // We don't load the file, but there is no error
                 return Ok(());
             }
-            let loaded = match self.load_file(module_dir.clone(), &file) {
-                Ok(val) => val,
-                Err(io_err) => {
-                    err = Some(Self::unable_to_load_file_error(
-                        &module_dir.join(file),
-                        &io_err,
-                    ));
-                    return Ok(());
-                }
-            };
-            if let Err(val) = self.add_file_handle_imports(import_path.path(), loaded) {
-                err = Some(val);
-            }
+            let loaded = self.load_file(module_dir.clone(), &file)
+                .map_err(|err| Self::unable_to_load_file_error(&module_dir.join(&file), &err))?;
+            self.add_file_handle_imports(import_path.path(), loaded)?;
         }
-        err.map_or(Ok(()), Err)
+        Ok(())
     }
 
     /// Checks if a file exists in the AST
