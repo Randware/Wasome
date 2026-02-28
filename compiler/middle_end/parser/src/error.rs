@@ -89,8 +89,6 @@ impl Display for ParserError {
 
         if self.expected.is_empty() {
             write!(f, "Unexpected {}", found_str)
-        } else if self.expected.len() == 1 {
-            write!(f, "Expected {}, found {}", self.expected[0], found_str)
         } else {
             let expected_str = self
                 .expected
