@@ -66,6 +66,12 @@ impl DriverError {
     }
 }
 
+impl From<Diagnostic> for DriverError {
+    fn from(diagnostic: Diagnostic) -> Self {
+        Self::SyntaxError { diagnostic }
+    }
+}
+
 impl Into<Diagnostic> for DriverError {
     fn into(self) -> Diagnostic {
         match self {

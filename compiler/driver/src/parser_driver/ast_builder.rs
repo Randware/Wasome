@@ -221,7 +221,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         let last = file_location.elements().pop().unwrap();
         let file_information = FileInformation::new(to_parse, &last, self.load_from).unwrap();
         let parsed =
-            parse(file_information).map_err(|d| DriverError::SyntaxError { diagnostic: d })?;
+            parse(file_information).map_err(|d| <error::diagnostic::Diagnostic as Into<DriverError>>::into(d))?;
         Ok(parsed)
     }
 
