@@ -2,17 +2,18 @@ use crate::ParserSpan;
 use chumsky::input::{BorrowInput, ExactSizeInput, SliceInput, ValueInput};
 use chumsky::prelude::*;
 use lexer::TokenType;
+use source::types::{BytePos, FileID};
 use std::ops::{Range, RangeFrom};
-use source::types::BytePos;
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct ParserInput<'src> {
     tokens: &'src [Spanned<TokenType, ParserSpan>],
+    file_id: FileID,
 }
 
 impl<'src> ParserInput<'src> {
-    pub fn new(tokens: &'src [Spanned<TokenType, ParserSpan>]) -> Self {
-        Self { tokens }
+    pub fn new(tokens: &'src [Spanned<TokenType, ParserSpan>], file_id: FileID) -> Self {
+        Self { tokens, file_id }
     }
 }
 
@@ -21,10 +22,10 @@ impl<'src> Input<'src> for ParserInput<'src> {
     type Token = TokenType;
     type MaybeToken = &'src TokenType;
     type Cursor = usize;
-    type Cache = &'src [Spanned<TokenType, ParserSpan>];
+    type Cache = ParserInput<'src>;
 
     fn begin(self) -> (Self::Cursor, Self::Cache) {
-        (0, self.tokens)
+        (0, self)
     }
 
     fn cursor_location(cursor: &Self::Cursor) -> usize {
@@ -41,7 +42,7 @@ impl<'src> Input<'src> for ParserInput<'src> {
         cache: &mut Self::Cache,
         cursor: &mut Self::Cursor,
     ) -> Option<Self::MaybeToken> {
-        if let Some(tok) = cache.get(*cursor) {
+        if let Some(tok) = cache.tokens.get(*cursor) {
             *cursor += 1;
             Some(&tok.inner)
         } else {
@@ -56,15 +57,21 @@ impl<'src> Input<'src> for ParserInput<'src> {
     ///
     /// This implementation can produce arbitrary behavior, including panics, but **never** UB
     unsafe fn span(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Span {
-        let mut start = cache[(*range.start).min(cache.len() - 1)].span;
+        if cache.tokens.is_empty() {
+            return ParserSpan(cache.file_id.span(0, 0));
+        }
+
+        let mut start = cache.tokens[(*range.start).min(cache.tokens.len() - 1)].span;
         // The upper end of the range is exclusive
         // -1 is there to not include the end token (exclusive)
         let end = match range.end {
             0 => BytePos(0),
             end if end == range.start => start.end(),
-            end => cache[(*end-1).min(cache.len() - 1)].span.end()
+            end => cache.tokens[(*end - 1).min(cache.tokens.len() - 1)]
+                .span
+                .end(),
         };
-        
+
         start.set_end(end);
         start
     }
@@ -81,7 +88,7 @@ impl<'src> ExactSizeInput<'src> for ParserInput<'src> {
         unsafe {
             // Safety:
             // This function is only unsafe due to trait requirements and never has UB
-            Self::span(cache, range.start..&cache.len())
+            Self::span(cache, range.start..&cache.tokens.len())
         }
     }
 }
@@ -90,7 +97,7 @@ impl<'src> SliceInput<'src> for ParserInput<'src> {
     type Slice = ParserInput<'src>;
 
     fn full_slice(cache: &mut Self::Cache) -> Self::Slice {
-        ParserInput { tokens: cache }
+        *cache
     }
 
     /// # Safety
@@ -101,7 +108,8 @@ impl<'src> SliceInput<'src> for ParserInput<'src> {
     /// This implementation can produce arbitrary behavior, including panics, but **never** UB
     unsafe fn slice(cache: &mut Self::Cache, range: Range<&Self::Cursor>) -> Self::Slice {
         ParserInput {
-            tokens: &cache[*range.start..*range.end],
+            tokens: &cache.tokens[*range.start..*range.end],
+            file_id: cache.file_id,
         }
     }
 
@@ -113,7 +121,8 @@ impl<'src> SliceInput<'src> for ParserInput<'src> {
     /// This implementation can produce arbitrary behavior, including panics, but **never** UB
     unsafe fn slice_from(cache: &mut Self::Cache, from: RangeFrom<&Self::Cursor>) -> Self::Slice {
         ParserInput {
-            tokens: &cache[*from.start..],
+            tokens: &cache.tokens[*from.start..],
+            file_id: cache.file_id,
         }
     }
 }

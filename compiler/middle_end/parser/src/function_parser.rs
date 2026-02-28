@@ -1,3 +1,4 @@
+use crate::error::ParserError;
 use crate::input::ParserInput;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, token_parser, type_parameter_declaration_parser,
@@ -10,19 +11,14 @@ use ast::top_level::Function;
 use ast::{ASTNode, UntypedAST};
 use chumsky::IterParser;
 use chumsky::Parser;
-use chumsky::error::Rich;
 use chumsky::extra::Full;
 use chumsky::span::{Spanned, WrappingSpan};
 use lexer::TokenType;
 use std::rc::Rc;
 
 /// Parses a single function
-pub(crate) fn function_parser<'src>() -> impl Parser<
-    'src,
-    ParserInput<'src>,
-    ASTNode<Function<UntypedAST>>,
-    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-> {
+pub(crate) fn function_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Function<UntypedAST>>, Full<ParserError, (), ()>> {
     let statement = statement_parser();
     let data_type = datatype_parser();
     let ident = identifier_parser();

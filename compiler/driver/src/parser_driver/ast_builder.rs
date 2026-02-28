@@ -4,7 +4,6 @@ use crate::parser_driver::module_path::{ModulePath, ModulePathProjectRelative};
 use crate::program_information::ProgramInformation;
 use ast::file::File;
 use ast::{ASTNode, UntypedAST, AST};
-
 use io::FullIO;
 use parser::{parse, FileInformation};
 use source::types::{FileID, Span};
@@ -249,38 +248,34 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .ok_or_else(|| DriverError::UnresolvedImport {
                 span: import_path.span(),
             })?;
-
-        let imported_files = self.list_wasome_files_in_dir(&module_dir).map_err(|err| {
-            DriverError::UnableToLoadDirectory {
+        // Ensures that the module exists even if empty
+        // See https://github.com/Randware/Wasome/issues/45 for more information
+        self.root.ensure_module_exists(import_path.path());
+        let imported_files: Vec<_> = self
+            .list_wasome_files_in_dir(&module_dir)
+            .map_err(|err| DriverError::UnableToLoadDirectory {
                 path: module_dir.clone(),
                 source: err,
-            }
-        })?;
-        let mut err: Option<DriverError> = None;
-        imported_files.for_each(|file| {
+            })?
+            .collect();
+        for file in imported_files {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
             // All wasome files must have a file extension
             // So this will never panic
             if self.does_file_exist_in_ast(import_path.path(), &file[0..file.rfind('.').unwrap()]) {
                 // We don't load the file, but there is no error
-                return;
+                return Ok(());
             }
-            let loaded = match self.load_file(module_dir.clone(), &file) {
-                Ok(val) => val,
-                Err(io_err) => {
-                    err = Some(DriverError::UnableToLoadFile {
-                        path: module_dir.join(file),
-                        source: io_err,
-                    });
-                    return;
+            let loaded = self.load_file(module_dir.clone(), &file).map_err(|err| {
+                DriverError::UnableToLoadFile {
+                    path: module_dir.join(file),
+                    source: err,
                 }
-            };
-            if let Err(val) = self.add_file_handle_imports(import_path.path(), loaded) {
-                err = Some(val);
-            }
-        });
-        err.map_or(Ok(()), Err)
+            })?;
+            self.add_file_handle_imports(import_path.path(), loaded)?;
+        }
+        Ok(())
     }
 
     /// Checks if a file exists in the AST
@@ -320,21 +315,22 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// There was an IO error, for example
     /// - Missing permissions
     /// - Directory not found
-    fn list_wasome_files_in_dir(
-        &self,
-        dir: &Path,
-    ) -> Result<impl Iterator<Item = String> + 'static, Error> {
-        Ok(
-            Loader::list_files(self.program_information.path().join(dir))?
-                // Skip files with non-UTF8 filenames
-                // They might be non-wasome files so we don't want to hard-fail
-                .filter_map(|file_name| file_name.into_string().ok())
-                .filter(|file| {
-                    WASOME_FILE_ENDINGS
-                        .iter()
-                        .any(|ending| file.ends_with(ending))
-                }),
-        )
+    fn list_wasome_files_in_dir<'b>(
+        &'b self,
+        dir: &'b Path,
+    ) -> Result<impl Iterator<Item = String> + 'b, Error> {
+        Ok(self
+            .load_from
+            .loader()
+            .list_files(self.program_information.path().join(dir))?
+            // Skip files with non-UTF8 filenames
+            // They might be non-wasome files so we don't want to hard-fail
+            .filter_map(|file_name| file_name.into_string().ok())
+            .filter(|file| {
+                WASOME_FILE_ENDINGS
+                    .iter()
+                    .any(|ending| file.ends_with(ending))
+            }))
     }
 
     /// Loads a file into the `SourceMap` and returns the `FileID` handle to it
