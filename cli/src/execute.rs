@@ -37,20 +37,19 @@ impl Executable for CheckArgs {
         let path = self.path.canonicalize()?;
 
         let manifest_path = Manifest::find(&path)?;
+        let root = manifest_path
+            .parent()
+            .expect("Manifest should always have a parent directory")
+            .to_path_buf();
 
         Diagnostic::builder()
             .level(Level::Info)
-            .message(format!(
-                "Checking project at {}",
-                manifest_path.parent().unwrap().display()
-            ))
+            .message(format!("Checking project at {}", root.display()))
             .build()
             .print()?;
 
-        let root = manifest_path.parent().unwrap().to_path_buf();
-
         let mut source = SourceMap::new(root.clone());
-        let file_id = source.load_file(manifest::MANIFEST_NAME)?;
+        let file_id = source.load_file(manifest::MANIFEST_FILE)?;
 
         let content = source.get_file(&file_id).unwrap().content();
 
@@ -60,20 +59,41 @@ impl Executable for CheckArgs {
                 if let ManifestError::Parse(toml_err) = e {
                     return Err(CliError::ManifestParse(toml_err, source, file_id));
                 }
-
                 return Err(CliError::Manifest(e));
             }
         };
 
-        if manifest.is_library() {
-            // NOTE: We cannot check libraries for now, since we don't have an entry point
-            Diagnostic::builder()
-                .level(Level::Error)
-                .message("Cannot check library project (no entry point)")
-                .build()
-                .print()?;
-            return Ok(());
-        }
+        let bin_file = root.join(manifest::BINARY_ENTRY_FILE);
+        let lib_file = root.join(manifest::LIBRARY_ENTRY_FILE);
+
+        let entry_file = match (bin_file.exists(), lib_file.exists()) {
+            (true, true) => {
+                return Err(CliError::Manifest(ManifestError::MultipleEntries(
+                    manifest.project.name.clone(),
+                )));
+            }
+            (true, false) => bin_file,
+            (false, true) => {
+                // NOTE: We cannot check libraries currently
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message("Cannot check library project")
+                    .build()
+                    .print()?;
+
+                return Ok(());
+            }
+            (false, false) => {
+                return Err(CliError::Manifest(ManifestError::NoEntry(
+                    manifest.project.name.clone(),
+                )));
+            }
+        };
+
+        let entry_file = entry_file
+            .strip_prefix(&root)
+            .unwrap_or(&entry_file)
+            .to_path_buf();
 
         let mut projects = manifest.resolve_dependencies(&root)?;
 
@@ -87,11 +107,12 @@ impl Executable for CheckArgs {
             root.clone(),
             projects,
             manifest.project.name.clone(),
-            PathBuf::from(manifest.bin.unwrap().entry),
+            entry_file,
         );
 
+        // If we cannot create a valid ProgramInformation, the entry file is empty
         let info = info.ok_or_else(|| {
-            CliError::Manifest(ManifestError::EmptyEntryFile(manifest.project.name.clone()))
+            CliError::Manifest(ManifestError::NoEntry(manifest.project.name.clone()))
         })?;
 
         match driver::syntax_check(&info, &mut source) {

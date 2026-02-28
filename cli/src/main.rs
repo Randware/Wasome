@@ -51,9 +51,19 @@ fn main() -> io::Result<()> {
                             .build()
                             .print()?;
                     }
-                    error::ManifestError::EmptyEntryFile(_) => {
+                    error::ManifestError::NoEntry(_) => {
                         builder
-                            .help("Try adding code to the projects entry file")
+                            .help(
+                                "Make sure your project has a valid 'main.waso' or 'lib.waso' file",
+                            )
+                            .build()
+                            .print()?;
+                    }
+                    error::ManifestError::MultipleEntries(_) => {
+                        builder
+                            .help(
+                                "Make sure your project only has either a 'main.waso' or 'lib.waso' file",
+                            )
                             .build()
                             .print()?;
                     }

@@ -7,14 +7,15 @@ use std::path::{Path, PathBuf};
 use crate::error::{ManifestError, ManifestResult};
 use crate::manifest;
 
-pub const MANIFEST_NAME: &'static str = "waso.toml";
-pub const LIB_PATH: &'static str = "lib/";
+pub const MANIFEST_FILE: &str = "waso.toml";
+pub const BINARY_ENTRY_FILE: &str = "src/main.waso";
+pub const LIBRARY_ENTRY_FILE: &str = "src/lib.waso";
+pub const LIB_PATH: &str = "lib/";
 
 /// The top-level configuration structure.
 #[derive(Debug, Deserialize)]
 pub struct Manifest {
     pub project: ProjectMetadata,
-    pub bin: Option<BinConfig>,
     pub dependencies: Option<HashMap<String, String>>,
 }
 
@@ -22,14 +23,6 @@ pub struct Manifest {
 pub struct ProjectMetadata {
     pub name: String,
     pub version: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BinConfig {
-    // The output binary name
-    pub bin: String,
-    // The source entry point
-    pub entry: String,
 }
 
 impl Manifest {
@@ -42,7 +35,7 @@ impl Manifest {
         }
 
         loop {
-            let candidate = current.join(MANIFEST_NAME);
+            let candidate = current.join(MANIFEST_FILE);
 
             if candidate.exists() {
                 return Ok(candidate);
@@ -103,7 +96,7 @@ impl Manifest {
         for (name, version) in deps {
             let folder_name = format!("{}@{}", name, version);
             let dep_path = lib_root.join(&folder_name);
-            let dep_manifest_path = dep_path.join(manifest::MANIFEST_NAME);
+            let dep_manifest_path = dep_path.join(manifest::MANIFEST_FILE);
 
             if !dep_manifest_path.exists() {
                 let chain_display = chain.join("/");
@@ -137,10 +130,5 @@ impl Manifest {
         }
 
         Ok(())
-    }
-
-    /// Helper to determine if the current project is a library or binary
-    pub fn is_library(&self) -> bool {
-        self.bin.is_none()
     }
 }
