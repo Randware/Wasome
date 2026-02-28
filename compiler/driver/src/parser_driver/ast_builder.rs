@@ -119,7 +119,8 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .build()
     }
 
-    fn unresolved_import_error(pos: Span) -> Diagnostic {
+    fn unresolved_import_error(pos: &ImportInformation) -> Diagnostic {
+        let pos = pos.span();
         Diagnostic::builder()
             .message("Unable to resolve import")
             .code(UNRESOLVED_IMPORT_ERROR)
@@ -197,7 +198,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         let imports_information = self.handle_file(file_location, to_add)?;
         imports_information
             .into_iter()
-            .map(|path| self.handle_import((&path.0, path.1)))
+            .map(|path| self.handle_import(&path))
             .try_fold((), |_a, b| b)
     }
 
@@ -208,7 +209,6 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// # Parameters
     ///
     /// - **`file_location`** - The location of the file
-    /// - **file** - The file to handle
     /// - **`file_name`** - The filename on disk (e.g.: with file extension)
     ///
     /// # Returns
@@ -227,9 +227,9 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         &mut self,
         file_location: &ModulePath,
         to_add: FileID,
-    ) -> Result<Vec<(ModulePath, Span)>, Diagnostic> {
+    ) -> Result<Vec<ImportInformation>, Diagnostic> {
         let parsed = self.parse_file(file_location, to_add)?;
-        let imports_information = ModulePath::from_file(&parsed, file_location);
+        let imports_information = ImportInformation::from_file(&parsed, file_location);
         self.add_file(file_location, parsed, to_add).unwrap();
         Ok(imports_information)
     }
@@ -239,7 +239,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// # Parameter
     ///
     /// - **`file_location`** - Where to add the file
-    /// - **file** - The file to add
+    /// - **`file`** - The file to add
     /// - **`file_name`** - The filename on disk (e.g.: with file extension)
     ///
     /// # Errors
@@ -298,21 +298,19 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     ///
     /// Should a file already exist, nothing is done
     ///
-    /// The import is only provided via it's import path
-    ///
     /// # Parameter
     ///
-    /// - **`module_path`** - The import path
+    /// - **`module_path`** - Information about the import to handle
     ///
     /// # Errors
     ///
     /// There was an IO error
     ///     - This includes if `module_path` can't be resolved
-    fn handle_import(&mut self, import_path: (&ModulePath, Span)) -> Result<(), Diagnostic> {
+    fn handle_import(&mut self, import_path: &ImportInformation) -> Result<(), Diagnostic> {
         let module_dir = import_path
-            .0
+            .path()
             .build_path_buf(self.program_information.projects())
-            .ok_or_else(|| Self::unresolved_import_error(import_path.1))?;
+            .ok_or_else(|| Self::unresolved_import_error(import_path))?;
 
         let imported_files = self
             .list_wasome_files_in_dir(&module_dir)
@@ -323,7 +321,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             // We can't use an entire module at once as the main file is loaded alone
             // All wasome files must have a file extension
             // So this will never panic
-            if self.does_file_exist_in_ast(import_path.0, &file[0..file.rfind('.').unwrap()]) {
+            if self.does_file_exist_in_ast(import_path.path(), &file[0..file.rfind('.').unwrap()]) {
                 // We don't load the file, but there is no error
                 return;
             }
@@ -337,11 +335,11 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                     return;
                 }
             };
-            if let Err(val) = self.add_file_handle_imports(import_path.0, loaded) {
+            if let Err(val) = self.add_file_handle_imports(import_path.path(), loaded) {
                 err = Some(val);
             }
         });
-        err.map_or(Ok(()), |err| Err(err))
+        err.map_or(Ok(()), Err)
     }
 
     /// Checks if a file exists in the AST
@@ -425,5 +423,68 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// Like [`Self::load_file`], but the filepath is already combined
     fn load_file_combined_path(&mut self, module_path: &Path) -> Result<FileID, Error> {
         self.load_from.load_file(module_path)
+    }
+}
+
+/// Information about an import
+///
+/// Used for loading imported files and handling errors that might occur during this process
+///
+/// May only exist in combination with a [`SourceMap`]
+///     - This attachment only exists conceptually and is not represented in the data structure
+struct ImportInformation {
+    /// A path to the referenced Module
+    /// This does **not** have to be valid and may reference a non-existent module
+    path: ModulePath,
+    /// Must be inside the attached [`SourceMap`]
+    span: Span,
+}
+
+impl ImportInformation {
+    /// Created a new instance of Self
+    ///
+    /// Note that no constraints are checked and that this is the responsibility of the caller
+    const fn new(path: ModulePath, span: Span) -> Self {
+        Self { path, span }
+    }
+
+    pub const fn path(&self) -> &ModulePath {
+        &self.path
+    }
+
+    pub const fn span(&self) -> Span {
+        self.span
+    }
+
+    /// Extracts all module paths referenced by imports of a file
+    ///
+    /// # Parameters
+    ///
+    /// - **`file`** - The file to analyze
+    /// - **`file_module`** - The module path of the file itself
+    ///
+    /// # Return
+    ///
+    /// A list of information of all imports inside the file
+    ///     - They will be attached to the [`SourceMap`] `file` was loaded with.
+    ///       See [`ImportInformation`] for more information about attachment.
+    pub fn from_file(file: &File<UntypedAST>, file_module: &ModulePath) -> Vec<Self> {
+        file.imports()
+            .iter()
+            .map(|import| {
+                // A file may not have empty imports relative to the root
+                // [`Self::from_import_information`] has this as its sole error condition
+                // Therefore, this will never panic
+                Self::new(
+                    ModulePath::from_import_information(
+                        file_module,
+                        import.root(),
+                        import.path().clone(),
+                    )
+                    .unwrap(),
+                    *import.position(),
+                )
+            })
+            .collect::<Vec<_>>()
     }
 }

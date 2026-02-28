@@ -1,0 +1,14 @@
+struct Point {
+    s32 x
+    s32 y
+
+    pub fn get_x() -> s32 {
+        -> self.x
+    }
+}
+
+fn main() {
+    Point point <- new Point { x <- 10, y <- 20 }
+
+    s32 x_coordinate <- (point).get_x()
+}

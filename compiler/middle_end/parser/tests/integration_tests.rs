@@ -1,8 +1,8 @@
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
 use ast::data_type::UntypedDataType;
 use ast::expression::{
-    BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
-    Typecast, UnaryOp, UnaryOpType,
+    BinaryOp, BinaryOpType, Expression, FunctionCall, MethodCall, NewEnum, NewStruct,
+    StructFieldAccess, Typecast, UnaryOp, UnaryOpType,
 };
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
@@ -15,9 +15,9 @@ use ast::symbol::{
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
-use parser::{FileInformation, parse};
-use source::SourceMap;
+use parser::{parse, FileInformation};
 use source::types::{BytePos, FileID, Span};
+use source::SourceMap;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;
@@ -64,6 +64,7 @@ const OPERATOR_TEST: &'static str = include_str!("test_programs/single_file/oper
 const MISSING_STATEMENT_SEPARATOR: &'static str =
     include_str!("test_programs/single_file/missing_statement_separator.waso");
 const STRUCT_TEST: &'static str = include_str!("test_programs/single_file/struct.waso");
+const METHOD_CALL_TEST: &'static str = include_str!("test_programs/single_file/method_call.waso");
 const ENUM_TEST: &'static str = include_str!("test_programs/single_file/enum.waso");
 const EXHAUSTIVE_DEFS: &'static str =
     include_str!("test_programs/single_project/exhaustive/defs.waso");
@@ -2041,6 +2042,121 @@ fn test_parse_struct() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         stmt1, stmt2, stmt3,
     ])));
+    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![main_func],
+        Vec::new(),
+        vec![point_struct],
+    );
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_method_call() {
+    let (sm, id) = setup_source_map(METHOD_CALL_TEST);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing failed");
+
+    let point_symbol = Rc::new(StructSymbol::new("Point".to_string(), Vec::new()));
+    let x_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new(
+            "x".to_string(),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
+        )),
+        Visibility::Private,
+    ));
+    let y_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new(
+            "y".to_string(),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
+        )),
+        Visibility::Private,
+    ));
+
+    let access_expr = wrap(Expression::StructFieldAccess(Box::new(
+        StructFieldAccess::<UntypedAST>::new(
+            wrap(Expression::Variable("self".to_string())),
+            "x".to_string(),
+        ),
+    )));
+    let stmt = wrap(Statement::Return(Return::<UntypedAST>::new(Some(
+        access_expr,
+    ))));
+
+    let get_x_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt])));
+
+    let get_x_symbol = Rc::new(FunctionSymbol::new(
+        "get_x".to_string(),
+        Some(UntypedDataType::new("s32".to_string(), Vec::new())),
+        vec![],
+        Vec::new(),
+    ));
+    let get_x_method = wrap(Function::new(get_x_symbol, get_x_body, Visibility::Public));
+
+    let point_struct = wrap(Struct::new(
+        point_symbol.clone(),
+        vec![get_x_method],
+        vec![x_field, y_field],
+        Visibility::Private,
+    ));
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+        Vec::new(),
+    ));
+
+    // Point point <- new Point { x <- 10, y <- 20 }
+    let point_var = Rc::new(VariableSymbol::new(
+        "point".to_string(),
+        UntypedDataType::new("Point".to_string(), Vec::new()),
+    ));
+    let new_point_expr = wrap(Expression::NewStruct(Box::new(
+        NewStruct::<UntypedAST>::new(
+            ("Point".to_string(), Vec::new()),
+            vec![
+                (
+                    wrap("x".to_string()),
+                    wrap(Expression::Literal("10".to_string())),
+                ),
+                (
+                    wrap("y".to_string()),
+                    wrap(Expression::Literal("20".to_string())),
+                ),
+            ],
+        ),
+    )));
+    let stmt1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        point_var.clone(),
+        new_point_expr,
+    )));
+
+    // s32 old_x_coordinate <- point.x
+    let old_x_var = Rc::new(VariableSymbol::new(
+        "x_coordinate".to_string(),
+        UntypedDataType::new("s32".to_string(), Vec::new()),
+    ));
+    let access_expr = wrap(Expression::<UntypedAST>::MethodCall(Box::new(
+        MethodCall::new(
+            wrap(Expression::Variable("point".to_string())),
+            ("get_x".to_string(), Vec::new()),
+            Vec::new(),
+        ),
+    )));
+    let stmt2 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        old_x_var.clone(),
+        access_expr,
+    )));
+
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt1, stmt2])));
     let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
 
     let expected = ast::file::File::new(

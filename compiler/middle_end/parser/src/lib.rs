@@ -257,7 +257,7 @@ fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
             let expected = expected
                 .into_iter()
                 .map(|pat| match pat {
-                    RichPattern::Token(tok) => tok.token_to_printable_string().to_string(),
+                    RichPattern::Token(tok) => tok.to_printable_string().to_string(),
                     RichPattern::EndOfInput => "end of input".to_string(),
                     // Future improvement: Use custom for all other errors
                     RichPattern::SomethingElse | RichPattern::Any => "something else".to_string(),
@@ -267,7 +267,7 @@ fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
                 .join(" or ");
             let found = match found {
                 None => "end of input".to_string(),
-                Some(tok) => tok.token_to_printable_string().to_string(),
+                Some(tok) => tok.to_printable_string().to_string(),
             };
             format!("Expected {expected}, but found {found}")
         }

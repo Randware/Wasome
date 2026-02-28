@@ -87,20 +87,12 @@ fn test_logic_operators() {
             span: 18..20,
         },
         Token {
-            kind: TokenType::LessThan,
-            span: 21..22,
+            kind: TokenType::LShift,
+            span: 21..23,
         },
         Token {
-            kind: TokenType::LessThan,
-            span: 22..23,
-        },
-        Token {
-            kind: TokenType::GreaterThan,
-            span: 24..25,
-        },
-        Token {
-            kind: TokenType::GreaterThan,
-            span: 25..26,
+            kind: TokenType::RShift,
+            span: 24..26,
         },
         Token {
             kind: TokenType::Or,

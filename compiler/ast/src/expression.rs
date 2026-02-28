@@ -781,6 +781,7 @@ impl FunctionCall<UntypedAST> {
 pub struct MethodCall {
     struct_source: ASTNode<Expression<UntypedAST>>,
     function: (String, Vec<UntypedDataType>),
+    /// Excluding the self parameter
     args: Vec<ASTNode<Expression<UntypedAST>>>,
 }
 
