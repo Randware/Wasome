@@ -1249,7 +1249,7 @@ fn test_parse_is_even() {
 fn setup_source_map(content: &'static str) -> (SourceMap, FileID) {
     let (dir, _path) = setup_file("main.waso", content);
 
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf());
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
 
     let id = sm
         .load_file("main.waso")

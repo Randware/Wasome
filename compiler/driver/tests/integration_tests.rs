@@ -58,7 +58,7 @@ fn test_simple_program() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
 
@@ -97,7 +97,7 @@ fn test_multi_module_program() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
 
@@ -151,7 +151,7 @@ fn test_multi_project_program() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
 
@@ -207,7 +207,7 @@ fn test_empty_import_program() {
     )
         .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
 
@@ -248,7 +248,7 @@ fn test_circular_imports() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
 
@@ -295,7 +295,7 @@ fn test_syntax_check_simple() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     syntax_check(&prog_info, &mut sm).expect("Syntax check failed for simple program");
 }
@@ -322,7 +322,7 @@ fn test_syntax_check_multi_module() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     syntax_check(&prog_info, &mut sm).expect("Syntax check failed for multi-module program");
 }
@@ -348,7 +348,7 @@ fn test_syntax_check_multi_project() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     syntax_check(&prog_info, &mut sm).expect("Syntax check failed for multi-project program");
 }
@@ -374,7 +374,7 @@ fn test_syntax_check_circular() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     syntax_check(&prog_info, &mut sm).expect("Syntax check failed for circular imports");
 }
