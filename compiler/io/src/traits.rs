@@ -34,6 +34,7 @@ pub trait PathResolver {
     /// * `root_path` - The root directory of the compilation context.
     /// * `relative_path` - The import path or file path relative to the root.
     fn resolve<T: AsRef<Path>, F: AsRef<Path>>(
+        &self,
         root_path: T,
         relative_path: F,
     ) -> Result<PathBuf, Error>;
@@ -56,7 +57,7 @@ pub trait FileLoader {
     ///
     /// * `Ok(String)` - The loaded file.
     /// * `Err(Error)` - If the file cannot be read or is too large.
-    fn load<F: AsRef<Path>>(path: F) -> Result<String, Error>;
+    fn load<F: AsRef<Path>>(&self, path: F) -> Result<String, Error>;
 }
 
 /// Loads contents of directories.
@@ -75,11 +76,9 @@ pub trait DirectoryLoader {
     ///
     /// # Returns
     ///
-    /// * `Ok(impl Iterator<Item=OsString>)` - An iterator over the filenames (not paths).
+    /// * `Ok(Vec<OsString>)` - A vector over the filenames (not paths).
     /// * `Err(Error)` - If an IO error occurred.
-    fn list_files<'a, F: AsRef<Path> + 'a>(
-        path: F,
-    ) -> Result<impl Iterator<Item = OsString> + 'static, Error>;
+    fn list_files<F: AsRef<Path>>(&self, path: F) -> Result<Vec<OsString>, Error>;
 
     /// Lists the subdirectories of a given directory
     ///
@@ -91,11 +90,9 @@ pub trait DirectoryLoader {
     ///
     /// # Returns
     ///
-    /// * `Ok(impl Iterator<Item=OsString>)` - An iterator over the names of the subdirectories (not paths).
+    /// * `Ok(Vec<OsString>)` - A vector over the names of the subdirectories (not paths).
     /// * `Err(Error)` - If an IO error occurred.
-    fn list_subdirs<'a, F: AsRef<Path> + 'a>(
-        path: F,
-    ) -> Result<impl Iterator<Item = OsString> + 'static, Error>;
+    fn list_subdirs<F: AsRef<Path>>(&self, path: F) -> Result<Vec<OsString>, Error>;
 }
 
 /// Helper trait that implements both [`PathResolver`] and [`FileLoader`]

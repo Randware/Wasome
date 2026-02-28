@@ -17,6 +17,7 @@ use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
 use parser::{parse, FileInformation};
 use source::types::{BytePos, FileID, Span};
+use io::WasomeLoader;
 use source::SourceMap;
 use std::fmt::Debug;
 use std::fs::File;
@@ -1248,7 +1249,7 @@ fn test_parse_is_even() {
 fn setup_source_map(content: &'static str) -> (SourceMap, FileID) {
     let (dir, _path) = setup_file("main.waso", content);
 
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf());
+    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf(), WasomeLoader);
 
     let id = sm
         .load_file("main.waso")

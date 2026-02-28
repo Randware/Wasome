@@ -6,12 +6,12 @@ use crate::{
     UNABLE_TO_LOAD_DIRECTORY, UNABLE_TO_LOAD_FILE, UNRESOLVED_IMPORT_ERROR,
 };
 use ast::file::File;
-use ast::{AST, ASTNode, UntypedAST};
+use ast::{ASTNode, UntypedAST, AST};
 use error::diagnostic::{Diagnostic, Snippet};
 use io::FullIO;
-use parser::{FileInformation, parse};
-use source::SourceMap;
+use parser::{parse, FileInformation};
 use source::types::{FileID, Span};
+use source::SourceMap;
 use std::io::Error;
 use std::path::{Path, PathBuf};
 
@@ -316,7 +316,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .list_wasome_files_in_dir(&module_dir)
             .map_err(|err| Self::unable_to_load_directory_error(&module_dir, &err))?;
         let mut err = None;
-        imported_files.for_each(|file| {
+        imported_files.into_iter().for_each(|file| {
             // Only load the file if it isn't loaded, yet
             // We can't use an entire module at once as the main file is loaded alone
             // All wasome files must have a file extension
@@ -379,21 +379,21 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
     /// There was an IO error, for example
     /// - Missing permissions
     /// - Directory not found
-    fn list_wasome_files_in_dir(
-        &self,
-        dir: &Path,
-    ) -> Result<impl Iterator<Item = String> + 'static, Error> {
-        Ok(
-            Loader::list_files(self.program_information.path().join(dir))?
-                // Skip files with non-UTF8 filenames
-                // They might be non-wasome files so we don't want to hard-fail
-                .filter_map(|file_name| file_name.into_string().ok())
-                .filter(|file| {
-                    WASOME_FILE_ENDINGS
-                        .iter()
-                        .any(|ending| file.ends_with(ending))
-                }),
-        )
+    fn list_wasome_files_in_dir(&self, dir: &Path) -> Result<Vec<String>, Error> {
+        Ok(self
+            .load_from
+            .loader()
+            .list_files(self.program_information.path().join(dir))?
+            // Skip files with non-UTF8 filenames
+            // They might be non-wasome files so we don't want to hard-fail
+            .into_iter()
+            .filter_map(|file_name| file_name.into_string().ok())
+            .filter(|file| {
+                WASOME_FILE_ENDINGS
+                    .iter()
+                    .any(|ending| file.ends_with(ending))
+            })
+            .collect())
     }
 
     /// Loads a file into the `SourceMap` and returns the `FileID` handle to it

@@ -1,7 +1,7 @@
 use crate::{DirectoryLoader, FileLoader, PathResolver};
 use std::ffi::OsString;
 use std::fs;
-use std::fs::{DirEntry, FileType, metadata, read_dir, File};
+use std::fs::{metadata, read_dir, DirEntry, File, FileType};
 use std::io::{Error, Read};
 use std::path::{Path, PathBuf};
 
@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 ///
 /// This implementation provides standard filesystem I/O for resolving paths,
 /// loading file content, and listing directory entries.
+#[derive(Default)]
 pub struct WasomeLoader;
 
 impl PathResolver for WasomeLoader {
@@ -27,6 +28,7 @@ impl PathResolver for WasomeLoader {
     /// * `Ok(PathBuf)` - The absolute and canonicalized path.
     /// * `Err(Error)` - If the path does not exist or cannot be accessed.
     fn resolve<T: AsRef<Path>, F: AsRef<Path>>(
+        &self,
         root_path: T,
         relative_path: F,
     ) -> Result<PathBuf, Error> {
@@ -58,7 +60,7 @@ impl FileLoader for WasomeLoader {
     /// * The file size exceeds [`u32::MAX`] bytes (~4GB), which is the maximum size supported
     ///   by the internal [`BytePos`] type.
     ///
-    fn load<F: AsRef<Path>>(path: F) -> Result<String, Error> {
+    fn load<F: AsRef<Path>>(&self, path: F) -> Result<String, Error> {
         let mut file = File::open(&path)?;
         let file_metadata = file.metadata()?;
         if file_metadata.len() > (u32::MAX as u64) {
@@ -78,15 +80,11 @@ impl FileLoader for WasomeLoader {
 }
 
 impl DirectoryLoader for WasomeLoader {
-    fn list_files<'a, F: AsRef<Path> + 'a>(
-        path: F,
-    ) -> Result<impl Iterator<Item = OsString> + 'static, Error> {
+    fn list_files<F: AsRef<Path>>(&self, path: F) -> Result<Vec<OsString>, Error> {
         list_all_with_specific_property(path, entry_is_file)
     }
 
-    fn list_subdirs<'a, F: AsRef<Path> + 'a>(
-        path: F,
-    ) -> Result<impl Iterator<Item = OsString> + 'static, Error> {
+    fn list_subdirs<F: AsRef<Path>>(&self, path: F) -> Result<Vec<OsString>, Error> {
         list_all_with_specific_property(path, entry_is_directory)
     }
 }
@@ -109,17 +107,15 @@ impl DirectoryLoader for WasomeLoader {
 ///
 /// # Returns
 ///
-/// * `Ok(Elements)` - All elements that satisfied the property are returned.
-///   Note that the iterator may be empty.
+/// * `Ok(Vec<OsString>)` - All elements that satisfied the property are returned.
 /// * `Err(Error)` - An IO error occurred.
 fn list_all_with_specific_property<
-    'a,
-    F: AsRef<Path> + 'a,
+    F: AsRef<Path>,
     Condition: FnMut(&DirEntry) -> Result<bool, Error>,
 >(
     directory: F,
     mut condition: Condition,
-) -> Result<impl Iterator<Item = OsString> + 'static, Error> {
+) -> Result<Vec<OsString>, Error> {
     Ok(read_dir(directory)?
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
@@ -129,7 +125,8 @@ fn list_all_with_specific_property<
         .into_iter()
         .filter(|elem| elem.0)
         .map(|elem| elem.1)
-        .map(|elem| elem.file_name()))
+        .map(|elem| elem.file_name())
+        .collect())
 }
 
 /// Checks if the provided entry is a file after all symlinks are resolved
@@ -173,7 +170,7 @@ fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs::File, io::Write, u32};
+    use std::{fs::File, io::Write};
     use tempfile::tempdir;
 
     #[test]
@@ -189,7 +186,7 @@ mod tests {
         File::create(&file_path).unwrap();
 
         // Test resolving
-        let resolved = WasomeLoader::resolve(root, Path::new("main.waso"));
+        let resolved = WasomeLoader.resolve(root, Path::new("main.waso"));
         assert!(resolved.is_ok());
 
         // Canonicalize usually resolves symlinks and absolute paths.
@@ -203,7 +200,7 @@ mod tests {
         let root = dir.path();
 
         // We don't create the file
-        let resolved = WasomeLoader::resolve(root, Path::new("ghost.waso"));
+        let resolved = WasomeLoader.resolve(root, Path::new("ghost.waso"));
 
         // Canonicalize fails on non-existent files
         assert!(resolved.is_err());
@@ -219,7 +216,7 @@ mod tests {
         let mut file = File::create(&file_path).unwrap();
         write!(file, "{}", content).unwrap();
 
-        let source_file = WasomeLoader::load(&file_path).expect("Should load");
+        let source_file = WasomeLoader.load(&file_path).expect("Should load");
 
         // USE THE GETTER! It is public, so use it.
         assert_eq!(&source_file, "Hello World");
@@ -230,7 +227,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("ghost.waso");
 
-        let result = WasomeLoader::load(&file_path);
+        let result = WasomeLoader.load(&file_path);
 
         assert!(result.is_err(), "Should return an error for missing files");
 
@@ -248,9 +245,7 @@ mod tests {
 
         fs::create_dir(root.join("subdir")).unwrap();
 
-        let files: Vec<OsString> = WasomeLoader::list_files(root)
-            .expect("Should list files")
-            .collect();
+        let files: Vec<OsString> = WasomeLoader.list_files(root).expect("Should list files");
 
         assert!(files.contains(&OsString::from("file1.txt")));
         assert!(files.contains(&OsString::from("file2.rs")));
@@ -269,9 +264,9 @@ mod tests {
         fs::create_dir(root.join("sub1")).unwrap();
         fs::create_dir(root.join("sub2")).unwrap();
 
-        let subdirs: Vec<OsString> = WasomeLoader::list_subdirs(root)
-            .expect("Should list subdirs")
-            .collect();
+        let subdirs: Vec<OsString> = WasomeLoader
+            .list_subdirs(root)
+            .expect("Should list subdirs");
 
         assert!(subdirs.contains(&OsString::from("sub1")));
         assert!(subdirs.contains(&OsString::from("sub2")));
@@ -285,11 +280,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let root = dir.path();
 
-        let files = WasomeLoader::list_files(root).expect("Should succeed");
-        assert_eq!(files.count(), 0);
+        let files = WasomeLoader.list_files(root).expect("Should succeed");
+        assert_eq!(files.len(), 0);
 
-        let subdirs = WasomeLoader::list_subdirs(root).expect("Should succeed");
-        assert_eq!(subdirs.count(), 0);
+        let subdirs = WasomeLoader.list_subdirs(root).expect("Should succeed");
+        assert_eq!(subdirs.len(), 0);
     }
 
     #[test]
@@ -297,7 +292,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let root = dir.path().join("non_existent");
 
-        let files_res = WasomeLoader::list_files(&root);
+        let files_res = WasomeLoader.list_files(&root);
         assert!(files_res.is_err());
         if let Err(e) = files_res {
             assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
@@ -305,7 +300,7 @@ mod tests {
             panic!("Should be error");
         }
 
-        let subdirs_res = WasomeLoader::list_subdirs(&root);
+        let subdirs_res = WasomeLoader.list_subdirs(&root);
         assert!(subdirs_res.is_err());
         if let Err(e) = subdirs_res {
             assert_eq!(e.kind(), std::io::ErrorKind::NotFound);
@@ -337,9 +332,7 @@ mod tests {
         .unwrap();
         symlink(real_path.clone().join("real_dir"), root.join("link_to_dir")).unwrap();
 
-        let files: Vec<OsString> = WasomeLoader::list_files(root)
-            .expect("Should list files")
-            .collect();
+        let files: Vec<OsString> = WasomeLoader.list_files(root).expect("Should list files");
         assert!(!files.contains(&OsString::from("real_file")));
         assert!(files.contains(&OsString::from("link_to_file")));
         assert!(!files.contains(&OsString::from("real_dir")));
@@ -348,9 +341,9 @@ mod tests {
 
         assert_eq!(1, files.len());
 
-        let subdirs: Vec<OsString> = WasomeLoader::list_subdirs(root)
-            .expect("Should list subdirs")
-            .collect();
+        let subdirs: Vec<OsString> = WasomeLoader
+            .list_subdirs(root)
+            .expect("Should list subdirs");
         assert!(!subdirs.contains(&OsString::from("real_dir")));
         assert!(subdirs.contains(&OsString::from("link_to_dir")));
         assert!(!subdirs.contains(&OsString::from("real_file")));
