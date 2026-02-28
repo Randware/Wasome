@@ -54,17 +54,21 @@ fn main() -> io::Result<()> {
                     }
                     error::ManifestError::NoEntry(_) => {
                         builder
-                            .help(
-                                "Make sure your project has a valid 'main.waso' or 'lib.waso' file",
-                            )
+                            .help(format!(
+                                "Make sure your project has a valid '{}' or '{}' file",
+                                manifest::BINARY_ENTRY_FILE,
+                                manifest::LIBRARY_ENTRY_FILE
+                            ))
                             .build()
                             .print()?;
                     }
                     error::ManifestError::MultipleEntries(_) => {
                         builder
-                            .help(
-                                "Make sure your project only has either a 'main.waso' or 'lib.waso' file",
-                            )
+                            .help(format!(
+                                "Make sure your project only has either a '{}' or '{}' file",
+                                manifest::BINARY_ENTRY_FILE,
+                                manifest::LIBRARY_ENTRY_FILE
+                            ))
                             .build()
                             .print()?;
                     }

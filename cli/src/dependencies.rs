@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::manifest;
+
 pub struct DependencyResolver {
     project_root: PathBuf,
     // NOTE: We could add a global cache location here later
@@ -15,7 +17,10 @@ impl DependencyResolver {
         let folder_name = format!("{}@{}", name, version);
 
         // Try local project "lib" folder first (local dependencies have higher importance)
-        let local_path = self.project_root.join("lib").join(&folder_name);
+        let local_path = self
+            .project_root
+            .join(manifest::LIB_PATH)
+            .join(&folder_name);
 
         if local_path.join(crate::manifest::MANIFEST_FILE).exists() {
             return Some(local_path);
