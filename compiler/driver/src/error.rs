@@ -215,7 +215,7 @@ impl DriverError {
     /// # Returns
     ///
     /// A `DriverError` variant containing the file path and error details.
-    pub(crate) fn unable_to_load_file_error(path: PathBuf, error: io::Error) -> Self {
+    pub(crate) const fn unable_to_load_file_error(path: PathBuf, error: io::Error) -> Self {
         Self::UnableToLoadFile {
             path,
             source: error,
@@ -241,7 +241,7 @@ impl DriverError {
     /// The I/O error is converted to a string and stored in a `Box<dyn Error>`
     /// because `io::Error` does not implement `Clone`.
     ///
-    pub(crate) fn unable_to_load_directory_error(path: PathBuf, error: io::Error) -> Self {
+    pub(crate) const fn unable_to_load_directory_error(path: PathBuf, error: io::Error) -> Self {
         Self::UnableToLoadDirectory {
             path,
             source: error,
