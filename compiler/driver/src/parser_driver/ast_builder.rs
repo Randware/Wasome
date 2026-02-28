@@ -46,17 +46,17 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             program_information: from,
         };
         let main_file_location = Self::extract_main_file_module(from)
-            .ok_or_else(|| DriverError::main_file_non_utf8_chars_error())?;
+            .ok_or_else(DriverError::main_file_non_utf8_chars_error)?;
         let mut main_file_path = main_file_location
             .build_path_buf(from.projects())
-            .ok_or_else(|| DriverError::main_file_project_not_found_error())?;
+            .ok_or_else(DriverError::main_file_project_not_found_error)?;
         let main_file_name = from
             .main_file()
             .iter()
             .next_back()
-            .ok_or_else(|| DriverError::main_file_path_empty_error())?
+            .ok_or_else(DriverError::main_file_path_empty_error)?
             .to_str()
-            .ok_or_else(|| DriverError::main_file_non_utf8_chars_error())?;
+            .ok_or_else(DriverError::main_file_non_utf8_chars_error)?;
         main_file_path.push(main_file_name);
         let main_file_id = to_ret
             .load_from
@@ -217,6 +217,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         file_location: &ModulePath,
         to_parse: FileID,
     ) -> Result<File<UntypedAST>, DriverError> {
+        // This can never panic as a ModulePath can never be empty
         let last = file_location.elements().pop().unwrap();
         let file_information = FileInformation::new(to_parse, &last, self.load_from).unwrap();
         let parsed =
