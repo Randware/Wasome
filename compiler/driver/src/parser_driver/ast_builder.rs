@@ -61,7 +61,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         let main_file_id = to_ret
             .load_from
             .load_file(&main_file_path)
-            .map_err(|err| DriverError::unable_to_load_file_error(main_file_path, &err))?;
+            .map_err(|err| DriverError::unable_to_load_file_error(main_file_path, err))?;
         to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Ok(to_ret)
     }
@@ -248,7 +248,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
 
         let imported_files = self
             .list_wasome_files_in_dir(&module_dir)
-            .map_err(|err| DriverError::unable_to_load_directory_error(module_dir.clone(), &err))?;
+            .map_err(|err| DriverError::unable_to_load_directory_error(module_dir.clone(), err))?;
         let mut err: Option<DriverError> = None;
         imported_files.for_each(|file| {
             // Only load the file if it isn't loaded, yet
@@ -264,7 +264,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 Err(io_err) => {
                     err = Some(DriverError::unable_to_load_file_error(
                         module_dir.join(file),
-                        &io_err,
+                        io_err,
                     ));
                     return;
                 }
