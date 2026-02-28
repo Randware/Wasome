@@ -80,11 +80,17 @@ impl FileLoader for WasomeLoader {
 }
 
 impl DirectoryLoader for WasomeLoader {
-    fn list_files<F: AsRef<Path>>(&self, path: F) -> Result<Vec<OsString>, Error> {
+    fn list_files<'a, F: AsRef<Path> + 'a>(
+        &'a self,
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'a, Error> {
         list_all_with_specific_property(path, entry_is_file)
     }
 
-    fn list_subdirs<F: AsRef<Path>>(&self, path: F) -> Result<Vec<OsString>, Error> {
+    fn list_subdirs<'a, F: AsRef<Path> + 'a>(
+        &'a self,
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'a, Error> {
         list_all_with_specific_property(path, entry_is_directory)
     }
 }
@@ -107,26 +113,25 @@ impl DirectoryLoader for WasomeLoader {
 ///
 /// # Returns
 ///
-/// * `Ok(Vec<OsString>)` - All elements that satisfied the property are returned.
+/// * `Ok(impl Iterator<Item=OsString>)` - All elements that satisfied the property are returned.
 /// * `Err(Error)` - An IO error occurred.
 fn list_all_with_specific_property<
-    F: AsRef<Path>,
-    Condition: FnMut(&DirEntry) -> Result<bool, Error>,
+    'a,
+    F: AsRef<Path> + 'a,
+    Condition: FnMut(&DirEntry) -> Result<bool, Error> + 'a,
 >(
     directory: F,
     mut condition: Condition,
-) -> Result<Vec<OsString>, Error> {
-    Ok(read_dir(directory)?
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .map(|elem| (condition(&elem), elem))
-        .map(|elem| elem.0.map(|inner| (inner, elem.1)))
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .filter(|elem| elem.0)
-        .map(|elem| elem.1)
-        .map(|elem| elem.file_name())
-        .collect())
+) -> Result<impl Iterator<Item = OsString> + 'a, Error> {
+    let entries = read_dir(directory)?
+        .collect::<Result<Vec<_>, _>>()?;
+    
+    Ok(entries.into_iter()
+        .filter_map(move |elem| {
+            condition(&elem).ok().map(|is_match| (is_match, elem))
+        })
+        .filter(|(is_match, _)| *is_match)
+        .map(|(_, elem)| elem.file_name()))
 }
 
 /// Checks if the provided entry is a file after all symlinks are resolved
@@ -245,7 +250,7 @@ mod tests {
 
         fs::create_dir(root.join("subdir")).unwrap();
 
-        let files: Vec<OsString> = WasomeLoader.list_files(root).expect("Should list files");
+        let files: Vec<OsString> = WasomeLoader.list_files(root).expect("Should list files").collect();
 
         assert!(files.contains(&OsString::from("file1.txt")));
         assert!(files.contains(&OsString::from("file2.rs")));
@@ -266,7 +271,8 @@ mod tests {
 
         let subdirs: Vec<OsString> = WasomeLoader
             .list_subdirs(root)
-            .expect("Should list subdirs");
+            .expect("Should list subdirs")
+            .collect();
 
         assert!(subdirs.contains(&OsString::from("sub1")));
         assert!(subdirs.contains(&OsString::from("sub2")));
@@ -280,10 +286,10 @@ mod tests {
         let dir = tempdir().unwrap();
         let root = dir.path();
 
-        let files = WasomeLoader.list_files(root).expect("Should succeed");
+        let files: Vec<_> = WasomeLoader.list_files(root).expect("Should succeed").collect();
         assert_eq!(files.len(), 0);
 
-        let subdirs = WasomeLoader.list_subdirs(root).expect("Should succeed");
+        let subdirs: Vec<_> = WasomeLoader.list_subdirs(root).expect("Should succeed").collect();
         assert_eq!(subdirs.len(), 0);
     }
 
@@ -332,7 +338,7 @@ mod tests {
         .unwrap();
         symlink(real_path.clone().join("real_dir"), root.join("link_to_dir")).unwrap();
 
-        let files: Vec<OsString> = WasomeLoader.list_files(root).expect("Should list files");
+        let files: Vec<OsString> = WasomeLoader.list_files(root).expect("Should list files").collect();
         assert!(!files.contains(&OsString::from("real_file")));
         assert!(files.contains(&OsString::from("link_to_file")));
         assert!(!files.contains(&OsString::from("real_dir")));
@@ -343,7 +349,8 @@ mod tests {
 
         let subdirs: Vec<OsString> = WasomeLoader
             .list_subdirs(root)
-            .expect("Should list subdirs");
+            .expect("Should list subdirs")
+            .collect();
         assert!(!subdirs.contains(&OsString::from("real_dir")));
         assert!(subdirs.contains(&OsString::from("link_to_dir")));
         assert!(!subdirs.contains(&OsString::from("real_file")));

@@ -76,9 +76,12 @@ pub trait DirectoryLoader {
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<OsString>)` - A vector over the filenames (not paths).
+    /// * `Ok(impl Iterator<Item=OsString>)` - An iterator over the filenames (not paths).
     /// * `Err(Error)` - If an IO error occurred.
-    fn list_files<F: AsRef<Path>>(&self, path: F) -> Result<Vec<OsString>, Error>;
+    fn list_files<'a, F: AsRef<Path> + 'a>(
+        &'a self,
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'a, Error>;
 
     /// Lists the subdirectories of a given directory
     ///
@@ -90,9 +93,12 @@ pub trait DirectoryLoader {
     ///
     /// # Returns
     ///
-    /// * `Ok(Vec<OsString>)` - A vector over the names of the subdirectories (not paths).
+    /// * `Ok(impl Iterator<Item=OsString>)` - An iterator over the names of the subdirectories (not paths).
     /// * `Err(Error)` - If an IO error occurred.
-    fn list_subdirs<F: AsRef<Path>>(&self, path: F) -> Result<Vec<OsString>, Error>;
+    fn list_subdirs<'a, F: AsRef<Path> + 'a>(
+        &'a self,
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'a, Error>;
 }
 
 /// Helper trait that implements both [`PathResolver`] and [`FileLoader`]
