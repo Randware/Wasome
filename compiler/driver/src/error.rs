@@ -173,7 +173,7 @@ impl DriverError {
     ///
     /// A `DriverError` variant indicating the UTF-8 validation failure.
     ///
-    pub(super) const fn main_file_non_utf8_chars_error() -> Self {
+    pub(crate) const fn main_file_non_utf8_chars_error() -> Self {
         Self::MainFileNonUtf8Chars
     }
 
@@ -186,7 +186,7 @@ impl DriverError {
     ///
     /// A `DriverError` variant indicating the project lookup failure.
     ///
-    pub(super) const fn main_file_project_not_found_error() -> Self {
+    pub(crate) const fn main_file_project_not_found_error() -> Self {
         Self::MainFileProjectNotFound
     }
 
@@ -198,7 +198,7 @@ impl DriverError {
     ///
     /// A `DriverError` variant indicating the empty path error.
     ///
-    pub(super) const fn main_file_path_empty_error() -> Self {
+    pub(crate) const fn main_file_path_empty_error() -> Self {
         Self::MainFilePathEmpty
     }
 
@@ -215,7 +215,7 @@ impl DriverError {
     /// # Returns
     ///
     /// A `DriverError` variant containing the file path and error details.
-    pub(super) fn unable_to_load_file_error(path: PathBuf, error: io::Error) -> Self {
+    pub(crate) fn unable_to_load_file_error(path: PathBuf, error: io::Error) -> Self {
         Self::UnableToLoadFile {
             path,
             source: error,
@@ -241,7 +241,7 @@ impl DriverError {
     /// The I/O error is converted to a string and stored in a `Box<dyn Error>`
     /// because `io::Error` does not implement `Clone`.
     ///
-    pub(super) fn unable_to_load_directory_error(path: PathBuf, error: io::Error) -> Self {
+    pub(crate) fn unable_to_load_directory_error(path: PathBuf, error: io::Error) -> Self {
         Self::UnableToLoadDirectory {
             path,
             source: error,
@@ -261,7 +261,7 @@ impl DriverError {
     ///
     /// A `DriverError` variant containing the span for error reporting.
     ///
-    pub(super) const fn unresolved_import_error(span: Span) -> Self {
+    pub(crate) const fn unresolved_import_error(span: Span) -> Self {
         Self::UnresolvedImport { span }
     }
 }
