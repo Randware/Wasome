@@ -1,8 +1,8 @@
 use crate::parser_driver::generate_untyped_ast;
-use crate::pipeline::{from_func, from_infallible_func, Pipeline};
+use crate::pipeline::{Pipeline, from_func, from_infallible_func};
 use crate::program_information::ProgramInformation;
-use ast::{TypedAST, UntypedAST, AST};
 use ::error::diagnostic::Diagnostic;
+use ast::{AST, TypedAST, UntypedAST};
 use io::FullIO;
 use semantic_analyzer::analyze;
 use source::SourceMap;
@@ -30,9 +30,8 @@ pub fn syntax_check<'a, IO: FullIO>(
 /// 3. Performs semantic analysis
 /// 4. Voids all errors
 #[must_use]
-pub fn syntax_check_pipeline<IO: FullIO>(
-) -> impl for<'a> Pipeline<(&'a ProgramInformation, &'a mut SourceMap<IO>), Diagnostic, Output = ()>
-{
+pub fn syntax_check_pipeline<IO: FullIO>()
+-> impl for<'a> Pipeline<(&'a ProgramInformation, &'a mut SourceMap<IO>), Diagnostic, Output = ()> {
     let from: fn((_, &mut SourceMap<IO>)) = |_| ();
     typed_ast_pipeline().then(from_infallible_func::<_, (), (), _>(from))
 }
@@ -43,11 +42,8 @@ pub(crate) fn load_parse_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
     Diagnostic,
     Output = (AST<UntypedAST>, &'a mut SourceMap<IO>),
 > {
-    let from: for<'a> fn((&'a _, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> = |(pi, sm)| {
-        generate_untyped_ast(pi, sm)
-            .map_err(Into::into)
-            .map(|unt_ast| (unt_ast, sm))
-    };
+    let from: for<'a> fn((&'a _, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
+        |(pi, sm)| generate_untyped_ast(pi, sm).map(|unt_ast| (unt_ast, sm));
     from_func(from)
 }
 

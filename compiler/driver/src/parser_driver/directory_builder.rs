@@ -251,9 +251,9 @@ impl DirectoryBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::file::File;
     use ast::ASTNode;
     use ast::UntypedAST;
+    use ast::file::File;
     use std::ops::Deref;
     use std::path::PathBuf;
 
@@ -391,15 +391,21 @@ mod tests {
         builder.subdir_by_path(&["a".to_string()]);
 
         assert!(builder.subdir_by_path_nonmutating(&[]).is_some());
-        assert!(builder
-            .subdir_by_path_nonmutating(&["a".to_string()])
-            .is_some());
-        assert!(builder
-            .subdir_by_path_nonmutating(&["b".to_string()])
-            .is_none());
-        assert!(builder
-            .subdir_by_path_nonmutating(&["a".to_string(), "b".to_string()])
-            .is_none());
+        assert!(
+            builder
+                .subdir_by_path_nonmutating(&["a".to_string()])
+                .is_some()
+        );
+        assert!(
+            builder
+                .subdir_by_path_nonmutating(&["b".to_string()])
+                .is_none()
+        );
+        assert!(
+            builder
+                .subdir_by_path_nonmutating(&["a".to_string(), "b".to_string()])
+                .is_none()
+        );
     }
 
     #[test]
@@ -414,14 +420,18 @@ mod tests {
         assert_eq!(found.unwrap().name(), "f1");
 
         // Not found (wrong name)
-        assert!(builder
-            .file_by_path_name(&["a".to_string()], "f2")
-            .is_none());
+        assert!(
+            builder
+                .file_by_path_name(&["a".to_string()], "f2")
+                .is_none()
+        );
 
         // Not found (wrong path)
-        assert!(builder
-            .file_by_path_name(&["b".to_string()], "f1")
-            .is_none());
+        assert!(
+            builder
+                .file_by_path_name(&["b".to_string()], "f1")
+                .is_none()
+        );
 
         // File in root
         let f2 = create_dummy_file("f2");

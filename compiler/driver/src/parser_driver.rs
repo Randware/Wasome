@@ -9,7 +9,7 @@ mod module_path;
 
 use crate::parser_driver::ast_builder::ASTBuilder;
 use crate::program_information::ProgramInformation;
-use ast::{UntypedAST, AST};
+use ast::{AST, UntypedAST};
 use error::diagnostic::Diagnostic;
 use io::FullIO;
 use source::SourceMap;

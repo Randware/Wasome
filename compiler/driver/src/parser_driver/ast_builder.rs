@@ -3,12 +3,12 @@ use crate::parser_driver::directory_builder::DirectoryBuilder;
 use crate::parser_driver::module_path::{ModulePath, ModulePathProjectRelative};
 use crate::program_information::ProgramInformation;
 use ast::file::File;
-use ast::{ASTNode, UntypedAST, AST};
+use ast::{AST, ASTNode, UntypedAST};
 
 use io::FullIO;
-use parser::{parse, FileInformation};
-use source::types::{FileID, Span};
+use parser::{FileInformation, parse};
 use source::SourceMap;
+use source::types::{FileID, Span};
 use std::io::Error;
 use std::path::{Path, PathBuf};
 
@@ -61,7 +61,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         let main_file_id = to_ret
             .load_from
             .load_file(&main_file_path)
-            .map_err(|err| DriverError::unable_to_load_file_error(&main_file_path, &err))?;
+            .map_err(|err| DriverError::unable_to_load_file_error(main_file_path, &err))?;
         to_ret.add_file_handle_imports(&main_file_location, main_file_id)?;
         Ok(to_ret)
     }
@@ -220,8 +220,8 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         // This can never panic as a ModulePath can never be empty
         let last = file_location.elements().pop().unwrap();
         let file_information = FileInformation::new(to_parse, &last, self.load_from).unwrap();
-        let parsed =
-            parse(file_information).map_err(|d| <error::diagnostic::Diagnostic as Into<DriverError>>::into(d))?;
+        let parsed = parse(file_information)
+            .map_err(<error::diagnostic::Diagnostic as Into<DriverError>>::into)?;
         Ok(parsed)
     }
 
@@ -248,7 +248,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
 
         let imported_files = self
             .list_wasome_files_in_dir(&module_dir)
-            .map_err(|err| DriverError::unable_to_load_directory_error(&module_dir, &err))?;
+            .map_err(|err| DriverError::unable_to_load_directory_error(module_dir.clone(), &err))?;
         let mut err: Option<DriverError> = None;
         imported_files.for_each(|file| {
             if self.does_file_exist_in_ast(import_path.path(), &file[0..file.rfind('.').unwrap()]) {
@@ -258,7 +258,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
                 Ok(val) => val,
                 Err(io_err) => {
                     err = Some(DriverError::unable_to_load_file_error(
-                        &module_dir.join(file),
+                        module_dir.join(file),
                         &io_err,
                     ));
                     return;

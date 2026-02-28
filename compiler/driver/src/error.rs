@@ -35,33 +35,33 @@ pub(super) enum DriverError {
 }
 
 impl DriverError {
-    pub(super) fn main_file_non_utf8_chars_error() -> Self {
+    pub(super) const fn main_file_non_utf8_chars_error() -> Self {
         Self::MainFileNonUtf8Chars
     }
 
-    pub(super) fn main_file_project_not_found_error() -> Self {
+    pub(super) const fn main_file_project_not_found_error() -> Self {
         Self::MainFileProjectNotFound
     }
 
-    pub(super) fn main_file_path_empty_error() -> Self {
+    pub(super) const fn main_file_path_empty_error() -> Self {
         Self::MainFilePathEmpty
     }
 
-    pub(super) fn unable_to_load_file_error(path: &PathBuf, error: &io::Error) -> Self {
+    pub(super) fn unable_to_load_file_error(path: PathBuf, error: &io::Error) -> Self {
         Self::UnableToLoadFile {
-            path: path.clone(),
+            path,
             source: error.to_string().into(),
         }
     }
 
-    pub(super) fn unable_to_load_directory_error(path: &PathBuf, error: &io::Error) -> Self {
+    pub(super) fn unable_to_load_directory_error(path: PathBuf, error: &io::Error) -> Self {
         Self::UnableToLoadDirectory {
-            path: path.clone(),
+            path,
             source: error.to_string().into(),
         }
     }
 
-    pub(super) fn unresolved_import_error(span: Span) -> Self {
+    pub(super) const fn unresolved_import_error(span: Span) -> Self {
         Self::UnresolvedImport { span }
     }
 }
@@ -72,25 +72,25 @@ impl From<Diagnostic> for DriverError {
     }
 }
 
-impl Into<Diagnostic> for DriverError {
-    fn into(self) -> Diagnostic {
-        match self {
-            Self::MainFileNonUtf8Chars => Diagnostic::builder()
+impl From<DriverError> for Diagnostic {
+    fn from(val: DriverError) -> Self {
+        match val {
+            DriverError::MainFileNonUtf8Chars => Self::builder()
                 .message("The main file path may not contain non-UTF8 chars")
                 .code(INVALID_CHARS_IN_MAIN_FILE)
                 .help("Only use valid UTF-8 characters")
                 .build(),
-            Self::MainFileProjectNotFound => Diagnostic::builder()
+            DriverError::MainFileProjectNotFound => Self::builder()
                 .message("The project of the main file could not be found")
                 .code(MAIN_FILE_PROJECT_NOT_FOUND)
                 .help("Provide a valid main file path")
                 .build(),
-            Self::MainFilePathEmpty => Diagnostic::builder()
+            DriverError::MainFilePathEmpty => Self::builder()
                 .message("The path of the main file is empty")
                 .code(MAIN_FILE_PATH_EMPTY)
                 .help("Provide a valid main file path")
                 .build(),
-            Self::UnableToLoadFile { path, source } => Diagnostic::builder()
+            DriverError::UnableToLoadFile { path, source } => Self::builder()
                 .message(format!(
                     "Unable to load file {}: {}",
                     path.display(),
@@ -98,7 +98,7 @@ impl Into<Diagnostic> for DriverError {
                 ))
                 .code(UNABLE_TO_LOAD_FILE)
                 .build(),
-            Self::UnableToLoadDirectory { path, source } => Diagnostic::builder()
+            DriverError::UnableToLoadDirectory { path, source } => Self::builder()
                 .message(format!(
                     "Unable to load directory {}: {}",
                     path.display(),
@@ -106,7 +106,7 @@ impl Into<Diagnostic> for DriverError {
                 ))
                 .code(UNABLE_TO_LOAD_DIRECTORY)
                 .build(),
-            Self::UnresolvedImport { span } => Diagnostic::builder()
+            DriverError::UnresolvedImport { span } => Self::builder()
                 .message("Unable to resolve import")
                 .code(UNRESOLVED_IMPORT_ERROR)
                 .snippet(
@@ -116,7 +116,7 @@ impl Into<Diagnostic> for DriverError {
                         .build(),
                 )
                 .build(),
-            Self::SyntaxError { diagnostic } => diagnostic,
+            DriverError::SyntaxError { diagnostic } => diagnostic,
         }
     }
 }
