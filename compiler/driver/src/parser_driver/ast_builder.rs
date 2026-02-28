@@ -251,7 +251,12 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
             .map_err(|err| DriverError::unable_to_load_directory_error(module_dir.clone(), &err))?;
         let mut err: Option<DriverError> = None;
         imported_files.for_each(|file| {
+            // Only load the file if it isn't loaded, yet
+            // We can't use an entire module at once as the main file is loaded alone
+            // All wasome files must have a file extension
+            // So this will never panic
             if self.does_file_exist_in_ast(import_path.path(), &file[0..file.rfind('.').unwrap()]) {
+                // We don't load the file, but there is no error
                 return;
             }
             let loaded = match self.load_file(module_dir.clone(), &file) {
