@@ -7,12 +7,12 @@ use std::path::PathBuf;
 ///
 /// These codes follow the format `E####` where the first digit indicates the category:
 /// - `E4xxx`: Driver-level errors (program loading, file system operations)
-pub(super) const INVALID_CHARS_IN_MAIN_FILE: &str = "E4001";
-pub(super) const MAIN_FILE_PROJECT_NOT_FOUND: &str = "E4002";
-pub(super) const MAIN_FILE_PATH_EMPTY: &str = "E4003";
-pub(super) const UNABLE_TO_LOAD_FILE: &str = "E4004";
-pub(super) const UNABLE_TO_LOAD_DIRECTORY: &str = "E4005";
-pub(super) const UNRESOLVED_IMPORT_ERROR: &str = "E4006";
+const INVALID_CHARS_IN_MAIN_FILE: &str = "E4001";
+const MAIN_FILE_PROJECT_NOT_FOUND: &str = "E4002";
+const MAIN_FILE_PATH_EMPTY: &str = "E4003";
+const UNABLE_TO_LOAD_FILE: &str = "E4004";
+const UNABLE_TO_LOAD_DIRECTORY: &str = "E4005";
+const UNRESOLVED_IMPORT_ERROR: &str = "E4006";
 
 /// Custom error enum for driver-level errors.
 ///
