@@ -69,7 +69,7 @@ enum TopLevelElement {
 }
 
 mod import_parser {
-    use crate::error::ParserError;
+    use crate::error::{ExpectedItem, ParserError};
     use crate::misc_parsers::{identifier_parser, string_parser, token_parser};
     use crate::FileInformation;
     use ast::symbol::ModuleUsageNameSymbol;
@@ -115,8 +115,13 @@ mod import_parser {
                     .0
                     .end();
                 let pos = import.span.context().span(start.0, end.0);
-                let path = parse_import_path(&path)
-                    .ok_or_else(|| ParserError::new(pos.into(), None, vec![]))?;
+                let path = parse_import_path(&path).ok_or_else(|| {
+                    ParserError::new(
+                        pos.into(),
+                        Some(TokenType::String(path)),
+                        vec![ExpectedItem::Custom("a valid import path".to_string())],
+                    )
+                })?;
                 let use_as = usage_name
                     .map(|inner| inner.inner)
                     .unwrap_or_else(|| file_information.module_name().to_owned());

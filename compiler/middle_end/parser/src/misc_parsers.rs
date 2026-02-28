@@ -164,23 +164,6 @@ pub(crate) fn cross_module_capable_identifier_parser<'src>()
                 span: lhs.span.merge(inner.1.span).unwrap(),
             },
         })
-        .map_err(|err: ParserError| {
-            err.with_expected(vec![
-                ExpectedItem::Token(TokenType::F32),
-                ExpectedItem::Token(TokenType::F64),
-                ExpectedItem::Token(TokenType::S8),
-                ExpectedItem::Token(TokenType::U8),
-                ExpectedItem::Token(TokenType::S16),
-                ExpectedItem::Token(TokenType::U16),
-                ExpectedItem::Token(TokenType::S32),
-                ExpectedItem::Token(TokenType::U32),
-                ExpectedItem::Token(TokenType::S64),
-                ExpectedItem::Token(TokenType::U64),
-                ExpectedItem::Token(TokenType::Bool),
-                ExpectedItem::Token(TokenType::Char),
-                ExpectedItem::Identifier,
-            ])
-        })
         .boxed()
 }
 

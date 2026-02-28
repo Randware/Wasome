@@ -1,4 +1,3 @@
-use crate::error::ParserError;
 use crate::input::ParserInput;
 use crate::top_level_parser::top_level_parser;
 use ast::file::File;
@@ -25,7 +24,6 @@ mod statement_parser;
 mod top_level_parser;
 
 const INVALID_FILE_CODE: &str = "E2001";
-const PARSING_CODE: &str = "E2002";
 const LEXING_CODE: &str = "E1001";
 
 /// Newtype to bypass trait implementation rules
@@ -236,7 +234,7 @@ fn parse_tokens<Loader: FullIO>(
         })
         .map_err(|mut err| {
             let err = err.pop().unwrap();
-            parser_error(file_information.file(), err)
+            err.into()
         })
 }
 
@@ -247,40 +245,6 @@ fn invalid_filename_error(file: &SourceFile) -> Diagnostic {
             file.path().to_string_lossy()
         ))
         .code(INVALID_FILE_CODE)
-        .build()
-}
-
-fn parser_error(file: FileID, err: ParserError) -> Diagnostic {
-    let span = *err.position();
-    let found_str = err
-        .found()
-        .map(|t| t.to_printable_string())
-        .unwrap_or_else(|| "end of input".to_string());
-
-    let msg = if err.expected().is_empty() {
-        format!("Unexpected {}", found_str)
-    } else if err.expected().len() == 1 {
-        format!("Expected {}, found {}", err.expected()[0], found_str)
-    } else {
-        let expected_str = err
-            .expected()
-            .iter()
-            .map(|e| e.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!("Expected {}, found {}", expected_str, found_str)
-    };
-
-    Diagnostic::builder()
-        .message("Token mismatch")
-        .code(PARSING_CODE)
-        .snippet(
-            Snippet::builder()
-                .file(file)
-                .primary(span.0.start..span.0.end, msg)
-                .build(),
-        )
-        .help("Provide a valid token".to_string())
         .build()
 }
 
