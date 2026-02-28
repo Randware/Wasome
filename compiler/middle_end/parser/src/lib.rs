@@ -1,13 +1,11 @@
 use crate::input::ParserInput;
 use crate::top_level_parser::top_level_parser;
+use ::error::diagnostic::{Diagnostic, Snippet};
 use ast::UntypedAST;
 use ast::file::File;
 use ast::visibility::Visibility;
 use chumsky::Parser;
-use chumsky::error::{RichPattern, RichReason};
-use chumsky::prelude::Rich;
 use chumsky::span::{Span, Spanned, WrappingSpan};
-use error::diagnostic::{Diagnostic, Snippet};
 use io::FullIO;
 use lexer::tokens::LexError;
 use lexer::{Token, TokenType, lex};
@@ -17,6 +15,7 @@ use std::fmt::Debug;
 use std::ops::Range;
 
 mod composite_parser;
+mod error;
 mod expression_parser;
 mod function_parser;
 mod input;
@@ -25,7 +24,6 @@ mod statement_parser;
 mod top_level_parser;
 
 const INVALID_FILE_CODE: &str = "E2001";
-const PARSING_CODE: &str = "E2002";
 const LEXING_CODE: &str = "E1001";
 
 /// Newtype to bypass trait implementation rules
@@ -236,7 +234,7 @@ fn parse_tokens<Loader: FullIO>(
         })
         .map_err(|mut err| {
             let err = err.pop().unwrap();
-            parser_error(file_information.file(), err)
+            err.into()
         })
 }
 
@@ -247,42 +245,6 @@ fn invalid_filename_error(file: &SourceFile) -> Diagnostic {
             file.path().to_string_lossy()
         ))
         .code(INVALID_FILE_CODE)
-        .build()
-}
-
-fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
-    let span = *err.span();
-    let msg = match err.into_reason() {
-        RichReason::ExpectedFound { expected, found } => {
-            let expected = expected
-                .into_iter()
-                .map(|pat| match pat {
-                    RichPattern::Token(tok) => tok.to_printable_string().to_string(),
-                    RichPattern::EndOfInput => "end of input".to_string(),
-                    // Future improvement: Use custom for all other errors
-                    RichPattern::SomethingElse | RichPattern::Any => "something else".to_string(),
-                    _ => unreachable!("This should never happen"),
-                })
-                .collect::<Vec<_>>()
-                .join(" or ");
-            let found = match found {
-                None => "end of input".to_string(),
-                Some(tok) => tok.to_printable_string().to_string(),
-            };
-            format!("Expected {expected}, but found {found}")
-        }
-        RichReason::Custom(msg) => msg,
-    };
-    Diagnostic::builder()
-        .message("Token mismatch")
-        .code(PARSING_CODE)
-        .snippet(
-            Snippet::builder()
-                .file(file)
-                .primary(span.0.start..span.0.end, msg)
-                .build(),
-        )
-        .help("Provide a valid token".to_string())
         .build()
 }
 

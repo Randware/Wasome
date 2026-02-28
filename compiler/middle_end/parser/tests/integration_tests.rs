@@ -15,9 +15,9 @@ use ast::symbol::{
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
-use parser::{parse, FileInformation};
-use source::types::{BytePos, FileID, Span};
+use parser::{FileInformation, parse};
 use source::SourceMap;
+use source::types::{BytePos, FileID, Span};
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;

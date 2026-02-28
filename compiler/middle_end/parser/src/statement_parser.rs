@@ -1,3 +1,4 @@
+use crate::error::ParserError;
 use crate::expression_parser::expression_parser;
 use crate::input::ParserInput;
 use crate::misc_parsers::{
@@ -22,12 +23,8 @@ use std::rc::Rc;
 /// This is only used to prevent type annotation issues without specifying the entire type
 fn narrow<
     'src,
-    T: Parser<
-            'src,
-            ParserInput<'src>,
-            ASTNode<Statement<UntypedAST>>,
-            Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-        > + Clone,
+    T: Parser<'src, ParserInput<'src>, ASTNode<Statement<UntypedAST>>, Full<ParserError, (), ()>>
+        + Clone,
 >(
     input: T,
 ) -> T {
@@ -35,12 +32,8 @@ fn narrow<
 }
 
 /// Parses a single statement
-pub(crate) fn statement_parser<'src>() -> impl Parser<
-    'src,
-    ParserInput<'src>,
-    ASTNode<Statement<UntypedAST>>,
-    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-> {
+pub(crate) fn statement_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Statement<UntypedAST>>, Full<ParserError, (), ()>> {
     recursive(|statement| {
         let statement = narrow(statement);
         let data_type = datatype_parser();
