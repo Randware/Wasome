@@ -1,12 +1,9 @@
-use driver::program_information::Project;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::dependencies::DependencyResolver;
 use crate::error::{ManifestError, ManifestResult};
-use crate::manifest;
 
 pub const MANIFEST_FILE: &str = "waso.toml";
 pub const BINARY_ENTRY_FILE: &str = "src/main.waso";
@@ -49,87 +46,9 @@ impl Manifest {
     }
 
     /// Parse a manifest file
-    pub fn parse(content: &str) -> ManifestResult<Self> {
+    pub fn parse(content: &str) -> Result<Self, toml::de::Error> {
         let config: Manifest = toml::from_str(content)?;
         Ok(config)
     }
 
-    /// Attempt to load and parse the config file from the given path.
-    pub fn load(path: impl AsRef<Path>) -> ManifestResult<Self> {
-        let content = fs::read_to_string(path)?;
-        Self::parse(&content)
-    }
-
-    /// Locates the manifest, loads it, and returns the pair.
-    pub fn discover(start: impl AsRef<Path>) -> ManifestResult<(Self, PathBuf)> {
-        let path = Self::find(start)?;
-
-        let manifest = Self::load(&path)?;
-
-        Ok((manifest, path))
-    }
-
-    /// Resolves ALL dependencies recursively.
-    pub fn resolve_dependencies(&self, project_root: &Path) -> ManifestResult<Vec<Project>> {
-        let mut resolved_projects = Vec::new();
-
-        let initial_chain = vec![format!("{}@{}", self.project.name, self.project.version)];
-
-        self.resolve_recursive(project_root, &mut resolved_projects, initial_chain)?;
-
-        Ok(resolved_projects)
-    }
-
-    /// Internal recursive helper with versioned stack trace
-    fn resolve_recursive(
-        &self,
-        project_root: &Path,
-        acc: &mut Vec<Project>,
-        chain: Vec<String>,
-    ) -> ManifestResult<()> {
-        let deps = match &self.dependencies {
-            Some(d) => d,
-            None => return Ok(()),
-        };
-
-        for (name, version) in deps {
-            let resolver = DependencyResolver::new(project_root.to_path_buf());
-
-            let dep_id = format!("{}@{}", name, version);
-
-            let dep_path = match resolver.locate(name, version) {
-                Some(path) => path,
-                None => {
-                    let chain_display = chain.join("/");
-
-                    return Err(ManifestError::MissingDependency(
-                        dep_id.clone(),
-                        chain_display,
-                    ));
-                }
-            };
-
-            let dep_manifest = Manifest::load(dep_path.join(manifest::MANIFEST_FILE))?;
-
-            let dep_root_path = dep_path
-                .strip_prefix(project_root)
-                .unwrap_or(&dep_path)
-                .to_path_buf();
-
-            acc.push(Project::new(
-                dep_manifest.project.name.clone(),
-                dep_root_path.clone(),
-            ));
-
-            let mut next_chain = chain.clone();
-            next_chain.push(format!(
-                "{}@{}",
-                dep_manifest.project.name, dep_manifest.project.version
-            ));
-
-            dep_manifest.resolve_recursive(&dep_root_path.to_path_buf(), acc, next_chain)?;
-        }
-
-        Ok(())
-    }
 }

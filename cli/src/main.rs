@@ -4,109 +4,23 @@ mod error;
 mod execute;
 mod manifest;
 mod template;
+pub mod workspace;
 
-use ::error::diagnostic::{Diagnostic, Level, Snippet};
 use clap::Parser;
 use std::{io, process::ExitCode};
 
-use crate::{command::Cli, execute::Executable};
+use crate::{command::Cli, error::CliError, execute::Executable};
 
-fn main() -> ExitCode {
+fn main() -> io::Result<ExitCode> {
     let cli = Cli::parse();
 
-    let res = || -> io::Result<ExitCode> {
-        if let Err(err) = cli.execute() {
-            match err {
-                error::CliError::ManifestParse(toml_err, source, file_id) => {
-                    let snippet = if let Some(range) = toml_err.span() {
-                        Snippet::builder()
-                            .file(file_id)
-                            .primary(range, toml_err.message())
-                            .build()
-                    } else {
-                        Snippet::builder().file(file_id).build()
-                    };
-
-                    Diagnostic::builder()
-                        .level(Level::Error)
-                        .message("Malformed project manifest")
-                        .snippet(snippet)
-                        .build()
-                        .print_snippets(&source)?;
-                }
-
-                error::CliError::Manifest(err) => {
-                    let builder = Diagnostic::builder()
-                        .level(Level::Error)
-                        .message(err.to_string());
-
-                    match err {
-                        error::ManifestError::NotFound => {
-                            builder
-                                .help("Try initializing a project first")
-                                .build()
-                                .print()?;
-                        }
-                        error::ManifestError::AlreadyFound => {
-                            builder
-                                .help("Try initializing your project somewhere else")
-                                .build()
-                                .print()?;
-                        }
-                        error::ManifestError::NoEntry(_) => {
-                            builder
-                                .help(format!(
-                                    "Make sure your project has a valid '{}' or '{}' file",
-                                    manifest::BINARY_ENTRY_FILE,
-                                    manifest::LIBRARY_ENTRY_FILE
-                                ))
-                                .build()
-                                .print()?;
-                        }
-                        error::ManifestError::MultipleEntries(_) => {
-                            builder
-                                .help(format!(
-                                    "Make sure your project only has either a '{}' or '{}' file",
-                                    manifest::BINARY_ENTRY_FILE,
-                                    manifest::LIBRARY_ENTRY_FILE
-                                ))
-                                .build()
-                                .print()?;
-                        }
-                        error::ManifestError::MissingDependency(_, _) => {
-                            builder.help("Make sure you have a local or global version of the dependency available and its manifest is valid").build().print()?;
-                        }
-                        error::ManifestError::Parse(_) => {
-                            panic!("Manifest parse errors should never be returned standalone")
-                        }
-                        _ => {
-                            builder.build().print()?;
-                        }
-                    }
-                }
-
-                error::CliError::Io(err) => {
-                    Diagnostic::builder()
-                        .level(Level::Error)
-                        .message(err.to_string())
-                        .build()
-                        .print()?;
-                }
-
-                error::CliError::CompilationFailed => return Ok(ExitCode::FAILURE),
-            }
-
-            return Ok(ExitCode::FAILURE);
+    if let Err(err) = cli.execute() {
+        if !matches!(&err, CliError::CompilationFailed) {
+            err.print()?;
         }
 
-        Ok(ExitCode::SUCCESS)
-    }();
-
-    match res {
-        Ok(exit_code) => exit_code,
-        Err(err) => {
-            eprintln!("Fatal IO Error: {}", err);
-            ExitCode::FAILURE
-        }
+        return Ok(ExitCode::FAILURE);
     }
+
+    Ok(ExitCode::SUCCESS)
 }

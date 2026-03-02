@@ -1,14 +1,13 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use driver::program_information::{ProgramInformation, Project};
 use error::diagnostic::{Diagnostic, Level};
-use source::SourceMap;
 
 use crate::{
     command::{BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs},
     error::{CliError, CliResult, ManifestError},
-    manifest::{self, Manifest},
+    manifest::Manifest,
     template::Template,
+    workspace::Workspace,
 };
 
 pub(crate) trait Executable {
@@ -36,103 +35,25 @@ impl Executable for CheckArgs {
     fn execute(self) -> CliResult<()> {
         let path = self.path.canonicalize()?;
 
-        let manifest_path = Manifest::find(&path)?;
-        let root = manifest_path
-            .parent()
-            .expect("Manifest should always have a parent directory")
-            .to_path_buf();
+        let mut workspace = Workspace::load(&path)?;
 
         Diagnostic::builder()
             .level(Level::Info)
-            .message(format!("Checking project at {}", root.display()))
+            .message(format!(
+                "Checking project at {}",
+                workspace.info.path().display()
+            ))
             .build()
             .print()?;
 
-        let mut source = SourceMap::new(root.clone());
-        let file_id = source.load_file(manifest::MANIFEST_FILE)?;
-
-        let content = source.get_file(&file_id).unwrap().content();
-
-        let manifest = match Manifest::parse(content) {
-            Ok(m) => m,
-            Err(e) => {
-                if let ManifestError::Parse(toml_err) = e {
-                    return Err(CliError::ManifestParse(toml_err, source, file_id));
-                }
-
-                return Err(CliError::Manifest(e));
-            }
-        };
-
-        let bin_file = root.join(manifest::BINARY_ENTRY_FILE);
-        let lib_file = root.join(manifest::LIBRARY_ENTRY_FILE);
-
-        let entry_file = match (bin_file.exists(), lib_file.exists()) {
-            (true, true) => {
-                return Err(CliError::Manifest(ManifestError::MultipleEntries(
-                    manifest.project.name.clone(),
-                )));
-            }
-            (true, false) => bin_file,
-            (false, true) => {
-                // NOTE: We cannot check libraries currently
-                Diagnostic::builder()
-                    .level(Level::Error)
-                    .message("Cannot check library project")
-                    .build()
-                    .print()?;
-
-                return Ok(());
-            }
-            (false, false) => {
-                return Err(CliError::Manifest(ManifestError::NoEntry(
-                    manifest.project.name.clone(),
-                )));
-            }
-        };
-
-        let entry_file = entry_file
-            .strip_prefix(&root)
-            .unwrap_or(&entry_file)
-            .to_path_buf();
-
-        let mut projects = match manifest.resolve_dependencies(&root) {
-            Ok(p) => p,
-            Err(e) => {
-                if let ManifestError::Parse(toml_err) = e {
-                    return Err(CliError::ManifestParse(toml_err, source, file_id));
-                }
-
-                return Err(CliError::Manifest(e));
-            }
-        };
-
-        projects.push(Project::new(
-            manifest.project.name.clone(),
-            PathBuf::from("."),
-        ));
-
-        let info = ProgramInformation::new(
-            manifest.project.name.clone(),
-            root.clone(),
-            projects,
-            manifest.project.name.clone(),
-            entry_file,
-        );
-
-        // If we cannot create a valid ProgramInformation, the entry file is empty
-        let info = info.ok_or_else(|| {
-            CliError::Manifest(ManifestError::NoEntry(manifest.project.name.clone()))
-        })?;
-
-        match driver::syntax_check(&info, &mut source) {
+        match driver::syntax_check(&workspace.info, &mut workspace.source) {
             Ok(_) => Diagnostic::builder()
                 .level(Level::Info)
                 .message("Check was successful")
                 .build()
                 .print()?,
             Err(d) => {
-                d.print_snippets(&source)?;
+                d.print_snippets(&workspace.source)?;
 
                 Diagnostic::builder()
                     .level(Level::Error)
@@ -152,13 +73,13 @@ impl Executable for BuildArgs {
     fn execute(self) -> CliResult<()> {
         let path = self.path.canonicalize()?;
 
-        let (manifest, manifest_path) = Manifest::discover(path)?;
+        let workspace = Workspace::load(&path)?;
 
         Diagnostic::builder()
             .level(Level::Info)
             .message(format!(
                 "Compiling project at {}",
-                manifest_path.parent().unwrap().display()
+                workspace.info.path().display()
             ))
             .build()
             .print()?;
@@ -214,13 +135,13 @@ impl Executable for FmtArgs {
     fn execute(self) -> CliResult<()> {
         let path = self.path.canonicalize()?;
 
-        let (manifest, manifest_path) = Manifest::discover(path)?;
+        let workspace = Workspace::load(&path)?;
 
         Diagnostic::builder()
             .level(Level::Info)
             .message(format!(
                 "Formatting project at {}",
-                manifest_path.parent().unwrap().display()
+                workspace.info.path().display()
             ))
             .build()
             .print()?;
