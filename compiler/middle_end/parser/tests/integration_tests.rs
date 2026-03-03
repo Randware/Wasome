@@ -15,9 +15,9 @@ use ast::symbol::{
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
-use parser::{parse, FileInformation};
-use source::types::{BytePos, FileID, Span};
+use parser::{FileInformation, parse};
 use source::SourceMap;
+use source::types::{BytePos, FileID, Span};
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;
@@ -79,6 +79,7 @@ const GENERICS_MULTI_FILE_DEFS: &'static str =
     include_str!("test_programs/single_project/generic_multi_file/defs.waso");
 const GENERICS_MULTI_FILE_MAIN: &'static str =
     include_str!("test_programs/single_project/generic_multi_file/main.waso");
+const EMPTY: &'static str = include_str!("test_programs/single_file/empty.waso");
 
 #[test]
 fn test_parse_generics() {
@@ -1248,7 +1249,7 @@ fn test_parse_is_even() {
 fn setup_source_map(content: &'static str) -> (SourceMap, FileID) {
     let (dir, _path) = setup_file("main.waso", content);
 
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf());
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
 
     let id = sm
         .load_file("main.waso")
@@ -2419,5 +2420,22 @@ fn test_parse_exhaustive_main() {
         Vec::new(),
         Vec::new(),
     );
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_empty() {
+    let (sm, id) = setup_source_map(EMPTY);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(to_parse).expect("Parsing empty file failed");
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
     assert!(parsed.semantic_eq(&expected));
 }

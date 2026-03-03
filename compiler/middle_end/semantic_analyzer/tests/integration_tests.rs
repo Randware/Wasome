@@ -77,7 +77,7 @@ fn test_multi_project_program() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
 
@@ -208,7 +208,7 @@ fn test_multi_project_generics() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
     let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
     let typed_ast = analyze(ast).unwrap();
 

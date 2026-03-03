@@ -1,22 +1,16 @@
 use crate::parser_driver::generate_untyped_ast;
 use crate::pipeline::{Pipeline, from_func, from_infallible_func};
 use crate::program_information::ProgramInformation;
+use ::error::diagnostic::Diagnostic;
 use ast::{AST, TypedAST, UntypedAST};
-use error::diagnostic::Diagnostic;
 use io::FullIO;
 use semantic_analyzer::analyze;
 use source::SourceMap;
 
+pub mod error;
 pub mod parser_driver;
 pub mod pipeline;
 pub mod program_information;
-
-const INVALID_CHARS_IN_MAIN_FILE: &str = "E4001";
-const MAIN_FILE_PROJECT_NOT_FOUND: &str = "E4002";
-const MAIN_FILE_PATH_EMPTY: &str = "E4003";
-const UNABLE_TO_LOAD_FILE: &str = "E4004";
-const UNABLE_TO_LOAD_DIRECTORY: &str = "E4005";
-const UNRESOLVED_IMPORT_ERROR: &str = "E4006";
 
 /// Like [`syntax_check_pipeline`], but the pipeline is used immediately
 ///

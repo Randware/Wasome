@@ -36,5 +36,7 @@ pub fn generate_untyped_ast<Loader: FullIO>(
     program_info: &ProgramInformation,
     load_from: &mut SourceMap<Loader>,
 ) -> Result<AST<UntypedAST>, Diagnostic> {
-    ASTBuilder::new(program_info, load_from).map(ASTBuilder::build)
+    ASTBuilder::new(program_info, load_from)
+        .map(ASTBuilder::build)
+        .map_err(Into::into)
 }
