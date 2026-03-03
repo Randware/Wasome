@@ -62,7 +62,7 @@ impl Diagnostic {
     /// Any attached snippets will be ignored.
     pub fn print(&self) -> io::Result<()> {
         let mut writer = crate::renderer::TerminalWriter { level: self.level };
-        Renderer::<'_, '_, NoSource>::new(self, &NoSource, &mut writer).print()
+        self.write(&mut writer)
     }
 
     /// Renders the diagnostic to `stdout` or `stderr`, including source code snippets.
@@ -71,17 +71,17 @@ impl Diagnostic {
     /// for a specific file, that snippet will be omitted.
     pub fn print_snippets<S: SourceLookup>(&self, source: &S) -> io::Result<()> {
         let mut writer = crate::renderer::TerminalWriter { level: self.level };
-        Renderer::<'_, '_, S>::new(self, source, &mut writer).print()
+        self.write_snippets(source, &mut writer)
     }
 
     /// Renders the diagnostic to a specific writer without source code snippets.
-    pub fn write<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
-        Renderer::<'_, '_, NoSource>::new(self, &NoSource, &mut writer).print()
+    pub fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        Renderer::<'_, '_, NoSource>::new(self, &NoSource, writer).print()
     }
 
     /// Renders the diagnostic to a specific writer, including source code snippets.
-    pub fn write_snippets<S: SourceLookup, W: io::Write>(&self, source: &S, mut writer: W) -> io::Result<()> {
-        Renderer::<'_, '_, S>::new(self, source, &mut writer).print()
+    pub fn write_snippets<S: SourceLookup, W: io::Write>(&self, source: &S, writer: &mut W) -> io::Result<()> {
+        Renderer::<'_, '_, S>::new(self, source, writer).print()
     }
 }
 
