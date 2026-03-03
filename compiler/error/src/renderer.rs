@@ -34,24 +34,39 @@ struct CachedSource {
 }
 
 /// Handles the construction and rendering of diagnostics.
-pub struct Renderer<'a, S: ?Sized> {
+pub struct Renderer<'a, 'w, S: ?Sized> {
     diagnostic: &'a Diagnostic,
-    writer: Box<dyn Write>,
+    writer: &'w mut dyn Write,
     styling: DiagnosticStyling,
     cache: HashMap<FileID, CachedSource>,
     _marker: PhantomData<S>,
 }
 
-impl<'a> Renderer<'a, NoSource> {
-    /// Render without source lookup.
-    pub(crate) fn render(diagnostic: &'a Diagnostic, _source: &'a NoSource) -> io::Result<()> {
-        let mut renderer = Self::new(diagnostic, _source);
-        renderer.print()
+pub(crate) struct TerminalWriter {
+    pub(crate) level: Level,
+}
+
+impl Write for TerminalWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let s = String::from_utf8_lossy(buf);
+        match self.level {
+            Level::Error => eprint!("{}", s),
+            Level::Warning | Level::Info => print!("{}", s),
+        }
+        Ok(buf.len())
     }
 
+    fn flush(&mut self) -> io::Result<()> {
+        match self.level {
+            Level::Error => io::stderr().flush(),
+            Level::Warning | Level::Info => io::stdout().flush(),
+        }
+    }
+}
+
+impl<'a, 'w> Renderer<'a, 'w, NoSource> {
     /// Constructor for rendering without source lookup.
-    fn new(diagnostic: &'a Diagnostic, _source: &'a NoSource) -> Self {
-        let writer = Self::resolve_output(diagnostic.level);
+    pub(crate) fn new(diagnostic: &'a Diagnostic, _source: &'a NoSource, writer: &'w mut dyn Write) -> Self {
         let styling = Self::resolve_styling(diagnostic.level);
 
         // No sources available, so we keep the cache empty
@@ -67,17 +82,9 @@ impl<'a> Renderer<'a, NoSource> {
     }
 }
 
-impl<'a, S: SourceLookup + ?Sized> Renderer<'a, S> {
-    /// Render with source lookup.
-    pub(crate) fn render(diagnostic: &'a Diagnostic, source: &'a S) -> io::Result<()> {
-        let mut renderer = Self::new(diagnostic, source);
-
-        renderer.print()
-    }
-
+impl<'a, 'w, S: SourceLookup + ?Sized> Renderer<'a, 'w, S> {
     /// Constructor for rendering with source lookup.
-    fn new(diagnostic: &'a Diagnostic, source: &'a S) -> Self {
-        let writer = Self::resolve_output(diagnostic.level);
+    pub(crate) fn new(diagnostic: &'a Diagnostic, source: &'a S, writer: &'w mut dyn Write) -> Self {
         let styling = Self::resolve_styling(diagnostic.level);
 
         Self {
@@ -114,14 +121,7 @@ impl<'a, S: SourceLookup + ?Sized> Renderer<'a, S> {
     }
 }
 
-impl<'a, S: ?Sized> Renderer<'a, S> {
-    /// Determines the appropriate output stream (`stdout` or `stderr`) based on the [`Level`].
-    fn resolve_output(level: Level) -> Box<dyn Write> {
-        match level {
-            Level::Error => Box::new(io::stderr()),
-            Level::Warning | Level::Info => Box::new(io::stdout()),
-        }
-    }
+impl<'a, 'w, S: ?Sized> Renderer<'a, 'w, S> {
 
     /// Determines the appropriate color styling based on the [`Level`].
     fn resolve_styling(level: Level) -> DiagnosticStyling {
@@ -164,7 +164,7 @@ impl<'a, S: ?Sized> Renderer<'a, S> {
     }
 
     /// Orchestrates the printing of all diagnostic components.
-    fn print(&mut self) -> io::Result<()> {
+    pub(crate) fn print(&mut self) -> io::Result<()> {
         // Add padding before the diagnostic
         writeln!(self.writer)?;
 
@@ -372,12 +372,12 @@ mod tests {
         // The ✨ emoji is 3 bytes long
         let s = "a✨b";
 
-        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 0), 0);
-        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 1), 1);
-        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 4), 2);
-        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 5), 3);
+        assert_eq!(Renderer::<'_, '_, NoSource>::byte_to_char_idx(s, 0), 0);
+        assert_eq!(Renderer::<'_, '_, NoSource>::byte_to_char_idx(s, 1), 1);
+        assert_eq!(Renderer::<'_, '_, NoSource>::byte_to_char_idx(s, 4), 2);
+        assert_eq!(Renderer::<'_, '_, NoSource>::byte_to_char_idx(s, 5), 3);
 
-        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 2), 1);
-        assert_eq!(Renderer::<NoSource>::byte_to_char_idx(s, 3), 1);
+        assert_eq!(Renderer::<'_, '_, NoSource>::byte_to_char_idx(s, 2), 1);
+        assert_eq!(Renderer::<'_, '_, NoSource>::byte_to_char_idx(s, 3), 1);
     }
 }
