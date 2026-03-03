@@ -31,6 +31,10 @@ impl Template {
 }
 
 impl LoadedTemplate {
+    pub fn files(&self) -> &[(PathBuf, Vec<u8>)] {
+        &self.files
+    }
+
     /// Walks the directory and applies the replacements
     fn build(dir: &Dir, replacements: &Replacements) -> Self {
         let mut files = Vec::new();

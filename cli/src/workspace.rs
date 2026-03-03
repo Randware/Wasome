@@ -86,3 +86,64 @@ impl Workspace {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{manifest::MANIFEST_FILE, template::Template};
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_load_binary_workspace() {
+        let dir = tempdir().unwrap();
+        Template::bin("bin_project").write(dir.path()).unwrap();
+
+        let workspace = Workspace::load(dir.path()).unwrap();
+
+        assert_eq!(workspace.info.name(), "bin_project");
+        assert_eq!(workspace.info.main_file(), Path::new("src/main.waso"));
+    }
+
+    #[test]
+    fn test_load_no_entry_error() {
+        let dir = tempdir().unwrap();
+        let manifest_path = dir.path().join(MANIFEST_FILE);
+        fs::write(
+            &manifest_path,
+            r#"
+            [project]
+            name = "bin_project"
+            version = "0.1.0"
+        "#,
+        )
+        .unwrap();
+
+        let err = match Workspace::load(dir.path()) {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        match err {
+            CliError::Manifest(ManifestError::NoEntry(name)) => assert_eq!(name, "bin_project"),
+            _ => panic!("Expected NoEntry error"),
+        }
+    }
+
+    #[test]
+    fn test_load_multiple_entries_error() {
+        let dir = tempdir().unwrap();
+        Template::bin("dual").write(dir.path()).unwrap();
+
+        let src_dir = dir.path().join("src");
+        fs::write(src_dir.join("lib.waso"), "fn lib() {}").unwrap();
+
+        let err = match Workspace::load(dir.path()) {
+            Err(e) => e,
+            Ok(_) => panic!("Expected error"),
+        };
+        match err {
+            CliError::Manifest(ManifestError::MultipleEntries(name)) => assert_eq!(name, "dual"),
+            _ => panic!("Expected MultipleEntries error"),
+        }
+    }
+}

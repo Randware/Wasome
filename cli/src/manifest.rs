@@ -50,5 +50,62 @@ impl Manifest {
         let config: Manifest = toml::from_str(content)?;
         Ok(config)
     }
+}
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_parse_valid() {
+        let toml = r#"
+            [project]
+            name = "test"
+            version = "1.0.0"
+        "#;
+        let manifest = Manifest::parse(toml).unwrap();
+
+        assert_eq!(manifest.project.name, "test");
+        assert_eq!(manifest.project.version, "1.0.0");
+        assert!(manifest.dependencies.is_none());
+    }
+
+    #[test]
+    fn test_parse_invalid() {
+        let toml = r#"
+            [project]
+            name = "test"
+            # missing version
+        "#;
+
+        assert!(Manifest::parse(toml).is_err());
+    }
+
+    #[test]
+    fn test_find_manifest() {
+        let dir = tempdir().unwrap();
+        let canonical_dir = fs::canonicalize(dir.path()).unwrap();
+        let manifest_path = canonical_dir.join(MANIFEST_FILE);
+        fs::write(&manifest_path, "").unwrap();
+
+        let found = Manifest::find(&canonical_dir).unwrap();
+
+        assert_eq!(found, manifest_path);
+
+        let deep = dir.path().join("src").join("nested");
+        fs::create_dir_all(&deep).unwrap();
+        let found2 = Manifest::find(&deep).unwrap();
+
+        assert_eq!(found2, manifest_path);
+    }
+
+    #[test]
+    fn test_find_manifest_not_found() {
+        let dir = tempdir().unwrap();
+        let err = Manifest::find(dir.path()).unwrap_err();
+
+        assert!(matches!(err, ManifestError::NotFound));
+    }
 }
