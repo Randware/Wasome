@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use driver::program_information::ProgramInformation;
+use io::WasomeLoader;
 use source::SourceMap;
 
 use crate::{
@@ -22,7 +23,7 @@ impl Workspace {
             .expect("Manifest should always have a parent directory")
             .to_path_buf();
 
-        let mut source = SourceMap::new(root.clone());
+        let mut source = SourceMap::with_default(root.clone());
 
         // We wrap everything past here in a closure so we can catch ManifestError
         // and attach the SourceMap to it before returning CliError.
