@@ -33,5 +33,3 @@ impl<T: FileIO> SourceLookup for SourceMap<T> {
 ///
 /// Useful for testing or when source code is not available.
 pub struct NoSource;
-
-

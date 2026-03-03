@@ -80,7 +80,11 @@ impl Diagnostic {
     }
 
     /// Renders the diagnostic to a specific writer, including source code snippets.
-    pub fn write_snippets<S: SourceLookup, W: io::Write>(&self, source: &S, writer: &mut W) -> io::Result<()> {
+    pub fn write_snippets<S: SourceLookup, W: io::Write>(
+        &self,
+        source: &S,
+        writer: &mut W,
+    ) -> io::Result<()> {
         Renderer::<'_, '_, S>::new(self, source, writer).print()
     }
 }

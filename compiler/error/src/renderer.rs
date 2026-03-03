@@ -49,6 +49,8 @@ pub(crate) struct TerminalWriter {
 impl Write for TerminalWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let s = String::from_utf8_lossy(buf);
+        // NOTE: We use print and eprint here, since this allows our output streams to be captured when
+        // running tests
         match self.level {
             Level::Error => eprint!("{}", s),
             Level::Warning | Level::Info => print!("{}", s),
@@ -66,7 +68,11 @@ impl Write for TerminalWriter {
 
 impl<'a, 'w> Renderer<'a, 'w, NoSource> {
     /// Constructor for rendering without source lookup.
-    pub(crate) fn new(diagnostic: &'a Diagnostic, _source: &'a NoSource, writer: &'w mut dyn Write) -> Self {
+    pub(crate) fn new(
+        diagnostic: &'a Diagnostic,
+        _source: &'a NoSource,
+        writer: &'w mut dyn Write,
+    ) -> Self {
         let styling = Self::resolve_styling(diagnostic.level);
 
         // No sources available, so we keep the cache empty
@@ -84,7 +90,11 @@ impl<'a, 'w> Renderer<'a, 'w, NoSource> {
 
 impl<'a, 'w, S: SourceLookup + ?Sized> Renderer<'a, 'w, S> {
     /// Constructor for rendering with source lookup.
-    pub(crate) fn new(diagnostic: &'a Diagnostic, source: &'a S, writer: &'w mut dyn Write) -> Self {
+    pub(crate) fn new(
+        diagnostic: &'a Diagnostic,
+        source: &'a S,
+        writer: &'w mut dyn Write,
+    ) -> Self {
         let styling = Self::resolve_styling(diagnostic.level);
 
         Self {
@@ -122,7 +132,6 @@ impl<'a, 'w, S: SourceLookup + ?Sized> Renderer<'a, 'w, S> {
 }
 
 impl<'a, 'w, S: ?Sized> Renderer<'a, 'w, S> {
-
     /// Determines the appropriate color styling based on the [`Level`].
     fn resolve_styling(level: Level) -> DiagnosticStyling {
         match level {
