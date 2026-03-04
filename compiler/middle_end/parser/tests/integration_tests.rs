@@ -85,7 +85,7 @@ const EMPTY: &'static str = include_str!("test_programs/single_file/empty.waso")
 fn test_parse_generics() {
     let (sm, id) = setup_source_map(GENERICS_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     use ast::symbol::UntypedTypeParameterSymbol;
     use ast::type_parameter::UntypedTypeParameter;
@@ -364,7 +364,7 @@ fn test_parse_generics() {
 fn test_parse_generics_nested() {
     let (sm, id) = setup_source_map(GENERICS_NESTED_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     use ast::symbol::UntypedTypeParameterSymbol;
     use ast::type_parameter::UntypedTypeParameter;
@@ -509,7 +509,7 @@ fn test_parse_generics_nested() {
 fn test_parse_generics_methods() {
     let (sm, id) = setup_source_map(GENERICS_METHODS_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     use ast::symbol::UntypedTypeParameterSymbol;
     use ast::type_parameter::UntypedTypeParameter;
@@ -670,7 +670,7 @@ fn test_parse_generics_methods() {
 fn test_parse_generics_multi_file_defs() {
     let (sm, id) = setup_source_map(GENERICS_MULTI_FILE_DEFS);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     use ast::symbol::UntypedTypeParameterSymbol;
     use ast::type_parameter::UntypedTypeParameter;
@@ -765,7 +765,7 @@ fn test_parse_generics_multi_file_defs() {
 fn test_parse_generics_multi_file_main() {
     let (sm, id) = setup_source_map(GENERICS_MULTI_FILE_MAIN);
     let to_parse = FileInformation::new(id, "generic_multi_file", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     // import "./"
     let import = wrap(Import::new(
@@ -856,7 +856,7 @@ fn test_parse_simple_program() {
     let (sm, id) = setup_source_map(FIBONACCI);
 
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     // Construct Expected AST
     let n_symbol = Rc::new(VariableSymbol::new(
@@ -1031,7 +1031,7 @@ fn test_parse_simple_program() {
 fn test_parse_max() {
     let (sm, id) = setup_source_map(MAX);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let a_symbol = Rc::new(VariableSymbol::new(
         "a".to_string(),
@@ -1090,7 +1090,7 @@ fn test_parse_max() {
 fn test_parse_sum_n() {
     let (sm, id) = setup_source_map(SUM_N);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let n_symbol = Rc::new(VariableSymbol::new(
         "n".to_string(),
@@ -1190,7 +1190,7 @@ fn test_parse_sum_n() {
 fn test_parse_is_even() {
     let (sm, id) = setup_source_map(IS_EVEN);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let n_symbol = Rc::new(VariableSymbol::new(
         "n".to_string(),
@@ -1263,7 +1263,7 @@ fn test_parse_modular_arithmetic() {
     {
         let (sm, id) = setup_source_map(MODULAR_ADD);
         let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-        let parsed = parse(to_parse).expect("Parsing failed");
+        let parsed = parse(&to_parse).expect("Parsing failed");
 
         let a_symbol = Rc::new(VariableSymbol::new(
             "a".to_string(),
@@ -1313,7 +1313,7 @@ fn test_parse_modular_arithmetic() {
     {
         let (sm, id) = setup_source_map(MODULAR_MUL);
         let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-        let parsed = parse(to_parse).expect("Parsing failed");
+        let parsed = parse(&to_parse).expect("Parsing failed");
 
         let test_symbol = Rc::new(ModuleUsageNameSymbol::new("test".to_string()));
         let import = wrap(Import::new(
@@ -1374,7 +1374,7 @@ fn test_parse_modular_arithmetic() {
 fn test_misc_features() {
     let (sm, id) = setup_source_map(MISC_FEATURES);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     // 1. public_func
     let pub_func = wrap(Function::new(
@@ -1545,7 +1545,7 @@ fn test_misc_features() {
 fn test_unary_on_typecast() {
     let (sm, id) = setup_source_map(UNARY_CAST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let main_symbol = Rc::new(FunctionSymbol::new(
         "main".to_string(),
@@ -1584,7 +1584,7 @@ fn test_unary_on_typecast() {
 fn test_parse_if() {
     let (sm, id) = setup_source_map(IF_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     // fn main() { char wasome <- showcase_if_conditionals() }
     let main_symbol = Rc::new(FunctionSymbol::new(
@@ -1671,7 +1671,7 @@ fn test_parse_if() {
 fn test_parse_loop() {
     let (sm, id) = setup_source_map(LOOP_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let main_symbol = Rc::new(FunctionSymbol::new(
         "main".to_string(),
@@ -1813,7 +1813,7 @@ fn test_parse_loop() {
 fn test_parse_operator() {
     let (sm, id) = setup_source_map(OPERATOR_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let main_symbol = Rc::new(FunctionSymbol::new(
         "main".to_string(),
@@ -1946,7 +1946,7 @@ fn test_parse_operator() {
 fn test_missing_statement_separator() {
     let (sm, id) = setup_source_map(MISSING_STATEMENT_SEPARATOR);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse);
+    let parsed = parse(&to_parse);
     assert!(parsed.is_err());
 }
 
@@ -1954,7 +1954,7 @@ fn test_missing_statement_separator() {
 fn test_parse_struct() {
     let (sm, id) = setup_source_map(STRUCT_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let point_symbol = Rc::new(StructSymbol::new("Point".to_string(), Vec::new()));
     let x_field = wrap(StructField::new(
@@ -2059,7 +2059,7 @@ fn test_parse_struct() {
 fn test_parse_method_call() {
     let (sm, id) = setup_source_map(METHOD_CALL_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let point_symbol = Rc::new(StructSymbol::new("Point".to_string(), Vec::new()));
     let x_field = wrap(StructField::new(
@@ -2174,7 +2174,7 @@ fn test_parse_method_call() {
 fn test_parse_enum() {
     let (sm, id) = setup_source_map(ENUM_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let weekday_symbol = Rc::new(EnumSymbol::new("Weekday".to_string(), Vec::new()));
     let variants = vec![
@@ -2242,7 +2242,7 @@ fn test_parse_enum() {
 fn test_parse_exhaustive_defs() {
     let (sm, id) = setup_source_map(EXHAUSTIVE_DEFS);
     let to_parse = FileInformation::new(id, "exhaustive", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing defs failed");
+    let parsed = parse(&to_parse).expect("Parsing defs failed");
 
     let status_symbol = Rc::new(EnumSymbol::new("Status".to_string(), Vec::new()));
     let ok_variant = wrap(EnumVariant::new(Rc::new(EnumVariantSymbol::new(
@@ -2332,7 +2332,7 @@ fn test_parse_exhaustive_defs() {
 fn test_parse_exhaustive_main() {
     let (sm, id) = setup_source_map(EXHAUSTIVE_MAIN);
     let to_parse = FileInformation::new(id, "exhaustive", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing main failed");
+    let parsed = parse(&to_parse).expect("Parsing main failed");
 
     let import = wrap(Import::new(
         ImportRoot::CurrentModule,
@@ -2427,7 +2427,7 @@ fn test_parse_exhaustive_main() {
 fn test_parse_empty() {
     let (sm, id) = setup_source_map(EMPTY);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing empty file failed");
+    let parsed = parse(&to_parse).expect("Parsing empty file failed");
 
     let expected = ast::file::File::new(
         "main".to_string(),
