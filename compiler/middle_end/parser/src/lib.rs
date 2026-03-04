@@ -1,5 +1,4 @@
-#![warn(clippy::pedantic)]
-#![warn(clippy::nursery)]
+#![warn(clippy::pedantic, clippy::nursery)]
 use crate::input::ParserInput;
 use crate::top_level_parser::top_level_parser;
 use ::error::diagnostic::{Diagnostic, Snippet};
