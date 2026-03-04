@@ -93,6 +93,13 @@ impl DirectoryLoader for WasomeLoader {
     ) -> Result<impl Iterator<Item = OsString> + 'a, Error> {
         list_all_with_specific_property(path, entry_is_directory)
     }
+
+    fn list_non_symlink_subdirs<'a, F: AsRef<Path> + 'a>(
+        &'a self,
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'a, Error> {
+        list_all_with_specific_property(path, entry_is_non_symlink_directory)
+    }
 }
 
 /// Reads the provided directory and returns the names of all elements whose path satisfies a condition.
@@ -162,6 +169,11 @@ fn entry_is_directory(to_check: &DirEntry) -> Result<bool, Error> {
     dir_entry_has_file_type_condition(to_check, |ft| ft.is_dir())
 }
 
+/// Like [`entry_is_directory`], but symlinks aren't considered
+fn entry_is_non_symlink_directory(to_check: &DirEntry) -> Result<bool, Error> {
+    non_symlinkdir_entry_has_file_type_condition(to_check, |ft| ft.is_dir())
+}
+
 fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
     to_check: &DirEntry,
     mut condition: Condition,
@@ -170,6 +182,14 @@ fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
     if file_type.is_symlink() {
         return metadata(to_check.path()).map(|inner| condition(inner.file_type()));
     }
+    Ok(condition(file_type))
+}
+
+fn non_symlinkdir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
+    to_check: &DirEntry,
+    mut condition: Condition,
+) -> Result<bool, Error> {
+    let file_type = to_check.file_type()?;
     Ok(condition(file_type))
 }
 #[cfg(test)]
@@ -358,5 +378,16 @@ mod tests {
         assert!(subdirs.contains(&OsString::from("real")));
 
         assert_eq!(2, subdirs.len());
+
+        let non_symlink_subdirs: Vec<OsString> = WasomeLoader
+            .list_non_symlink_subdirs(root)
+            .expect("Should list subdirs")
+            .collect();
+
+        assert!(!non_symlink_subdirs.contains(&OsString::from("real_dir")));
+        assert!(!non_symlink_subdirs.contains(&OsString::from("link_to_dir")));
+        assert!(!non_symlink_subdirs.contains(&OsString::from("real_file")));
+        assert!(!non_symlink_subdirs.contains(&OsString::from("link_to_file")));
+        assert!(non_symlink_subdirs.contains(&OsString::from("real")));
     }
 }
