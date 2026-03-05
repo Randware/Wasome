@@ -99,6 +99,14 @@ pub trait DirectoryLoader {
         &'a self,
         path: F,
     ) -> Result<impl Iterator<Item = OsString> + 'a, Error>;
+
+    /// Like [`Self::list_subdirs`], but symlinks are **not** followed
+    ///
+    /// This prevents directories from containing themselves
+    fn list_non_symlink_subdirs<'a, F: AsRef<Path> + 'a>(
+        &'a self,
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'a, Error>;
 }
 
 /// Helper trait that implements both [`PathResolver`] and [`FileLoader`]
