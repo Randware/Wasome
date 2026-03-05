@@ -9,8 +9,8 @@
 //!
 //! The error system consists of three main components:
 //!
-//! 1. **ExpectedItem**: An enum representing what the parser expected at a given position
-//! 2. **ParserError**: The main error type implementing Chumsky's error traits
+//! 1. **`ExpectedItem`**: An enum representing what the parser expected at a given position
+//! 2. **`ParserError`**: The main error type implementing Chumsky's error traits
 //! 3. **Error Conversion**: Integration with Chumsky's `Error` and `LabelError` traits
 //!
 //! ## Usage
@@ -65,7 +65,7 @@ pub enum ExpectedItem {
     Custom(String),
 }
 
-/// Display implementation for ExpectedItem.
+/// Display implementation for `ExpectedItem`.
 ///
 /// Converts each variant to a user-friendly string representation suitable
 /// for error messages. Token types use their printable representation from
@@ -74,13 +74,13 @@ pub enum ExpectedItem {
 impl Display for ExpectedItem {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ExpectedItem::Token(token) => write!(fmt, "{}", token.to_printable_string()),
-            ExpectedItem::Identifier => write!(fmt, "identifier"),
-            ExpectedItem::String => write!(fmt, "string"),
-            ExpectedItem::Decimal => write!(fmt, "decimal"),
-            ExpectedItem::Integer => write!(fmt, "integer"),
-            ExpectedItem::Char => write!(fmt, "character"),
-            ExpectedItem::Custom(s) => write!(fmt, "{}", s),
+            Self::Token(token) => write!(fmt, "{}", token.to_printable_string()),
+            Self::Identifier => write!(fmt, "identifier"),
+            Self::String => write!(fmt, "string"),
+            Self::Decimal => write!(fmt, "decimal"),
+            Self::Integer => write!(fmt, "integer"),
+            Self::Char => write!(fmt, "character"),
+            Self::Custom(s) => write!(fmt, "{s}"),
         }
     }
 }
@@ -138,7 +138,7 @@ impl ParserError {
     /// # Returns
     ///
     /// A new `ParserError` instance with the provided fields.
-    pub fn new(
+    pub(crate) const fn new(
         position: ParserSpan,
         found: Option<TokenType>,
         expected: Vec<ExpectedItem>,
@@ -158,7 +158,7 @@ impl ParserError {
     /// # Returns
     ///
     /// A reference to the `ParserSpan` for this error.
-    pub fn position(&self) -> &ParserSpan {
+    pub(crate) const fn position(&self) -> &ParserSpan {
         &self.position
     }
 
@@ -170,7 +170,7 @@ impl ParserError {
     ///
     /// An `Option` containing a reference to the `TokenType` that was found,
     /// or `None` if end of input was encountered.
-    pub fn found(&self) -> Option<&TokenType> {
+    pub const fn found(&self) -> Option<&TokenType> {
         self.found.as_ref()
     }
 
@@ -200,14 +200,13 @@ impl ParserError {
     /// # Returns
     ///
     /// A new `ParserError` with the updated expected items.
-
     pub fn with_expected(mut self, expected: Vec<ExpectedItem>) -> Self {
         self.expected = expected;
         self
     }
 }
 
-/// Chumsky `Error` trait implementation for ParserError.
+/// Chumsky `Error` trait implementation for `ParserError`.
 ///
 /// This implementation enables `ParserError` to work with Chumsky's parser combinators.
 /// The `merge` method is called when multiple parsing alternatives fail, combining
@@ -233,7 +232,7 @@ impl<'a> Error<'a, crate::input::ParserInput<'a>> for ParserError {
     }
 }
 
-/// Chumsky `LabelError` trait implementation for ParserError.
+/// Chumsky `LabelError` trait implementation for `ParserError`.
 ///
 /// This trait is implemented for `ParserError` to handle errors from Chumsky's
 /// primitive parsers. The `expected_found` method is called when a parser fails
@@ -262,7 +261,7 @@ impl<'a> LabelError<'a, crate::input::ParserInput<'a>, chumsky::DefaultExpected<
             Maybe::Ref(t) => t.clone(),
         });
 
-        ParserError {
+        Self {
             position: span,
             found: found_token,
             expected: Vec::new(),
@@ -281,27 +280,27 @@ impl<'a> LabelError<'a, crate::input::ParserInput<'a>, chumsky::DefaultExpected<
 ///
 /// - No expected items: "Unexpected {found}"
 /// - Single expected item: "Expected {expected}, found {found}"
-impl Into<Diagnostic> for ParserError {
-    fn into(self) -> Diagnostic {
-        let span = *self.position();
-        let found_str = self
-            .found()
-            .map(|t| t.to_printable_string())
-            .unwrap_or_else(|| "end of input".to_string());
+impl From<ParserError> for Diagnostic {
+    fn from(val: ParserError) -> Self {
+        let span = *val.position();
+        let found_str = val.found().map_or_else(
+            || "end of input".to_string(),
+            TokenType::to_printable_string,
+        );
 
-        let msg = if self.expected().is_empty() {
-            format!("Unexpected {}", found_str)
+        let msg = if val.expected().is_empty() {
+            format!("Unexpected {found_str}")
         } else {
-            let expected_str = self
+            let expected_str = val
                 .expected()
                 .iter()
-                .map(|e| e.to_string())
+                .map(ToString::to_string)
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("Expected {}, found {}", expected_str, found_str)
+            format!("Expected {expected_str}, found {found_str}")
         };
 
-        Diagnostic::builder()
+        Self::builder()
             .message("Token mismatch")
             .code(PARSING_CODE)
             .snippet(
