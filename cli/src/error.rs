@@ -120,7 +120,7 @@ pub enum ManifestError {
     #[error("Could not find a project manifest")]
     NotFound,
 
-    #[error("Provided path already inside other project")]
+    #[error("Provided path is already root of another project")]
     AlreadyFound,
 
     #[error("Failed to read manifest file: {0}")]

@@ -1,11 +1,11 @@
-use std::path::Path;
+use std::path;
 
 use error::diagnostic::{Diagnostic, Level};
 
 use crate::{
     command::{BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs},
     error::{CliError, CliResult, ManifestError},
-    manifest::Manifest,
+    manifest::{self},
     template::Template,
     workspace::Workspace,
 };
@@ -91,19 +91,9 @@ impl Executable for BuildArgs {
 
 impl Executable for NewArgs {
     fn execute(self) -> CliResult<()> {
-        let path = if self.path.exists() {
-            self.path.canonicalize()?
-        } else {
-            std::env::current_dir()?.join(&self.path)
-        };
+        let path = path::absolute(self.path)?;
 
-        let start = if path.exists() {
-            path.as_path()
-        } else {
-            Path::new(".")
-        };
-
-        if Manifest::find(start).is_ok() {
+        if path.join(manifest::MANIFEST_FILE).exists() {
             return Err(CliError::Manifest(ManifestError::AlreadyFound));
         }
 
