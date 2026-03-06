@@ -95,7 +95,7 @@ impl LoadedTemplate {
 
             // If we ran into any issues, we clean up here
             if let Err(e) = write_result {
-                fs::remove_dir_all(&temp_dir)?;
+                let _ = fs::remove_dir_all(&temp_dir);
                 return Err(e);
             }
 
@@ -104,7 +104,7 @@ impl LoadedTemplate {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     // If renaming fails, we clean up the tmp directory
-                    fs::remove_dir_all(&temp_dir)?;
+                    let _ = fs::remove_dir_all(&temp_dir);
                     Err(e)
                 }
             }
