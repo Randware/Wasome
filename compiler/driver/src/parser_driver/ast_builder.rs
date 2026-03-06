@@ -221,7 +221,7 @@ impl<'a, Loader: FullIO> ASTBuilder<'a, Loader> {
         // This can never panic as a ModulePath can never be empty
         let last = file_location.elements().pop().unwrap();
         let file_information = FileInformation::new(to_parse, &last, self.load_from).unwrap();
-        let parsed = parse(file_information)
+        let parsed = parse(&file_information)
             .map_err(<error::diagnostic::Diagnostic as Into<DriverError>>::into)?;
         Ok(parsed)
     }

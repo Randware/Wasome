@@ -17,7 +17,7 @@ use lexer::TokenType;
 use std::rc::Rc;
 
 /// Parses a single function
-pub(crate) fn function_parser<'src>()
+pub fn function_parser<'src>()
 -> impl Parser<'src, ParserInput<'src>, ASTNode<Function<UntypedAST>>, Full<ParserError, (), ()>> {
     let statement = statement_parser();
     let data_type = datatype_parser();
@@ -59,9 +59,8 @@ pub(crate) fn function_parser<'src>()
             |(((visibility, ((name, type_parameters), params)), return_type), implementation)| {
                 let pos = visibility
                     .as_ref()
-                    .map(|vis| vis.span)
-                    .unwrap_or(name.span)
-                    .merge(implementation.position().clone().into())
+                    .map_or(name.span, |vis| vis.span)
+                    .merge((*implementation.position()).into())
                     .unwrap()
                     .into();
                 let visibility = map_visibility(visibility.as_ref());

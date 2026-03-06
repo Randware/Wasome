@@ -6,13 +6,17 @@ use source::types::{BytePos, FileID};
 use std::ops::{Range, RangeFrom};
 
 #[derive(Copy, Clone, Debug)]
+// This is a false positive
+// Implementing it would cause errors
+#[allow(clippy::redundant_pub_crate)]
 pub(crate) struct ParserInput<'src> {
     tokens: &'src [Spanned<TokenType, ParserSpan>],
     file_id: FileID,
 }
 
 impl<'src> ParserInput<'src> {
-    pub fn new(tokens: &'src [Spanned<TokenType, ParserSpan>], file_id: FileID) -> Self {
+    #[must_use]
+    pub const fn new(tokens: &'src [Spanned<TokenType, ParserSpan>], file_id: FileID) -> Self {
         Self { tokens, file_id }
     }
 }
@@ -22,7 +26,7 @@ impl<'src> Input<'src> for ParserInput<'src> {
     type Token = TokenType;
     type MaybeToken = &'src TokenType;
     type Cursor = usize;
-    type Cache = ParserInput<'src>;
+    type Cache = Self;
 
     fn begin(self) -> (Self::Cursor, Self::Cache) {
         (0, self)
@@ -42,6 +46,9 @@ impl<'src> Input<'src> for ParserInput<'src> {
         cache: &mut Self::Cache,
         cursor: &mut Self::Cursor,
     ) -> Option<Self::MaybeToken> {
+        // While the map_or suggestion is theoretically possible,
+        // it feels hacky to have side effects in there.
+        #[allow(clippy::option_if_let_else)]
         if let Some(tok) = cache.tokens.get(*cursor) {
             *cursor += 1;
             Some(&tok.inner)
@@ -94,7 +101,7 @@ impl<'src> ExactSizeInput<'src> for ParserInput<'src> {
 }
 
 impl<'src> SliceInput<'src> for ParserInput<'src> {
-    type Slice = ParserInput<'src>;
+    type Slice = Self;
 
     fn full_slice(cache: &mut Self::Cache) -> Self::Slice {
         *cache
