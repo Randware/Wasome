@@ -9,7 +9,7 @@ type Replacement = (&'static str, String);
 
 /// Represents the final project structure in memory
 pub struct LoadedTemplate {
-    files: Vec<(PathBuf, Vec<u8>)>,
+    pub files: Vec<(PathBuf, Vec<u8>)>,
 }
 
 pub struct Template;
@@ -31,10 +31,6 @@ impl Template {
 }
 
 impl LoadedTemplate {
-    pub fn files(&self) -> &[(PathBuf, Vec<u8>)] {
-        &self.files
-    }
-
     /// Walks the directory and applies the replacements
     fn build(dir: &Dir, replacements: &Vec<Replacement>) -> Self {
         let mut files = Vec::new();

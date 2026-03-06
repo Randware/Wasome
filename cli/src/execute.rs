@@ -86,8 +86,6 @@ impl Executable for BuildArgs {
 
         // TODO: Compiling is not yet possible
         todo!();
-
-        Ok(())
     }
 }
 
@@ -148,8 +146,6 @@ impl Executable for FmtArgs {
 
         // TODO: Formatting is not yet possible
         todo!();
-
-        Ok(())
     }
 }
 
@@ -179,7 +175,7 @@ mod tests {
         args.execute().unwrap();
 
         let template = Template::bin("bin_project");
-        for (rel_path, content) in template.files() {
+        for (rel_path, content) in template.files {
             let disk_content = fs::read(target.join(rel_path)).unwrap();
 
             assert_eq!(disk_content, *content);
@@ -198,7 +194,7 @@ mod tests {
         args.execute().unwrap();
 
         let template = Template::lib("lib_project");
-        for (rel_path, content) in template.files() {
+        for (rel_path, content) in template.files {
             let disk_content = fs::read(target.join(rel_path)).unwrap();
 
             assert_eq!(disk_content, *content);

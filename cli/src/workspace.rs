@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use driver::program_information::ProgramInformation;
-use io::WasomeLoader;
 use source::SourceMap;
 
 use crate::{
