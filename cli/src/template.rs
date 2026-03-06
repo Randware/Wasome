@@ -99,7 +99,7 @@ impl LoadedTemplate {
                 return Err(e);
             }
 
-            // If everything went well, we then rename our temp directoy to the correct name
+            // If everything went well, we then rename our temp directory to the correct name
             match fs::rename(&temp_dir, target) {
                 Ok(_) => Ok(()),
                 Err(e) => {
