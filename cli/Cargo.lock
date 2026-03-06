@@ -207,6 +207,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
 
 [[package]]
+name = "cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "driver",
+ "error",
+ "include_dir",
+ "io",
+ "serde",
+ "source",
+ "tempfile",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -909,22 +925,6 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap",
  "semver",
-]
-
-[[package]]
-name = "waso"
-version = "0.1.0"
-dependencies = [
- "clap",
- "driver",
- "error",
- "include_dir",
- "io",
- "serde",
- "source",
- "tempfile",
- "thiserror",
- "toml",
 ]
 
 [[package]]

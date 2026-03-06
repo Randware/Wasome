@@ -3,8 +3,11 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand, ValueHint};
 
 #[derive(Parser)]
-#[command(version, about = "The Wasome programming language toolchain")]
-#[command(propagate_version = true)]
+#[command(
+    name = "waso",
+    version,
+    about = "The Wasome programming language toolchain"
+)]
 pub(crate) struct Cli {
     #[command(subcommand)]
     pub(crate) command: Command,

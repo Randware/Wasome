@@ -4,7 +4,7 @@ mod error;
 mod execute;
 mod manifest;
 mod template;
-pub mod workspace;
+mod workspace;
 
 use clap::Parser;
 use std::{io, process::ExitCode};
