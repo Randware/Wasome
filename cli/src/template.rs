@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 static TEMPLATE_BIN: Dir = include_dir!("templates/bin");
 static TEMPLATE_LIB: Dir = include_dir!("templates/lib");
 
-type Replacements = Vec<(&'static str, String)>;
+type Replacement = (&'static str, String);
 
 /// Represents the final project structure in memory
 pub struct LoadedTemplate {
@@ -36,7 +36,7 @@ impl LoadedTemplate {
     }
 
     /// Walks the directory and applies the replacements
-    fn build(dir: &Dir, replacements: &Replacements) -> Self {
+    fn build(dir: &Dir, replacements: &Vec<Replacement>) -> Self {
         let mut files = Vec::new();
 
         collect_files(dir, replacements, &mut files);
@@ -99,7 +99,7 @@ impl LoadedTemplate {
 
             // If we ran into any issues, we clean up here
             if let Err(e) = write_result {
-                let _ = fs::remove_dir_all(&temp_dir);
+                fs::remove_dir_all(&temp_dir)?;
                 return Err(e);
             }
 
@@ -108,7 +108,7 @@ impl LoadedTemplate {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     // If renaming fails, we clean up the tmp directory
-                    let _ = fs::remove_dir_all(&temp_dir);
+                    fs::remove_dir_all(&temp_dir)?;
                     Err(e)
                 }
             }
@@ -117,7 +117,7 @@ impl LoadedTemplate {
 }
 
 /// Takes text and a list of replacements, returns new text.
-fn apply_replacements(input: &str, replacements: &Replacements) -> String {
+fn apply_replacements(input: &str, replacements: &Vec<Replacement>) -> String {
     let mut output = input.to_string();
 
     for (key, value) in replacements {
@@ -128,7 +128,7 @@ fn apply_replacements(input: &str, replacements: &Replacements) -> String {
 }
 
 /// Recursive helper to traverse and collect
-fn collect_files(dir: &Dir, replacements: &Replacements, acc: &mut Vec<(PathBuf, Vec<u8>)>) {
+fn collect_files(dir: &Dir, replacements: &Vec<Replacement>, acc: &mut Vec<(PathBuf, Vec<u8>)>) {
     for file in dir.files() {
         let path = file.path().to_path_buf();
 
