@@ -106,7 +106,7 @@ impl DependencyResolver {
                 dep_manifest.project.name, dep_manifest.project.version
             ));
 
-            let resolver = DependencyResolver::new(dep_root_path.clone());
+            let resolver = DependencyResolver::new(dep_path.clone());
             resolver.resolve_recursive(&dep_manifest, source, acc, next_chain)?;
         }
 
