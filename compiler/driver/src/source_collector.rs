@@ -1,33 +1,58 @@
-use std::path::Path;
-use io::FullIO;
-use source::SourceMap;
 use crate::error::DriverError;
 use crate::program_information::ProgramInformation;
-use crate::source_collector::source_element::{WasomeProgram, WasomeSourceDirectory, WasomeSourceDirectoryCreationError, WasomeSourceElementLocation, WasomeSourceFile};
+use crate::source_collector::source_element::{
+    WasomeProgram, WasomeSourceDirectory, WasomeSourceDirectoryCreationError,
+    WasomeSourceElementLocation, WasomeSourceFile,
+};
+use io::FullIO;
+use source::SourceMap;
+use std::path::Path;
 
 pub mod source_element;
 
 /// All valid wasome file extensions
 const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
 
-pub(crate) fn collect_program(to_collect: &ProgramInformation, load_from: &mut SourceMap<impl FullIO>) -> Result<WasomeProgram, CollectionError> {
+pub(crate) fn collect_program(
+    to_collect: &ProgramInformation,
+    load_from: &mut SourceMap<impl FullIO>,
+) -> Result<WasomeProgram, CollectionError> {
     Ok(WasomeProgram::new(
-        WasomeSourceElementLocation::new(to_collect.name().to_string(), to_collect.path().to_path_buf()),
-        to_collect.projects().iter()
-            .map(|project|
-                Result::<_, CollectionError>::Ok((project.name().to_string(),
-                 collect_dir(project.name().to_string(), to_collect.path().join(project.name()), load_from)?)))
-            .collect::<Result<_, _>>()?
+        WasomeSourceElementLocation::new(
+            to_collect.name().to_string(),
+            to_collect.path().to_path_buf(),
+        ),
+        to_collect
+            .projects()
+            .iter()
+            .map(|project| {
+                Result::<_, CollectionError>::Ok((
+                    project.name().to_string(),
+                    collect_dir(
+                        project.name().to_string(),
+                        to_collect.path().join(project.name()),
+                        load_from,
+                    )?,
+                ))
+            })
+            .collect::<Result<_, _>>()?,
     ))
 }
 // TODO: Split this up
-fn collect_dir(name: String, to_collect: impl AsRef<Path>, load_from: &mut SourceMap<impl FullIO>) -> Result<WasomeSourceDirectory, CollectionError> {
+fn collect_dir(
+    name: String,
+    to_collect: impl AsRef<Path>,
+    load_from: &mut SourceMap<impl FullIO>,
+) -> Result<WasomeSourceDirectory, CollectionError> {
     // Future improvement:
     // Remove the .collect()
     // This requires non-trivial lifetime changes in the io crate
     // However, it won't make a big performance difference for the time being to warrant higher
     // priority
-    let subdirs = load_from.loader().list_non_symlink_subdirs(&to_collect)?.collect::<Vec<_>>();
+    let subdirs = load_from
+        .loader()
+        .list_non_symlink_subdirs(&to_collect)?
+        .collect::<Vec<_>>();
     let subdirs = subdirs
         .into_iter()
         .map(|dir| {
@@ -37,7 +62,8 @@ fn collect_dir(name: String, to_collect: impl AsRef<Path>, load_from: &mut Sourc
         })
         .collect::<Result<Vec<WasomeSourceDirectory>, CollectionError>>()?;
     let files = list_wasome_files_in_dir(load_from, to_collect.as_ref())?.collect::<Vec<_>>();
-    let files = files.into_iter()
+    let files = files
+        .into_iter()
         .map(|file| {
             let path = to_collect.as_ref().join(&file);
             let file_id = load_from.load_file(&path)?;
@@ -72,7 +98,8 @@ fn list_wasome_files_in_dir<'b>(
     load_from: &'b mut SourceMap<impl FullIO>,
     dir: &'b Path,
 ) -> Result<impl Iterator<Item = String> + 'b, io::Error> {
-    Ok(load_from.loader()
+    Ok(load_from
+        .loader()
         .list_files(load_from.root_path().join(dir))?
         // Skip files with non-UTF8 filenames
         // They might be non-wasome files so we don't want to hard-fail
@@ -87,7 +114,7 @@ fn list_wasome_files_in_dir<'b>(
 #[derive(Debug)]
 pub enum CollectionError {
     Io(io::Error),
-    WasomeSourceDirectoryCreationError(WasomeSourceDirectoryCreationError)
+    WasomeSourceDirectoryCreationError(WasomeSourceDirectoryCreationError),
 }
 
 impl From<io::Error> for CollectionError {

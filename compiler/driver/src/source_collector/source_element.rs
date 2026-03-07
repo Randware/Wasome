@@ -1,16 +1,19 @@
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
 use ordered_hash_map::OrderedHashMap;
 use source::types::FileID;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct WasomeProgram {
     location: WasomeSourceElementLocation,
-    projects: OrderedHashMap<String, WasomeSourceDirectory>
+    projects: OrderedHashMap<String, WasomeSourceDirectory>,
 }
 
 impl WasomeProgram {
-    pub fn new(location: WasomeSourceElementLocation, projects: OrderedHashMap<String, WasomeSourceDirectory>) -> Self {
+    pub fn new(
+        location: WasomeSourceElementLocation,
+        projects: OrderedHashMap<String, WasomeSourceDirectory>,
+    ) -> Self {
         Self { location, projects }
     }
 
@@ -22,7 +25,12 @@ impl WasomeProgram {
         &self.projects
     }
 
-    pub fn destructure(self) -> (WasomeSourceElementLocation, OrderedHashMap<String, WasomeSourceDirectory>) {
+    pub fn destructure(
+        self,
+    ) -> (
+        WasomeSourceElementLocation,
+        OrderedHashMap<String, WasomeSourceDirectory>,
+    ) {
         (self.location, self.projects)
     }
 }
@@ -37,19 +45,28 @@ impl HasWasomeSourceElementLocation for WasomeProgram {
 pub struct WasomeSourceDirectory {
     location: WasomeSourceElementLocation,
     subdirs: Vec<WasomeSourceDirectory>,
-    files: Vec<WasomeSourceFile>
+    files: Vec<WasomeSourceFile>,
 }
 
-
 impl WasomeSourceDirectory {
-    pub fn new(location: WasomeSourceElementLocation, subdirs: Vec<WasomeSourceDirectory>, files: Vec<WasomeSourceFile>) -> Result<Self, WasomeSourceDirectoryCreationError> {
+    pub fn new(
+        location: WasomeSourceElementLocation,
+        subdirs: Vec<WasomeSourceDirectory>,
+        files: Vec<WasomeSourceFile>,
+    ) -> Result<Self, WasomeSourceDirectoryCreationError> {
         if let Some(dup) = duplicate_wasome_source_elements(subdirs.iter()) {
-            return Err(WasomeSourceDirectoryCreationError::DuplicateDirectoryNames(dup));
+            return Err(WasomeSourceDirectoryCreationError::DuplicateDirectoryNames(
+                dup,
+            ));
         }
         if let Some(dup) = duplicate_wasome_source_elements(files.iter()) {
             return Err(WasomeSourceDirectoryCreationError::DuplicateFileNames(dup));
         }
-        Ok(Self { location, subdirs, files })
+        Ok(Self {
+            location,
+            subdirs,
+            files,
+        })
     }
 
     pub fn location(&self) -> &WasomeSourceElementLocation {
@@ -64,7 +81,13 @@ impl WasomeSourceDirectory {
         &self.files
     }
 
-    pub fn destructure(self) -> (WasomeSourceElementLocation, Vec<WasomeSourceDirectory>, Vec<WasomeSourceFile>) {
+    pub fn destructure(
+        self,
+    ) -> (
+        WasomeSourceElementLocation,
+        Vec<WasomeSourceDirectory>,
+        Vec<WasomeSourceFile>,
+    ) {
         (self.location, self.subdirs, self.files)
     }
 }
@@ -78,12 +101,12 @@ impl HasWasomeSourceElementLocation for WasomeSourceDirectory {
 #[derive(Debug)]
 pub enum WasomeSourceDirectoryCreationError {
     DuplicateFileNames(String),
-    DuplicateDirectoryNames(String)
+    DuplicateDirectoryNames(String),
 }
 #[derive(PartialEq, Eq, Debug)]
 pub struct WasomeSourceFile {
     location: WasomeSourceElementLocation,
-    file: FileID
+    file: FileID,
 }
 
 impl WasomeSourceFile {
@@ -110,7 +133,7 @@ impl HasWasomeSourceElementLocation for WasomeSourceFile {
 pub struct WasomeSourceElementLocation {
     name: String,
     // Relative to the program root
-    path: PathBuf
+    path: PathBuf,
 }
 
 impl WasomeSourceElementLocation {
@@ -135,12 +158,18 @@ pub trait HasWasomeSourceElementLocation {
     fn location(&self) -> &WasomeSourceElementLocation;
 }
 
-fn duplicate_wasome_source_elements<'a, Element: HasWasomeSourceElementLocation + 'a, Elements: ExactSizeIterator<Item = &'a Element>>(to_check: Elements) -> Option<String> {
+fn duplicate_wasome_source_elements<
+    'a,
+    Element: HasWasomeSourceElementLocation + 'a,
+    Elements: ExactSizeIterator<Item = &'a Element>,
+>(
+    to_check: Elements,
+) -> Option<String> {
     let mut found = HashSet::with_capacity(to_check.len());
     for e in to_check {
         let name = e.location().name();
         if found.contains(name) {
-            return Some(name.to_owned())
+            return Some(name.to_owned());
         }
         found.insert(name);
     }
