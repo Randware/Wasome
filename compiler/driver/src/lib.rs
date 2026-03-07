@@ -11,6 +11,7 @@ pub mod error;
 pub mod parser_driver;
 pub mod pipeline;
 pub mod program_information;
+pub mod source_collector;
 
 /// Like [`syntax_check_pipeline`], but the pipeline is used immediately
 ///
