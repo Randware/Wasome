@@ -1,6 +1,6 @@
 use ordered_hash_map::OrderedHashMap;
 use source::types::FileID;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 #[derive(PartialEq, Eq, Debug)]

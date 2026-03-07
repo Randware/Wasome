@@ -1,4 +1,3 @@
-use crate::error::DriverError;
 use crate::program_information::ProgramInformation;
 use crate::source_collector::source_element::{
     WasomeProgram, WasomeSourceDirectory, WasomeSourceDirectoryCreationError,

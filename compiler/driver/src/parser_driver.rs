@@ -12,12 +12,12 @@ use crate::source_collector::source_element::{
 };
 use ast::directory::Directory;
 use ast::file::File;
-use ast::{AST, ASTNode, UntypedAST};
+use ast::{ASTNode, UntypedAST, AST};
 use error::diagnostic::Diagnostic;
-use io::{FileIO, FullIO};
-use parser::{FileInformation, parse};
-use source::SourceMap;
+use io::FullIO;
+use parser::{parse, FileInformation};
 use source::types::FileID;
+use source::SourceMap;
 use std::path::PathBuf;
 
 /// Generates an entire untyped ast by loading it from the provided [`SourceMap`]
@@ -44,11 +44,11 @@ pub fn generate_untyped_ast<Loader: FullIO>(
 ) -> Result<AST<UntypedAST>, Diagnostic> {
     // TODO
     let program = collect_program(program_info, load_from).unwrap();
-    program.to_ast(load_from).map_err(Into::into)
+    program.into_ast(load_from).map_err(Into::into)
 }
 
 impl WasomeProgram {
-    fn to_ast(self, to_load_with: &SourceMap<impl FullIO>) -> Result<AST<UntypedAST>, DriverError> {
+    fn into_ast(self, to_load_with: &SourceMap<impl FullIO>) -> Result<AST<UntypedAST>, DriverError> {
         let (location, projects) = self.destructure();
         let (name, path) = location.destructure();
         let root_dir = ASTNode::new(
@@ -56,7 +56,7 @@ impl WasomeProgram {
                 name,
                 projects
                     .into_iter()
-                    .map(|project| project.1.to_ast_dir(project.0, to_load_with))
+                    .map(|project| project.1.into_ast_dir(project.0, to_load_with))
                     .collect::<Result<Vec<_>, DriverError>>()?,
                 Vec::new(),
             ),
@@ -69,7 +69,7 @@ impl WasomeProgram {
 }
 
 impl WasomeSourceDirectory {
-    fn to_ast_dir(
+    fn into_ast_dir(
         self,
         name: String,
         to_load_with: &SourceMap<impl FullIO>,
@@ -78,7 +78,7 @@ impl WasomeSourceDirectory {
         let (_, path) = location.destructure();
         let files = files
             .into_iter()
-            .map(|file| file.to_ast_file(&name, to_load_with))
+            .map(|file| file.into_ast_file(&name, to_load_with))
             .collect::<Result<Vec<_>, DriverError>>()?;
         Ok(ASTNode::new(
             Directory::new(
@@ -87,7 +87,7 @@ impl WasomeSourceDirectory {
                     .into_iter()
                     .map(|subdir| {
                         let name = subdir.location().name().to_string();
-                        subdir.to_ast_dir(name, to_load_with)
+                        subdir.into_ast_dir(name, to_load_with)
                     })
                     .collect::<Result<Vec<_>, DriverError>>()?,
                 files,
@@ -98,7 +98,7 @@ impl WasomeSourceDirectory {
 }
 
 impl WasomeSourceFile {
-    fn to_ast_file(
+    fn into_ast_file(
         self,
         mod_name: &str,
         to_load_with: &SourceMap<impl FullIO>,
