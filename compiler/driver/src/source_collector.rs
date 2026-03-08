@@ -12,6 +12,30 @@ pub mod source_element;
 /// All valid wasome file extensions
 const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
 
+/// Collects the complete source file structure of a Wasome program from disk.
+///
+/// This function serves as the entry point for the source collection phase.
+/// It recursively traverses all project directories, loads source files into
+/// the provided SourceMap, and builds a complete representation of the program
+/// structure before any parsing occurs.
+///
+/// # Parameters
+///
+/// - **`to_collect`**: Program metadata containing the program name and list of projects
+/// - **`load_from`**: SourceMap for loading files into memory and providing filesystem access
+///
+/// # Returns
+///
+/// - **`Ok(WasomeProgram)`**: Complete source hierarchy with all files loaded
+/// - **`Err(CollectionError)`**: If filesystem access or directory validation fails
+///
+/// # Example
+///
+/// ```ignore
+/// let program_info = ProgramInformation::new("my_program", projects);
+/// let mut source_map = SourceMap::new();
+/// let program = collect_program(&program_info, &mut source_map)?;
+/// ```
 pub(crate) fn collect_program(
     to_collect: &ProgramInformation,
     load_from: &mut SourceMap<impl FullIO>,
@@ -37,6 +61,35 @@ pub(crate) fn collect_program(
             .collect::<Result<_, _>>()?,
     ))
 }
+/// Recursively collects all files and subdirectories from a directory.
+///
+/// This function traverses the directory tree starting at the provided path,
+/// loading all Wasome source files (`.waso` or `.✨`) into the SourceMap and
+/// building a hierarchical representation of the directory structure.
+///
+/// # Parameters
+///
+/// - **`name`**: Human-readable name for this directory (used in location metadata)
+/// - **`to_collect`**: Filesystem path to the directory to collect
+/// - **`load_from`**: SourceMap for loading files and filesystem access
+///
+/// # Returns
+///
+/// - **`Ok(WasomeSourceDirectory)`**: Complete directory tree with all files and subdirectories
+/// - **`Err(CollectionError)`**: If filesystem access fails or directory structure is invalid
+///
+/// # Behavior
+///
+/// 1. Lists all non-symlink subdirectories
+/// 2. Recursively calls itself for each subdirectory
+/// 3. Lists all Wasome source files using [`list_wasome_files_in_dir`]
+/// 4. Loads each file into SourceMap to obtain a FileID
+/// 5. Creates WasomeSourceFile instances for each file
+/// 6. Constructs and returns WasomeSourceDirectory with validation
+///
+/// # Note
+///
+/// This function is private and should only be called from [`collect_program`].
 // TODO: Split this up
 fn collect_dir(
     name: String,
@@ -48,6 +101,7 @@ fn collect_dir(
     // This requires non-trivial lifetime changes in the io crate
     // However, it won't make a big performance difference for the time being to warrant higher
     // priority
+
     let subdirs = load_from
         .loader()
         .list_non_symlink_subdirs(&to_collect)?
@@ -76,23 +130,32 @@ fn collect_dir(
     Ok(WasomeSourceDirectory::new(location, subdirs, files)?)
 }
 
-/// Lists all Wasome source files in the provided directory
+/// Lists all Wasome source files in the provided directory.
+///
+/// This function scans a directory and filters its contents to return only
+/// files with valid Wasome extensions (`.waso` or `.✨`). Files with non-UTF8
+/// filenames are silently skipped as they may not be Wasome source files.
 ///
 /// # Parameters
 ///
-/// - **`module_path`** - The path of the module the file belongs to
-///     - Relative to the root of the [`SourceMap`]
+/// - **`load_from`**: SourceMap providing filesystem access via its loader
+/// - **`dir`**: Directory path to scan (relative to SourceMap root)
 ///
-/// # Return
+/// # Returns
 ///
-/// An iterator over the filenames of all wasome files in the provided directory
-///     - Including file extensions
+/// An iterator over filenames (with extensions) of all Wasome source files
+/// in the provided directory. Returns an error if the directory cannot be read.
 ///
 /// # Errors
 ///
-/// There was an IO error, for example
-/// - Missing permissions
+/// Returns an `io::Error` if:
+/// - Missing permissions to read the directory
 /// - Directory not found
+/// - Other filesystem access errors
+///
+/// # Note
+///
+/// This function is private and should only be called from [`collect_dir`].
 fn list_wasome_files_in_dir<'b>(
     load_from: &'b mut SourceMap<impl FullIO>,
     dir: &'b Path,
@@ -110,6 +173,15 @@ fn list_wasome_files_in_dir<'b>(
         }))
 }
 
+/// Error type for source collection failures.
+///
+/// This enum represents errors that can occur during the source collection phase,
+/// when traversing the filesystem and loading source files into the SourceMap.
+///
+/// # Variants
+///
+/// - **`Io`**: Underlying filesystem I/O error
+/// - **`WasomeSourceDirectoryCreationError`**: Directory structure validation error
 #[derive(Debug)]
 pub enum CollectionError {
     Io(io::Error),
