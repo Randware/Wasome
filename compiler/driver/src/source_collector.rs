@@ -27,9 +27,9 @@ const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
 /// # Returns
 ///
 /// Complete source hierarchy with all files loaded
-/// 
+///
 /// # Errors
-/// 
+///
 /// IO Errors may occur during the collection process
 pub(crate) fn collect_program(
     to_collect: &ProgramInformation,
@@ -65,30 +65,48 @@ pub(crate) fn collect_program(
 /// Complete directory tree with all files and subdirectories
 ///
 /// # Errors
-/// 
+///
 /// IO Errors may occur during the collection process
-// TODO: Split this up
 fn collect_dir(
     to_collect: impl AsRef<Path>,
     load_from: &mut SourceMap<impl FullIO>,
 ) -> Result<WasomeSourceDirectory, CollectionError> {
+    let subdirs = collect_subdirs(&to_collect, load_from)?;
+    let files = collect_files(&to_collect, load_from)?;
+    let location = WasomeSourceElementLocation::new(to_collect.as_ref().to_path_buf());
+
+    Ok(WasomeSourceDirectory::new(location, subdirs, files)
+        .expect("Duplicate entries are not allowed per IO doc"))
+}
+
+/// Collects all Wasome source files from a directory.
+///
+/// This function scans the provided directory for Wasome source files
+/// (`.waso` or `.✨`), loads each file into the SourceMap, and returns
+/// a vector of `WasomeSourceFile` handles.
+///
+/// # Parameters
+///
+/// - **`to_collect`**: Directory path to scan for source files
+///     - Relative to the root of `load_from`
+/// - **`load_from`**: SourceMap for loading files into memory
+///
+/// # Returns
+///
+/// A vec of `WasomeSourceFile` for all source files found
+///
+/// # Errors
+///
+/// IO Errors if a file cannot be loaded into the SourceMap
+fn collect_files(
+    to_collect: &impl AsRef<Path>,
+    load_from: &mut SourceMap<impl FullIO>,
+) -> Result<Vec<WasomeSourceFile>, CollectionError> {
     // Future improvement:
     // Remove the .collect()
     // This requires non-trivial lifetime changes in the io crate
     // However, it won't make a big performance difference for the time being to warrant higher
     // priority
-
-    let subdirs = load_from
-        .loader()
-        .list_non_symlink_subdirs(&to_collect)?
-        .collect::<Vec<_>>();
-    let subdirs = subdirs
-        .into_iter()
-        .map(|dir| {
-            let subdir_path = to_collect.as_ref().join(&dir);
-            collect_dir(subdir_path, load_from)
-        })
-        .collect::<Result<Vec<WasomeSourceDirectory>, CollectionError>>()?;
     let files = list_wasome_files_in_dir(load_from, to_collect.as_ref())?.collect::<Vec<_>>();
     let files = files
         .into_iter()
@@ -100,9 +118,49 @@ fn collect_dir(
             Ok(WasomeSourceFile::new(location, file_id))
         })
         .collect::<Result<Vec<WasomeSourceFile>, io::Error>>()?;
-    let location = WasomeSourceElementLocation::new(to_collect.as_ref().to_path_buf());
+    Ok(files)
+}
 
-    Ok(WasomeSourceDirectory::new(location, subdirs, files).expect("Duplicate entries are not allowed per IO doc"))
+/// Recursively collects all subdirectories from a directory.
+///
+/// This function lists all non-symlink subdirectories in the provided path,
+/// recursively collects each one, and returns a vector of `WasomeSourceDirectory`
+/// handles representing the directory hierarchy.
+///
+/// # Parameters
+///
+/// - **`to_collect`**: Directory path to scan for subdirectories
+///     - Relative to the root of `load_from`
+/// - **`load_from`**: SourceMap for loading files and filesystem access
+///
+/// # Returns
+///
+/// A vector of `WasomeSourceDirectory` handles for all subdirectories found
+///
+/// # Errors
+///
+/// IO Errors if a subdirectory cannot be accessed or collected
+fn collect_subdirs(
+    to_collect: &impl AsRef<Path>,
+    load_from: &mut SourceMap<impl FullIO>,
+) -> Result<Vec<WasomeSourceDirectory>, CollectionError> {
+    // Future improvement:
+    // Remove the .collect()
+    // This requires non-trivial lifetime changes in the io crate
+    // However, it won't make a big performance difference for the time being to warrant higher
+    // priority
+    let subdirs = load_from
+        .loader()
+        .list_non_symlink_subdirs(&to_collect)?
+        .collect::<Vec<_>>();
+    let subdirs = subdirs
+        .into_iter()
+        .map(|dir| {
+            let subdir_path = to_collect.as_ref().join(&dir);
+            collect_dir(subdir_path, load_from)
+        })
+        .collect::<Result<Vec<WasomeSourceDirectory>, CollectionError>>()?;
+    Ok(subdirs)
 }
 
 /// Lists all Wasome source files in the provided directory.
