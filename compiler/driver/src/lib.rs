@@ -1,8 +1,8 @@
 use crate::parser_driver::generate_untyped_ast;
-use crate::pipeline::{Pipeline, from_func, from_infallible_func};
+use crate::pipeline::{from_func, from_infallible_func, Pipeline};
 use crate::program_information::ProgramInformation;
 use ::error::diagnostic::Diagnostic;
-use ast::{AST, TypedAST, UntypedAST};
+use ast::{TypedAST, UntypedAST, AST};
 use io::FullIO;
 use semantic_analyzer::analyze;
 use source::SourceMap;
@@ -12,6 +12,7 @@ pub mod parser_driver;
 pub mod pipeline;
 pub mod program_information;
 pub mod source_collector;
+pub mod source_element;
 
 /// Like [`syntax_check_pipeline`], but the pipeline is used immediately
 ///

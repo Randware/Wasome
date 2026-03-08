@@ -6,7 +6,7 @@
 
 use crate::error::DriverError;
 use crate::program_information::ProgramInformation;
-use crate::source_collector::source_element::{
+use crate::source_element::{
     WasomeProgram, WasomeSourceDirectory, WasomeSourceFile,
 };
 use crate::source_collector::{collect_program, CollectionError};

@@ -1,13 +1,11 @@
 use crate::program_information::ProgramInformation;
-use crate::source_collector::source_element::{
+use crate::source_element::{
     WasomeProgram, WasomeSourceDirectory,
     WasomeSourceElementLocation, WasomeSourceFile,
 };
 use io::FullIO;
 use source::SourceMap;
 use std::path::Path;
-
-pub mod source_element;
 
 /// All valid wasome file extensions
 const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
