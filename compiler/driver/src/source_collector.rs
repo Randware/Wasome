@@ -26,16 +26,11 @@ const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
 ///
 /// # Returns
 ///
-/// - **`Ok(WasomeProgram)`**: Complete source hierarchy with all files loaded
-/// - **`Err(CollectionError)`**: If filesystem access or directory validation fails
-///
-/// # Example
-///
-/// ```ignore
-/// let program_info = ProgramInformation::new("my_program", projects);
-/// let mut source_map = SourceMap::new();
-/// let program = collect_program(&program_info, &mut source_map)?;
-/// ```
+/// Complete source hierarchy with all files loaded
+/// 
+/// # Errors
+/// 
+/// IO Errors may occur during the collection process
 pub(crate) fn collect_program(
     to_collect: &ProgramInformation,
     load_from: &mut SourceMap<impl FullIO>,
@@ -62,27 +57,16 @@ pub(crate) fn collect_program(
 ///
 /// # Parameters
 ///
-/// - **`name`**: Human-readable name for this directory (used in location metadata)
 /// - **`to_collect`**: Filesystem path to the directory to collect
 /// - **`load_from`**: SourceMap for loading files and filesystem access
 ///
 /// # Returns
 ///
-/// - **`Ok(WasomeSourceDirectory)`**: Complete directory tree with all files and subdirectories
-/// - **`Err(CollectionError)`**: If filesystem access fails or directory structure is invalid
+/// Complete directory tree with all files and subdirectories
 ///
-/// # Behavior
-///
-/// 1. Lists all non-symlink subdirectories
-/// 2. Recursively calls itself for each subdirectory
-/// 3. Lists all Wasome source files using [`list_wasome_files_in_dir`]
-/// 4. Loads each file into SourceMap to obtain a FileID
-/// 5. Creates WasomeSourceFile instances for each file
-/// 6. Constructs and returns WasomeSourceDirectory with validation
-///
-/// # Note
-///
-/// This function is private and should only be called from [`collect_program`].
+/// # Errors
+/// 
+/// IO Errors may occur during the collection process
 // TODO: Split this up
 fn collect_dir(
     to_collect: impl AsRef<Path>,
@@ -118,7 +102,7 @@ fn collect_dir(
         .collect::<Result<Vec<WasomeSourceFile>, io::Error>>()?;
     let location = WasomeSourceElementLocation::new(to_collect.as_ref().to_path_buf());
 
-    Ok(WasomeSourceDirectory::new(location, subdirs, files)?)
+    Ok(WasomeSourceDirectory::new(location, subdirs, files).expect("Duplicate entries are not allowed per IO doc"))
 }
 
 /// Lists all Wasome source files in the provided directory.
@@ -130,23 +114,19 @@ fn collect_dir(
 /// # Parameters
 ///
 /// - **`load_from`**: SourceMap providing filesystem access via its loader
-/// - **`dir`**: Directory path to scan (relative to SourceMap root)
+/// - **`dir`**: Directory path to scan (relative to [`SourceMap`] root)
 ///
 /// # Returns
 ///
 /// An iterator over filenames (with extensions) of all Wasome source files
-/// in the provided directory. Returns an error if the directory cannot be read.
+/// in the provided directory.
 ///
 /// # Errors
 ///
-/// Returns an `io::Error` if:
+/// Errors if:
 /// - Missing permissions to read the directory
 /// - Directory not found
 /// - Other filesystem access errors
-///
-/// # Note
-///
-/// This function is private and should only be called from [`collect_dir`].
 fn list_wasome_files_in_dir<'b>(
     load_from: &'b mut SourceMap<impl FullIO>,
     dir: &'b Path,

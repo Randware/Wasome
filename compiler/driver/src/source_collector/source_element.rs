@@ -237,6 +237,7 @@ pub struct WasomeSourceElementLocation {
     ///
     /// Serves as an internal cache
     name: String,
+    /// May be empty
     path: PathBuf,
 }
 
@@ -282,28 +283,8 @@ impl WasomeSourceElementLocation {
 
 /// Trait for types that have source element location metadata.
 ///
-/// This trait provides a common interface for all source elements
-/// ([`WasomeProgram`], [`WasomeSourceDirectory`], [`WasomeSourceFile`]),
+/// This trait provides a common interface for all source elements,
 /// enabling generic operations on them.
-///
-/// # Implementors
-///
-/// - [`WasomeProgram`]
-/// - [`WasomeSourceDirectory`]
-/// - [`WasomeSourceFile`]
-///
-/// # Usage
-///
-/// This trait is primarily used by the [`duplicate_wasome_source_elements`]
-/// helper function to check for naming conflicts across different element types.
-///
-/// # Example
-///
-/// ```ignore
-/// fn print_name(element: &impl HasWasomeSourceElementLocation) {
-///     println!("Element: {}", element.location().name());
-/// }
-/// ```
 pub trait HasWasomeSourceElementLocation {
     /// Returns the location metadata for this element.
     fn location(&self) -> &WasomeSourceElementLocation;
@@ -328,24 +309,6 @@ pub trait HasWasomeSourceElementLocation {
 ///
 /// - **`Some(String)`**: The duplicate name if a conflict is found
 /// - **`None`**: If all names are unique
-///
-/// # Implementation
-///
-/// Uses a HashSet for O(n) duplicate detection.
-///
-/// # Example
-///
-/// ```ignore
-/// let dirs = vec![dir1, dir2, dir3];
-/// if let Some(dup) = duplicate_wasome_source_elements(dirs.iter()) {
-///     eprintln!("Duplicate directory name: {}", dup);
-/// }
-/// ```
-///
-/// # Note
-///
-/// This function is private and should only be called from
-/// [`WasomeSourceDirectory::new`].
 fn duplicate_wasome_source_elements<
     'a,
     Element: HasWasomeSourceElementLocation + 'a,
