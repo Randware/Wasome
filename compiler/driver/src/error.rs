@@ -1,17 +1,13 @@
 use error::diagnostic::{Diagnostic, Snippet};
 use source::types::Span;
 use std::io;
-use std::path::PathBuf;
 
 /// Error code constants for driver diagnostics.
 ///
 /// These codes follow the format `E####` where the first digit indicates the category:
 /// - `E4xxx`: Driver-level errors (program loading, file system operations)
-const INVALID_CHARS_IN_MAIN_FILE: &str = "E4001";
-const MAIN_FILE_PROJECT_NOT_FOUND: &str = "E4002";
-const MAIN_FILE_PATH_EMPTY: &str = "E4003";
-const IO_ERROR: &str = "E4004";
-const UNRESOLVED_IMPORT_ERROR: &str = "E4005";
+const IO_ERROR: &str = "E4001";
+const UNRESOLVED_IMPORT_ERROR: &str = "E4002";
 
 /// Custom error enum for driver-level errors.
 ///
@@ -72,24 +68,6 @@ const UNRESOLVED_IMPORT_ERROR: &str = "E4005";
 ///
 #[derive(Debug)]
 pub(super) enum DriverError {
-    /// The main file path contains non-UTF-8 characters.
-    ///
-    /// This error occurs when the main file path cannot be converted to a valid
-    /// UTF-8 string. This is required for consistent cross-platform path handling.
-    MainFileNonUtf8Chars,
-
-    /// The project containing the main file was not found.
-    ///
-    /// This error occurs when the main file is specified as belonging to a project
-    /// that is not included in the program configuration.
-    MainFileProjectNotFound,
-
-    /// The main file path does not specify a file.
-    ///
-    /// This error occurs when the main file configuration is empty or contains
-    /// only directory components without a filename.
-    MainFilePathEmpty,
-
     /// An Io error
     ///
     /// This error occurs when an io error occurs during driver operation. Common causes
@@ -180,21 +158,6 @@ impl From<DriverError> for Diagnostic {
     /// - `SyntaxError`: Returns the wrapped diagnostic unchanged.
     fn from(val: DriverError) -> Self {
         match val {
-            DriverError::MainFileNonUtf8Chars => Self::builder()
-                .message("The main file path may not contain non-UTF8 chars")
-                .code(INVALID_CHARS_IN_MAIN_FILE)
-                .help("Only use valid UTF-8 characters")
-                .build(),
-            DriverError::MainFileProjectNotFound => Self::builder()
-                .message("The project of the main file could not be found")
-                .code(MAIN_FILE_PROJECT_NOT_FOUND)
-                .help("Provide a valid main file path")
-                .build(),
-            DriverError::MainFilePathEmpty => Self::builder()
-                .message("The path of the main file is empty")
-                .code(MAIN_FILE_PATH_EMPTY)
-                .help("Provide a valid main file path")
-                .build(),
             DriverError::Io { source } => Self::builder()
                 .message(format!("IO Error: {}", source))
                 .code(IO_ERROR)

@@ -251,7 +251,7 @@ impl WasomeSourceElementLocation {
         Self {
             name: path
                 .iter()
-                .last()
+                .next_back()
                 .unwrap_or(OsStr::new(""))
                 .to_string_lossy()
                 .to_string(),
