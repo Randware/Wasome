@@ -19,16 +19,7 @@ use std::path::{Path, PathBuf};
 /// Uses `OrderedHashMap` instead of `HashMap` to preserve insertion order,
 /// ensuring deterministic behavior for reproducible builds and consistent
 /// error messages.
-///
-/// # Example
-///
-/// ```ignore
-/// let program = WasomeProgram::new(location, projects);
-/// for (name, dir) in program.projects() {
-///     println!("Project: {} at {:?}", name, dir.location().path());
-/// }
-/// ```
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct WasomeProgram {
     location: WasomeSourceElementLocation,
     projects: OrderedHashMap<String, WasomeSourceDirectory>,
@@ -109,7 +100,7 @@ impl HasWasomeSourceElementLocation for WasomeProgram {
 /// println!("Directory: {}", dir.location().name());
 /// println!("Files: {}", dir.files().len());
 /// ```
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct WasomeSourceDirectory {
     location: WasomeSourceElementLocation,
     subdirs: Vec<WasomeSourceDirectory>,
@@ -220,7 +211,7 @@ impl HasWasomeSourceElementLocation for WasomeSourceDirectory {
 ///     }
 /// }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum WasomeSourceDirectoryCreationError {
     DuplicateFileNames(String),
     DuplicateDirectoryNames(String),
@@ -248,7 +239,7 @@ pub enum WasomeSourceDirectoryCreationError {
 /// let file = WasomeSourceFile::new(location, file_id);
 /// let content = source_map.get(file.file());
 /// ```
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct WasomeSourceFile {
     location: WasomeSourceElementLocation,
     file: FileID,
@@ -312,7 +303,7 @@ impl HasWasomeSourceElementLocation for WasomeSourceFile {
 /// let location = WasomeSourceElementLocation::new("my_project".to_string(), path);
 /// println!("Project: {} at {:?}", location.name(), location.path());
 /// ```
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct WasomeSourceElementLocation {
     name: String,
     // Relative to the program root
@@ -434,4 +425,432 @@ fn duplicate_wasome_source_elements<
         found.insert(name);
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- Helper Functions ---
+
+    fn mock_location(name: &str, path: &str) -> WasomeSourceElementLocation {
+        WasomeSourceElementLocation::new(name.to_string(), PathBuf::from(path))
+    }
+
+    fn mock_file(name: &str, id: u32) -> WasomeSourceFile {
+        let location = mock_location(name, name);
+        WasomeSourceFile::new(location, FileID::from(id))
+    }
+
+    fn mock_program(
+        name: &str,
+        projects: OrderedHashMap<String, WasomeSourceDirectory>,
+    ) -> WasomeProgram {
+        let location = mock_location(name, name);
+        WasomeProgram::new(location, projects)
+    }
+
+    // --- WasomeSourceElementLocation Tests ---
+
+    #[test]
+    fn test_location_creation() {
+        let location = mock_location("test_name", "/path/to/test");
+
+        assert_eq!(location.name(), "test_name");
+        assert_eq!(location.path(), Path::new("/path/to/test"));
+    }
+
+    #[test]
+    fn test_location_destructure() {
+        let location = mock_location("my_dir", "/some/path");
+        let (name, path) = location.destructure();
+
+        assert_eq!(name, "my_dir");
+        assert_eq!(path, PathBuf::from("/some/path"));
+    }
+
+    #[test]
+    fn test_location_equality() {
+        let loc1 = mock_location("same", "same");
+        let loc2 = mock_location("same", "same");
+        let loc3 = mock_location("different", "different");
+
+        assert_eq!(loc1, loc2);
+        assert_ne!(loc1, loc3);
+    }
+
+    // --- WasomeSourceFile Tests ---
+
+    #[test]
+    fn test_file_creation() {
+        let location = mock_location("myfile", "/path/myfile.waso");
+        let file_id = FileID::from(42);
+        let file = WasomeSourceFile::new(location, file_id);
+
+        assert_eq!(file.location().name(), "myfile");
+        assert_eq!(file.file(), file_id);
+    }
+
+    #[test]
+    fn test_file_destructure() {
+        let location = mock_location("test_file", "/path/test_file.waso");
+        let file_id = FileID::from(100);
+        let file = WasomeSourceFile::new(location, file_id);
+        let (loc, id) = file.destructure();
+
+        assert_eq!(loc.name(), "test_file");
+        assert_eq!(id, file_id);
+    }
+
+    #[test]
+    fn test_file_equality() {
+        let file1 = WasomeSourceFile::new(mock_location("f1", "f1"), FileID::from(1));
+        let file2 = WasomeSourceFile::new(mock_location("f1", "f1"), FileID::from(1));
+        let file3 = WasomeSourceFile::new(mock_location("f1", "f1"), FileID::from(2));
+
+        assert_eq!(file1, file2);
+        assert_ne!(file1, file3);
+    }
+
+    // --- WasomeSourceDirectory Tests ---
+
+    #[test]
+    fn test_directory_creation_empty() {
+        let location = mock_location("empty_dir", "/path/empty");
+        let files = Vec::new();
+        let subdirs = Vec::new();
+
+        let dir = WasomeSourceDirectory::new(location, subdirs, files).unwrap();
+
+        assert_eq!(dir.location().name(), "empty_dir");
+        assert!(dir.subdirs().is_empty());
+        assert!(dir.files().is_empty());
+    }
+
+    #[test]
+    fn test_directory_creation_with_content() {
+        let location = mock_location("full_dir", "/path/full");
+
+        let file1 = mock_file("file1", 1);
+        let file2 = mock_file("file2", 2);
+
+        let subdir = WasomeSourceDirectory::new(
+            mock_location("subdir", "subdir"),
+            Vec::new(),
+            vec![mock_file("subfile", 3)],
+        )
+        .unwrap();
+
+        let dir = WasomeSourceDirectory::new(location, vec![subdir], vec![file1, file2]).unwrap();
+
+        assert_eq!(dir.location().name(), "full_dir");
+        assert_eq!(dir.subdirs().len(), 1);
+        assert_eq!(dir.files().len(), 2);
+    }
+
+    #[test]
+    fn test_directory_destructure() {
+        let location = mock_location("destructure_dir", "/path/dir");
+        let file = mock_file("test", 1);
+
+        let dir = WasomeSourceDirectory::new(location, Vec::new(), vec![file]).unwrap();
+        let (loc, subdirs, files) = dir.destructure();
+
+        assert_eq!(loc.name(), "destructure_dir");
+        assert!(subdirs.is_empty());
+        assert_eq!(files.len(), 1);
+    }
+
+    #[test]
+    fn test_directory_duplicate_files() {
+        let location = mock_location("dup_dir", "/path/dup");
+        let file1 = mock_file("duplicate", 1);
+        let file2 = mock_file("duplicate", 2);
+
+        let result = WasomeSourceDirectory::new(location, Vec::new(), vec![file1, file2]);
+
+        assert!(matches!(
+            result,
+            Err(WasomeSourceDirectoryCreationError::DuplicateFileNames(name)) if name == "duplicate"
+        ));
+    }
+
+    #[test]
+    fn test_directory_duplicate_subdirs() {
+        let location = mock_location("dup_dir", "/path/dup");
+        let subdir1 =
+            WasomeSourceDirectory::new(mock_location("duplicate", "sub1"), Vec::new(), Vec::new())
+                .unwrap();
+        let subdir2 =
+            WasomeSourceDirectory::new(mock_location("duplicate", "sub2"), Vec::new(), Vec::new())
+                .unwrap();
+
+        let result = WasomeSourceDirectory::new(location, vec![subdir1, subdir2], Vec::new());
+
+        assert!(matches!(
+            result,
+            Err(WasomeSourceDirectoryCreationError::DuplicateDirectoryNames(name)) if name == "duplicate"
+        ));
+    }
+
+    #[test]
+    fn test_directory_nested_structure() {
+        let file1 = mock_file("root_file", 1);
+        let file2 = mock_file("another_file", 2);
+
+        let sub1 = WasomeSourceDirectory::new(
+            mock_location("sub1", "sub1"),
+            Vec::new(),
+            vec![mock_file("sub1_file", 3)],
+        )
+        .unwrap();
+
+        let sub2 = WasomeSourceDirectory::new(
+            mock_location("sub2", "sub2"),
+            vec![WasomeSourceDirectory::new(
+                mock_location("nested", "nested"),
+                Vec::new(),
+                vec![mock_file("nested_file", 4)],
+            )
+            .unwrap()],
+            vec![mock_file("sub2_file", 5)],
+        )
+        .unwrap();
+
+        let root = WasomeSourceDirectory::new(
+            mock_location("root", "root"),
+            vec![sub1, sub2],
+            vec![file1, file2],
+        )
+        .unwrap();
+
+        assert_eq!(root.location().name(), "root");
+        assert_eq!(root.files().len(), 2);
+        assert_eq!(root.subdirs().len(), 2);
+
+        let nested = &root.subdirs()[1].subdirs()[0];
+        assert_eq!(nested.location().name(), "nested");
+        assert_eq!(nested.files().len(), 1);
+    }
+
+    // --- WasomeSourceDirectoryCreationError Tests ---
+
+    #[test]
+    fn test_error_duplicate_files_variant() {
+        let error = WasomeSourceDirectoryCreationError::DuplicateFileNames("test.txt".to_string());
+
+        assert!(
+            matches!(error, WasomeSourceDirectoryCreationError::DuplicateFileNames(name) if name == "test.txt")
+        );
+    }
+
+    #[test]
+    fn test_error_duplicate_directories_variant() {
+        let error =
+            WasomeSourceDirectoryCreationError::DuplicateDirectoryNames("mydir".to_string());
+
+        assert!(matches!(
+            error,
+            WasomeSourceDirectoryCreationError::DuplicateDirectoryNames(name) if name == "mydir"
+        ));
+    }
+
+    // --- WasomeProgram Tests ---
+
+    #[test]
+    fn test_program_creation_empty() {
+        let projects = OrderedHashMap::new();
+        let program = mock_program("empty_program", projects);
+
+        assert_eq!(program.location().name(), "empty_program");
+        assert!(program.projects().is_empty());
+    }
+
+    #[test]
+    fn test_program_creation_with_projects() {
+        let mut projects = OrderedHashMap::new();
+
+        let project1 = WasomeSourceDirectory::new(
+            mock_location("project1", "project1"),
+            Vec::new(),
+            vec![mock_file("main", 1)],
+        )
+        .unwrap();
+
+        let project2 = WasomeSourceDirectory::new(
+            mock_location("project2", "project2"),
+            Vec::new(),
+            vec![mock_file("lib", 2)],
+        )
+        .unwrap();
+
+        projects.insert("project1".to_string(), project1);
+        projects.insert("project2".to_string(), project2);
+
+        let program = mock_program("my_program", projects);
+
+        assert_eq!(program.location().name(), "my_program");
+        assert_eq!(program.projects().len(), 2);
+        assert!(program.projects().contains_key("project1"));
+        assert!(program.projects().contains_key("project2"));
+    }
+
+    #[test]
+    fn test_program_destructure() {
+        let mut projects = OrderedHashMap::new();
+        projects.insert(
+            "proj".to_string(),
+            WasomeSourceDirectory::new(mock_location("proj", "proj"), Vec::new(), Vec::new())
+                .unwrap(),
+        );
+
+        let program = mock_program("test_program", projects);
+        let (loc, projs) = program.destructure();
+
+        assert_eq!(loc.name(), "test_program");
+        assert_eq!(projs.len(), 1);
+    }
+
+    #[test]
+    fn test_program_project_ordering() {
+        let mut projects = OrderedHashMap::new();
+
+        projects.insert(
+            "first".to_string(),
+            WasomeSourceDirectory::new(mock_location("first", "first"), Vec::new(), Vec::new())
+                .unwrap(),
+        );
+        projects.insert(
+            "second".to_string(),
+            WasomeSourceDirectory::new(mock_location("second", "second"), Vec::new(), Vec::new())
+                .unwrap(),
+        );
+        projects.insert(
+            "third".to_string(),
+            WasomeSourceDirectory::new(mock_location("third", "third"), Vec::new(), Vec::new())
+                .unwrap(),
+        );
+
+        let program = mock_program("ordered_program", projects);
+
+        let keys: Vec<&String> = program.projects().keys().collect();
+        assert_eq!(keys, vec!["first", "second", "third"]);
+    }
+
+    #[test]
+    fn test_program_equality() {
+        let mut projects1 = OrderedHashMap::new();
+        projects1.insert(
+            "proj".to_string(),
+            WasomeSourceDirectory::new(
+                mock_location("proj", "proj"),
+                Vec::new(),
+                vec![mock_file("file", 1)],
+            )
+            .unwrap(),
+        );
+
+        let projects2 = projects1.clone();
+
+        let program1 = WasomeProgram::new(mock_location("test", "test"), projects1);
+        let program2 = WasomeProgram::new(mock_location("test", "test"), projects2);
+
+        assert_eq!(program1, program2);
+    }
+
+    // --- HasWasomeSourceElementLocation Trait Tests ---
+
+    #[test]
+    fn test_trait_implementation_program() {
+        let program = mock_program("test_prog", OrderedHashMap::new());
+        let location = HasWasomeSourceElementLocation::location(&program);
+
+        assert_eq!(location.name(), "test_prog");
+    }
+
+    #[test]
+    fn test_trait_implementation_directory() {
+        let dir = WasomeSourceDirectory::new(
+            mock_location("test_dir", "test_dir"),
+            Vec::new(),
+            Vec::new(),
+        )
+        .unwrap();
+        let location = HasWasomeSourceElementLocation::location(&dir);
+
+        assert_eq!(location.name(), "test_dir");
+    }
+
+    #[test]
+    fn test_trait_implementation_file() {
+        let file = mock_file("test_file", 1);
+        let location = HasWasomeSourceElementLocation::location(&file);
+
+        assert_eq!(location.name(), "test_file");
+    }
+
+    // --- duplicate_wasome_source_elements Tests ---
+
+    #[test]
+    fn test_duplicate_finder_empty() {
+        let elements: Vec<WasomeSourceFile> = Vec::new();
+
+        let result = duplicate_wasome_source_elements(elements.iter());
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_duplicate_finder_no_duplicates() {
+        let files = vec![
+            mock_file("file1", 1),
+            mock_file("file2", 2),
+            mock_file("file3", 3),
+        ];
+
+        let result = duplicate_wasome_source_elements(files.iter());
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_duplicate_finder_file_duplicate() {
+        let files = vec![
+            mock_file("unique1", 1),
+            mock_file("duplicate", 2),
+            mock_file("duplicate", 3),
+            mock_file("unique2", 4),
+        ];
+
+        let result = duplicate_wasome_source_elements(files.iter());
+
+        assert_eq!(result, Some("duplicate".to_string()));
+    }
+
+    #[test]
+    fn test_duplicate_finder_directory_duplicate() {
+        let dirs = vec![
+            WasomeSourceDirectory::new(mock_location("a", "a"), Vec::new(), Vec::new()).unwrap(),
+            WasomeSourceDirectory::new(mock_location("b", "b"), Vec::new(), Vec::new()).unwrap(),
+            WasomeSourceDirectory::new(mock_location("b", "c"), Vec::new(), Vec::new()).unwrap(),
+        ];
+
+        let result = duplicate_wasome_source_elements(dirs.iter());
+
+        assert_eq!(result, Some("b".to_string()));
+    }
+
+    #[test]
+    fn test_duplicate_finder_first_duplicate_wins() {
+        let files = vec![
+            mock_file("first_dup", 1),
+            mock_file("second_dup", 2),
+            mock_file("first_dup", 3),
+            mock_file("second_dup", 4),
+        ];
+
+        let result = duplicate_wasome_source_elements(files.iter());
+
+        assert_eq!(result, Some("first_dup".to_string()));
+    }
 }
