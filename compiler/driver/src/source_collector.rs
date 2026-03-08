@@ -214,7 +214,7 @@ fn list_wasome_files_in_dir<'b>(
 #[derive(Debug)]
 pub enum CollectionError {
     Io(io::Error),
-    WasomeSourceDirectoryCreationError(WasomeSourceDirectoryCreationError),
+    //WasomeSourceDirectoryCreationError(WasomeSourceDirectoryCreationError),
 }
 
 impl From<io::Error> for CollectionError {
@@ -223,8 +223,8 @@ impl From<io::Error> for CollectionError {
     }
 }
 
-impl From<WasomeSourceDirectoryCreationError> for CollectionError {
+/*impl From<WasomeSourceDirectoryCreationError> for CollectionError {
     fn from(value: WasomeSourceDirectoryCreationError) -> Self {
         Self::WasomeSourceDirectoryCreationError(value)
     }
-}
+}*/

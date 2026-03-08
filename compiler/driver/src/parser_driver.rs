@@ -44,7 +44,6 @@ pub fn generate_untyped_ast<Loader: FullIO>(
 ) -> Result<AST<UntypedAST>, Diagnostic> {
     let program = collect_program(program_info, load_from).map_err(|err| match err {
         CollectionError::Io(err) => DriverError::Io { source: err },
-        CollectionError::WasomeSourceDirectoryCreationError(_) => unreachable!(),
     })?;
     program.into_ast(load_from).map_err(Into::into)
 }
@@ -74,6 +73,11 @@ impl WasomeProgram {
 }
 
 impl WasomeSourceDirectory {
+    /// Converts self into an AST dir
+    ///
+    /// # Panics
+    ///
+    /// If self isn't attached to `to_load_from`
     fn into_ast_dir(
         self,
         name: String,
