@@ -6,18 +6,18 @@
 
 use crate::error::DriverError;
 use crate::program_information::ProgramInformation;
-use crate::source_collector::{collect_program, CollectionError};
 use crate::source_collector::source_element::{
     WasomeProgram, WasomeSourceDirectory, WasomeSourceFile,
 };
+use crate::source_collector::{CollectionError, collect_program};
 use ast::directory::Directory;
 use ast::file::File;
-use ast::{ASTNode, UntypedAST, AST};
+use ast::{AST, ASTNode, UntypedAST};
 use error::diagnostic::Diagnostic;
 use io::FullIO;
-use parser::{parse, FileInformation};
-use source::types::FileID;
+use parser::{FileInformation, parse};
 use source::SourceMap;
+use source::types::FileID;
 use std::path::PathBuf;
 
 /// Generates an entire untyped ast by loading it from the provided [`SourceMap`]
@@ -42,16 +42,18 @@ pub fn generate_untyped_ast<Loader: FullIO>(
     program_info: &ProgramInformation,
     load_from: &mut SourceMap<Loader>,
 ) -> Result<AST<UntypedAST>, Diagnostic> {
-    let program = collect_program(program_info, load_from).map_err(|err| 
-    match err {
-        CollectionError::Io(err) => DriverError::Io {source: err},
-        CollectionError::WasomeSourceDirectoryCreationError(_) => unreachable!()
+    let program = collect_program(program_info, load_from).map_err(|err| match err {
+        CollectionError::Io(err) => DriverError::Io { source: err },
+        CollectionError::WasomeSourceDirectoryCreationError(_) => unreachable!(),
     })?;
     program.into_ast(load_from).map_err(Into::into)
 }
 
 impl WasomeProgram {
-    fn into_ast(self, to_load_with: &SourceMap<impl FullIO>) -> Result<AST<UntypedAST>, DriverError> {
+    fn into_ast(
+        self,
+        to_load_with: &SourceMap<impl FullIO>,
+    ) -> Result<AST<UntypedAST>, DriverError> {
         let (location, projects) = self.destructure();
         let (name, path) = location.destructure();
         let root_dir = ASTNode::new(

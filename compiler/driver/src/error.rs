@@ -196,10 +196,7 @@ impl From<DriverError> for Diagnostic {
                 .help("Provide a valid main file path")
                 .build(),
             DriverError::Io { source } => Self::builder()
-                .message(format!(
-                    "IO Error: {}",
-                    source
-                ))
+                .message(format!("IO Error: {}", source))
                 .code(IO_ERROR)
                 .build(),
             DriverError::UnresolvedImport { span } => Self::builder()

@@ -41,21 +41,14 @@ pub(crate) fn collect_program(
     load_from: &mut SourceMap<impl FullIO>,
 ) -> Result<WasomeProgram, CollectionError> {
     Ok(WasomeProgram::new(
-        WasomeSourceElementLocation::new(
-            to_collect.name().to_string(),
-            to_collect.path().to_path_buf(),
-        ),
+        WasomeSourceElementLocation::new(to_collect.path().to_path_buf()),
         to_collect
             .projects()
             .iter()
             .map(|project| {
                 Result::<_, CollectionError>::Ok((
                     project.name().to_string(),
-                    collect_dir(
-                        project.name().to_string(),
-                        to_collect.path().join(project.name()),
-                        load_from,
-                    )?,
+                    collect_dir(to_collect.path().join(project.name()), load_from)?,
                 ))
             })
             .collect::<Result<_, _>>()?,
@@ -92,7 +85,6 @@ pub(crate) fn collect_program(
 /// This function is private and should only be called from [`collect_program`].
 // TODO: Split this up
 fn collect_dir(
-    name: String,
     to_collect: impl AsRef<Path>,
     load_from: &mut SourceMap<impl FullIO>,
 ) -> Result<WasomeSourceDirectory, CollectionError> {
@@ -109,9 +101,8 @@ fn collect_dir(
     let subdirs = subdirs
         .into_iter()
         .map(|dir| {
-            let subdir_name = dir.to_string_lossy().to_string();
             let subdir_path = to_collect.as_ref().join(&dir);
-            collect_dir(subdir_name, subdir_path, load_from)
+            collect_dir(subdir_path, load_from)
         })
         .collect::<Result<Vec<WasomeSourceDirectory>, CollectionError>>()?;
     let files = list_wasome_files_in_dir(load_from, to_collect.as_ref())?.collect::<Vec<_>>();
@@ -120,12 +111,12 @@ fn collect_dir(
         .map(|file| {
             let path = to_collect.as_ref().join(&file);
             let file_id = load_from.load_file(&path)?;
-            let location = WasomeSourceElementLocation::new(file, path);
+            let location = WasomeSourceElementLocation::new(path);
 
             Ok(WasomeSourceFile::new(location, file_id))
         })
         .collect::<Result<Vec<WasomeSourceFile>, io::Error>>()?;
-    let location = WasomeSourceElementLocation::new(name, to_collect.as_ref().to_path_buf());
+    let location = WasomeSourceElementLocation::new(to_collect.as_ref().to_path_buf());
 
     Ok(WasomeSourceDirectory::new(location, subdirs, files)?)
 }
