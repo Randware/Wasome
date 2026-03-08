@@ -1,6 +1,6 @@
 use crate::program_information::ProgramInformation;
 use crate::source_collector::source_element::{
-    WasomeProgram, WasomeSourceDirectory, WasomeSourceDirectoryCreationError,
+    WasomeProgram, WasomeSourceDirectory,
     WasomeSourceElementLocation, WasomeSourceFile,
 };
 use io::FullIO;
@@ -210,11 +210,13 @@ fn list_wasome_files_in_dir<'b>(
 /// # Variants
 ///
 /// - **`Io`**: Underlying filesystem I/O error
-/// - **`WasomeSourceDirectoryCreationError`**: Directory structure validation error
+///
+/// # Note
+///
+/// This currently only has a single variant. This is there to make adding future ones easier
 #[derive(Debug)]
 pub enum CollectionError {
     Io(io::Error),
-    //WasomeSourceDirectoryCreationError(WasomeSourceDirectoryCreationError),
 }
 
 impl From<io::Error> for CollectionError {
@@ -222,9 +224,3 @@ impl From<io::Error> for CollectionError {
         Self::Io(value)
     }
 }
-
-/*impl From<WasomeSourceDirectoryCreationError> for CollectionError {
-    fn from(value: WasomeSourceDirectoryCreationError) -> Self {
-        Self::WasomeSourceDirectoryCreationError(value)
-    }
-}*/

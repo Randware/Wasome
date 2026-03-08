@@ -9,15 +9,15 @@ use crate::program_information::ProgramInformation;
 use crate::source_collector::source_element::{
     WasomeProgram, WasomeSourceDirectory, WasomeSourceFile,
 };
-use crate::source_collector::{CollectionError, collect_program};
+use crate::source_collector::{collect_program, CollectionError};
 use ast::directory::Directory;
 use ast::file::File;
-use ast::{AST, ASTNode, UntypedAST};
+use ast::{ASTNode, UntypedAST, AST};
 use error::diagnostic::Diagnostic;
 use io::FullIO;
-use parser::{FileInformation, parse};
-use source::SourceMap;
+use parser::{parse, FileInformation};
 use source::types::FileID;
+use source::SourceMap;
 use std::path::PathBuf;
 
 /// Generates an entire untyped ast by loading it from the provided [`SourceMap`]
@@ -67,6 +67,7 @@ impl WasomeProgram {
             path,
         );
         AST::new(root_dir).map_err(|ui| DriverError::UnresolvedImport {
+            // This never panics as the unresolved imports can't be empty
             span: *ui.unresolved_imports()[0].position(),
         })
     }
@@ -107,13 +108,21 @@ impl WasomeSourceDirectory {
 }
 
 impl WasomeSourceFile {
+    /// Converts self into an AST file
+    ///
+    /// # Panics
+    ///
+    /// If self isn't attached to `to_load_from`
     fn into_ast_file(
         self,
         mod_name: &str,
         to_load_with: &SourceMap<impl FullIO>,
     ) -> Result<ASTNode<File<UntypedAST>, FileID>, DriverError> {
         Ok(ASTNode::new(
-            parse(&FileInformation::new(self.file(), mod_name, to_load_with).unwrap())?,
+            parse(
+                &FileInformation::new(self.file(), mod_name, to_load_with)
+                    .expect("Expected self to be attached to the provided SourceMap"),
+            )?,
             self.file(),
         ))
     }
