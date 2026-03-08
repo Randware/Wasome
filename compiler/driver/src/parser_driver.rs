@@ -6,7 +6,7 @@
 
 use crate::error::DriverError;
 use crate::program_information::ProgramInformation;
-use crate::source_collector::collect_program;
+use crate::source_collector::{collect_program, CollectionError};
 use crate::source_collector::source_element::{
     WasomeProgram, WasomeSourceDirectory, WasomeSourceFile,
 };
@@ -42,8 +42,11 @@ pub fn generate_untyped_ast<Loader: FullIO>(
     program_info: &ProgramInformation,
     load_from: &mut SourceMap<Loader>,
 ) -> Result<AST<UntypedAST>, Diagnostic> {
-    // TODO
-    let program = collect_program(program_info, load_from).unwrap();
+    let program = collect_program(program_info, load_from).map_err(|err| 
+    match err {
+        CollectionError::Io(err) => DriverError::Io {source: err},
+        CollectionError::WasomeSourceDirectoryCreationError(_) => unreachable!()
+    })?;
     program.into_ast(load_from).map_err(Into::into)
 }
 
