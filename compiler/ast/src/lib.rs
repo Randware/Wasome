@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic, clippy::nursery)]
 //! This is the Abstract syntax tree, the interface between the parser and the codegen
 //! It consists of five "levels", from highest to lowest:
 //! 1. Directories
