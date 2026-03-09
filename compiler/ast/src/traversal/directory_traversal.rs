@@ -2,7 +2,7 @@ use crate::directory::Directory;
 use crate::symbol::DirectlyAvailableSymbol;
 use crate::top_level::{Import, ImportRoot};
 use crate::traversal::file_traversal::FileTraversalHelper;
-use crate::{AST, ASTNode, ASTType};
+use crate::{ASTNode, ASTType, AST};
 use std::ops::Deref;
 use std::path::PathBuf;
 

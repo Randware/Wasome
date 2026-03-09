@@ -1,6 +1,6 @@
-use crate::SemanticEq;
 use crate::data_type::DataType;
 use crate::symbol::UntypedTypeParameterSymbol;
+use crate::SemanticEq;
 use std::rc::Rc;
 
 /// A type parameter in an untyped AST
