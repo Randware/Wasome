@@ -13,7 +13,7 @@ use std::rc::Rc;
 /// # Equality
 ///
 /// Two different Statements are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
@@ -35,24 +35,27 @@ pub enum Statement<Type: ASTType> {
 
 impl<Type: ASTType> SemanticEq for Statement<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        use Statement as St;
         match (self, other) {
-            (St::VariableAssignment(inner), St::VariableAssignment(other_inner)) => {
+            (Self::VariableAssignment(inner), Self::VariableAssignment(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::StructFieldAssignment(inner), St::StructFieldAssignment(other_inner)) => {
+            (Self::StructFieldAssignment(inner), Self::StructFieldAssignment(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::VariableDeclaration(inner), St::VariableDeclaration(other_inner)) => {
+            (Self::VariableDeclaration(inner), Self::VariableDeclaration(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::Expression(inner), St::Expression(other_inner)) => inner.semantic_eq(other_inner),
-            (St::Return(inner), St::Return(other_inner)) => inner.semantic_eq(other_inner),
-            (St::ControlStructure(inner), St::ControlStructure(other_inner)) => {
+            (Self::Expression(inner), Self::Expression(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (St::Codeblock(inner), St::Codeblock(other_inner)) => inner.semantic_eq(other_inner),
-            (St::VoidFunctionCall(inner), St::VoidFunctionCall(other_inner)) => {
+            (Self::Return(inner), Self::Return(other_inner)) => inner.semantic_eq(other_inner),
+            (Self::ControlStructure(inner), Self::ControlStructure(other_inner)) => {
+                inner.semantic_eq(other_inner)
+            }
+            (Self::Codeblock(inner), Self::Codeblock(other_inner)) => {
+                inner.semantic_eq(other_inner)
+            }
+            (Self::VoidFunctionCall(inner), Self::VoidFunctionCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
             // All cases where equality == semantic equality
@@ -74,19 +77,19 @@ impl<Type: ASTType> Statement<Type> {
     /// A vec with the symbols. It will be empty if there are no symbols
     pub fn get_direct_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
         match self {
-            Statement::VariableDeclaration(inner) => vec![inner.variable()],
+            Self::VariableDeclaration(inner) => vec![inner.variable()],
             _ => Vec::new(),
         }
     }
 
     /// Gets all symbols defined in self and only available to child statements
     ///
-    /// Currently, only IfEnumBlocks return anything but an empty vec
+    /// Currently, only `IfEnumBlocks` return anything but an empty vec
     pub fn get_direct_child_only_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
         match self {
-            Statement::ControlStructure(inner) => match inner.deref() {
+            Self::ControlStructure(inner) => match &**inner {
                 ControlStructure::IfEnumVariant(mat) => {
-                    mat.variables.iter().map(|var| var.deref()).collect()
+                    mat.variables.iter().map(|var| &**var).collect()
                 }
                 _ => Vec::new(),
             },
@@ -113,22 +116,22 @@ impl<Type: ASTType> Statement<Type> {
     /// Gets the length of the child statements
     pub fn amount_children(&self) -> usize {
         match self {
-            Statement::ControlStructure(structure) => structure.child_len(),
-            Statement::Codeblock(codeblock) => codeblock.len(),
+            Self::ControlStructure(structure) => structure.child_len(),
+            Self::Codeblock(codeblock) => codeblock.len(),
             _ => 0,
         }
     }
 }
 
 impl<Type: ASTType> Index<usize> for Statement<Type> {
-    type Output = ASTNode<Statement<Type>>;
+    type Output = ASTNode<Self>;
 
     /// Gets the indexth child statement
     // panics if self has no children or index is out of bounds
     fn index(&self, index: usize) -> &Self::Output {
         match self {
-            Statement::Codeblock(block) => &block[index],
-            Statement::ControlStructure(structure) => structure.child_statement_at(index),
+            Self::Codeblock(block) => &block[index],
+            Self::ControlStructure(structure) => structure.child_statement_at(index),
             _ => panic!("This has no child members!"),
         }
     }
@@ -138,8 +141,8 @@ impl<Type: ASTType> Index<usize> for Statement<Type> {
 ///
 /// # Equality
 ///
-/// Two different VariableAssignment are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Two different `VariableAssignment` are never equal.
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct VariableDeclaration<Type: ASTType> {
     variable: Rc<VariableSymbol<Type>>,
@@ -156,6 +159,7 @@ impl VariableDeclaration<TypedAST> {
     /// Tries to create a new instance
     /// returns None if the type of the variable symbol and the return type of the expression doesn't
     /// match
+    #[must_use]
     pub fn new(
         variable: Rc<VariableSymbol<TypedAST>>,
         value: ASTNode<Expression<TypedAST>>,
@@ -173,7 +177,8 @@ impl<Type: ASTType> SemanticEq for VariableAssignment<Type> {
 
 impl VariableDeclaration<UntypedAST> {
     /// Creates a new instance
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         variable: Rc<VariableSymbol<UntypedAST>>,
         value: ASTNode<Expression<UntypedAST>>,
     ) -> Self {
@@ -191,7 +196,7 @@ impl<Type: ASTType> VariableDeclaration<Type> {
         self.variable.clone()
     }
 
-    pub fn value(&self) -> &ASTNode<Expression<Type>> {
+    pub const fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
 }
@@ -207,6 +212,7 @@ impl VariableAssignment<TypedAST> {
     /// Tries to create a new instance
     /// returns None if the type of the variable symbol and the return type of the expression doesn't
     /// match
+    #[must_use]
     pub fn new(
         variable: Rc<VariableSymbol<TypedAST>>,
         value: ASTNode<Expression<TypedAST>>,
@@ -218,17 +224,18 @@ impl VariableAssignment<TypedAST> {
 
 impl VariableAssignment<UntypedAST> {
     /// Creates a new instance
-    pub fn new(variable: String, value: ASTNode<Expression<UntypedAST>>) -> Self {
+    #[must_use]
+    pub const fn new(variable: String, value: ASTNode<Expression<UntypedAST>>) -> Self {
         Self { variable, value }
     }
 }
 
 impl<Type: ASTType> VariableAssignment<Type> {
-    pub fn variable(&self) -> &Type::VariableUse {
+    pub const fn variable(&self) -> &Type::VariableUse {
         &self.variable
     }
 
-    pub fn value(&self) -> &ASTNode<Expression<Type>> {
+    pub const fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
 }
@@ -261,6 +268,7 @@ impl StructFieldAssignment<TypedAST> {
     /// - `struct_source` doesn't evaluate to a struct
     ///
     ///
+    #[must_use]
     pub fn new(
         struct_source: ASTNode<Expression<TypedAST>>,
         struct_field: Rc<StructFieldSymbol<TypedAST>>,
@@ -283,7 +291,8 @@ impl StructFieldAssignment<TypedAST> {
 
 impl StructFieldAssignment<UntypedAST> {
     /// Creates a new instance
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         struct_source: ASTNode<Expression<UntypedAST>>,
         struct_field: String,
         value: ASTNode<Expression<UntypedAST>>,
@@ -297,15 +306,15 @@ impl StructFieldAssignment<UntypedAST> {
 }
 
 impl<Type: ASTType> StructFieldAssignment<Type> {
-    pub fn struct_source(&self) -> &ASTNode<Expression<Type>> {
+    pub const fn struct_source(&self) -> &ASTNode<Expression<Type>> {
         &self.struct_source
     }
 
-    pub fn struct_field(&self) -> &Type::StructFieldUse {
+    pub const fn struct_field(&self) -> &Type::StructFieldUse {
         &self.struct_field
     }
 
-    pub fn value(&self) -> &ASTNode<Expression<Type>> {
+    pub const fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
 }
@@ -314,8 +323,8 @@ impl<Type: ASTType> StructFieldAssignment<Type> {
 ///
 /// # Equality
 ///
-/// Two different ControlStructures are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Two different `ControlStructures` are never equal.
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
@@ -326,16 +335,13 @@ pub enum ControlStructure<Type: ASTType> {
 impl<Type: ASTType> SemanticEq for ControlStructure<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (ControlStructure::Conditional(inner), ControlStructure::Conditional(other_inner)) => {
+            (Self::Conditional(inner), Self::Conditional(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (ControlStructure::Loop(inner), ControlStructure::Loop(other_inner)) => {
+            (Self::Loop(inner), Self::Loop(other_inner)) => inner.semantic_eq(other_inner),
+            (Self::IfEnumVariant(inner), Self::IfEnumVariant(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (
-                ControlStructure::IfEnumVariant(inner),
-                ControlStructure::IfEnumVariant(other_inner),
-            ) => inner.semantic_eq(other_inner),
             _ => false,
         }
     }
@@ -347,9 +353,9 @@ impl<Type: ASTType> ControlStructure<Type> {
     /// This includes the before and after statements of the for loop
     pub fn child_len(&self) -> usize {
         match self {
-            ControlStructure::Conditional(inner) => inner.len(),
-            ControlStructure::IfEnumVariant(inner) => inner.child_len(),
-            ControlStructure::Loop(inner) => inner.len(),
+            Self::Conditional(inner) => inner.len(),
+            Self::IfEnumVariant(inner) => inner.child_len(),
+            Self::Loop(inner) => inner.len(),
         }
     }
 
@@ -358,13 +364,13 @@ impl<Type: ASTType> ControlStructure<Type> {
     /// The available statements are the same as in [`child_len`](ControlStructure::child_len)
     pub(crate) fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match self {
-            ControlStructure::Conditional(cond) => cond.child_statement_at(index),
-            ControlStructure::IfEnumVariant(mat) => {
+            Self::Conditional(cond) => cond.child_statement_at(index),
+            Self::IfEnumVariant(mat) => {
                 assert_eq!(index, 0);
                 // A match has only one child statement
                 &mat.then_statement
             }
-            ControlStructure::Loop(inner) => inner.child_statement_at(index),
+            Self::Loop(inner) => inner.child_statement_at(index),
         }
     }
 }
@@ -373,8 +379,8 @@ impl<Type: ASTType> ControlStructure<Type> {
 ///
 /// # Equality
 ///
-/// Two different Conditionals are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Two different `Conditionals` are never equal.
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Conditional<Type: ASTType> {
     condition: ASTNode<Expression<Type>>,
@@ -383,7 +389,8 @@ pub struct Conditional<Type: ASTType> {
 }
 
 impl<Type: ASTType> Conditional<Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         condition: ASTNode<Expression<Type>>,
         then_statement: ASTNode<Statement<Type>>,
         else_statement: Option<ASTNode<Statement<Type>>>,
@@ -399,18 +406,18 @@ impl<Type: ASTType> Conditional<Type> {
     ///
     /// This includes the if and the else statement, if it exists
     pub(crate) fn len(&self) -> usize {
-        1 + self.else_statement.is_some() as usize
+        1 + usize::from(self.else_statement.is_some())
     }
 
-    pub fn condition(&self) -> &ASTNode<Expression<Type>> {
+    pub const fn condition(&self) -> &ASTNode<Expression<Type>> {
         &self.condition
     }
 
-    pub fn then_statement(&self) -> &ASTNode<Statement<Type>> {
+    pub const fn then_statement(&self) -> &ASTNode<Statement<Type>> {
         &self.then_statement
     }
 
-    pub fn else_statement(&self) -> Option<&ASTNode<Statement<Type>>> {
+    pub const fn else_statement(&self) -> Option<&ASTNode<Statement<Type>>> {
         self.else_statement.as_ref()
     }
 
@@ -439,9 +446,12 @@ impl<Type: ASTType> SemanticEq for Conditional<Type> {
             && self.then_statement.semantic_eq(&other.then_statement)
             // Check if both are some and compare then
             // Or both are none
-            && self.else_statement.as_ref().zip(other.else_statement.as_ref())
-            .map(|(a,b)| a.semantic_eq(b))
-            .unwrap_or(self.else_statement.is_none() && other.else_statement.is_none())
+            && self.else_statement
+                .as_ref()
+                .zip(other.else_statement.as_ref())
+                .map_or_else(|| self.else_statement.is_none() && other.else_statement.is_none(), |(a, b)| {
+                    a.semantic_eq(b)
+                })
     }
 }
 
@@ -453,8 +463,8 @@ impl<Type: ASTType> SemanticEq for Conditional<Type> {
 ///
 /// # Equality
 ///
-/// Two different [`IfEnumVariant`]s are never equal.
-/// Use semantic_equals from [`SemanticEquality`] to check semantics only
+/// Two different `IfEnumVariant`s are never equal.
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct IfEnumVariant<Type: ASTType> {
     condition_enum: Type::EnumUse,
@@ -465,8 +475,9 @@ pub struct IfEnumVariant<Type: ASTType> {
 }
 
 impl IfEnumVariant<UntypedAST> {
-    /// Creates a new IfEnumVariant
-    pub fn new(
+    /// Creates a new `IfEnumVariant`
+    #[must_use]
+    pub const fn new(
         condition_enum: <UntypedAST as ASTType>::EnumUse,
         condition_enum_variant: String,
         assignment_expression: ASTNode<Expression<UntypedAST>>,
@@ -483,10 +494,11 @@ impl IfEnumVariant<UntypedAST> {
     }
 }
 
-/// Attempts to create a new IfEnumVariant
+/// Attempts to create a new `IfEnumVariant`
 ///
 /// Returns None if the amount or data types of variables doesn't match the data types on the enum variant
 impl IfEnumVariant<TypedAST> {
+    #[must_use]
     pub fn new(
         condition_enum: Rc<EnumSymbol<TypedAST>>,
         condition_enum_variant: Rc<EnumVariantSymbol<TypedAST>>,
@@ -514,15 +526,15 @@ impl IfEnumVariant<TypedAST> {
     }
 }
 impl<Type: ASTType> IfEnumVariant<Type> {
-    pub fn condition_enum(&self) -> &Type::EnumUse {
+    pub const fn condition_enum(&self) -> &Type::EnumUse {
         &self.condition_enum
     }
 
-    pub fn condition_enum_variant(&self) -> &Type::EnumVariantUse {
+    pub const fn condition_enum_variant(&self) -> &Type::EnumVariantUse {
         &self.condition_enum_variant
     }
 
-    pub fn assignment_expression(&self) -> &ASTNode<Expression<Type>> {
+    pub const fn assignment_expression(&self) -> &ASTNode<Expression<Type>> {
         &self.assignment_expression
     }
 
@@ -530,11 +542,11 @@ impl<Type: ASTType> IfEnumVariant<Type> {
         &self.variables
     }
 
-    pub fn then_statement(&self) -> &ASTNode<Statement<Type>> {
+    pub const fn then_statement(&self) -> &ASTNode<Statement<Type>> {
         &self.then_statement
     }
 
-    pub fn child_len(&self) -> usize {
+    pub const fn child_len(&self) -> usize {
         // A IfEnumVariant has one child statement
         // The then statement
         1
@@ -558,8 +570,8 @@ impl<Type: ASTType> SemanticEq for IfEnumVariant<Type> {
 /// This represents a loop as defined in chapter 13 of the lang spec
 ///
 /// # Equality
-/// Two different Loops are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Two different `Loops` are never equal.
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Loop<Type: ASTType> {
     to_loop_on: ASTNode<Statement<Type>>,
@@ -567,7 +579,8 @@ pub struct Loop<Type: ASTType> {
 }
 
 impl<Type: ASTType> Loop<Type> {
-    pub fn new(to_loop_on: ASTNode<Statement<Type>>, loop_type: LoopType<Type>) -> Self {
+    #[must_use]
+    pub const fn new(to_loop_on: ASTNode<Statement<Type>>, loop_type: LoopType<Type>) -> Self {
         Self {
             to_loop_on,
             loop_type,
@@ -577,7 +590,7 @@ impl<Type: ASTType> Loop<Type> {
     /// Returns the number of direct child statements
     ///
     /// This includes the before and after statements of the for loop
-    pub(crate) fn len(&self) -> usize {
+    pub(crate) const fn len(&self) -> usize {
         self.loop_type.len() + 1
     }
 
@@ -585,7 +598,7 @@ impl<Type: ASTType> Loop<Type> {
         &self.to_loop_on
     }
 
-    pub fn loop_type(&self) -> &LoopType<Type> {
+    pub const fn loop_type(&self) -> &LoopType<Type> {
         &self.loop_type
     }
 
@@ -626,6 +639,9 @@ impl<Type: ASTType> SemanticEq for Loop<Type> {
 /// This is the type of a loop
 ///
 /// It includes all type-specific elements (e.g.: the before Statement of a for loop
+// Dealing with this would require public API changes
+// So it's not really worth it, at least not now
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq)]
 pub enum LoopType<Type: ASTType> {
     Infinite,
@@ -641,15 +657,14 @@ impl<Type: ASTType> LoopType<Type> {
     /// Returns the number of child statements
     ///
     /// This is two for a for loop and zero for everything else
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         match self {
-            LoopType::Infinite => 0,
-            LoopType::While(_) => 0,
-            LoopType::For { .. } => 2,
+            Self::Infinite | Self::While(_) => 0,
+            Self::For { .. } => 2,
         }
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
@@ -657,7 +672,7 @@ impl<Type: ASTType> LoopType<Type> {
     ///
     /// The available statement are the same as in [`child_len`](LoopType::len)
     fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
-        if let LoopType::For {
+        if let Self::For {
             start,
             cond: _cond,
             after_each,
@@ -677,17 +692,15 @@ impl<Type: ASTType> LoopType<Type> {
 impl<Type: ASTType> SemanticEq for LoopType<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (LoopType::Infinite, LoopType::Infinite) => true,
-            (LoopType::While(inner), LoopType::While(other_inner)) => {
-                inner.semantic_eq(other_inner)
-            }
+            (Self::Infinite, Self::Infinite) => true,
+            (Self::While(inner), Self::While(other_inner)) => inner.semantic_eq(other_inner),
             (
-                LoopType::For {
+                Self::For {
                     start,
                     cond,
                     after_each,
                 },
-                LoopType::For {
+                Self::For {
                     start: other_start,
                     cond: other_cond,
                     after_each: other_after_each,
@@ -705,19 +718,20 @@ impl<Type: ASTType> SemanticEq for LoopType<Type> {
 /// A return in wasome code
 /// This is a wrapper around Expression with the wrapped one being the one's result that will be returned
 /// # Equality
-/// Two different Returns are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Two different `Returns` are never equal.
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Return<Type: ASTType> {
     to_return: Option<ASTNode<Expression<Type>>>,
 }
 
 impl<Type: ASTType> Return<Type> {
-    pub fn new(to_return: Option<ASTNode<Expression<Type>>>) -> Self {
+    #[must_use]
+    pub const fn new(to_return: Option<ASTNode<Expression<Type>>>) -> Self {
         Self { to_return }
     }
 
-    pub fn to_return(&self) -> Option<&ASTNode<Expression<Type>>> {
+    pub const fn to_return(&self) -> Option<&ASTNode<Expression<Type>>> {
         self.to_return.as_ref()
     }
 }
@@ -733,6 +747,7 @@ impl Return<TypedAST> {
     ///
     /// Returns none if nothing
     /// And Some(type) if an expression with type is being returned
+    #[must_use]
     pub fn return_type(&self) -> Option<DataType> {
         // Gets the type from the expression
         self.to_return().map(|val| val.data_type())
@@ -745,7 +760,8 @@ pub struct CodeBlock<Type: ASTType> {
 }
 
 impl<Type: ASTType> CodeBlock<Type> {
-    pub fn new(contents: Vec<ASTNode<Statement<Type>>>) -> Self {
+    #[must_use]
+    pub const fn new(contents: Vec<ASTNode<Statement<Type>>>) -> Self {
         Self { contents }
     }
 }
@@ -795,22 +811,16 @@ mod tests {
                 after_each: after,
             },
         );
-        assert!(
-            for_loop
-                .child_statement_at(0)
-                .semantic_eq(&create_literal_statement(Literal::S32(1)))
-        );
-        assert!(
-            for_loop
-                .child_statement_at(1)
-                .semantic_eq(&create_literal_statement(Literal::S32(3)))
-        );
+        assert!(for_loop
+            .child_statement_at(0)
+            .semantic_eq(&create_literal_statement(Literal::S32(1))));
+        assert!(for_loop
+            .child_statement_at(1)
+            .semantic_eq(&create_literal_statement(Literal::S32(3))));
 
-        assert!(
-            for_loop
-                .child_statement_at(2)
-                .semantic_eq(&create_literal_statement(Literal::S32(2)))
-        );
+        assert!(for_loop
+            .child_statement_at(2)
+            .semantic_eq(&create_literal_statement(Literal::S32(2))));
     }
 
     #[test]

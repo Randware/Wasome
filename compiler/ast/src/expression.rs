@@ -8,7 +8,7 @@ use std::rc::Rc;
 /// # Equality
 ///
 /// Two different Expressions are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum Expression<Type: ASTType> {
     /// This is only valid if there is a return value and not void
@@ -29,42 +29,42 @@ pub enum Expression<Type: ASTType> {
 
 impl Typed for Expression<TypedAST> {
     fn data_type(&self) -> DataType {
-        use Expression as Ex;
         match self {
             // Unwrap safety:
             // It may only exist if the return type is not void
-            Ex::FunctionCall(inner) => inner.function().return_type().unwrap().clone(),
+            Self::FunctionCall(inner) => inner.function().return_type().unwrap().clone(),
             // This is invalid in the typed AST
-            Ex::MethodCall(_) => panic!(),
-            Ex::Literal(inner) => inner.data_type(),
-            Ex::UnaryOp(inner) => inner.data_type(),
-            Ex::BinaryOp(inner) => inner.data_type(),
-            Ex::Variable(inner) => inner.data_type().clone(),
-            Expression::NewStruct(inner) => inner.data_type(),
-            Expression::NewEnum(inner) => inner.data_type(),
-            Expression::StructFieldAccess(inner) => inner.data_type(),
+            Self::MethodCall(_) => panic!(),
+            Self::Literal(inner) => inner.data_type(),
+            Self::UnaryOp(inner) => inner.data_type(),
+            Self::BinaryOp(inner) => inner.data_type(),
+            Self::Variable(inner) => inner.data_type().clone(),
+            Self::NewStruct(inner) => inner.data_type(),
+            Self::NewEnum(inner) => inner.data_type(),
+            Self::StructFieldAccess(inner) => inner.data_type(),
         }
     }
 }
 
 impl<Type: ASTType> SemanticEq for Expression<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        use Expression as Exp;
         match (self, other) {
-            (Exp::FunctionCall(inner), Exp::FunctionCall(other_inner)) => {
+            (Self::FunctionCall(inner), Self::FunctionCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (Exp::MethodCall(inner), Exp::MethodCall(other_inner)) => {
+            (Self::MethodCall(inner), Self::MethodCall(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
-            (Exp::Variable(inner), Exp::Variable(other_inner)) => inner.semantic_eq(other_inner),
+            (Self::Variable(inner), Self::Variable(other_inner)) => inner.semantic_eq(other_inner),
             // For Literals, there are no inner structs with ids
-            (Exp::Literal(_), Exp::Literal(_)) => self == other,
-            (Exp::UnaryOp(inner), Exp::UnaryOp(other_inner)) => inner.semantic_eq(other_inner),
-            (Exp::BinaryOp(inner), Exp::BinaryOp(other_inner)) => inner.semantic_eq(other_inner),
-            (Exp::NewStruct(inner), Exp::NewStruct(other_inner)) => inner.semantic_eq(other_inner),
-            (Exp::NewEnum(inner), Exp::NewEnum(other_inner)) => inner.semantic_eq(other_inner),
-            (Exp::StructFieldAccess(inner), Exp::StructFieldAccess(other_inner)) => {
+            (Self::Literal(_), Self::Literal(_)) => self == other,
+            (Self::UnaryOp(inner), Self::UnaryOp(other_inner)) => inner.semantic_eq(other_inner),
+            (Self::BinaryOp(inner), Self::BinaryOp(other_inner)) => inner.semantic_eq(other_inner),
+            (Self::NewStruct(inner), Self::NewStruct(other_inner)) => {
+                inner.semantic_eq(other_inner)
+            }
+            (Self::NewEnum(inner), Self::NewEnum(other_inner)) => inner.semantic_eq(other_inner),
+            (Self::StructFieldAccess(inner), Self::StructFieldAccess(other_inner)) => {
                 inner.semantic_eq(other_inner)
             }
             _ => false,
@@ -86,13 +86,13 @@ pub enum Literal {
 }
 
 impl Literal {
-    pub fn data_type(&self) -> DataType {
-        use DataType as DT;
+    #[must_use]
+    pub const fn data_type(&self) -> DataType {
         match self {
-            Literal::S32(_) => DT::S32,
-            Literal::Bool(_) => DT::Bool,
-            Literal::Char(_) => DT::Char,
-            Literal::F64(_) => DT::F64,
+            Self::S32(_) => DataType::S32,
+            Self::Bool(_) => DataType::Bool,
+            Self::Char(_) => DataType::Char,
+            Self::F64(_) => DataType::F64,
         }
     }
 }
@@ -101,13 +101,13 @@ impl Literal {
 ///
 /// # Validity
 ///
-/// A typed UnaryOp is only valid if the type of the result of the expression can be processed by
+/// A typed `UnaryOp` is only valid if the type of the result of the expression can be processed by
 /// the provided operator
 ///
 /// # Equality
 ///
-/// Two different UnaryOps are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Two different `UnaryOps` are never equal.
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct UnaryOp<Type: ASTType> {
     // The type of the expression
@@ -117,23 +117,25 @@ pub struct UnaryOp<Type: ASTType> {
 }
 
 impl<Type: ASTType> UnaryOp<Type> {
-    pub fn input(&self) -> &ASTNode<Expression<Type>> {
+    #[must_use]
+    pub const fn input(&self) -> &ASTNode<Expression<Type>> {
         &self.input
     }
 
-    pub fn op_type(&self) -> &UnaryOpType<Type> {
+    #[must_use]
+    pub const fn op_type(&self) -> &UnaryOpType<Type> {
         &self.op_type
     }
 }
 
 impl UnaryOp<TypedAST> {
-    /// Creates a new instance of UnaryOp
+    /// Creates a new instance of `UnaryOp`
     ///
     /// # Parameters:
     ///
-    /// - op_type
+    /// - `op_type`
     ///     - The type of this expression
-    /// - input
+    /// - `input`
     ///     - The expression to base this on
     ///
     /// # Return:
@@ -141,12 +143,13 @@ impl UnaryOp<TypedAST> {
     /// - Some(unaryOp) if the provided type can be processed to the output type
     /// - None if the processed type can't be processed
     ///
+    #[must_use]
     pub fn new(
         op_type: UnaryOpType<TypedAST>,
         input: ASTNode<Expression<TypedAST>>,
     ) -> Option<Self> {
         // Can't process
-        op_type.result_type(input.data_type())?;
+        op_type.result_type(&input.data_type())?;
         Some(Self { op_type, input })
     }
 }
@@ -158,24 +161,28 @@ impl<Type: ASTType> SemanticEq for UnaryOp<Type> {
 }
 
 impl UnaryOp<UntypedAST> {
-    /// Creates a new instance of UnaryOp
+    /// Creates a new instance of `UnaryOp`
     ///
     /// # Parameters
     ///
-    /// - op_type
+    /// - `op_type`
     ///     - The type of this expression
-    /// - input
+    /// - `input`
     ///     - The expression to base this on
-    pub fn new(op_type: UnaryOpType<UntypedAST>, input: ASTNode<Expression<UntypedAST>>) -> Self {
+    #[must_use]
+    pub const fn new(
+        op_type: UnaryOpType<UntypedAST>,
+        input: ASTNode<Expression<UntypedAST>>,
+    ) -> Self {
         Self { op_type, input }
     }
 }
 
 impl Typed for UnaryOp<TypedAST> {
     fn data_type(&self) -> DataType {
-        self.op_type.result_type(self.input.data_type()).unwrap() // Unwrap safety: UnaryOps may only exist if the input type can be processed
-        // This is checked in the constructor
-        // Therefore, this can never panic
+        self.op_type.result_type(&self.input.data_type()).unwrap() // Unwrap safety: UnaryOps may only exist if the input type can be processed
+                                                                   // This is checked in the constructor
+                                                                   // Therefore, this can never panic
     }
 }
 
@@ -197,23 +204,24 @@ impl UnaryOpType<TypedAST> {
     ///
     /// # Parameter
     ///
-    /// - to_process: The provided data type
+    /// - `to_process`: The provided data type
     ///
     /// # Return
     ///
     /// - Some(output data type) if the provided type can be processed to the output type
     /// - None if the processed type can't be processed
-    pub fn result_type(&self, to_process: DataType) -> Option<DataType> {
+    #[must_use]
+    pub fn result_type(&self, to_process: &DataType) -> Option<DataType> {
         match self {
-            UnaryOpType::Negative => Self::minus_type(to_process),
-            UnaryOpType::Not => Self::neg_type(to_process),
-            UnaryOpType::Typecast(inner) => inner.result_type(to_process),
+            Self::Negative => Self::minus_type(to_process),
+            Self::Not => Self::neg_type(to_process),
+            Self::Typecast(inner) => inner.result_type(to_process.clone()),
         }
     }
 
     /// Returns the type of data from putting the input type through a negation operator
     /// (lang spec, section 3)
-    fn neg_type(to_process: DataType) -> Option<DataType> {
+    const fn neg_type(to_process: &DataType) -> Option<DataType> {
         match to_process {
             DataType::Bool => Some(DataType::Bool),
             _ => None,
@@ -222,7 +230,7 @@ impl UnaryOpType<TypedAST> {
 
     /// Returns the type of data from putting the input type through a minus operator
     /// (lang spec, section 3)
-    fn minus_type(to_process: DataType) -> Option<DataType> {
+    fn minus_type(to_process: &DataType) -> Option<DataType> {
         match to_process {
             DataType::Char
             | DataType::Bool
@@ -230,7 +238,7 @@ impl UnaryOpType<TypedAST> {
             | DataType::U16
             | DataType::U32
             | DataType::U64 => None,
-            _ => Some(to_process),
+            _ => Some(to_process.clone()),
         }
     }
 }
@@ -251,12 +259,14 @@ pub struct Typecast<Type: ASTType> {
 }
 
 impl<Type: ASTType> Typecast<Type> {
-    pub fn target(&self) -> &Type::GeneralDataType {
+    #[must_use]
+    pub const fn target(&self) -> &Type::GeneralDataType {
         &self.target
     }
 
     /// Creates a new Typecast
-    pub fn new(target: Type::GeneralDataType) -> Self {
+    #[must_use]
+    pub const fn new(target: Type::GeneralDataType) -> Self {
         Self { target }
     }
 }
@@ -266,13 +276,14 @@ impl Typecast<TypedAST> {
     ///
     /// # Parameters
     ///
-    /// - to_process
+    /// - `to_process`
     ///     - The Type to process
     ///
     /// # Return
     ///
-    /// - Some(result) if to_process can be cast to result
+    /// - Some(result) if `to_process` can be cast to result
     /// - None if there is no cast available
+    #[must_use]
     pub fn result_type(&self, to_process: DataType) -> Option<DataType> {
         match (to_process, &self.target) {
             (DataType::S8 | DataType::U16, DataType::U8)
@@ -294,8 +305,8 @@ impl Typecast<TypedAST> {
 ///
 /// # Equality
 ///
-/// Two different BinaryOps are never equal.
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Two different `BinaryOps` are never equal.
+/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct BinaryOp<Type: ASTType> {
     // The type of the expression
@@ -315,40 +326,47 @@ impl<Type: ASTType> SemanticEq for BinaryOp<Type> {
 }
 
 impl<Type: ASTType> BinaryOp<Type> {
-    pub fn left(&self) -> &ASTNode<Expression<Type>> {
+    #[must_use]
+    pub const fn left(&self) -> &ASTNode<Expression<Type>> {
         &self.left
     }
 
-    pub fn right(&self) -> &ASTNode<Expression<Type>> {
+    #[must_use]
+    pub const fn right(&self) -> &ASTNode<Expression<Type>> {
         &self.right
     }
 
-    pub fn op_type(&self) -> BinaryOpType {
+    #[must_use]
+    pub const fn op_type(&self) -> BinaryOpType {
         self.op_type
     }
 }
 
 impl BinaryOp<TypedAST> {
-    /// Creates a new instance of UnaryOp
+    /// Creates a new instance of `BinaryOp`
     ///
     /// # Parameters
     ///
-    /// - op_type
+    /// - `op_type`
     ///   - The type of this expression
-    /// - input
-    ///   - The expression to base this on
+    /// - `left`
+    ///   - The left expression
+    /// - `right`
+    ///   - The right expression
     ///
     /// # Return
     ///
     /// - Some(output data type) if the provided type can be processed to the output type
     /// - None if the processed type can't be processed
+    ///
+    #[must_use]
     pub fn new(
         op_type: BinaryOpType,
         left: ASTNode<Expression<TypedAST>>,
         right: ASTNode<Expression<TypedAST>>,
     ) -> Option<Self> {
         // Can't process
-        op_type.result_type(left.data_type(), right.data_type())?;
+        op_type.result_type(&left.data_type(), &right.data_type())?;
         Some(Self {
             op_type,
             left,
@@ -358,15 +376,18 @@ impl BinaryOp<TypedAST> {
 }
 
 impl BinaryOp<UntypedAST> {
-    /// Creates a new instance of UnaryOp
+    /// Creates a new instance of `BinaryOp`
     ///
     /// # Parameters
     ///
-    /// - op_type
+    /// - `op_type`
     ///     - The type of this expression
-    /// - input
-    ///     - The expression to base this on
-    pub fn new(
+    /// - `left`
+    ///     - The left expression
+    /// - `right`
+    ///     - The right expression
+    #[must_use]
+    pub const fn new(
         op_type: BinaryOpType,
         left: ASTNode<Expression<UntypedAST>>,
         right: ASTNode<Expression<UntypedAST>>,
@@ -382,10 +403,10 @@ impl BinaryOp<UntypedAST> {
 impl Typed for BinaryOp<TypedAST> {
     fn data_type(&self) -> DataType {
         self.op_type
-            .result_type(self.left.data_type(), self.right.data_type())
+            .result_type(&self.left.data_type(), &self.right.data_type())
             .unwrap() // Unwrap safety: BinaryOps may only exist if the input type can be processed
-        // This is checked in the constructor
-        // Therefore, this can never panic
+                      // This is checked in the constructor
+                      // Therefore, this can never panic
     }
 }
 
@@ -439,31 +460,31 @@ impl BinaryOpType {
     ///   
     /// # Parameters
     ///   
-    /// - left, right:
+    /// - `left`, `right`:
     ///     - The provided data types
     ///   
     /// # Return
     ///
     /// - Some(output data type) if the provided types can be processed to the output type
     /// - None if the processed type can't be processed
-    pub fn result_type(&self, left: DataType, right: DataType) -> Option<DataType> {
-        use BinaryOpType as BOT;
+    #[must_use]
+    pub fn result_type(&self, left: &DataType, right: &DataType) -> Option<DataType> {
         match self {
-            BOT::Addition | BOT::Subtraction | BOT::Multiplication | BOT::Division => {
+            Self::Addition | Self::Subtraction | Self::Multiplication | Self::Division => {
                 Self::arithmetic_type(left, right)
             }
-            BOT::Modulo
-            | BOT::LeftShift
-            | BOT::RightShift
-            | BOT::BitwiseOr
-            | BOT::BitwiseAnd
-            | BOT::BitwiseXor => Self::int_op_type(left, right),
-            BOT::Or | BOT::And | BOT::Xor => Self::bool_op_type(left, right),
-            BOT::Equals | BOT::NotEquals => {
+            Self::Modulo
+            | Self::LeftShift
+            | Self::RightShift
+            | Self::BitwiseOr
+            | Self::BitwiseAnd
+            | Self::BitwiseXor => Self::int_op_type(left, right),
+            Self::Or | Self::And | Self::Xor => Self::bool_op_type(left, right),
+            Self::Equals | Self::NotEquals => {
                 eq_return_option(left, right)?;
                 Some(DataType::Bool)
             }
-            BOT::Greater | BOT::GreaterEquals | BOT::Lesser | BOT::LesserEquals => {
+            Self::Greater | Self::GreaterEquals | Self::Lesser | Self::LesserEquals => {
                 Self::comparison_op_type(left, right)
             }
         }
@@ -471,8 +492,8 @@ impl BinaryOpType {
 
     /// Returns the type of data from putting the two input types through an arithmetic operator
     /// (lang spec, section 3)
-    fn arithmetic_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(&left, &right)?;
+    fn arithmetic_type(left: &DataType, right: &DataType) -> Option<DataType> {
+        eq_return_option(left, right)?;
         match left {
             DataType::U8
             | DataType::S8
@@ -483,15 +504,15 @@ impl BinaryOpType {
             | DataType::U64
             | DataType::S64
             | DataType::F32
-            | DataType::F64 => Some(left),
+            | DataType::F64 => Some(left.clone()),
             _ => None,
         }
     }
 
     /// Returns the type of data from putting the two input types through an integer only operator
     /// (lang spec, section 3)
-    fn int_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(&left, &right)?;
+    fn int_op_type(left: &DataType, right: &DataType) -> Option<DataType> {
+        eq_return_option(left, right)?;
         match left {
             DataType::U8
             | DataType::S8
@@ -500,32 +521,36 @@ impl BinaryOpType {
             | DataType::U32
             | DataType::S32
             | DataType::U64
-            | DataType::S64 => Some(left),
+            | DataType::S64 => Some(left.clone()),
             _ => None,
         }
     }
 
     /// Returns the type of data from putting the two input types through a bool only (such as or) operator
     /// (lang spec, section 3)
-    fn bool_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(&left, &right)?;
+    fn bool_op_type(left: &DataType, right: &DataType) -> Option<DataType> {
+        eq_return_option(left, right)?;
         match left {
-            DataType::Bool => Some(left),
+            DataType::Bool => Some(left.clone()),
             _ => None,
         }
     }
 
     /// Returns the type of data from putting the two input types through a comparison operator
     /// (lang spec, section 3)
-    fn comparison_op_type(left: DataType, right: DataType) -> Option<DataType> {
-        eq_return_option(&left, &right)?;
-        if left == DataType::Bool || left == DataType::Char {
+    fn comparison_op_type(left: &DataType, right: &DataType) -> Option<DataType> {
+        eq_return_option(left, right)?;
+        if *left == DataType::Bool || *left == DataType::Char {
             return None;
         }
         Some(DataType::Bool)
     }
 }
 
+/// A struct field initializer with field and value
+// Even if unenforced, the bound still serves documentation purposes
+#[allow(type_alias_bounds)]
+pub type StructFieldInit<Type: ASTType> = (ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>);
 /// The creation of an instance of a struct
 ///
 /// e.g.: new Struct(10, a, 'b')
@@ -540,22 +565,25 @@ impl BinaryOpType {
 pub struct NewStruct<Type: ASTType> {
     symbol: Type::StructUse,
     /// The field and the value
-    parameters: Vec<(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)>,
+    parameters: Vec<StructFieldInit<Type>>,
 }
 
 impl<Type: ASTType> NewStruct<Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         symbol: Type::StructUse,
-        parameters: Vec<(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)>,
+        parameters: Vec<StructFieldInit<Type>>,
     ) -> Self {
         Self { symbol, parameters }
     }
 
-    pub fn symbol(&self) -> &Type::StructUse {
+    #[must_use]
+    pub const fn symbol(&self) -> &Type::StructUse {
         &self.symbol
     }
 
-    pub fn parameters(&self) -> &[(ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>)] {
+    #[must_use]
+    pub fn parameters(&self) -> &[StructFieldInit<Type>] {
         &self.parameters
     }
 }
@@ -580,7 +608,7 @@ impl<Type: ASTType> SemanticEq for NewStruct<Type> {
 
 /// The creation of an instance of an enum
 ///
-/// e.g.: Enum::Variant(1, true)
+/// e.g.: `Enum::Variant`(1, true)
 ///
 /// ## Variant checking
 ///
@@ -594,21 +622,25 @@ pub struct NewEnum<Type: ASTType> {
 }
 
 impl<Type: ASTType> NewEnum<Type> {
-    pub fn to_create(&self) -> &Type::EnumUse {
+    #[must_use]
+    pub const fn to_create(&self) -> &Type::EnumUse {
         &self.to_create
     }
 
-    pub fn variant(&self) -> &Type::EnumVariantUse {
+    #[must_use]
+    pub const fn variant(&self) -> &Type::EnumVariantUse {
         &self.variant
     }
 
+    #[must_use]
     pub fn parameters(&self) -> &[ASTNode<Expression<Type>>] {
         &self.parameters
     }
 }
 
 impl NewEnum<UntypedAST> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         to_create: <UntypedAST as ASTType>::EnumUse,
         variant: String,
         parameters: Vec<ASTNode<Expression<UntypedAST>>>,
@@ -622,8 +654,9 @@ impl NewEnum<UntypedAST> {
 }
 
 impl NewEnum<TypedAST> {
-    /// Creates a new NewEnum
+    /// Creates a new `NewEnum`
     /// Returns none if the types of the parameters and of the variant don't match
+    #[must_use]
     pub fn new(
         symbol: Rc<EnumSymbol<TypedAST>>,
         variant: Rc<EnumVariantSymbol<TypedAST>>,
@@ -668,17 +701,19 @@ pub struct StructFieldAccess<Type: ASTType> {
 }
 
 impl StructFieldAccess<UntypedAST> {
-    pub fn new(of: ASTNode<Expression<UntypedAST>>, field: String) -> Self {
+    #[must_use]
+    pub const fn new(of: ASTNode<Expression<UntypedAST>>, field: String) -> Self {
         Self { of, field }
     }
 }
 
 impl StructFieldAccess<TypedAST> {
-    /// Tries to create a new StructFieldAccess
+    /// Tries to create a new `StructFieldAccess`
     ///
     /// Returns None if the return type of of is not a struct
     ///
     /// Note that it must be externally checked that field belongs to the struct being accessed
+    #[must_use]
     pub fn new(
         of: ASTNode<Expression<TypedAST>>,
         field: Rc<StructFieldSymbol<TypedAST>>,
@@ -692,11 +727,13 @@ impl StructFieldAccess<TypedAST> {
 }
 
 impl<Type: ASTType> StructFieldAccess<Type> {
-    pub fn of(&self) -> &ASTNode<Expression<Type>> {
+    #[must_use]
+    pub const fn of(&self) -> &ASTNode<Expression<Type>> {
         &self.of
     }
 
-    pub fn field(&self) -> &Type::StructFieldUse {
+    #[must_use]
+    pub const fn field(&self) -> &Type::StructFieldUse {
         &self.field
     }
 }
@@ -724,11 +761,13 @@ pub struct FunctionCall<Type: ASTType> {
 }
 
 impl<Type: ASTType> FunctionCall<Type> {
-    pub fn function(&self) -> &Type::FunctionCallSymbol {
+    #[must_use]
+    pub const fn function(&self) -> &Type::FunctionCallSymbol {
         &self.function
     }
 
-    pub fn args(&self) -> &Vec<ASTNode<Expression<Type>>> {
+    #[must_use]
+    pub const fn args(&self) -> &Vec<ASTNode<Expression<Type>>> {
         &self.args
     }
 }
@@ -745,6 +784,7 @@ impl FunctionCall<TypedAST> {
     /// Checks if the provided and expected params are the same number and have the same data types
     /// Returns None if these checks failed
     /// Some(new instance) otherwise
+    #[must_use]
     pub fn new(
         function: Rc<FunctionSymbol<TypedAST>>,
         args: Vec<ASTNode<Expression<TypedAST>>>,
@@ -764,7 +804,8 @@ impl FunctionCall<TypedAST> {
 
 impl FunctionCall<UntypedAST> {
     /// Creates a new function call
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         function: <UntypedAST as ASTType>::FunctionCallSymbol,
         args: Vec<ASTNode<Expression<UntypedAST>>>,
     ) -> Self {
@@ -777,7 +818,7 @@ impl FunctionCall<UntypedAST> {
 /// Only valid in the untyped AST
 ///
 /// In the typed AST, this is a function call with the struct as the first parameter
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct MethodCall {
     struct_source: ASTNode<Expression<UntypedAST>>,
     function: (String, Vec<UntypedDataType>),
@@ -786,7 +827,8 @@ pub struct MethodCall {
 }
 
 impl MethodCall {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         struct_source: ASTNode<Expression<UntypedAST>>,
         function: (String, Vec<UntypedDataType>),
         args: Vec<ASTNode<Expression<UntypedAST>>>,
@@ -798,15 +840,18 @@ impl MethodCall {
         }
     }
 
-    pub fn struct_source(&self) -> &ASTNode<Expression<UntypedAST>> {
+    #[must_use]
+    pub const fn struct_source(&self) -> &ASTNode<Expression<UntypedAST>> {
         &self.struct_source
     }
 
-    pub fn function(&self) -> &(String, Vec<UntypedDataType>) {
+    #[must_use]
+    pub const fn function(&self) -> &(String, Vec<UntypedDataType>) {
         &self.function
     }
 
-    pub fn args(&self) -> &Vec<ASTNode<Expression<UntypedAST>>> {
+    #[must_use]
+    pub const fn args(&self) -> &Vec<ASTNode<Expression<UntypedAST>>> {
         &self.args
     }
 }
@@ -828,300 +873,300 @@ mod tests {
     #[test]
     fn binary_op_type() {
         let add = BinaryOpType::Addition;
-        assert_eq!(None, add.result_type(DataType::F32, DataType::F64));
+        assert_eq!(None, add.result_type(&DataType::F32, &DataType::F64));
         assert_eq!(
             Some(DataType::F32),
-            add.result_type(DataType::F32, DataType::F32)
+            add.result_type(&DataType::F32, &DataType::F32)
         );
-        assert_eq!(None, add.result_type(DataType::Bool, DataType::Bool));
+        assert_eq!(None, add.result_type(&DataType::Bool, &DataType::Bool));
 
         // Test all binary operators with different data type combinations
         // Addition
         let add = BinaryOpType::Addition;
-        assert_eq!(None, add.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, add.result_type(DataType::Char, DataType::Char));
+        assert_eq!(None, add.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, add.result_type(&DataType::Char, &DataType::Char));
         assert_eq!(
             Some(DataType::S32),
-            add.result_type(DataType::S32, DataType::S32)
+            add.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::F32),
-            add.result_type(DataType::F32, DataType::F32)
+            add.result_type(&DataType::F32, &DataType::F32)
         );
         assert_eq!(
             Some(DataType::F64),
-            add.result_type(DataType::F64, DataType::F64)
+            add.result_type(&DataType::F64, &DataType::F64)
         );
 
         // Subtraction
         let sub = BinaryOpType::Subtraction;
-        assert_eq!(None, sub.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, sub.result_type(DataType::Char, DataType::Char));
+        assert_eq!(None, sub.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, sub.result_type(&DataType::Char, &DataType::Char));
         assert_eq!(
             Some(DataType::S32),
-            sub.result_type(DataType::S32, DataType::S32)
+            sub.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::F32),
-            sub.result_type(DataType::F32, DataType::F32)
+            sub.result_type(&DataType::F32, &DataType::F32)
         );
         assert_eq!(
             Some(DataType::F64),
-            sub.result_type(DataType::F64, DataType::F64)
+            sub.result_type(&DataType::F64, &DataType::F64)
         );
 
         // Multiplication
         let mul = BinaryOpType::Multiplication;
-        assert_eq!(None, mul.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, mul.result_type(DataType::Char, DataType::Char));
+        assert_eq!(None, mul.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, mul.result_type(&DataType::Char, &DataType::Char));
         assert_eq!(
             Some(DataType::S32),
-            mul.result_type(DataType::S32, DataType::S32)
+            mul.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::F32),
-            mul.result_type(DataType::F32, DataType::F32)
+            mul.result_type(&DataType::F32, &DataType::F32)
         );
         assert_eq!(
             Some(DataType::F64),
-            mul.result_type(DataType::F64, DataType::F64)
+            mul.result_type(&DataType::F64, &DataType::F64)
         );
 
         // Division
         let div = BinaryOpType::Division;
-        assert_eq!(None, div.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, div.result_type(DataType::Char, DataType::Char));
+        assert_eq!(None, div.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, div.result_type(&DataType::Char, &DataType::Char));
         assert_eq!(
             Some(DataType::S32),
-            div.result_type(DataType::S32, DataType::S32)
+            div.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::F32),
-            div.result_type(DataType::F32, DataType::F32)
+            div.result_type(&DataType::F32, &DataType::F32)
         );
         assert_eq!(
             Some(DataType::F64),
-            div.result_type(DataType::F64, DataType::F64)
+            div.result_type(&DataType::F64, &DataType::F64)
         );
 
         // Modulo
         let mod_op = BinaryOpType::Modulo;
-        assert_eq!(None, mod_op.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, mod_op.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, mod_op.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, mod_op.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, mod_op.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, mod_op.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::S32),
-            mod_op.result_type(DataType::S32, DataType::S32)
+            mod_op.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::U16),
-            mod_op.result_type(DataType::U16, DataType::U16)
+            mod_op.result_type(&DataType::U16, &DataType::U16)
         );
 
         // Left shift
         let lshift = BinaryOpType::LeftShift;
-        assert_eq!(None, lshift.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, lshift.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, lshift.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, lshift.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, lshift.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, lshift.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::S32),
-            lshift.result_type(DataType::S32, DataType::S32)
+            lshift.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::U16),
-            lshift.result_type(DataType::U16, DataType::U16)
+            lshift.result_type(&DataType::U16, &DataType::U16)
         );
 
         // Right shift
         let rshift = BinaryOpType::RightShift;
-        assert_eq!(None, rshift.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, rshift.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, rshift.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, rshift.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, rshift.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, rshift.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::S32),
-            rshift.result_type(DataType::S32, DataType::S32)
+            rshift.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::U16),
-            rshift.result_type(DataType::U16, DataType::U16)
+            rshift.result_type(&DataType::U16, &DataType::U16)
         );
 
         // Bitwise OR
         let bor = BinaryOpType::BitwiseOr;
-        assert_eq!(None, bor.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, bor.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, bor.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, bor.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, bor.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, bor.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::S32),
-            bor.result_type(DataType::S32, DataType::S32)
+            bor.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::U16),
-            bor.result_type(DataType::U16, DataType::U16)
+            bor.result_type(&DataType::U16, &DataType::U16)
         );
 
         // Bitwise AND
         let band = BinaryOpType::BitwiseAnd;
-        assert_eq!(None, band.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, band.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, band.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, band.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, band.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, band.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::S32),
-            band.result_type(DataType::S32, DataType::S32)
+            band.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::U16),
-            band.result_type(DataType::U16, DataType::U16)
+            band.result_type(&DataType::U16, &DataType::U16)
         );
 
         // Bitwise XOR
         let bxor = BinaryOpType::BitwiseXor;
-        assert_eq!(None, bxor.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, bxor.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, bxor.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, bxor.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, bxor.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, bxor.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::S32),
-            bxor.result_type(DataType::S32, DataType::S32)
+            bxor.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::U16),
-            bxor.result_type(DataType::U16, DataType::U16)
+            bxor.result_type(&DataType::U16, &DataType::U16)
         );
 
         // OR
         let or_op = BinaryOpType::Or;
-        assert_eq!(None, or_op.result_type(DataType::S32, DataType::S32));
-        assert_eq!(None, or_op.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, or_op.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, or_op.result_type(&DataType::S32, &DataType::S32));
+        assert_eq!(None, or_op.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, or_op.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::Bool),
-            or_op.result_type(DataType::Bool, DataType::Bool)
+            or_op.result_type(&DataType::Bool, &DataType::Bool)
         );
 
         // AND
         let and_op = BinaryOpType::And;
-        assert_eq!(None, and_op.result_type(DataType::S32, DataType::S32));
-        assert_eq!(None, and_op.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, and_op.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, and_op.result_type(&DataType::S32, &DataType::S32));
+        assert_eq!(None, and_op.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, and_op.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::Bool),
-            and_op.result_type(DataType::Bool, DataType::Bool)
+            and_op.result_type(&DataType::Bool, &DataType::Bool)
         );
 
         // XOR
         let xor_op = BinaryOpType::Xor;
-        assert_eq!(None, xor_op.result_type(DataType::S32, DataType::S32));
-        assert_eq!(None, xor_op.result_type(DataType::Char, DataType::Char));
-        assert_eq!(None, xor_op.result_type(DataType::F32, DataType::F32));
+        assert_eq!(None, xor_op.result_type(&DataType::S32, &DataType::S32));
+        assert_eq!(None, xor_op.result_type(&DataType::Char, &DataType::Char));
+        assert_eq!(None, xor_op.result_type(&DataType::F32, &DataType::F32));
         assert_eq!(
             Some(DataType::Bool),
-            xor_op.result_type(DataType::Bool, DataType::Bool)
+            xor_op.result_type(&DataType::Bool, &DataType::Bool)
         );
 
         // Equals
         let eq = BinaryOpType::Equals;
         assert_eq!(
             Some(DataType::Bool),
-            eq.result_type(DataType::S32, DataType::S32)
+            eq.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::Bool),
-            eq.result_type(DataType::F32, DataType::F32)
+            eq.result_type(&DataType::F32, &DataType::F32)
         );
         assert_eq!(
             Some(DataType::Bool),
-            eq.result_type(DataType::Bool, DataType::Bool)
+            eq.result_type(&DataType::Bool, &DataType::Bool)
         );
-        assert_eq!(None, eq.result_type(DataType::Bool, DataType::Char));
-        assert_eq!(None, eq.result_type(DataType::F32, DataType::Char));
+        assert_eq!(None, eq.result_type(&DataType::Bool, &DataType::Char));
+        assert_eq!(None, eq.result_type(&DataType::F32, &DataType::Char));
 
         // Not Equals
         let ne = BinaryOpType::NotEquals;
         assert_eq!(
             Some(DataType::Bool),
-            ne.result_type(DataType::S32, DataType::S32)
+            ne.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::Bool),
-            ne.result_type(DataType::F32, DataType::F32)
+            ne.result_type(&DataType::F32, &DataType::F32)
         );
         assert_eq!(
             Some(DataType::Bool),
-            ne.result_type(DataType::Bool, DataType::Bool)
+            ne.result_type(&DataType::Bool, &DataType::Bool)
         );
-        assert_eq!(None, ne.result_type(DataType::Bool, DataType::Char));
-        assert_eq!(None, ne.result_type(DataType::F32, DataType::Char));
+        assert_eq!(None, ne.result_type(&DataType::Bool, &DataType::Char));
+        assert_eq!(None, ne.result_type(&DataType::F32, &DataType::Char));
 
         // Greater
         let gt = BinaryOpType::Greater;
         assert_eq!(
             Some(DataType::Bool),
-            gt.result_type(DataType::S32, DataType::S32)
+            gt.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::Bool),
-            gt.result_type(DataType::F32, DataType::F32)
+            gt.result_type(&DataType::F32, &DataType::F32)
         );
-        assert_eq!(None, gt.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, gt.result_type(DataType::Char, DataType::Char));
+        assert_eq!(None, gt.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, gt.result_type(&DataType::Char, &DataType::Char));
 
         // Greater Equals
         let ge = BinaryOpType::GreaterEquals;
         assert_eq!(
             Some(DataType::Bool),
-            ge.result_type(DataType::S32, DataType::S32)
+            ge.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::Bool),
-            ge.result_type(DataType::F32, DataType::F32)
+            ge.result_type(&DataType::F32, &DataType::F32)
         );
-        assert_eq!(None, ge.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, ge.result_type(DataType::Char, DataType::Char));
+        assert_eq!(None, ge.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, ge.result_type(&DataType::Char, &DataType::Char));
 
         // Lesser
         let lt = BinaryOpType::Lesser;
         assert_eq!(
             Some(DataType::Bool),
-            lt.result_type(DataType::S32, DataType::S32)
+            lt.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::Bool),
-            lt.result_type(DataType::F32, DataType::F32)
+            lt.result_type(&DataType::F32, &DataType::F32)
         );
-        assert_eq!(None, lt.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, lt.result_type(DataType::Char, DataType::Char));
+        assert_eq!(None, lt.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, lt.result_type(&DataType::Char, &DataType::Char));
 
         // Lesser Equals
         let le = BinaryOpType::LesserEquals;
         assert_eq!(
             Some(DataType::Bool),
-            le.result_type(DataType::S32, DataType::S32)
+            le.result_type(&DataType::S32, &DataType::S32)
         );
         assert_eq!(
             Some(DataType::Bool),
-            le.result_type(DataType::F32, DataType::F32)
+            le.result_type(&DataType::F32, &DataType::F32)
         );
-        assert_eq!(None, le.result_type(DataType::Bool, DataType::Bool));
-        assert_eq!(None, le.result_type(DataType::Char, DataType::Char));
+        assert_eq!(None, le.result_type(&DataType::Bool, &DataType::Bool));
+        assert_eq!(None, le.result_type(&DataType::Char, &DataType::Char));
     }
 
     #[test]
     fn unary_op_type() {
         let negative = UnaryOpType::Negative;
-        assert_eq!(Some(DataType::F32), negative.result_type(DataType::F32));
-        assert_eq!(None, negative.result_type(DataType::Bool));
+        assert_eq!(Some(DataType::F32), negative.result_type(&DataType::F32));
+        assert_eq!(None, negative.result_type(&DataType::Bool));
 
         let not = UnaryOpType::Not;
-        assert_eq!(Some(DataType::Bool), not.result_type(DataType::Bool));
-        assert_eq!(None, not.result_type(DataType::Char));
+        assert_eq!(Some(DataType::Bool), not.result_type(&DataType::Bool));
+        assert_eq!(None, not.result_type(&DataType::Char));
 
         let tc_i32 = UnaryOpType::Typecast(Typecast::new(DataType::S32));
-        assert_eq!(Some(DataType::S32), tc_i32.result_type(DataType::F32));
-        assert_eq!(Some(DataType::S32), tc_i32.result_type(DataType::S64));
-        assert_eq!(None, tc_i32.result_type(DataType::Bool));
+        assert_eq!(Some(DataType::S32), tc_i32.result_type(&DataType::F32));
+        assert_eq!(Some(DataType::S32), tc_i32.result_type(&DataType::S64));
+        assert_eq!(None, tc_i32.result_type(&DataType::Bool));
 
         let tc_bool = UnaryOpType::Typecast(Typecast::new(DataType::Bool));
-        assert_eq!(None, tc_bool.result_type(DataType::S32));
+        assert_eq!(None, tc_bool.result_type(&DataType::S32));
     }
 
     #[test]
@@ -1270,18 +1315,18 @@ mod tests {
         let add = BinaryOpType::Addition;
 
         // Check some mixed types that should fail
-        assert_eq!(None, add.result_type(DataType::U8, DataType::S32));
-        assert_eq!(None, add.result_type(DataType::S16, DataType::U32));
+        assert_eq!(None, add.result_type(&DataType::U8, &DataType::S32));
+        assert_eq!(None, add.result_type(&DataType::S16, &DataType::U32));
 
         // Test cases with all data types to ensure complete coverage
         let sub = BinaryOpType::Subtraction;
-        assert_eq!(None, sub.result_type(DataType::Bool, DataType::S32));
+        assert_eq!(None, sub.result_type(&DataType::Bool, &DataType::S32));
 
         let mul = BinaryOpType::Multiplication;
-        assert_eq!(None, mul.result_type(DataType::Char, DataType::U8));
+        assert_eq!(None, mul.result_type(&DataType::Char, &DataType::U8));
 
         let div = BinaryOpType::Division;
-        assert_eq!(None, div.result_type(DataType::F64, DataType::S16));
+        assert_eq!(None, div.result_type(&DataType::F64, &DataType::S16));
 
         // Test with all integer types
         let int_types = [
@@ -1296,9 +1341,9 @@ mod tests {
         ];
 
         for int_type in &int_types {
-            assert_eq!(None, add.result_type(int_type.clone(), DataType::F32));
-            assert_eq!(None, mul.result_type(int_type.clone(), DataType::F64));
-            assert_eq!(None, div.result_type(int_type.clone(), DataType::F32));
+            assert_eq!(None, add.result_type(&int_type.clone(), &DataType::F32));
+            assert_eq!(None, mul.result_type(&int_type.clone(), &DataType::F64));
+            assert_eq!(None, div.result_type(&int_type.clone(), &DataType::F32));
         }
     }
 
@@ -1308,36 +1353,36 @@ mod tests {
         let negative = UnaryOpType::Negative;
 
         // All numeric types should work with negative
-        assert_eq!(Some(DataType::S8), negative.result_type(DataType::S8));
-        assert_eq!(Some(DataType::S16), negative.result_type(DataType::S16));
-        assert_eq!(Some(DataType::S32), negative.result_type(DataType::S32));
-        assert_eq!(Some(DataType::S64), negative.result_type(DataType::S64));
-        assert_eq!(None, negative.result_type(DataType::U8));
-        assert_eq!(None, negative.result_type(DataType::U16));
-        assert_eq!(None, negative.result_type(DataType::U32));
-        assert_eq!(None, negative.result_type(DataType::U64));
-        assert_eq!(Some(DataType::F32), negative.result_type(DataType::F32));
-        assert_eq!(Some(DataType::F64), negative.result_type(DataType::F64));
+        assert_eq!(Some(DataType::S8), negative.result_type(&DataType::S8));
+        assert_eq!(Some(DataType::S16), negative.result_type(&DataType::S16));
+        assert_eq!(Some(DataType::S32), negative.result_type(&DataType::S32));
+        assert_eq!(Some(DataType::S64), negative.result_type(&DataType::S64));
+        assert_eq!(None, negative.result_type(&DataType::U8));
+        assert_eq!(None, negative.result_type(&DataType::U16));
+        assert_eq!(None, negative.result_type(&DataType::U32));
+        assert_eq!(None, negative.result_type(&DataType::U64));
+        assert_eq!(Some(DataType::F32), negative.result_type(&DataType::F32));
+        assert_eq!(Some(DataType::F64), negative.result_type(&DataType::F64));
 
         // Boolean types should not work with negative
-        assert_eq!(None, negative.result_type(DataType::Bool));
-        assert_eq!(None, negative.result_type(DataType::Char));
+        assert_eq!(None, negative.result_type(&DataType::Bool));
+        assert_eq!(None, negative.result_type(&DataType::Char));
 
         // Not operator
         let not = UnaryOpType::Not;
-        assert_eq!(Some(DataType::Bool), not.result_type(DataType::Bool));
-        assert_eq!(None, not.result_type(DataType::S32));
-        assert_eq!(None, not.result_type(DataType::F32));
-        assert_eq!(None, not.result_type(DataType::Char));
+        assert_eq!(Some(DataType::Bool), not.result_type(&DataType::Bool));
+        assert_eq!(None, not.result_type(&DataType::S32));
+        assert_eq!(None, not.result_type(&DataType::F32));
+        assert_eq!(None, not.result_type(&DataType::Char));
 
         // Typecast: Test edge cases for all valid type combinations
         let tc_s32 = UnaryOpType::Typecast(Typecast::new(DataType::S32));
-        assert_eq!(Some(DataType::S32), tc_s32.result_type(DataType::F32));
-        assert_eq!(Some(DataType::S32), tc_s32.result_type(DataType::S64));
-        assert_eq!(None, tc_s32.result_type(DataType::U64));
-        assert_eq!(None, tc_s32.result_type(DataType::S32));
-        assert_eq!(None, tc_s32.result_type(DataType::Bool)); // Should NOT work
-        assert_eq!(None, tc_s32.result_type(DataType::Char)); // Should NOT work
+        assert_eq!(Some(DataType::S32), tc_s32.result_type(&DataType::F32));
+        assert_eq!(Some(DataType::S32), tc_s32.result_type(&DataType::S64));
+        assert_eq!(None, tc_s32.result_type(&DataType::U64));
+        assert_eq!(None, tc_s32.result_type(&DataType::S32));
+        assert_eq!(None, tc_s32.result_type(&DataType::Bool)); // Should NOT work
+        assert_eq!(None, tc_s32.result_type(&DataType::Char)); // Should NOT work
     }
 
     #[test]

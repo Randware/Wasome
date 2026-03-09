@@ -23,12 +23,12 @@ fn next_id() -> u64 {
 /// An id
 ///
 /// # Obtaining
-/// The primary way to obtain ids is by calling the new() method.
+/// The primary way to obtain ids is by calling the `new()` method.
 /// Alternatively, an existing id can be cloned
 ///
 /// # Equality
 /// Equality with ids follows two simple rules: <br>
-/// Ids obtained from two different calls to new() will never be equal <br>
+/// Ids obtained from two different calls to `new()` will never be equal <br>
 /// Cloned ids will always be equal
 ///
 /// As required by the Eq trait, equality is transitive
@@ -61,6 +61,7 @@ pub struct Id {
 }
 
 impl Id {
+    #[must_use]
     pub fn new() -> Self {
         Self { inner: next_id() }
     }

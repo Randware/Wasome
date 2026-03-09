@@ -18,7 +18,7 @@ pub struct Function<Type: ASTType> {
 }
 
 impl<Type: ASTType> Function<Type> {
-    pub fn new(
+    pub const fn new(
         declaration: Rc<FunctionSymbol<Type>>,
         implementation: ASTNode<Statement<Type>>,
         visibility: Visibility,
@@ -39,7 +39,7 @@ impl<Type: ASTType> Function<Type> {
         self.declaration.clone()
     }
 
-    pub fn implementation(&self) -> &ASTNode<Statement<Type>> {
+    pub const fn implementation(&self) -> &ASTNode<Statement<Type>> {
         &self.implementation
     }
 }
@@ -59,7 +59,7 @@ impl<Type: ASTType> Visible for Function<Type> {
 
 /// An import
 /// In the typed AST, this has no semantic meaning and is only there to not lose any information
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Import {
     root: ImportRoot,
     path: Vec<String>,
@@ -76,7 +76,12 @@ pub struct Import {
 }
 
 impl Import {
-    pub fn new(root: ImportRoot, path: Vec<String>, usage_name: Rc<ModuleUsageNameSymbol>) -> Self {
+    #[must_use]
+    pub const fn new(
+        root: ImportRoot,
+        path: Vec<String>,
+        usage_name: Rc<ModuleUsageNameSymbol>,
+    ) -> Self {
         Self {
             root,
             path,
@@ -84,19 +89,23 @@ impl Import {
         }
     }
 
-    pub fn root(&self) -> &ImportRoot {
+    #[must_use]
+    pub const fn root(&self) -> &ImportRoot {
         &self.root
     }
 
-    pub fn path(&self) -> &Vec<String> {
+    #[must_use]
+    pub const fn path(&self) -> &Vec<String> {
         &self.path
     }
 
+    #[must_use]
     pub fn usage_name(&self) -> &ModuleUsageNameSymbol {
         &self.usage_name
     }
 
     /// Gets the usage name by cloning the underlying Rc
+    #[must_use]
     pub fn usage_name_owned(&self) -> Rc<ModuleUsageNameSymbol> {
         self.usage_name.clone()
     }
@@ -111,7 +120,7 @@ impl SemanticEq for Import {
 }
 
 /// The place from where the provided path in an import originates
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ImportRoot {
     /// In the current module, comparable with ./
     CurrentModule,

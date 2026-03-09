@@ -27,9 +27,10 @@ pub struct Directory<Type: ASTType> {
 }
 
 impl<Type: ASTType> Directory<Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         name: String,
-        subdirectories: Vec<ASTNode<Directory<Type>, PathBuf>>,
+        subdirectories: Vec<ASTNode<Self, PathBuf>>,
         files: Vec<ASTNode<File<Type>, FileID>>,
     ) -> Self {
         Self {
@@ -39,14 +40,17 @@ impl<Type: ASTType> Directory<Type> {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn subdirectories(&self) -> &[ASTNode<Directory<Type>, PathBuf>] {
+    #[must_use]
+    pub fn subdirectories(&self) -> &[ASTNode<Self, PathBuf>] {
         &self.subdirectories
     }
 
+    #[must_use]
     pub fn files(&self) -> &[ASTNode<File<Type>, FileID>] {
         &self.files
     }
@@ -63,6 +67,7 @@ impl<Type: ASTType> Directory<Type> {
     ///
     /// None if the file does not exist
     /// Some(file) if the file does exist
+    #[must_use]
     pub fn file_by_name(&self, name: &str) -> Option<&ASTNode<File<Type>, FileID>> {
         self.files_iterator().find(|file| file.name() == name)
     }
@@ -86,7 +91,8 @@ impl<Type: ASTType> Directory<Type> {
     ///
     /// None if the directory does not exist
     /// Some(directory) if the directory does exist
-    pub fn subdirectory_by_name(&self, name: &str) -> Option<&ASTNode<Directory<Type>, PathBuf>> {
+    #[must_use]
+    pub fn subdirectory_by_name(&self, name: &str) -> Option<&ASTNode<Self, PathBuf>> {
         self.subdirectories_iterator()
             .find(|subdir| subdir.inner.name() == name)
     }
@@ -94,9 +100,7 @@ impl<Type: ASTType> Directory<Type> {
     /// Gets an iterator over all subdirectories contained in this directory
     /// # Return
     /// The Iterator
-    pub fn subdirectories_iterator(
-        &self,
-    ) -> impl Iterator<Item = &ASTNode<Directory<Type>, PathBuf>> {
+    pub fn subdirectories_iterator(&self) -> impl Iterator<Item = &ASTNode<Self, PathBuf>> {
         self.subdirectories().iter()
     }
 
@@ -136,12 +140,12 @@ impl<Type: ASTType> Directory<Type> {
     /// callback: The callback. It is a mutable reference to allow for easier recursion
     pub(crate) fn traverse_imports<'a>(
         &'a self,
-        callback: &mut impl FnMut(&'a ASTNode<Import>, &'a Directory<Type>),
+        callback: &mut impl FnMut(&'a ASTNode<Import>, &'a Self),
     ) {
         self.files_iterator().for_each(|file| {
             file.imports()
                 .iter()
-                .for_each(|import| callback(import, self))
+                .for_each(|import| callback(import, self));
         });
         self.subdirectories_iterator()
             .for_each(|subdir| subdir.deref().traverse_imports(callback));

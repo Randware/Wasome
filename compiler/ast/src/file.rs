@@ -23,7 +23,8 @@ pub struct File<Type: ASTType> {
 }
 
 impl<Type: ASTType> File<Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         name: String,
         imports: Vec<ASTNode<Import>>,
         functions: Vec<ASTNode<Function<Type>>>,
@@ -39,23 +40,28 @@ impl<Type: ASTType> File<Type> {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub fn imports(&self) -> &[ASTNode<Import>] {
         &self.imports
     }
 
+    #[must_use]
     pub fn functions(&self) -> &[ASTNode<Function<Type>>] {
         &self.functions
     }
 
-    pub fn enums(&self) -> &Vec<ASTNode<Enum<Type>>> {
+    #[must_use]
+    pub const fn enums(&self) -> &Vec<ASTNode<Enum<Type>>> {
         &self.enums
     }
 
-    pub fn structs(&self) -> &Vec<ASTNode<Struct<Type>>> {
+    #[must_use]
+    pub const fn structs(&self) -> &Vec<ASTNode<Struct<Type>>> {
         &self.structs
     }
 

@@ -11,7 +11,8 @@ use std::vec::IntoIter;
 ///
 /// It keeps a reference to the root (function) and a statement.
 /// This allows it to be used to keep track of all symbols available to a statement
-/// It is supposed to be created by either a FunctionTraversalHelper or the StatementTraversalHelper of the parent statement,
+/// It is supposed to be created by either a `FunctionTraversalHelper` or 
+/// the `StatementTraversalHelper` of the parent statement,
 ///
 /// # Lifetimes
 ///
@@ -30,7 +31,8 @@ pub struct StatementTraversalHelper<'a, 'b, Type: ASTType> {
 }
 
 impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
-    /// Creates a new StatementRef where inner is the root
+    /// Creates a new `StatementRef` where inner is the root
+    #[must_use]
     pub fn new_root(root: &'a FunctionTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
             inner: root.inner().implementation(),
@@ -39,23 +41,27 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
         }
     }
 
+    #[must_use]
     pub fn child_len(&self) -> usize {
         self.inner.amount_children()
     }
 
-    pub fn root_helper(&self) -> &'a FunctionTraversalHelper<'a, 'b, Type> {
+    #[must_use]
+    pub const fn root_helper(&self) -> &'a FunctionTraversalHelper<'a, 'b, Type> {
         self.root
     }
 
-    pub fn inner(&self) -> &'b ASTNode<Statement<Type>> {
+    #[must_use]
+    pub const fn inner(&self) -> &'b ASTNode<Statement<Type>> {
         self.inner
     }
 
-    pub fn location(&self) -> &StatementLocation<'a, 'b, Type> {
+    #[must_use]
+    pub const fn location(&self) -> &StatementLocation<'a, 'b, Type> {
         &self.location
     }
 
-    /// Creates a new StatementRef that is the child of the specified statementRef at the specified index
+    /// Creates a new `StatementRef` that is the child of the specified statementRef at the specified index
     ///
     /// # Parameter
     ///
@@ -66,7 +72,8 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ///
     /// - `None` if `location >= self.amount_children()`
     /// - `Some(<The StatementTraversalHelper of the requested child>)` otherwise
-    pub fn get_child(&'a self, location: usize) -> Option<StatementTraversalHelper<'a, 'b, Type>> {
+    #[must_use]
+    pub fn get_child(&'a self, location: usize) -> Option<Self> {
         if location >= self.amount_children() {
             return None;
         }
@@ -84,6 +91,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ///
     /// # Returns
     /// The requested table
+    #[must_use]
     pub fn symbols_available_at<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
         StatementSymbolTable::new_available_to_statement(self)
     }
@@ -95,9 +103,9 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     ///
     /// # Returns
     ///
-    /// - Some(table) The requested table
-    /// - None if self is the root statement
-    pub fn symbols_available_after(&self) -> Option<impl SymbolTable<'b, Type>> {
+    /// The requested table
+    #[must_use]
+    pub fn symbols_available_after(&self) -> impl SymbolTable<'b, Type> {
         StatementSymbolTable::new_available_after_statement(self)
     }
 
@@ -145,6 +153,11 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     /// # Return
     ///
     /// The requested symbols
+    ///
+    /// # Panics
+    ///
+    /// This function will never panic as it always passes a valid index.
+    #[must_use]
     pub fn symbols_defined_directly_in(&self) -> Vec<DirectlyAvailableSymbol<'b, Type>> {
         // self.amount_children() can never be > self.amount_children()
         // So unwrapping can never panic
@@ -159,12 +172,13 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     /// # Return
     ///
     /// The amount of children
+    #[must_use]
     pub fn amount_children(&self) -> usize {
         self.inner.amount_children()
     }
 
-    /// This takes an indexable to_convert, reads the first len elements from it, converts them with
-    /// map_with and returns the inner values of the slices in a vec
+    /// This takes an indexable `to_convert`, reads the first len elements from it, converts them with
+    /// `map_with` and returns the inner values of the slices in a vec
     fn indexable_into_vec<'c, T, U, F, I>(
         to_convert: impl Fn(usize) -> &'c T + 'c,
         len: usize,
@@ -184,7 +198,7 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StatementTraversalHelper<'a, 'b, Type> {
+impl<'b, Type: ASTType> HasSymbols<'b, Type> for StatementTraversalHelper<'_, 'b, Type> {
     fn symbols<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
         StatementSymbolTable::new_available_to_statement(self)
     }
@@ -244,18 +258,17 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     ///
     /// # Returns
     ///
-    /// - Some(table) The requested table
-    /// - None if self is the root statement
+    /// The requested table
     pub(crate) fn new_available_after_statement(
         source: &'a StatementTraversalHelper<'a, 'b, Type>,
-    ) -> Option<Self> {
+    ) -> Self {
         let mut to_ret = Self::new_available_to_statement(source);
         to_ret.prev_index += 1;
-        Some(to_ret)
+        to_ret
     }
 }
 
-impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
+impl<'b, Type: ASTType> StatementSymbolTable<'_, 'b, Type> {
     /// Gets the next variable symbol
     ///
     /// The underlying state is changed so the next call
@@ -308,9 +321,9 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     ///     - Set to the above location
     ///     - The method fails if if `current_location` is None
     ///         - The above location may be None however
-    /// 2. prev_index
+    /// 2. `prev_index`
     ///     - Set to the index of the current `current_statement`
-    /// 3. current_statement
+    /// 3. `current_statement`
     ///     - Set to its parent
     ///
     /// # Return
@@ -329,7 +342,7 @@ impl<'a, 'b, Type: ASTType> StatementSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
+impl<'b, Type: ASTType> Iterator for StatementSymbolTable<'_, 'b, Type> {
     /// A tuple of prefix and symbol as required by  [`SymbolTable`]
     type Item = (
         Option<&'b ModuleUsageNameSymbol>,
@@ -344,7 +357,7 @@ impl<'a, 'b, Type: ASTType> Iterator for StatementSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for StatementSymbolTable<'a, 'b, Type> {}
+impl<'b, Type: ASTType> SymbolTable<'b, Type> for StatementSymbolTable<'_, 'b, Type> {}
 
 /// Linked list representing the path from the current statement to the root
 ///
@@ -371,13 +384,13 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
     ///
     /// # Parameter
     ///
-    /// - referenced_statement
+    /// - `referenced_statement`
     ///     - The root statement
     ///
     /// # Return
     ///
     /// A `StatementLocation` referencing the root statement
-    pub fn new_root(referenced_statement: &'b Statement<Type>) -> Self {
+    pub const fn new_root(referenced_statement: &'b Statement<Type>) -> Self {
         Self {
             position: None,
             referenced_statement,
@@ -391,18 +404,18 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
     /// - index
     ///     - The index that is required to take from the referenced statement of `prev` to get to
     ///       `statement_referenced`
-    /// - parent_statement
+    /// - `parent_statement`
     ///     - The parent statement
-    /// - referenced_statement
+    /// - `referenced_statement`
     ///     - The statement
     ///
     /// # Return
     ///
     /// A `StatementLocation` referencing the provided statement including the path from the parent
     /// statement and therefore also from the root.
-    pub fn new_node(
+    pub const fn new_node(
         index: usize,
-        parent_statement: &'a StatementLocation<'a, 'b, Type>,
+        parent_statement: &'a Self,
         referenced_statement: &'b Statement<Type>,
     ) -> Self {
         Self {
@@ -411,27 +424,35 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
         }
     }
 
+    #[must_use]
     pub fn index(&self) -> Option<usize> {
         self.position.map(|pos| pos.0)
     }
 
-    pub fn parent_statement(&self) -> Option<&'a StatementLocation<'a, 'b, Type>> {
+    #[must_use]
+    pub fn parent_statement(&self) -> Option<&'a Self> {
         self.position.map(|pos| pos.1)
     }
 
-    pub fn referenced_statement(&self) -> &'b Statement<Type> {
+    #[must_use]
+    pub const fn referenced_statement(&self) -> &'b Statement<Type> {
         self.referenced_statement
     }
 
     /// Calculates the length of this.
     ///
-    /// The length is the number of StatementLocation nodes
+    /// The length is the number of `StatementLocation` nodes
     /// one can get by following the prev fields plus one for the starting node.
     ///
     /// # Returns
     /// - The calculated length
+    ///
+    /// # Panics
+    ///
+    /// Panics if the statement location is invalid
     // An is_empty method would be redundant as len == 0 is not possible
     #[allow(clippy::len_without_is_empty)]
+    #[must_use]
     pub fn len(&self) -> usize {
         let mut len = 1;
         let mut current: Option<&StatementLocation<Type>> = self.parent_statement();
@@ -446,13 +467,14 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
 
     /// Indexes self with the specified index
     /// 0 results in self
-    /// len()-1 results in a StatementLocation that just indexes one level deeper than root
+    /// len()-1 results in a `StatementLocation` that just indexes one level deeper than root
     ///
     /// # Return
     ///
     /// - `None` if `self.len() <= index`
     /// - `Some(<StatementLocation>)` otherwise
-    pub fn get(&self, index: usize) -> Option<&StatementLocation<'a, 'b, Type>> {
+    #[must_use]
+    pub fn get(&self, index: usize) -> Option<&Self> {
         if index >= self.len() {
             return None;
         }
@@ -463,12 +485,12 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Index<usize> for StatementLocation<'a, 'b, Type> {
-    type Output = StatementLocation<'a, 'b, Type>;
+impl<Type: ASTType> Index<usize> for StatementLocation<'_, '_, Type> {
+    type Output = Self;
 
     /// Indexes self with the specified index
     /// 0 results in self
-    /// len()-1 results in a StatementLocation that just indexes one level deeper than root
+    /// len()-1 results in a `StatementLocation` that just indexes one level deeper than root
     ///
     /// # Panics
     ///

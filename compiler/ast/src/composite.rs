@@ -7,7 +7,7 @@ use crate::{ASTNode, ASTType, SemanticEq};
 use std::rc::Rc;
 
 /// An enum
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Enum<Type: ASTType> {
     symbol: Rc<EnumSymbol<Type>>,
     variants: Vec<ASTNode<EnumVariant<Type>>>,
@@ -15,7 +15,8 @@ pub struct Enum<Type: ASTType> {
 }
 
 impl<Type: ASTType> Enum<Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         symbol: Rc<EnumSymbol<Type>>,
         variants: Vec<ASTNode<EnumVariant<Type>>>,
         visibility: Visibility,
@@ -27,19 +28,23 @@ impl<Type: ASTType> Enum<Type> {
         }
     }
 
+    #[must_use]
     pub fn symbol(&self) -> &EnumSymbol<Type> {
         &self.symbol
     }
 
+    #[must_use]
     pub fn symbol_owned(&self) -> Rc<EnumSymbol<Type>> {
         self.symbol.clone()
     }
 
+    #[must_use]
     pub fn variants(&self) -> &[ASTNode<EnumVariant<Type>>] {
         &self.variants
     }
 
-    pub fn visibility(&self) -> Visibility {
+    #[must_use]
+    pub const fn visibility(&self) -> Visibility {
         self.visibility
     }
 
@@ -48,6 +53,7 @@ impl<Type: ASTType> Enum<Type> {
     /// # Errors
     ///
     /// There is no variant with `name`
+    #[must_use]
     pub fn variant_by_name(&self, name: &str) -> Option<&ASTNode<EnumVariant<Type>>> {
         self.variants()
             .iter()
@@ -69,21 +75,24 @@ impl<Type: ASTType> SemanticEq for Enum<Type> {
 /// A variant of an enum.
 ///
 /// In contrast to the symbol, this is supposed to be used for definitions
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct EnumVariant<Type: ASTType> {
     inner: Rc<EnumVariantSymbol<Type>>,
 }
 
 impl<Type: ASTType> EnumVariant<Type> {
-    pub fn new(inner: Rc<EnumVariantSymbol<Type>>) -> Self {
+    #[must_use]
+    pub const fn new(inner: Rc<EnumVariantSymbol<Type>>) -> Self {
         Self { inner }
     }
 
+    #[must_use]
     pub fn inner(&self) -> &EnumVariantSymbol<Type> {
         &self.inner
     }
 
-    pub fn inner_owned(&self) -> &Rc<EnumVariantSymbol<Type>> {
+    #[must_use]
+    pub const fn inner_owned(&self) -> &Rc<EnumVariantSymbol<Type>> {
         &self.inner
     }
 }
@@ -104,7 +113,8 @@ pub struct Struct<Type: ASTType> {
 }
 
 impl<Type: ASTType> Struct<Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         symbol: Rc<StructSymbol<Type>>,
         functions: Vec<ASTNode<Function<Type>>>,
         fields: Vec<ASTNode<StructField<Type>>>,
@@ -118,23 +128,28 @@ impl<Type: ASTType> Struct<Type> {
         }
     }
 
+    #[must_use]
     pub fn symbol(&self) -> &StructSymbol<Type> {
         &self.symbol
     }
 
+    #[must_use]
     pub fn symbol_owned(&self) -> Rc<StructSymbol<Type>> {
         self.symbol.clone()
     }
 
-    pub fn functions(&self) -> &Vec<ASTNode<Function<Type>>> {
+    #[must_use]
+    pub const fn functions(&self) -> &Vec<ASTNode<Function<Type>>> {
         &self.functions
     }
 
+    #[must_use]
     pub fn fields(&self) -> &[ASTNode<StructField<Type>>] {
         &self.fields
     }
 
-    pub fn visibility(&self) -> Visibility {
+    #[must_use]
+    pub const fn visibility(&self) -> Visibility {
         self.visibility
     }
 
@@ -148,7 +163,7 @@ impl<Type: ASTType> Struct<Type> {
         })
     }
 
-    /// Gets the function with the specified identifier if it is public or only_public is false
+    /// Gets the function with the specified identifier if it is public or `only_public` is false
     pub fn function_symbol(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -176,18 +191,22 @@ pub struct StructField<Type: ASTType> {
 }
 
 impl<Type: ASTType> StructField<Type> {
-    pub fn new(inner: Rc<StructFieldSymbol<Type>>, visibility: Visibility) -> Self {
+    #[must_use]
+    pub const fn new(inner: Rc<StructFieldSymbol<Type>>, visibility: Visibility) -> Self {
         Self { inner, visibility }
     }
+    #[must_use]
     pub fn inner(&self) -> &StructFieldSymbol<Type> {
         &self.inner
     }
 
+    #[must_use]
     pub fn inner_owned(&self) -> Rc<StructFieldSymbol<Type>> {
         self.inner.clone()
     }
 
-    pub fn visibility(&self) -> Visibility {
+    #[must_use]
+    pub const fn visibility(&self) -> Visibility {
         self.visibility
     }
 }
