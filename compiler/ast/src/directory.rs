@@ -142,11 +142,11 @@ impl<Type: ASTType> Directory<Type> {
         &'a self,
         callback: &mut impl FnMut(&'a ASTNode<Import>, &'a Self),
     ) {
-        self.files_iterator().for_each(|file| {
+        self.files_iterator().for_each(|file|
             file.imports()
                 .iter()
-                .for_each(|import| callback(import, self));
-        });
+                .for_each(|import| callback(import, self))
+        );
         self.subdirectories_iterator()
             .for_each(|subdir| subdir.deref().traverse_imports(callback));
     }
