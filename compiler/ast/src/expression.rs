@@ -1,6 +1,6 @@
 use crate::data_type::{DataType, Typed, UntypedDataType};
 use crate::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructFieldSymbol};
-use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
+use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
 use std::rc::Rc;
 
 /// This represents an expression as per section 2 of the lang spec
@@ -181,8 +181,8 @@ impl UnaryOp<UntypedAST> {
 impl Typed for UnaryOp<TypedAST> {
     fn data_type(&self) -> DataType {
         self.op_type.result_type(&self.input.data_type()).unwrap() // Unwrap safety: UnaryOps may only exist if the input type can be processed
-                                                                   // This is checked in the constructor
-                                                                   // Therefore, this can never panic
+        // This is checked in the constructor
+        // Therefore, this can never panic
     }
 }
 
@@ -405,8 +405,8 @@ impl Typed for BinaryOp<TypedAST> {
         self.op_type
             .result_type(&self.left.data_type(), &self.right.data_type())
             .unwrap() // Unwrap safety: BinaryOps may only exist if the input type can be processed
-                      // This is checked in the constructor
-                      // Therefore, this can never panic
+        // This is checked in the constructor
+        // Therefore, this can never panic
     }
 }
 
@@ -550,7 +550,8 @@ impl BinaryOpType {
 /// A struct field initializer with field and value
 // Even if unenforced, the bound still serves documentation purposes
 #[allow(type_alias_bounds)]
-pub type StructFieldInit<Type: ASTType> = (ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>);
+pub type StructFieldInit<Type: ASTType> =
+    (ASTNode<Type::StructFieldUse>, ASTNode<Expression<Type>>);
 /// The creation of an instance of a struct
 ///
 /// e.g.: new Struct(10, a, 'b')
@@ -570,10 +571,7 @@ pub struct NewStruct<Type: ASTType> {
 
 impl<Type: ASTType> NewStruct<Type> {
     #[must_use]
-    pub const fn new(
-        symbol: Type::StructUse,
-        parameters: Vec<StructFieldInit<Type>>,
-    ) -> Self {
+    pub const fn new(symbol: Type::StructUse, parameters: Vec<StructFieldInit<Type>>) -> Self {
         Self { symbol, parameters }
     }
 

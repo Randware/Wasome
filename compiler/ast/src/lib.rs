@@ -452,7 +452,7 @@ mod tests {
     use crate::traversal::{FunctionContainer, HasSymbols};
     use crate::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
     use crate::visibility::Visibility;
-    use crate::{ASTNode, SemanticEq, TypedAST, UntypedAST, AST};
+    use crate::{AST, ASTNode, SemanticEq, TypedAST, UntypedAST};
     use source::types::FileID;
     use std::path::PathBuf;
     use std::rc::Rc;
@@ -1797,7 +1797,7 @@ pub(crate) mod test_shared {
     use crate::statement::VariableDeclaration;
     use crate::symbol::VariableSymbol;
     use crate::top_level::Function;
-    use crate::{ASTNode, ASTType, TypedAST, AST};
+    use crate::{AST, ASTNode, ASTType, TypedAST};
     use source::types::{FileID, Span};
     use std::path::PathBuf;
     use std::rc::Rc;

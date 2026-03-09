@@ -1,7 +1,7 @@
 use crate::statement::Statement;
 use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
-use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::HasSymbols;
+use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
 use std::ops::Index;
@@ -11,7 +11,7 @@ use std::vec::IntoIter;
 ///
 /// It keeps a reference to the root (function) and a statement.
 /// This allows it to be used to keep track of all symbols available to a statement
-/// It is supposed to be created by either a `FunctionTraversalHelper` or 
+/// It is supposed to be created by either a `FunctionTraversalHelper` or
 /// the `StatementTraversalHelper` of the parent statement,
 ///
 /// # Lifetimes

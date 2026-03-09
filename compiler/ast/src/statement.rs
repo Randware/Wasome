@@ -3,7 +3,7 @@ use crate::expression::{Expression, FunctionCall};
 use crate::symbol::{
     DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, StructFieldSymbol, VariableSymbol,
 };
-use crate::{eq_return_option, ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST};
+use crate::{ASTNode, ASTType, SemanticEq, TypedAST, UntypedAST, eq_return_option};
 use std::cmp::PartialEq;
 use std::ops::{Deref, Index};
 use std::rc::Rc;
@@ -783,10 +783,10 @@ impl<Type: ASTType> SemanticEq for CodeBlock<Type> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::TypedAST;
     use crate::data_type::DataType;
     use crate::expression::{Expression, Literal};
     use crate::test_shared::{basic_test_variable, sample_span};
-    use crate::TypedAST;
 
     #[test]
     fn variable_assignment() {
@@ -811,16 +811,22 @@ mod tests {
                 after_each: after,
             },
         );
-        assert!(for_loop
-            .child_statement_at(0)
-            .semantic_eq(&create_literal_statement(Literal::S32(1))));
-        assert!(for_loop
-            .child_statement_at(1)
-            .semantic_eq(&create_literal_statement(Literal::S32(3))));
+        assert!(
+            for_loop
+                .child_statement_at(0)
+                .semantic_eq(&create_literal_statement(Literal::S32(1)))
+        );
+        assert!(
+            for_loop
+                .child_statement_at(1)
+                .semantic_eq(&create_literal_statement(Literal::S32(3)))
+        );
 
-        assert!(for_loop
-            .child_statement_at(2)
-            .semantic_eq(&create_literal_statement(Literal::S32(2))));
+        assert!(
+            for_loop
+                .child_statement_at(2)
+                .semantic_eq(&create_literal_statement(Literal::S32(2)))
+        );
     }
 
     #[test]
