@@ -26,9 +26,9 @@ impl DependencyResolver {
     ) -> Result<Vec<Project>, ManifestError> {
         let mut resolved_projects = Vec::new();
 
-        let initial_chain = vec![format!(
-            "{}@{}",
-            manifest.project.name, manifest.project.version
+        let initial_chain = vec![version_str(
+            &manifest.project.name,
+            &manifest.project.version,
         )];
 
         self.resolve_recursive(manifest, source, &mut resolved_projects, initial_chain)?;
@@ -38,7 +38,7 @@ impl DependencyResolver {
 
     /// Takes a dependency name and version, and figures out where it lives
     pub fn locate(&self, name: &str, version: &str) -> Option<PathBuf> {
-        let folder_name = format!("{}@{}", name, version);
+        let folder_name = version_str(name, version);
 
         // Try local project "lib" folder first (local dependencies have higher importance)
         let local_path = self
@@ -69,7 +69,7 @@ impl DependencyResolver {
         };
 
         for (name, version) in deps {
-            let dep_id = format!("{}@{}", name, version);
+            let dep_id = version_str(name, version);
 
             let dep_path = match self.locate(name, version) {
                 Some(path) => path,
@@ -101,9 +101,9 @@ impl DependencyResolver {
             ));
 
             let mut next_chain = chain.clone();
-            next_chain.push(format!(
-                "{}@{}",
-                dep_manifest.project.name, dep_manifest.project.version
+            next_chain.push(version_str(
+                &dep_manifest.project.name,
+                &dep_manifest.project.version,
             ));
 
             let resolver = DependencyResolver::new(dep_path.clone());
@@ -112,4 +112,9 @@ impl DependencyResolver {
 
         Ok(())
     }
+}
+
+/// Helper for constructing version strings for dependencies
+fn version_str(name: impl ToString, version: impl ToString) -> String {
+    format!("{}@{}", name.to_string(), version.to_string())
 }
