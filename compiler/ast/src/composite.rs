@@ -92,8 +92,8 @@ impl<Type: ASTType> EnumVariant<Type> {
     }
 
     #[must_use]
-    pub const fn inner_owned(&self) -> &Rc<EnumVariantSymbol<Type>> {
-        &self.inner
+    pub fn inner_owned(&self) -> Rc<EnumVariantSymbol<Type>> {
+        self.inner.clone()
     }
 }
 
