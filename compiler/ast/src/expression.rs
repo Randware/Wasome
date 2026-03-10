@@ -1179,18 +1179,36 @@ mod tests {
     #[test]
     fn typecast() {
         let typecast_s32 = Typecast::new(DataType::S32);
-        assert_eq!(Some(DataType::S32), typecast_s32.result_type(&DataType::F32));
-        assert_eq!(Some(DataType::S32), typecast_s32.result_type(&DataType::S16));
+        assert_eq!(
+            Some(DataType::S32),
+            typecast_s32.result_type(&DataType::F32)
+        );
+        assert_eq!(
+            Some(DataType::S32),
+            typecast_s32.result_type(&DataType::S16)
+        );
         assert_eq!(None, typecast_s32.result_type(&DataType::S32));
 
         let typecast_u16 = Typecast::new(DataType::U16);
-        assert_eq!(Some(DataType::U16), typecast_u16.result_type(&DataType::U32));
-        assert_eq!(Some(DataType::U16), typecast_u16.result_type(&DataType::S16));
+        assert_eq!(
+            Some(DataType::U16),
+            typecast_u16.result_type(&DataType::U32)
+        );
+        assert_eq!(
+            Some(DataType::U16),
+            typecast_u16.result_type(&DataType::S16)
+        );
         assert_eq!(None, typecast_u16.result_type(&DataType::F32));
 
         let typecast_s64 = Typecast::new(DataType::S64);
-        assert_eq!(Some(DataType::S64), typecast_s64.result_type(&DataType::F64));
-        assert_eq!(Some(DataType::S64), typecast_s64.result_type(&DataType::S32));
+        assert_eq!(
+            Some(DataType::S64),
+            typecast_s64.result_type(&DataType::F64)
+        );
+        assert_eq!(
+            Some(DataType::S64),
+            typecast_s64.result_type(&DataType::S32)
+        );
         assert_eq!(None, typecast_s64.result_type(&DataType::F32));
     }
 
@@ -1388,7 +1406,10 @@ mod tests {
         // Test additional edge cases in typecasting that might be missed
         let typecast_s32 = Typecast::new(DataType::S32);
 
-        assert_eq!(Some(DataType::S32), typecast_s32.result_type(&DataType::F32));
+        assert_eq!(
+            Some(DataType::S32),
+            typecast_s32.result_type(&DataType::F32)
+        );
         assert_eq!(None, typecast_s32.result_type(&DataType::F64));
 
         // S32 conversion of same type should fail
