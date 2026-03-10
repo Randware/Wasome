@@ -11,8 +11,15 @@
 //! Each level can contain instances of the level below it and its own level.
 //!
 //! In addition to these main types, there are also six traversial helpers:
-//! `DirectoryTraversalHelper`, `FileTraversalHelper`, `FunctionTraversalHelper`, `StatementTraversalHelper`, `StructTraversalHelper` and `EnumTraversalHelper`
-//! They all contain references to an instance of Directory, File, Function, Statement or Struct and allow to list all
+//! [`DirectoryTraversalHelper`](traversal::directory_traversal::DirectoryTraversalHelper),
+//! [`FileTraversalHelper`](traversal::file_traversal::FileTraversalHelper),
+//! [`FunctionTraversalHelper`](traversal::function_traversal::FunctionTraversalHelper),
+//! [`StatementTraversalHelper`](traversal::statement_traversal::StatementTraversalHelper),
+//! [`StructTraversalHelper`](traversal::struct_traversal::StructTraversalHelper) and
+//! [`EnumTraversalHelper`](traversal::enum_traversal::EnumTraversalHelper).
+//! They all contain references to an instance of [`Directory`], [`File`](file::File),
+//! [`Function`](top_level::Function), [`Statement`](statement::Statement),
+//! [`Struct`](composite::Struct) or [`Enum`](composite::Enum) and allow to list all
 //! symbols available to it.
 //!
 //! For more information on how to use this, refer to the tests in this file.
@@ -58,6 +65,7 @@ pub mod visibility;
 pub trait SemanticEq {
     ///  The equality method.
     /// For more information, refer to the trait documentation
+    #[must_use]
     fn semantic_eq(&self, other: &Self) -> bool;
 }
 
@@ -146,11 +154,13 @@ impl<Type: ASTType> UnresolvedImports<Type> {
 impl<Type: ASTType> AST<Type> {
     /// Creates a new instance of AST
     ///
-    /// Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
+    /// # Returns
+    ///
+    /// Err if unresolved imports are contained. The problematic imports will be contained in the error
     ///
     /// # Errors
     ///
-    /// Returns `UnresolvedImports` if the AST contains unresolved imports.
+    /// Returns [`UnresolvedImports`] if the AST contains unresolved imports.
     // Lifetime issues prevent the imports from being returned directly
     pub fn new(inner: ASTNode<Directory<Type>, PathBuf>) -> Result<Self, UnresolvedImports<Type>> {
         let ast = Self { inner };

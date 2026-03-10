@@ -13,7 +13,7 @@ use std::rc::Rc;
 /// # Equality
 ///
 /// Two different Statements are never equal.
-/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
+/// Use `semantic_eq` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum Statement<Type: ASTType> {
     // Assignment to existing variable
@@ -75,6 +75,7 @@ impl<Type: ASTType> Statement<Type> {
     /// # Return
     ///
     /// A vec with the symbols. It will be empty if there are no symbols
+    #[must_use]
     pub fn get_direct_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
         match self {
             Self::VariableDeclaration(inner) => vec![inner.variable()],
@@ -84,7 +85,8 @@ impl<Type: ASTType> Statement<Type> {
 
     /// Gets all symbols defined in self and only available to child statements
     ///
-    /// Currently, only `IfEnumBlocks` return anything but an empty vec
+    /// Currently, only [`IfEnumVariant`] return anything but an empty vec
+    #[must_use]
     pub fn get_direct_child_only_variable_symbols(&self) -> Vec<&VariableSymbol<Type>> {
         match self {
             Self::ControlStructure(inner) => match &**inner {
@@ -98,6 +100,7 @@ impl<Type: ASTType> Statement<Type> {
     }
 
     /// Same as [`Self::get_direct_child_only_variable_symbols`], except that the [`DirectlyAvailableSymbol`] struct is used
+    #[must_use]
     pub fn get_direct_child_only_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
         self.get_direct_child_only_variable_symbols()
             .into_iter()
@@ -106,6 +109,7 @@ impl<Type: ASTType> Statement<Type> {
     }
 
     /// Same as [`Self::get_direct_variable_symbols`], except that the [`DirectlyAvailableSymbol`] struct is used
+    #[must_use]
     pub fn get_direct_symbols(&self) -> Vec<DirectlyAvailableSymbol<'_, Type>> {
         self.get_direct_variable_symbols()
             .into_iter()
@@ -114,6 +118,7 @@ impl<Type: ASTType> Statement<Type> {
     }
 
     /// Gets the length of the child statements
+    #[must_use]
     pub fn amount_children(&self) -> usize {
         match self {
             Self::ControlStructure(structure) => structure.child_len(),
@@ -142,7 +147,7 @@ impl<Type: ASTType> Index<usize> for Statement<Type> {
 /// # Equality
 ///
 /// Two different `VariableAssignment` are never equal.
-/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
+/// Use `semantic_eq` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct VariableDeclaration<Type: ASTType> {
     variable: Rc<VariableSymbol<Type>>,
@@ -157,7 +162,10 @@ impl<Type: ASTType> SemanticEq for VariableDeclaration<Type> {
 
 impl VariableDeclaration<TypedAST> {
     /// Tries to create a new instance
-    /// returns None if the type of the variable symbol and the return type of the expression doesn't
+    ///
+    /// # Returns
+    ///
+    /// None if the type of the variable symbol and the return type of the expression doesn't
     /// match
     #[must_use]
     pub fn new(
@@ -187,15 +195,18 @@ impl VariableDeclaration<UntypedAST> {
 }
 
 impl<Type: ASTType> VariableDeclaration<Type> {
+    #[must_use]
     pub fn variable(&self) -> &VariableSymbol<Type> {
         &self.variable
     }
 
     /// Gets the variable symbol by cloning the underlying RC
+    #[must_use]
     pub fn variable_owned(&self) -> Rc<VariableSymbol<Type>> {
         self.variable.clone()
     }
 
+    #[must_use]
     pub const fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
@@ -231,10 +242,12 @@ impl VariableAssignment<UntypedAST> {
 }
 
 impl<Type: ASTType> VariableAssignment<Type> {
+    #[must_use]
     pub const fn variable(&self) -> &Type::VariableUse {
         &self.variable
     }
 
+    #[must_use]
     pub const fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
@@ -266,8 +279,6 @@ impl StructFieldAssignment<TypedAST> {
     ///
     /// - The data type of `struct_field` and `value` mismatch
     /// - `struct_source` doesn't evaluate to a struct
-    ///
-    ///
     #[must_use]
     pub fn new(
         struct_source: ASTNode<Expression<TypedAST>>,
@@ -306,14 +317,17 @@ impl StructFieldAssignment<UntypedAST> {
 }
 
 impl<Type: ASTType> StructFieldAssignment<Type> {
+    #[must_use]
     pub const fn struct_source(&self) -> &ASTNode<Expression<Type>> {
         &self.struct_source
     }
 
+    #[must_use]
     pub const fn struct_field(&self) -> &Type::StructFieldUse {
         &self.struct_field
     }
 
+    #[must_use]
     pub const fn value(&self) -> &ASTNode<Expression<Type>> {
         &self.value
     }
@@ -324,7 +338,7 @@ impl<Type: ASTType> StructFieldAssignment<Type> {
 /// # Equality
 ///
 /// Two different `ControlStructures` are never equal.
-/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
+/// Use `semantic_eq` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub enum ControlStructure<Type: ASTType> {
     Conditional(Conditional<Type>),
@@ -351,6 +365,7 @@ impl<Type: ASTType> ControlStructure<Type> {
     /// Returns the number of direct child statements
     ///
     /// This includes the before and after statements of the for loop
+    #[must_use]
     pub fn child_len(&self) -> usize {
         match self {
             Self::Conditional(inner) => inner.len(),
@@ -362,6 +377,7 @@ impl<Type: ASTType> ControlStructure<Type> {
     /// Returns the child statement at index
     ///
     /// The available statements are the same as in [`child_len`](ControlStructure::child_len)
+    #[must_use]
     pub(crate) fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match self {
             Self::Conditional(cond) => cond.child_statement_at(index),
@@ -380,7 +396,7 @@ impl<Type: ASTType> ControlStructure<Type> {
 /// # Equality
 ///
 /// Two different `Conditionals` are never equal.
-/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
+/// Use `semantic_eq` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Conditional<Type: ASTType> {
     condition: ASTNode<Expression<Type>>,
@@ -405,18 +421,22 @@ impl<Type: ASTType> Conditional<Type> {
     /// Returns the number of direct child statements
     ///
     /// This includes the if and the else statement, if it exists
+    #[must_use]
     pub(crate) fn len(&self) -> usize {
         1 + usize::from(self.else_statement.is_some())
     }
 
+    #[must_use]
     pub const fn condition(&self) -> &ASTNode<Expression<Type>> {
         &self.condition
     }
 
+    #[must_use]
     pub const fn then_statement(&self) -> &ASTNode<Statement<Type>> {
         &self.then_statement
     }
 
+    #[must_use]
     pub const fn else_statement(&self) -> Option<&ASTNode<Statement<Type>>> {
         self.else_statement.as_ref()
     }
@@ -431,6 +451,7 @@ impl<Type: ASTType> Conditional<Type> {
     /// - This is if:
     ///     - There is an else statement and index >= 2
     ///     - There is no else statement and index >= 1
+    #[must_use]
     fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         match index {
             0 => &self.then_statement,
@@ -464,7 +485,7 @@ impl<Type: ASTType> SemanticEq for Conditional<Type> {
 /// # Equality
 ///
 /// Two different `IfEnumVariant`s are never equal.
-/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
+/// Use `semantic_eq` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct IfEnumVariant<Type: ASTType> {
     condition_enum: Type::EnumUse,
@@ -494,10 +515,11 @@ impl IfEnumVariant<UntypedAST> {
     }
 }
 
-/// Attempts to create a new `IfEnumVariant`
-///
-/// Returns None if the amount or data types of variables doesn't match the data types on the enum variant
 impl IfEnumVariant<TypedAST> {
+    /// Attempts to create a new [`IfEnumVariant`]
+    ///
+    /// Returns None if the amount or data types of variables doesn't
+    /// match the data types on the enum variant
     #[must_use]
     pub fn new(
         condition_enum: Rc<EnumSymbol<TypedAST>>,
@@ -526,26 +548,32 @@ impl IfEnumVariant<TypedAST> {
     }
 }
 impl<Type: ASTType> IfEnumVariant<Type> {
+    #[must_use]
     pub const fn condition_enum(&self) -> &Type::EnumUse {
         &self.condition_enum
     }
 
+    #[must_use]
     pub const fn condition_enum_variant(&self) -> &Type::EnumVariantUse {
         &self.condition_enum_variant
     }
 
+    #[must_use]
     pub const fn assignment_expression(&self) -> &ASTNode<Expression<Type>> {
         &self.assignment_expression
     }
 
+    #[must_use]
     pub fn variables(&self) -> &[Rc<VariableSymbol<Type>>] {
         &self.variables
     }
 
+    #[must_use]
     pub const fn then_statement(&self) -> &ASTNode<Statement<Type>> {
         &self.then_statement
     }
 
+    #[must_use]
     pub const fn child_len(&self) -> usize {
         // A IfEnumVariant has one child statement
         // The then statement
@@ -571,7 +599,7 @@ impl<Type: ASTType> SemanticEq for IfEnumVariant<Type> {
 ///
 /// # Equality
 /// Two different `Loops` are never equal.
-/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
+/// Use `semantic_eq` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Loop<Type: ASTType> {
     to_loop_on: ASTNode<Statement<Type>>,
@@ -590,14 +618,17 @@ impl<Type: ASTType> Loop<Type> {
     /// Returns the number of direct child statements
     ///
     /// This includes the before and after statements of the for loop
+    #[must_use]
     pub(crate) const fn len(&self) -> usize {
         self.loop_type.len() + 1
     }
 
+    #[must_use]
     pub fn to_loop_on(&self) -> &Statement<Type> {
         &self.to_loop_on
     }
 
+    #[must_use]
     pub const fn loop_type(&self) -> &LoopType<Type> {
         &self.loop_type
     }
@@ -605,6 +636,7 @@ impl<Type: ASTType> Loop<Type> {
     /// Returns the child statement at index
     ///
     /// The available statements are the same as in [`child_len`](Loop::len)
+    #[must_use]
     fn child_statement_at(&self, index: usize) -> &ASTNode<Statement<Type>> {
         // The after each statement comes after the looped on code
         // So it needs special handling
@@ -719,7 +751,7 @@ impl<Type: ASTType> SemanticEq for LoopType<Type> {
 /// This is a wrapper around Expression with the wrapped one being the one's result that will be returned
 /// # Equality
 /// Two different `Returns` are never equal.
-/// Use `semantic_equals` from [`SemanticEq`] to check semantics only
+/// Use `semantic_eq` from [`SemanticEq`] to check semantics only
 #[derive(Debug, PartialEq)]
 pub struct Return<Type: ASTType> {
     to_return: Option<ASTNode<Expression<Type>>>,
@@ -731,6 +763,7 @@ impl<Type: ASTType> Return<Type> {
         Self { to_return }
     }
 
+    #[must_use]
     pub const fn to_return(&self) -> Option<&ASTNode<Expression<Type>>> {
         self.to_return.as_ref()
     }

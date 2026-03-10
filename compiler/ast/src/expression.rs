@@ -16,7 +16,7 @@ pub enum Expression<Type: ASTType> {
     /// Only valid in the untyped AST
     /// Use `FunctionCall` in the typed AST
     ///
-    /// Constructing it anyway can lead to arbitiary behavior, including panics
+    /// Constructing it anyway can lead to arbitrary behavior, including panics
     MethodCall(Box<MethodCall>),
     Variable(Type::VariableUse),
     Literal(Type::LiteralType),
@@ -215,7 +215,7 @@ impl UnaryOpType<TypedAST> {
         match self {
             Self::Negative => Self::minus_type(to_process),
             Self::Not => Self::neg_type(to_process),
-            Self::Typecast(inner) => inner.result_type(to_process.clone()),
+            Self::Typecast(inner) => inner.result_type(to_process),
         }
     }
 
@@ -259,15 +259,15 @@ pub struct Typecast<Type: ASTType> {
 }
 
 impl<Type: ASTType> Typecast<Type> {
-    #[must_use]
-    pub const fn target(&self) -> &Type::GeneralDataType {
-        &self.target
-    }
-
     /// Creates a new Typecast
     #[must_use]
     pub const fn new(target: Type::GeneralDataType) -> Self {
         Self { target }
+    }
+
+    #[must_use]
+    pub const fn target(&self) -> &Type::GeneralDataType {
+        &self.target
     }
 }
 
@@ -284,7 +284,7 @@ impl Typecast<TypedAST> {
     /// - Some(result) if `to_process` can be cast to result
     /// - None if there is no cast available
     #[must_use]
-    pub fn result_type(&self, to_process: DataType) -> Option<DataType> {
+    pub fn result_type(&self, to_process: &DataType) -> Option<DataType> {
         match (to_process, &self.target) {
             (DataType::S8 | DataType::U16, DataType::U8)
             | (DataType::U8 | DataType::S16, DataType::S8)
@@ -606,7 +606,7 @@ impl<Type: ASTType> SemanticEq for NewStruct<Type> {
 
 /// The creation of an instance of an enum
 ///
-/// e.g.: `Enum::Variant`(1, true)
+/// e.g.: `Enum::Variant(1, true)`
 ///
 /// ## Variant checking
 ///
@@ -765,7 +765,7 @@ impl<Type: ASTType> FunctionCall<Type> {
     }
 
     #[must_use]
-    pub const fn args(&self) -> &Vec<ASTNode<Expression<Type>>> {
+    pub fn args(&self) -> &[ASTNode<Expression<Type>>] {
         &self.args
     }
 }
@@ -849,7 +849,7 @@ impl MethodCall {
     }
 
     #[must_use]
-    pub const fn args(&self) -> &Vec<ASTNode<Expression<UntypedAST>>> {
+    pub fn args(&self) -> &[ASTNode<Expression<UntypedAST>>] {
         &self.args
     }
 }
@@ -1179,19 +1179,19 @@ mod tests {
     #[test]
     fn typecast() {
         let typecast_s32 = Typecast::new(DataType::S32);
-        assert_eq!(Some(DataType::S32), typecast_s32.result_type(DataType::F32));
-        assert_eq!(Some(DataType::S32), typecast_s32.result_type(DataType::S16));
-        assert_eq!(None, typecast_s32.result_type(DataType::S32));
+        assert_eq!(Some(DataType::S32), typecast_s32.result_type(&DataType::F32));
+        assert_eq!(Some(DataType::S32), typecast_s32.result_type(&DataType::S16));
+        assert_eq!(None, typecast_s32.result_type(&DataType::S32));
 
         let typecast_u16 = Typecast::new(DataType::U16);
-        assert_eq!(Some(DataType::U16), typecast_u16.result_type(DataType::U32));
-        assert_eq!(Some(DataType::U16), typecast_u16.result_type(DataType::S16));
-        assert_eq!(None, typecast_u16.result_type(DataType::F32));
+        assert_eq!(Some(DataType::U16), typecast_u16.result_type(&DataType::U32));
+        assert_eq!(Some(DataType::U16), typecast_u16.result_type(&DataType::S16));
+        assert_eq!(None, typecast_u16.result_type(&DataType::F32));
 
         let typecast_s64 = Typecast::new(DataType::S64);
-        assert_eq!(Some(DataType::S64), typecast_s64.result_type(DataType::F64));
-        assert_eq!(Some(DataType::S64), typecast_s64.result_type(DataType::S32));
-        assert_eq!(None, typecast_s64.result_type(DataType::F32));
+        assert_eq!(Some(DataType::S64), typecast_s64.result_type(&DataType::F64));
+        assert_eq!(Some(DataType::S64), typecast_s64.result_type(&DataType::S32));
+        assert_eq!(None, typecast_s64.result_type(&DataType::F32));
     }
 
     #[test]
@@ -1388,22 +1388,22 @@ mod tests {
         // Test additional edge cases in typecasting that might be missed
         let typecast_s32 = Typecast::new(DataType::S32);
 
-        assert_eq!(Some(DataType::S32), typecast_s32.result_type(DataType::F32));
-        assert_eq!(None, typecast_s32.result_type(DataType::F64));
+        assert_eq!(Some(DataType::S32), typecast_s32.result_type(&DataType::F32));
+        assert_eq!(None, typecast_s32.result_type(&DataType::F64));
 
         // S32 conversion of same type should fail
-        assert_eq!(None, typecast_s32.result_type(DataType::S32));
+        assert_eq!(None, typecast_s32.result_type(&DataType::S32));
 
         // Test boundaries for integer casts between adjacent sizes
         let tc_u16 = Typecast::new(DataType::U16);
-        assert_eq!(Some(DataType::U16), tc_u16.result_type(DataType::U32));
-        assert_eq!(None, tc_u16.result_type(DataType::S32));
-        assert_eq!(None, tc_u16.result_type(DataType::F32)); // Float to int should fail
+        assert_eq!(Some(DataType::U16), tc_u16.result_type(&DataType::U32));
+        assert_eq!(None, tc_u16.result_type(&DataType::S32));
+        assert_eq!(None, tc_u16.result_type(&DataType::F32)); // Float to int should fail
 
         let tc_s8 = Typecast::new(DataType::S8);
-        assert_eq!(Some(DataType::S8), tc_s8.result_type(DataType::S16));
-        assert_eq!(None, tc_s8.result_type(DataType::U16));
-        assert_eq!(None, tc_s8.result_type(DataType::F32));
+        assert_eq!(Some(DataType::S8), tc_s8.result_type(&DataType::S16));
+        assert_eq!(None, tc_s8.result_type(&DataType::U16));
+        assert_eq!(None, tc_s8.result_type(&DataType::F32));
     }
 
     #[test]

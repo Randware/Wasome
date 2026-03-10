@@ -95,7 +95,7 @@ impl Import {
     }
 
     #[must_use]
-    pub const fn path(&self) -> &Vec<String> {
+    pub fn path(&self) -> &[String] {
         &self.path
     }
 

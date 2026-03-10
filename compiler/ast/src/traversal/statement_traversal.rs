@@ -11,7 +11,7 @@ use std::vec::IntoIter;
 ///
 /// It keeps a reference to the root (function) and a statement.
 /// This allows it to be used to keep track of all symbols available to a statement
-/// It is supposed to be created by either a `FunctionTraversalHelper` or
+/// It is supposed to be created by either a [`FunctionTraversalHelper`] or
 /// the `StatementTraversalHelper` of the parent statement,
 ///
 /// # Lifetimes
@@ -31,7 +31,7 @@ pub struct StatementTraversalHelper<'a, 'b, Type: ASTType> {
 }
 
 impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
-    /// Creates a new `StatementRef` where inner is the root
+    /// Creates a new `StatementTraversalHelper` where inner is the root
     #[must_use]
     pub fn new_root(root: &'a FunctionTraversalHelper<'a, 'b, Type>) -> Self {
         Self {
@@ -153,10 +153,8 @@ impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     /// # Return
     ///
     /// The requested symbols
-    ///
-    /// # Panics
-    ///
-    /// This function will never panic as it always passes a valid index.
+    // This never actually panics
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn symbols_defined_directly_in(&self) -> Vec<DirectlyAvailableSymbol<'b, Type>> {
         // self.amount_children() can never be > self.amount_children()
@@ -446,12 +444,10 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
     ///
     /// # Returns
     /// - The calculated length
-    ///
-    /// # Panics
-    ///
-    /// Panics if the statement location is invalid
     // An is_empty method would be redundant as len == 0 is not possible
     #[allow(clippy::len_without_is_empty)]
+    // This never actually panics
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn len(&self) -> usize {
         let mut len = 1;
@@ -467,7 +463,7 @@ impl<'a, 'b, Type: ASTType> StatementLocation<'a, 'b, Type> {
 
     /// Indexes self with the specified index
     /// 0 results in self
-    /// len()-1 results in a `StatementLocation` that just indexes one level deeper than root
+    /// len()-1 results in the root
     ///
     /// # Return
     ///

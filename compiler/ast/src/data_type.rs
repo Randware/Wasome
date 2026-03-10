@@ -7,6 +7,8 @@ use std::rc::Rc;
 /// This only exists in the typed AST
 /// Therefore, having type parameters here does not make sense as they are part of the composite
 /// identifier (and not data types) in the typed AST
+///
+/// Despite not being [`Copy`], this is still fairly cheap to clone.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DataType {
     Char,
@@ -32,6 +34,7 @@ pub enum DataType {
 /// Examples include expressions and operators
 pub trait Typed {
     /// Gets the data type
+    #[must_use]
     fn data_type(&self) -> DataType;
 }
 

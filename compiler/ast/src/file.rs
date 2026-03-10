@@ -56,12 +56,12 @@ impl<Type: ASTType> File<Type> {
     }
 
     #[must_use]
-    pub const fn enums(&self) -> &Vec<ASTNode<Enum<Type>>> {
+    pub fn enums(&self) -> &[ASTNode<Enum<Type>>] {
         &self.enums
     }
 
     #[must_use]
-    pub const fn structs(&self) -> &Vec<ASTNode<Struct<Type>>> {
+    pub fn structs(&self) -> &[ASTNode<Struct<Type>>] {
         &self.structs
     }
 

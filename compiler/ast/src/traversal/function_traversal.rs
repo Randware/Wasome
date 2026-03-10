@@ -47,7 +47,7 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
         FunctionSymbolTable::new(self)
     }
 
-    /// Gets a `StatementRef` for the top level statement in this function
+    /// Gets a [`StatementTraversalHelper`] for the top level statement in this function
     /// This is the intended way to traverse a function
     #[must_use]
     pub fn ref_to_implementation(&self) -> StatementTraversalHelper<'_, 'b, Type> {

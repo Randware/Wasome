@@ -24,7 +24,7 @@ use std::rc::Rc;
 /// # Equality
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
-/// `PartialEq` behavior instead
+/// [`PartialEq`] behavior instead
 pub trait SymbolTable<'a, Type: ASTType>:
     Iterator<
     Item = (
@@ -37,11 +37,11 @@ pub trait SymbolTable<'a, Type: ASTType>:
 
 /// A reference to a directly accessible symbol symbol
 ///
-/// Examples of non-DirectlyAvailableSymbols include `EnumVariantSymbolss` and `StructFieldSymbols`
+/// Examples of non-DirectlyAvailableSymbols include [`EnumVariantSymbol`]s and [`StructFieldSymbol`]s
 ///
-/// The data is only owned to allow for efficient creation
+/// The data is only borrowed to allow for efficient creation
 /// of instanced of this without giving up type safety
-/// when storing concrete symbols (e.g.: `VariableSymbols`)
+/// when storing concrete symbols (e.g.: [`VariableSymbol`]s)
 #[derive(Debug)]
 pub enum DirectlyAvailableSymbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
@@ -70,6 +70,7 @@ impl<Type: ASTType> DirectlyAvailableSymbol<'_, Type> {
         }
     }
 
+    #[must_use]
     pub fn matches_identifier(&self, identifier: Type::SymbolIdentifier<'_>) -> bool {
         match self {
             DirectlyAvailableSymbol::Function(func) => {
@@ -157,8 +158,11 @@ impl<Type: ASTType> Eq for DirectlyAvailableSymbol<'_, Type> {}
 pub trait SymbolWithTypeParameter<Type: ASTType>:
     Debug + PartialEq + SemanticEq + Eq + Hash
 {
+    #[must_use]
     fn name(&self) -> &str;
+    #[must_use]
     fn id(&self) -> &Id;
+    #[must_use]
     fn type_parameters(&self) -> &[Type::TypeParameterDeclaration];
 }
 
@@ -167,7 +171,7 @@ pub trait SymbolWithTypeParameter<Type: ASTType>:
 /// # Equality
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
-/// `PartialEq` behavior instead
+/// [`PartialEq`] behavior instead
 #[derive(Debug, Clone)]
 pub struct FunctionSymbol<Type: ASTType> {
     id: Id,
@@ -179,6 +183,7 @@ pub struct FunctionSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> FunctionSymbol<Type> {
+    #[must_use]
     pub fn new(
         name: String,
         return_type: Option<Type::GeneralDataType>,
@@ -194,10 +199,12 @@ impl<Type: ASTType> FunctionSymbol<Type> {
         }
     }
 
+    #[must_use]
     pub fn params(&self) -> &[Rc<VariableSymbol<Type>>] {
         &self.params
     }
 
+    #[must_use]
     pub const fn return_type(&self) -> Option<&Type::GeneralDataType> {
         self.return_type.as_ref()
     }
@@ -253,6 +260,7 @@ pub struct VariableSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> VariableSymbol<Type> {
+    #[must_use]
     pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
         Self {
             id: Id::new(),
@@ -261,10 +269,12 @@ impl<Type: ASTType> VariableSymbol<Type> {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub const fn data_type(&self) -> &Type::GeneralDataType {
         &self.data_type
     }
@@ -305,7 +315,7 @@ impl<Type: ASTType> Eq for VariableSymbol<Type> {}
 /// # Equality
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
-/// `PartialEq` behavior instead
+/// [`PartialEq`] behavior instead
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ModuleUsageNameSymbol {
     id: Id,
@@ -507,6 +517,7 @@ pub struct StructFieldSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> StructFieldSymbol<Type> {
+    #[must_use]
     pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
         Self {
             id: Id::new(),
@@ -515,14 +526,17 @@ impl<Type: ASTType> StructFieldSymbol<Type> {
         }
     }
 
+    #[must_use]
     pub const fn id(&self) -> &Id {
         &self.id
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub const fn data_type(&self) -> &Type::GeneralDataType {
         &self.data_type
     }

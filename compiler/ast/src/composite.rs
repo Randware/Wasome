@@ -139,7 +139,7 @@ impl<Type: ASTType> Struct<Type> {
     }
 
     #[must_use]
-    pub const fn functions(&self) -> &Vec<ASTNode<Function<Type>>> {
+    pub fn functions(&self) -> &[ASTNode<Function<Type>>] {
         &self.functions
     }
 
