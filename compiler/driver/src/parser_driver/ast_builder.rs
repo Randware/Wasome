@@ -416,7 +416,7 @@ impl ImportInformation {
                     ModulePath::from_import_information(
                         file_module,
                         import.root(),
-                        import.path().clone(),
+                        import.path().to_vec(),
                     )
                     .unwrap(),
                     *import.position(),
