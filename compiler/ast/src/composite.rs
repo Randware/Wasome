@@ -154,6 +154,7 @@ impl<Type: ASTType> Struct<Type> {
     }
 
     /// Gets the function with the specified identifier
+    #[must_use]
     pub fn function_by_identifier(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -164,6 +165,7 @@ impl<Type: ASTType> Struct<Type> {
     }
 
     /// Gets the function with the specified identifier if it is public or `only_public` is false
+    #[must_use]
     pub fn function_symbol(
         &self,
         identifier: Type::SymbolIdentifier<'_>,

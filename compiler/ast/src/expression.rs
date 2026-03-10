@@ -221,6 +221,7 @@ impl UnaryOpType<TypedAST> {
 
     /// Returns the type of data from putting the input type through a negation operator
     /// (lang spec, section 3)
+    #[must_use]
     const fn neg_type(to_process: &DataType) -> Option<DataType> {
         match to_process {
             DataType::Bool => Some(DataType::Bool),
@@ -230,6 +231,7 @@ impl UnaryOpType<TypedAST> {
 
     /// Returns the type of data from putting the input type through a minus operator
     /// (lang spec, section 3)
+    #[must_use]
     fn minus_type(to_process: &DataType) -> Option<DataType> {
         match to_process {
             DataType::Char
@@ -492,6 +494,7 @@ impl BinaryOpType {
 
     /// Returns the type of data from putting the two input types through an arithmetic operator
     /// (lang spec, section 3)
+    #[must_use]
     fn arithmetic_type(left: &DataType, right: &DataType) -> Option<DataType> {
         eq_return_option(left, right)?;
         match left {
@@ -511,6 +514,7 @@ impl BinaryOpType {
 
     /// Returns the type of data from putting the two input types through an integer only operator
     /// (lang spec, section 3)
+    #[must_use]
     fn int_op_type(left: &DataType, right: &DataType) -> Option<DataType> {
         eq_return_option(left, right)?;
         match left {
@@ -528,6 +532,7 @@ impl BinaryOpType {
 
     /// Returns the type of data from putting the two input types through a bool only (such as or) operator
     /// (lang spec, section 3)
+    #[must_use]
     fn bool_op_type(left: &DataType, right: &DataType) -> Option<DataType> {
         eq_return_option(left, right)?;
         match left {
@@ -538,6 +543,7 @@ impl BinaryOpType {
 
     /// Returns the type of data from putting the two input types through a comparison operator
     /// (lang spec, section 3)
+    #[must_use]
     fn comparison_op_type(left: &DataType, right: &DataType) -> Option<DataType> {
         eq_return_option(left, right)?;
         if *left == DataType::Bool || *left == DataType::Char {

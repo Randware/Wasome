@@ -66,6 +66,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the symbol with the specified identifier
+    #[must_use]
     pub fn symbol(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -74,6 +75,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the symbol with the specified identifier if it is public
+    #[must_use]
     pub fn symbol_public(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -94,6 +96,7 @@ impl<Type: ASTType> File<Type> {
     ///
     /// - `None`: If no symbol was found
     /// - `Some(<Symbol>)`: If a symbol was found
+    #[must_use]
     fn symbol_chosen_public(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -104,6 +107,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the function with the specified name
+    #[must_use]
     pub fn function_by_identifier(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -119,6 +123,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the struct with a specified identifier
+    #[must_use]
     pub fn struct_by_identifier(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -129,6 +134,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the enum with the specified identifier
+    #[must_use]
     pub fn enum_by_identifier(
         &self,
         identifier: Type::SymbolIdentifier<'_>,

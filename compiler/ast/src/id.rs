@@ -5,6 +5,7 @@ static NEXT_ID: RwLock<u64> = RwLock::new(0);
 
 /// Returns the next id.
 /// Two values returned by different calls to this will never be the same
+#[must_use]
 fn next_id() -> u64 {
     let mut id_lock = NEXT_ID
         .write()

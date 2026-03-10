@@ -18,6 +18,7 @@ pub struct Function<Type: ASTType> {
 }
 
 impl<Type: ASTType> Function<Type> {
+    #[must_use]
     pub const fn new(
         declaration: Rc<FunctionSymbol<Type>>,
         implementation: ASTNode<Statement<Type>>,
@@ -30,15 +31,18 @@ impl<Type: ASTType> Function<Type> {
         }
     }
 
+    #[must_use]
     pub fn declaration(&self) -> &FunctionSymbol<Type> {
         &self.declaration
     }
 
     /// Gets the declaration by cloning the rc
+    #[must_use]
     pub fn declaration_owned(&self) -> Rc<FunctionSymbol<Type>> {
         self.declaration.clone()
     }
 
+    #[must_use]
     pub const fn implementation(&self) -> &ASTNode<Statement<Type>> {
         &self.implementation
     }

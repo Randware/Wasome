@@ -115,6 +115,7 @@ impl<Type: ASTType> Directory<Type> {
     ///
     /// Otherwise n iterator with all `pub` symbols in the found file is returned
     /// * Note this may be empty if the iterator does not provide any `pub` symbols.
+    #[must_use]
     pub(crate) fn get_symbols_for_path(
         &self,
         path: &[String],
@@ -145,7 +146,7 @@ impl<Type: ASTType> Directory<Type> {
         self.files_iterator().for_each(|file| {
             file.imports()
                 .iter()
-                .for_each(|import| callback(import, self))
+                .for_each(|import| callback(import, self));
         });
         self.subdirectories_iterator()
             .for_each(|subdir| subdir.deref().traverse_imports(callback));
