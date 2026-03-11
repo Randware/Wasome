@@ -1,5 +1,6 @@
 use include_dir::{Dir, include_dir};
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 static TEMPLATE_BIN: Dir = include_dir!("templates/bin");
@@ -84,11 +85,12 @@ impl LoadedTemplate {
     }
 }
 
+/// Helper function for writing files
 fn write_files(
     files: &[(PathBuf, Vec<u8>)],
     target: &Path,
     check_existing: bool,
-) -> std::io::Result<()> {
+) -> io::Result<()> {
     for (rel_path, content) in files {
         let full_path = target.join(rel_path);
 
