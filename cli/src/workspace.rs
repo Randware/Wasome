@@ -25,7 +25,7 @@ impl Workspace {
         let mut source = SourceMap::with_default(root.clone());
 
         // We wrap everything past here in a closure so we can catch ManifestError
-        // and attach the SourceMap to it before returning CliError.
+        // and attach the SourceMap to it before returning CliError
         let mut build_workspace = || -> Result<ProgramInformation, ManifestError> {
             let file_id = source.load_file(manifest::MANIFEST_FILE)?;
             let content = source.get_file(&file_id).unwrap().content();
@@ -33,28 +33,7 @@ impl Workspace {
             let manifest =
                 Manifest::parse(content).map_err(|e| ManifestError::Parse(e, file_id))?;
 
-            let bin_file = root.join(manifest::BINARY_ENTRY_FILE);
-            let lib_file = root.join(manifest::LIBRARY_ENTRY_FILE);
-
-            let entry_file = match (bin_file.exists(), lib_file.exists()) {
-                (true, true) => {
-                    return Err(ManifestError::MultipleEntries(
-                        manifest.project.name.clone(),
-                    ));
-                }
-                (true, false) => bin_file,
-                (false, true) => {
-                    return Err(ManifestError::LibraryCheckUnsupported);
-                }
-                (false, false) => {
-                    return Err(ManifestError::NoEntry(manifest.project.name.clone()));
-                }
-            };
-
-            let entry_file = entry_file
-                .strip_prefix(&root)
-                .unwrap_or(&entry_file)
-                .to_path_buf();
+            let entry_file = find_entry_file(&root, &manifest)?;
 
             let mut projects =
                 DependencyResolver::new(root.clone()).resolve_all(&manifest, &mut source)?;
@@ -83,6 +62,31 @@ impl Workspace {
             Err(err) => Err(CliError::Manifest(err)),
         }
     }
+}
+
+fn find_entry_file(root: &Path, manifest: &Manifest) -> Result<PathBuf, ManifestError> {
+    let bin_file = root.join(manifest::BINARY_ENTRY_FILE);
+    let lib_file = root.join(manifest::LIBRARY_ENTRY_FILE);
+
+    let entry_file = match (bin_file.exists(), lib_file.exists()) {
+        (true, true) => {
+            return Err(ManifestError::MultipleEntries(
+                manifest.project.name.clone(),
+            ));
+        }
+        (true, false) => bin_file,
+        (false, true) => {
+            return Err(ManifestError::LibraryCheckUnsupported);
+        }
+        (false, false) => {
+            return Err(ManifestError::NoEntry(manifest.project.name.clone()));
+        }
+    };
+
+    Ok(entry_file
+        .strip_prefix(root)
+        .unwrap_or(&entry_file)
+        .to_path_buf())
 }
 
 #[cfg(test)]
