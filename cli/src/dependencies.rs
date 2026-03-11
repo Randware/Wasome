@@ -71,16 +71,9 @@ impl DependencyResolver {
         for (name, version) in deps {
             let dep_id = version_str(name, version);
 
-            let dep_path = match self.locate(name, version) {
-                Some(path) => path,
-                None => {
-                    let chain_display = chain.join("/");
-                    return Err(ManifestError::MissingDependency(
-                        dep_id.clone(),
-                        chain_display,
-                    ));
-                }
-            };
+            let dep_path = self.locate(name, version).ok_or_else(|| {
+                ManifestError::MissingDependency(dep_id.clone(), chain.join("/"))
+            })?;
 
             let file_id = source.load_file(dep_path.join(manifest::MANIFEST_FILE))?;
             let content = source.get_file(&file_id).unwrap().content();
@@ -95,10 +88,9 @@ impl DependencyResolver {
                 .unwrap_or(&dep_path)
                 .to_path_buf();
 
-            acc.push(Project::new(
-                dep_manifest.project.name.clone(),
-                dep_root_path.clone(),
-            ));
+            let unique_name = format!("{}/{}", chain.join("/"), dep_id);
+
+            acc.push(Project::new(unique_name, dep_root_path.clone()));
 
             let mut next_chain = chain.clone();
             next_chain.push(version_str(
@@ -210,7 +202,7 @@ version = "{version}"
         let projects = load_and_resolve(root.path()).unwrap();
 
         assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].name(), "math");
+        assert_eq!(projects[0].name(), "my_app@0.1.0/math@1.0.0");
     }
 
     #[test]
@@ -230,9 +222,9 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 3);
-        assert!(names.contains(&"math"));
-        assert!(names.contains(&"io"));
-        assert!(names.contains(&"net"));
+        assert!(names.contains(&"my_app@0.1.0/math@1.0.0"));
+        assert!(names.contains(&"my_app@0.1.0/io@2.0.0"));
+        assert!(names.contains(&"my_app@0.1.0/net@0.5.0"));
     }
 
     #[test]
@@ -250,8 +242,8 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 2);
-        assert!(names.contains(&"math"));
-        assert!(names.contains(&"core"));
+        assert!(names.contains(&"my_app@0.1.0/math@1.0.0"));
+        assert!(names.contains(&"my_app@0.1.0/math@1.0.0/core@0.1.0"));
     }
 
     #[test]
@@ -276,9 +268,9 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 3);
-        assert!(names.contains(&"a"));
-        assert!(names.contains(&"b"));
-        assert!(names.contains(&"c"));
+        assert!(names.contains(&"my_app@0.1.0/a@1.0.0"));
+        assert!(names.contains(&"my_app@0.1.0/a@1.0.0/b@1.0.0"));
+        assert!(names.contains(&"my_app@0.1.0/a@1.0.0/b@1.0.0/c@1.0.0"));
     }
 
     #[test]

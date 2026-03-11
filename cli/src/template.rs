@@ -48,24 +48,7 @@ impl LoadedTemplate {
         let target = target.as_ref();
 
         if target.exists() {
-            // If we fail here, we stop, since rolling back changes to an
-            // existing user directory is risky
-            for (rel_path, content) in &self.files {
-                let full_path = target.join(rel_path);
-
-                if full_path.exists() {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::AlreadyExists,
-                        format!("File already exists: {}", full_path.display()),
-                    ));
-                }
-
-                if let Some(p) = full_path.parent() {
-                    fs::create_dir_all(p)?;
-                }
-
-                fs::write(full_path, content)?;
-            }
+            write_files(&self.files, target, true)?;
             Ok(())
         } else {
             let temp_dir = target.with_extension("tmp");
@@ -80,18 +63,7 @@ impl LoadedTemplate {
 
             // We wrap our logic inside a closure, so we can catch any errors and later perform
             // clean up
-            let write_result = || -> std::io::Result<()> {
-                for (rel_path, content) in &self.files {
-                    let full_path = temp_dir.join(rel_path);
-
-                    if let Some(p) = full_path.parent() {
-                        fs::create_dir_all(p)?;
-                    }
-
-                    fs::write(full_path, content)?;
-                }
-                Ok(())
-            }();
+            let write_result = write_files(&self.files, &temp_dir, false);
 
             // If we ran into any issues, we clean up here
             if let Err(e) = write_result {
@@ -110,6 +82,30 @@ impl LoadedTemplate {
             }
         }
     }
+}
+
+fn write_files(
+    files: &[(PathBuf, Vec<u8>)],
+    target: &Path,
+    check_existing: bool,
+) -> std::io::Result<()> {
+    for (rel_path, content) in files {
+        let full_path = target.join(rel_path);
+
+        if check_existing && full_path.exists() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                format!("File already exists: {}", full_path.display()),
+            ));
+        }
+
+        if let Some(p) = full_path.parent() {
+            fs::create_dir_all(p)?;
+        }
+
+        fs::write(full_path, content)?;
+    }
+    Ok(())
 }
 
 /// Takes text and a list of replacements, returns new text.

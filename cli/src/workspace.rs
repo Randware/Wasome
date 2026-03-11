@@ -30,10 +30,8 @@ impl Workspace {
             let file_id = source.load_file(manifest::MANIFEST_FILE)?;
             let content = source.get_file(&file_id).unwrap().content();
 
-            let manifest = match Manifest::parse(content) {
-                Ok(m) => m,
-                Err(e) => return Err(ManifestError::Parse(e, file_id)),
-            };
+            let manifest =
+                Manifest::parse(content).map_err(|e| ManifestError::Parse(e, file_id))?;
 
             let bin_file = root.join(manifest::BINARY_ENTRY_FILE);
             let lib_file = root.join(manifest::LIBRARY_ENTRY_FILE);
