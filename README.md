@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  A modern, type-safe, high-performance language that compiles directly to WebAssembly.<br>
-  Expressive syntax. Blazing fast. Built for the web.
+  A modern, type-safe language that compiles directly to WebAssembly.<br>
+  Write it, compile it, run it anywhere.
 </p>
 
 <p align="center">
@@ -26,17 +26,11 @@
 
 <br>
 
-<p align="center">
-  <img src=".github/assets/banner.png" alt="Wasome — The WebAssembly Language" width="850">
-</p>
-
-<br>
-
 ## ✨ What is Wasome?
 
-**Wasome** is a modern programming language designed from the ground up to compile to [WebAssembly](https://webassembly.org/). It combines a clean, expressive syntax with a strong static type system — making it approachable for newcomers while being powerful enough for real applications.
+**Wasome** is a programming language built from scratch to compile to [WebAssembly](https://webassembly.org/). The idea is simple: a clean, expressive syntax paired with a strong type system that catches your mistakes before they become problems.
 
-Write in Wasome, compile to Wasm, run anywhere — in the browser, on the server, or at the edge.
+Whether you're targeting the browser, a server, or the edge — you write Wasome, compile to Wasm, and it just works.
 
 <br>
 
@@ -46,37 +40,37 @@ Write in Wasome, compile to Wasm, run anywhere — in the browser, on the server
   <tr>
     <td width="50%" valign="top">
       <h3>⚡ WebAssembly Native</h3>
-      <p>Compiles directly to WebAssembly — no intermediate runtime, no bloat. Your code runs at near-native speed in any Wasm-compatible environment.</p>
+      <p>Compiles directly to WebAssembly. No intermediate runtime, no bloat — your code runs at near-native speed in any Wasm-compatible environment.</p>
     </td>
     <td width="50%" valign="top">
       <h3>🛡️ Type-Safe</h3>
-      <p>Strong static type system with numeric types (<code>s32</code>, <code>u64</code>, <code>f64</code>), <code>bool</code>, <code>char</code>, and user-defined types — catching errors at compile time.</p>
+      <p>A strong static type system with numeric types (<code>s32</code>, <code>u64</code>, <code>f64</code>), <code>bool</code>, <code>char</code>, and user-defined types. Bugs get caught at compile time, not at 3 AM in production.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <h3>📦 Structs & Enums</h3>
-      <p>First-class data structures with methods. Define custom types, attach behavior, and model your domain cleanly.</p>
+      <p>Define your own structs and enums, attach methods to them, and model your data the way it makes sense to you.</p>
     </td>
     <td width="50%" valign="top">
       <h3>🧬 Generics</h3>
-      <p>Full generic type support for functions, structs, and enums. Write flexible, reusable code without sacrificing type safety.</p>
+      <p>Write flexible, reusable code with full generic support for functions, structs, and enums — without giving up type safety.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <h3>📂 Modules & Imports</h3>
-      <p>Organize code across multiple files and projects. Import modules with a simple, clean syntax.</p>
+      <p>Split your code across multiple files and projects. Importing modules is straightforward and clean.</p>
     </td>
     <td width="50%" valign="top">
       <h3>🔧 Built-in Formatter</h3>
-      <p>Ship with a code formatter out of the box — consistent style across every project, zero configuration.</p>
+      <p>Wasome ships with a code formatter out of the box. Consistent style, zero configuration — just the way it should be.</p>
     </td>
   </tr>
   <tr>
     <td colspan="2" align="center">
       <h3>🖥️ Cross-Platform</h3>
-      <p>Tested on <strong>Linux</strong>, <strong>macOS</strong>, <strong>Windows</strong>, <strong>FreeBSD</strong>, <strong>ARM (aarch64)</strong>, and <strong>ARMv7</strong> — runs everywhere you need it.</p>
+      <p>Tested on <strong>Linux</strong>, <strong>macOS</strong>, <strong>Windows</strong>, <strong>FreeBSD</strong>, <strong>ARM (aarch64)</strong>, and <strong>ARMv7</strong>. If it runs code, chances are Wasome runs on it.</p>
     </td>
   </tr>
 </table>
@@ -85,7 +79,7 @@ Write in Wasome, compile to Wasm, run anywhere — in the browser, on the server
 
 ## 📝 Syntax at a Glance
 
-Wasome's syntax is clean and expressive. Here's a taste:
+Wasome aims to be readable and expressive. Here's a quick taste of what it looks like:
 
 ```rust
 struct User {
@@ -167,11 +161,7 @@ fn main() -> s32 {
 
 ## 🌐 Website & Documentation
 
-<a href="https://wasome.dev">
-  <img src=".github/assets/website_hero.png" alt="Wasome Website" width="850">
-</a>
-
-Visit **[wasome.dev](https://wasome.dev)** for full documentation, guides, and API reference. Everything you need to get productive with Wasome — from first steps to advanced topics.
+Head over to **[wasome.dev](https://wasome.dev)** for the full documentation, guides, and everything else you need to get started with Wasome.
 
 <p align="center">
   <a href="https://wasome.dev/docs"><img src="https://img.shields.io/badge/📖_Read_the_Docs-wasome.dev/docs-%23eab308?style=for-the-badge" alt="Read the Docs"></a>
@@ -181,11 +171,7 @@ Visit **[wasome.dev](https://wasome.dev)** for full documentation, guides, and A
 
 ## 🗺️ Language Tour
 
-New to Wasome? The **interactive language tour** walks you through the basics step-by-step — guided by **Bit**, your friendly star companion. ⭐
-
-<p align="center">
-  <img src=".github/assets/tour.png" alt="Wasome Language Tour" width="750">
-</p>
+New to Wasome? Our **interactive language tour** walks you through the basics step-by-step — guided by **Bit**, your friendly star companion! ⭐
 
 <p align="center">
   <a href="https://wasome.dev/tour"><img src="https://img.shields.io/badge/🚀_Take_the_Tour-wasome.dev/tour-%23eab308?style=for-the-badge" alt="Take the Tour"></a>
@@ -195,11 +181,7 @@ New to Wasome? The **interactive language tour** walks you through the basics st
 
 ## 🎮 Playground
 
-Write, edit, and run Wasome code **directly in your browser** — no installation required. The playground features a full code editor with file explorer, syntax highlighting, and live console output.
-
-<p align="center">
-  <img src=".github/assets/playground.png" alt="Wasome Playground" width="750">
-</p>
+Want to try Wasome without installing anything? The **playground** lets you write, edit, and run code directly in your browser. It comes with a file explorer, syntax highlighting, and a live console output — basically a mini IDE!
 
 <p align="center">
   <a href="https://wasome.dev/playground"><img src="https://img.shields.io/badge/⚡_Try_the_Playground-wasome.dev/playground-%23eab308?style=for-the-badge" alt="Try the Playground"></a>
@@ -209,13 +191,7 @@ Write, edit, and run Wasome code **directly in your browser** — no installatio
 
 ## 📚 Examples
 
-Explore real Wasome programs to see the language in action — from simple scripts to multi-file projects.
-
-<p align="center">
-  <img src=".github/assets/examples.png" alt="Wasome Examples" width="750">
-</p>
-
-The [`docs/examples/`](docs/examples/) directory contains a growing collection organized by complexity:
+Want to see Wasome in action? The [`docs/examples/`](docs/examples/) directory has a growing collection of real programs, organized by complexity:
 
 | Category | Description |
 |----------|-------------|
@@ -231,13 +207,13 @@ The [`docs/examples/`](docs/examples/) directory contains a growing collection o
 
 ## ⬇️ Installation
 
-Install the Wasome toolchain with a single command:
+Getting started is easy! Install the Wasome toolchain with a single command:
 
 ```bash
 curl -fsSL https://get.wasome.org/install | sh
 ```
 
-Verify your installation:
+Then verify everything is working:
 
 ```bash
 wasome --version
@@ -251,7 +227,7 @@ wasome --version
 
 ## 🏗️ Architecture
 
-The Wasome compiler is built in **Rust** and organized as a modular workspace of focused crates:
+Under the hood, the Wasome compiler is built in **Rust** and organized as a modular workspace. Here's the full compilation pipeline:
 
 ```
 Source (.waso) → Lexer → Parser → Untyped AST → Semantic Analyzer → Typed AST → Code Gen → .o File → Linker → Binary
@@ -268,13 +244,13 @@ Source (.waso) → Lexer → Parser → Untyped AST → Semantic Analyzer → Ty
 | `error` | Structured error reporting and diagnostics |
 | `io` | File I/O utilities |
 
-Additionally, the **`formatter`** crate provides automatic code formatting for `.waso` files.
+Additionally, the **`formatter`** crate provides automatic code formatting for `.waso` files. Because nobody likes arguing about style!
 
 <br>
 
 ## 📄 License
 
-Wasome is dual-licensed under your choice of:
+This project is dual-licensed under your choice of:
 
 - **[MIT License](LICENSE-MIT)**
 - **[Apache License 2.0](LICENSE-APACHE)**
