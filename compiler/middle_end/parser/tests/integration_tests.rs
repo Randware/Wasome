@@ -62,7 +62,7 @@ const IF_TEST: &'static str = include_str!("test_programs/single_file/if.waso");
 const LOOP_TEST: &'static str = include_str!("test_programs/single_file/loop.waso");
 const OPERATOR_TEST: &'static str = include_str!("test_programs/single_file/operator.waso");
 const MISSING_STATEMENT_SEPARATOR: &'static str =
-    include_str!("test_programs/single_file/missing_statement_separator.waso");
+    include_str!("missing_statement_separator.waso");
 const STRUCT_TEST: &'static str = include_str!("test_programs/single_file/struct.waso");
 const METHOD_CALL_TEST: &'static str = include_str!("test_programs/single_file/method_call.waso");
 const ENUM_TEST: &'static str = include_str!("test_programs/single_file/enum.waso");
