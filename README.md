@@ -335,7 +335,7 @@ This project is dual-licensed under your choice of:
 
 <br/><br/>
 
-<sub>Built with love and Rust &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
+<sub>Built with Rust and Love &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
 
 <br/><br/>
 
