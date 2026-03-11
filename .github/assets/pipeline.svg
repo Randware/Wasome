@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 110" width="860" height="110">
+  <defs>
+    <marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0.5 L0,6.5 L6,3.5 z" fill="#EAB308"/>
+    </marker>
+  </defs>
+
+  <!-- Source -->
+  <rect x="2" y="20" width="110" height="56" rx="8" fill="#111111" stroke="#EAB308" stroke-width="1.5"/>
+  <text x="57" y="46" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#EAB308" text-anchor="middle">SOURCE</text>
+  <text x="57" y="64" font-family="ui-monospace,monospace" font-size="10" fill="#888888" text-anchor="middle">.waso files</text>
+
+  <!-- arrow -->
+  <line x1="114" y1="48" x2="134" y2="48" stroke="#EAB308" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Lexer -->
+  <rect x="136" y="20" width="110" height="56" rx="8" fill="#111111" stroke="#555555" stroke-width="1.5"/>
+  <text x="191" y="46" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">LEXER</text>
+  <text x="191" y="64" font-family="ui-monospace,monospace" font-size="10" fill="#888888" text-anchor="middle">tokenize</text>
+
+  <!-- arrow -->
+  <line x1="248" y1="48" x2="268" y2="48" stroke="#EAB308" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Parser -->
+  <rect x="270" y="20" width="110" height="56" rx="8" fill="#111111" stroke="#555555" stroke-width="1.5"/>
+  <text x="325" y="46" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">PARSER</text>
+  <text x="325" y="64" font-family="ui-monospace,monospace" font-size="10" fill="#888888" text-anchor="middle">build AST</text>
+
+  <!-- arrow -->
+  <line x1="382" y1="48" x2="402" y2="48" stroke="#EAB308" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Semantic Analyzer -->
+  <rect x="404" y="20" width="145" height="56" rx="8" fill="#111111" stroke="#555555" stroke-width="1.5"/>
+  <text x="476" y="46" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">SEMANTIC</text>
+  <text x="476" y="64" font-family="ui-monospace,monospace" font-size="10" fill="#888888" text-anchor="middle">type check &amp; resolve</text>
+
+  <!-- arrow -->
+  <line x1="551" y1="48" x2="571" y2="48" stroke="#EAB308" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Code Gen -->
+  <rect x="573" y="20" width="120" height="56" rx="8" fill="#EAB308" stroke="#EAB308" stroke-width="1.5"/>
+  <text x="633" y="46" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#111111" text-anchor="middle">CODE GEN</text>
+  <text x="633" y="64" font-family="ui-monospace,monospace" font-size="10" fill="#333333" text-anchor="middle">object code</text>
+
+  <!-- arrow -->
+  <line x1="695" y1="48" x2="715" y2="48" stroke="#EAB308" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Linker -->
+  <rect x="717" y="20" width="120" height="56" rx="8" fill="#EAB308" stroke="#EAB308" stroke-width="1.5"/>
+  <text x="777" y="46" font-family="ui-monospace,monospace" font-size="12" font-weight="700" fill="#111111" text-anchor="middle">LINKER</text>
+  <text x="777" y="64" font-family="ui-monospace,monospace" font-size="10" fill="#333333" text-anchor="middle">.wasm binary</text>
+
+  <!-- bottom label: .waso -->
+  <text x="57" y="96" font-family="ui-monospace,monospace" font-size="9" fill="#555555" text-anchor="middle">input</text>
+  <text x="191" y="96" font-family="ui-monospace,monospace" font-size="9" fill="#555555" text-anchor="middle">tokens</text>
+  <text x="325" y="96" font-family="ui-monospace,monospace" font-size="9" fill="#555555" text-anchor="middle">untyped AST</text>
+  <text x="476" y="96" font-family="ui-monospace,monospace" font-size="9" fill="#555555" text-anchor="middle">typed AST</text>
+  <text x="633" y="96" font-family="ui-monospace,monospace" font-size="9" fill="#555555" text-anchor="middle">obj files</text>
+  <text x="777" y="96" font-family="ui-monospace,monospace" font-size="9" fill="#555555" text-anchor="middle">output</text>
+</svg>
