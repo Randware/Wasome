@@ -7,6 +7,8 @@ use std::rc::Rc;
 /// This only exists in the typed AST
 /// Therefore, having type parameters here does not make sense as they are part of the composite
 /// identifier (and not data types) in the typed AST
+///
+/// Despite not being [`Copy`], this is still fairly cheap to clone.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DataType {
     Char,
@@ -32,18 +34,17 @@ pub enum DataType {
 /// Examples include expressions and operators
 pub trait Typed {
     /// Gets the data type
+    #[must_use]
     fn data_type(&self) -> DataType;
 }
 
 impl SemanticEq for DataType {
     fn semantic_eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (DataType::Struct(self_struct), DataType::Struct(other_struct)) => {
+            (Self::Struct(self_struct), Self::Struct(other_struct)) => {
                 self_struct.semantic_eq(other_struct)
             }
-            (DataType::Enum(self_enum), DataType::Enum(other_enum)) => {
-                self_enum.semantic_eq(other_enum)
-            }
+            (Self::Enum(self_enum), Self::Enum(other_enum)) => self_enum.semantic_eq(other_enum),
             _ => self == other,
         }
     }
@@ -59,18 +60,21 @@ pub struct UntypedDataType {
 }
 
 impl UntypedDataType {
-    pub fn new(name: String, type_parameters: Vec<UntypedDataType>) -> Self {
+    #[must_use]
+    pub const fn new(name: String, type_parameters: Vec<Self>) -> Self {
         Self {
             name,
             type_parameters,
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn type_parameters(&self) -> &[UntypedDataType] {
+    #[must_use]
+    pub fn type_parameters(&self) -> &[Self] {
         &self.type_parameters
     }
 }

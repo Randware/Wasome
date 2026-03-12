@@ -81,7 +81,7 @@ pub(crate) fn analyze_file(
                 ImportRoot::Root => ImportRoot::Root,
             };
 
-            let new_import = Import::new(root, node.path().clone(), node.usage_name_owned());
+            let new_import = Import::new(root, node.path().to_vec(), node.usage_name_owned());
 
             ASTNode::new(new_import, *node.position())
         })

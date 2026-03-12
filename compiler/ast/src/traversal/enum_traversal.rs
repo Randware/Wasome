@@ -11,23 +11,26 @@ pub struct EnumTraversalHelper<'a, 'b, Type: ASTType> {
 }
 
 impl<'a, 'b, Type: ASTType> EnumTraversalHelper<'a, 'b, Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         inner: &'b ASTNode<Enum<Type>>,
         parent: &'a FileTraversalHelper<'a, 'b, Type>,
     ) -> Self {
         Self { inner, parent }
     }
 
-    pub fn inner(&self) -> &'b ASTNode<Enum<Type>> {
+    #[must_use]
+    pub const fn inner(&self) -> &'b ASTNode<Enum<Type>> {
         self.inner
     }
 
-    pub fn parent(&self) -> &'a FileTraversalHelper<'a, 'b, Type> {
+    #[must_use]
+    pub const fn parent(&self) -> &'a FileTraversalHelper<'a, 'b, Type> {
         self.parent
     }
 }
 
-impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for EnumTraversalHelper<'a, 'b, Type> {
+impl<'b, Type: ASTType> HasSymbols<'b, Type> for EnumTraversalHelper<'_, 'b, Type> {
     fn symbols<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
         EnumSymbolTable::new(self)
     }
@@ -70,7 +73,7 @@ impl<'a, 'b, Type: ASTType> EnumSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Iterator for EnumSymbolTable<'a, 'b, Type> {
+impl<'b, Type: ASTType> Iterator for EnumSymbolTable<'_, 'b, Type> {
     type Item = (
         Option<&'b ModuleUsageNameSymbol>,
         DirectlyAvailableSymbol<'b, Type>,
@@ -81,4 +84,4 @@ impl<'a, 'b, Type: ASTType> Iterator for EnumSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for EnumSymbolTable<'a, 'b, Type> {}
+impl<'b, Type: ASTType> SymbolTable<'b, Type> for EnumSymbolTable<'_, 'b, Type> {}

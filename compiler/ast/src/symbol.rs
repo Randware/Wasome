@@ -24,7 +24,7 @@ use std::rc::Rc;
 /// # Equality
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
-/// PartialEq behavior instead
+/// [`PartialEq`] behavior instead
 pub trait SymbolTable<'a, Type: ASTType>:
     Iterator<
     Item = (
@@ -37,11 +37,11 @@ pub trait SymbolTable<'a, Type: ASTType>:
 
 /// A reference to a directly accessible symbol symbol
 ///
-/// Examples of non-DirectlyAvailableSymbols include EnumVariantSymbolss and StructFieldSymbols
+/// Examples of non-DirectlyAvailableSymbols include [`EnumVariantSymbol`]s and [`StructFieldSymbol`]s
 ///
-/// The data is only owned to allow for efficient creation
+/// The data is only borrowed to allow for efficient creation
 /// of instanced of this without giving up type safety
-/// when storing concrete symbols (e.g.: VariableSymbols)
+/// when storing concrete symbols (e.g.: [`VariableSymbol`]s)
 #[derive(Debug)]
 pub enum DirectlyAvailableSymbol<'a, Type: ASTType> {
     Function(&'a FunctionSymbol<Type>),
@@ -54,10 +54,11 @@ pub enum DirectlyAvailableSymbol<'a, Type: ASTType> {
     UntypedTypeParameter(&'a UntypedTypeParameterSymbol),
 }
 
-impl<'a, Type: ASTType> DirectlyAvailableSymbol<'a, Type> {
+impl<Type: ASTType> DirectlyAvailableSymbol<'_, Type> {
     /// Gets the name of a symbol. This name is not directly stored in the enum but in the variant.
     /// # Return
     /// The name
+    #[must_use]
     pub fn name(&self) -> &str {
         match self {
             DirectlyAvailableSymbol::Function(func) => func.name(),
@@ -69,6 +70,7 @@ impl<'a, Type: ASTType> DirectlyAvailableSymbol<'a, Type> {
         }
     }
 
+    #[must_use]
     pub fn matches_identifier(&self, identifier: Type::SymbolIdentifier<'_>) -> bool {
         match self {
             DirectlyAvailableSymbol::Function(func) => {
@@ -156,8 +158,11 @@ impl<Type: ASTType> Eq for DirectlyAvailableSymbol<'_, Type> {}
 pub trait SymbolWithTypeParameter<Type: ASTType>:
     Debug + PartialEq + SemanticEq + Eq + Hash
 {
+    #[must_use]
     fn name(&self) -> &str;
+    #[must_use]
     fn id(&self) -> &Id;
+    #[must_use]
     fn type_parameters(&self) -> &[Type::TypeParameterDeclaration];
 }
 
@@ -166,7 +171,7 @@ pub trait SymbolWithTypeParameter<Type: ASTType>:
 /// # Equality
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
-/// PartialEq behavior instead
+/// [`PartialEq`] behavior instead
 #[derive(Debug, Clone)]
 pub struct FunctionSymbol<Type: ASTType> {
     id: Id,
@@ -178,6 +183,7 @@ pub struct FunctionSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> FunctionSymbol<Type> {
+    #[must_use]
     pub fn new(
         name: String,
         return_type: Option<Type::GeneralDataType>,
@@ -193,11 +199,13 @@ impl<Type: ASTType> FunctionSymbol<Type> {
         }
     }
 
+    #[must_use]
     pub fn params(&self) -> &[Rc<VariableSymbol<Type>>] {
         &self.params
     }
 
-    pub fn return_type(&self) -> Option<&Type::GeneralDataType> {
+    #[must_use]
+    pub const fn return_type(&self) -> Option<&Type::GeneralDataType> {
         self.return_type.as_ref()
     }
 }
@@ -217,7 +225,7 @@ impl<Type: ASTType> SymbolWithTypeParameter<Type> for FunctionSymbol<Type> {
 }
 impl<Type: ASTType> Hash for FunctionSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -243,7 +251,7 @@ impl<Type: ASTType> SemanticEq for FunctionSymbol<Type> {
 /// # Equality
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
-/// PartialEq behavior instead
+/// `PartialEq` behavior instead
 #[derive(Debug, Clone)]
 pub struct VariableSymbol<Type: ASTType> {
     id: Id,
@@ -252,6 +260,7 @@ pub struct VariableSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> VariableSymbol<Type> {
+    #[must_use]
     pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
         Self {
             id: Id::new(),
@@ -260,11 +269,13 @@ impl<Type: ASTType> VariableSymbol<Type> {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn data_type(&self) -> &Type::GeneralDataType {
+    #[must_use]
+    pub const fn data_type(&self) -> &Type::GeneralDataType {
         &self.data_type
     }
 }
@@ -283,7 +294,7 @@ impl<Type: ASTType> SemanticEq for VariableSymbol<Type> {
 
 impl<Type: ASTType> Hash for VariableSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -304,7 +315,7 @@ impl<Type: ASTType> Eq for VariableSymbol<Type> {}
 /// # Equality
 ///
 /// Two different [`ModuleUsageNameSymbol`]s are never equal. Use [`SemanticEq`] for the usual
-/// PartialEq behavior instead
+/// [`PartialEq`] behavior instead
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ModuleUsageNameSymbol {
     id: Id,
@@ -312,6 +323,7 @@ pub struct ModuleUsageNameSymbol {
 }
 
 impl ModuleUsageNameSymbol {
+    #[must_use]
     pub fn new(name: String) -> Self {
         Self {
             id: Id::new(),
@@ -319,6 +331,7 @@ impl ModuleUsageNameSymbol {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -332,7 +345,7 @@ impl SemanticEq for ModuleUsageNameSymbol {
 
 impl Hash for ModuleUsageNameSymbol {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -345,6 +358,7 @@ pub struct EnumSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> EnumSymbol<Type> {
+    #[must_use]
     pub fn new(name: String, type_parameters: Vec<Type::TypeParameterDeclaration>) -> Self {
         Self {
             id: Id::new(),
@@ -368,7 +382,7 @@ impl<Type: ASTType> SymbolWithTypeParameter<Type> for EnumSymbol<Type> {
 }
 impl<Type: ASTType> Hash for EnumSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -396,6 +410,7 @@ pub struct StructSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> StructSymbol<Type> {
+    #[must_use]
     pub fn new(name: String, type_parameters: Vec<Type::TypeParameterDeclaration>) -> Self {
         Self {
             id: Id::new(),
@@ -420,7 +435,7 @@ impl<Type: ASTType> SymbolWithTypeParameter<Type> for StructSymbol<Type> {
 
 impl<Type: ASTType> Hash for StructSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -448,6 +463,7 @@ pub struct EnumVariantSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> EnumVariantSymbol<Type> {
+    #[must_use]
     pub fn new(name: String, fields: Vec<Type::GeneralDataType>) -> Self {
         Self {
             id: Id::new(),
@@ -456,14 +472,17 @@ impl<Type: ASTType> EnumVariantSymbol<Type> {
         }
     }
 
-    pub fn id(&self) -> &Id {
+    #[must_use]
+    pub const fn id(&self) -> &Id {
         &self.id
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub fn fields(&self) -> &[Type::GeneralDataType] {
         &self.fields
     }
@@ -471,7 +490,7 @@ impl<Type: ASTType> EnumVariantSymbol<Type> {
 
 impl<Type: ASTType> Hash for EnumVariantSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -498,6 +517,7 @@ pub struct StructFieldSymbol<Type: ASTType> {
 }
 
 impl<Type: ASTType> StructFieldSymbol<Type> {
+    #[must_use]
     pub fn new(name: String, data_type: Type::GeneralDataType) -> Self {
         Self {
             id: Id::new(),
@@ -506,22 +526,25 @@ impl<Type: ASTType> StructFieldSymbol<Type> {
         }
     }
 
-    pub fn id(&self) -> &Id {
+    #[must_use]
+    pub const fn id(&self) -> &Id {
         &self.id
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn data_type(&self) -> &Type::GeneralDataType {
+    #[must_use]
+    pub const fn data_type(&self) -> &Type::GeneralDataType {
         &self.data_type
     }
 }
 
 impl<Type: ASTType> Hash for StructFieldSymbol<Type> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -548,6 +571,7 @@ pub struct UntypedTypeParameterSymbol {
 }
 
 impl UntypedTypeParameterSymbol {
+    #[must_use]
     pub fn new(name: String) -> Self {
         Self {
             id: Id::new(),
@@ -555,10 +579,12 @@ impl UntypedTypeParameterSymbol {
         }
     }
 
-    pub fn id(&self) -> &Id {
+    #[must_use]
+    pub const fn id(&self) -> &Id {
         &self.id
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }

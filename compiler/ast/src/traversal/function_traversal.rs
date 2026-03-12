@@ -31,27 +31,31 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
         }
     }
 
-    pub fn inner(&self) -> &'b ASTNode<Function<Type>> {
+    #[must_use]
+    pub const fn inner(&self) -> &'b ASTNode<Function<Type>> {
         self.inner
     }
 
+    #[must_use]
     pub fn root(&self) -> &'a dyn HasSymbols<'b, Type> {
         self.parent
     }
 
     /// Gets a symboltable that has all symbols defined by this (parameters) and symbols from outside this function
+    #[must_use]
     pub fn symbols(&self) -> impl SymbolTable<'b, Type> + 'a {
         FunctionSymbolTable::new(self)
     }
 
-    /// Gets a StatementRef for the top level statement in this function
+    /// Gets a [`StatementTraversalHelper`] for the top level statement in this function
     /// This is the intended way to traverse a function
+    #[must_use]
     pub fn ref_to_implementation(&self) -> StatementTraversalHelper<'_, 'b, Type> {
         StatementTraversalHelper::new_root(self)
     }
 }
 
-impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FunctionTraversalHelper<'a, 'b, Type> {
+impl<'b, Type: ASTType> HasSymbols<'b, Type> for FunctionTraversalHelper<'_, 'b, Type> {
     fn symbols(&self) -> impl SymbolTable<'b, Type> {
         FunctionSymbolTable::new(self)
     }
@@ -87,7 +91,7 @@ impl<'a, 'b, Type: ASTType> FunctionSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Iterator for FunctionSymbolTable<'a, 'b, Type> {
+impl<'b, Type: ASTType> Iterator for FunctionSymbolTable<'_, 'b, Type> {
     type Item = (
         Option<&'b ModuleUsageNameSymbol>,
         DirectlyAvailableSymbol<'b, Type>,
@@ -109,4 +113,4 @@ fn next_item_from_slice<'a, T>(slice: &'a [T], index: &mut usize) -> Option<&'a 
     item
 }
 
-impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for FunctionSymbolTable<'a, 'b, Type> {}
+impl<'b, Type: ASTType> SymbolTable<'b, Type> for FunctionSymbolTable<'_, 'b, Type> {}
