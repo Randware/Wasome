@@ -168,10 +168,8 @@ jobs:
         with:
           name: artifacts-build-local-${{ join(matrix.targets, '_') }}
           path: |
-            ${{ steps.cargo-dist.outputs.paths }}
-            ${{ env.BUILD_MANIFEST_NAME }}
-          # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
-          working-directory: cli
+            cli/${{ steps.cargo-dist.outputs.paths }}
+            ${{ env.BUILD_MANIFEST_NAME }} 
 
   # Build and package all the platform-agnostic(ish) things
   build-global-artifacts:
