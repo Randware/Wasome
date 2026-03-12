@@ -17,6 +17,11 @@ name: Release
 permissions:
   "contents": "write"
 
+defaults:
+  run:
+    # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
+    working-directory: cli
+
 # This task will run whenever you push a git tag that looks like a version
 # like "1.0.0", "v0.1.0-prerelease.1", "my-app/0.1.0", "releases/v1.0.0", etc.
 # Various formats will be parsed into a VERSION and an optional PACKAGE_NAME, where
@@ -81,8 +86,6 @@ jobs:
           echo "dist ran successfully"
           cat plan-dist-manifest.json
           echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
-        # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
-        working-directory: cli
       - name: "Upload dist-manifest.json"
         uses: actions/upload-artifact@v6
         with:
@@ -146,7 +149,6 @@ jobs:
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
-        working-directory: cli
       - id: cargo-dist
         name: Post-build
         # We force bash here just because github makes it really hard to get values up
