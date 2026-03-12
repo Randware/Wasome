@@ -1,5 +1,5 @@
 [workspace]
-members = ["cargo:."]
+members = ["cargo:cli"]
 
 # Config for 'dist'
 [dist]
@@ -17,4 +17,4 @@ install-path = "CARGO_HOME"
 install-updater = false
 # Allows manual editing of release.yml
 # Required for a workaround for an open issue
-allow-dirty = ["ci"]
+#allow-dirty = ["ci"]
