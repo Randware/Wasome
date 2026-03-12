@@ -160,7 +160,9 @@ jobs:
           dist print-upload-files-from-manifest --manifest dist-manifest.json >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-          cp dist-manifest.json "$BUILD_MANIFEST_NAME"
+          cp dist-manifest.json "$BUILD_MANIFEST_NAME" 
+        # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
+        working-directory: cli
       - name: "Upload artifacts"
         uses: actions/upload-artifact@v6
         with:
