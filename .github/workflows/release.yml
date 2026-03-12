@@ -86,6 +86,8 @@ jobs:
           echo "dist ran successfully"
           cat plan-dist-manifest.json
           echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
+        # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
+        working-directory: cli
       - name: "Upload dist-manifest.json"
         uses: actions/upload-artifact@v6
         with:
@@ -149,6 +151,8 @@ jobs:
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
+        # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
+        working-directory: cli
       - id: cargo-dist
         name: Post-build
         # We force bash here just because github makes it really hard to get values up
@@ -209,6 +213,8 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
           cp dist-manifest.json "$BUILD_MANIFEST_NAME"
+        # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
+        working-directory: cli
       - name: "Upload artifacts"
         uses: actions/upload-artifact@v6
         with:
