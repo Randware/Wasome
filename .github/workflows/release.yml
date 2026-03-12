@@ -170,8 +170,8 @@ jobs:
           path: |
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
-        # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
-        working-directory: cli
+          # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
+          working-directory: cli
 
   # Build and package all the platform-agnostic(ish) things
   build-global-artifacts:
