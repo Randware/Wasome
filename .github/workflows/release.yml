@@ -81,6 +81,7 @@ jobs:
           echo "dist ran successfully"
           cat plan-dist-manifest.json
           echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
+        # Workaround for https://github.com/axodotdev/cargo-dist/issues/870
         working-directory: compiler
       - name: "Upload dist-manifest.json"
         uses: actions/upload-artifact@v6
