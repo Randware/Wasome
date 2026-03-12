@@ -1,18 +1,13 @@
 use error::diagnostic::{Diagnostic, Snippet};
 use source::types::Span;
 use std::io;
-use std::path::PathBuf;
 
 /// Error code constants for driver diagnostics.
 ///
 /// These codes follow the format `E####` where the first digit indicates the category:
 /// - `E4xxx`: Driver-level errors (program loading, file system operations)
-const INVALID_CHARS_IN_MAIN_FILE: &str = "E4001";
-const MAIN_FILE_PROJECT_NOT_FOUND: &str = "E4002";
-const MAIN_FILE_PATH_EMPTY: &str = "E4003";
-const UNABLE_TO_LOAD_FILE: &str = "E4004";
-const UNABLE_TO_LOAD_DIRECTORY: &str = "E4005";
-const UNRESOLVED_IMPORT_ERROR: &str = "E4006";
+const IO_ERROR: &str = "E4001";
+const UNRESOLVED_IMPORT_ERROR: &str = "E4002";
 
 /// Custom error enum for driver-level errors.
 ///
@@ -73,60 +68,19 @@ const UNRESOLVED_IMPORT_ERROR: &str = "E4006";
 ///
 #[derive(Debug)]
 pub(super) enum DriverError {
-    /// The main file path contains non-UTF-8 characters.
+    /// An Io error
     ///
-    /// This error occurs when the main file path cannot be converted to a valid
-    /// UTF-8 string. This is required for consistent cross-platform path handling.
-    MainFileNonUtf8Chars,
-
-    /// The project containing the main file was not found.
-    ///
-    /// This error occurs when the main file is specified as belonging to a project
-    /// that is not included in the program configuration.
-    MainFileProjectNotFound,
-
-    /// The main file path does not specify a file.
-    ///
-    /// This error occurs when the main file configuration is empty or contains
-    /// only directory components without a filename.
-    MainFilePathEmpty,
-
-    /// Failed to load a source file from the file system.
-    ///
-    /// This error occurs when the driver cannot read a source file. Common causes
+    /// This error occurs when an io error occurs during driver operation. Common causes
     /// include:
     ///
-    /// - The file does not exist
-    /// - Insufficient permissions to read the file
-    /// - The path is a directory instead of a file
-    /// - The file is locked by another process
+    /// - A file does not exist
+    /// - Insufficient permissions to read a file
+    /// - A file is locked by another process
     ///
     /// # Fields
     ///
-    /// - `path`: The absolute path of the file that could not be loaded.
     /// - `source`: The underlying I/O error that caused the failure.
-    UnableToLoadFile {
-        /// The path of the file that could not be loaded.
-        path: PathBuf,
-        /// The underlying I/O error.
-        source: io::Error,
-    },
-
-    /// Failed to load a directory when resolving imports.
-    ///
-    /// This error occurs when the driver attempts to list files in a directory
-    /// to find Wasome source files, but fails. Common causes include:
-    ///
-    /// - Insufficient permissions to list the directory
-    /// - The path is a file instead of a directory
-    ///
-    /// # Fields
-    ///
-    /// - `path`: The absolute path of the directory that could not be loaded.
-    /// - `source`: The underlying I/O error that caused the failure.
-    UnableToLoadDirectory {
-        /// The path of the directory that could not be loaded.
-        path: PathBuf,
+    Io {
         /// The underlying I/O error.
         source: io::Error,
     },
@@ -204,36 +158,9 @@ impl From<DriverError> for Diagnostic {
     /// - `SyntaxError`: Returns the wrapped diagnostic unchanged.
     fn from(val: DriverError) -> Self {
         match val {
-            DriverError::MainFileNonUtf8Chars => Self::builder()
-                .message("The main file path may not contain non-UTF8 chars")
-                .code(INVALID_CHARS_IN_MAIN_FILE)
-                .help("Only use valid UTF-8 characters")
-                .build(),
-            DriverError::MainFileProjectNotFound => Self::builder()
-                .message("The project of the main file could not be found")
-                .code(MAIN_FILE_PROJECT_NOT_FOUND)
-                .help("Provide a valid main file path")
-                .build(),
-            DriverError::MainFilePathEmpty => Self::builder()
-                .message("The path of the main file is empty")
-                .code(MAIN_FILE_PATH_EMPTY)
-                .help("Provide a valid main file path")
-                .build(),
-            DriverError::UnableToLoadFile { path, source } => Self::builder()
-                .message(format!(
-                    "Unable to load file {}: {}",
-                    path.display(),
-                    source
-                ))
-                .code(UNABLE_TO_LOAD_FILE)
-                .build(),
-            DriverError::UnableToLoadDirectory { path, source } => Self::builder()
-                .message(format!(
-                    "Unable to load directory {}: {}",
-                    path.display(),
-                    source
-                ))
-                .code(UNABLE_TO_LOAD_DIRECTORY)
+            DriverError::Io { source } => Self::builder()
+                .message(format!("IO Error: {}", source))
+                .code(IO_ERROR)
                 .build(),
             DriverError::UnresolvedImport { span } => Self::builder()
                 .message("Unable to resolve import")

@@ -21,7 +21,8 @@ const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/m
 const MULTI_PROJECT_LIB_OPS: &str =
     include_str!("test_programs/multi-project/min/lib/math/ops.waso");
 
-const EMPTY_IMPORT_MAIN: &str = include_str!("test_programs/multi-project/empty_import/app/main.waso");
+const EMPTY_IMPORT_MAIN: &str =
+    include_str!("test_programs/multi-project/empty_import/app/main.waso");
 
 const CIRCULAR_A: &str = include_str!("test_programs/single_project/circular/a/a.waso");
 const CIRCULAR_B: &str = include_str!("test_programs/single_project/circular/b/b.waso");
@@ -191,7 +192,6 @@ fn test_empty_import_program() {
     fs::create_dir_all(root.join("empty_import/lib")).unwrap();
     fs::write(path, EMPTY_IMPORT_MAIN).unwrap();
 
-
     let root = dir.path().to_path_buf().join("empty_import");
     let main_file = PathBuf::from("main.waso");
 
@@ -205,7 +205,7 @@ fn test_empty_import_program() {
         "app".to_string(),
         main_file,
     )
-        .unwrap();
+    .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
@@ -224,7 +224,6 @@ fn test_empty_import_program() {
     root_node
         .subdirectory_by_name("lib")
         .expect("lib dir not found");
-
 }
 
 #[test]
