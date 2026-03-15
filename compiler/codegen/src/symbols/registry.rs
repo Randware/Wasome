@@ -1,11 +1,14 @@
 use std::{collections::HashMap, rc::Rc};
 
-use ast::{TypedAST, symbol::StructSymbol};
-use inkwell::{context::Context, types::StructType};
+use ast::{
+    TypedAST,
+    symbol::{EnumSymbol, StructSymbol},
+};
+use inkwell::types::StructType;
 
 pub struct TypeRegistry<'ctx> {
     structs: HashMap<Rc<StructSymbol<TypedAST>>, StructType<'ctx>>,
-    enums: HashMap<Rc<StructSymbol<TypedAST>>, StructType<'ctx>>,
+    enums: HashMap<Rc<EnumSymbol<TypedAST>>, StructType<'ctx>>,
 }
 
 impl<'ctx> TypeRegistry<'ctx> {
@@ -24,7 +27,7 @@ impl<'ctx> TypeRegistry<'ctx> {
         self.structs.insert(symbol, struct_type)
     }
 
-    pub fn get_struct(&self, symbol: &Rc<StructSymbol<TypedAST>>) -> Option<StructType<'ctx>> {
+    pub fn get_struct(&self, symbol: &Rc<EnumSymbol<TypedAST>>) -> Option<StructType<'ctx>> {
         self.structs.get(symbol).copied()
     }
 
@@ -36,7 +39,7 @@ impl<'ctx> TypeRegistry<'ctx> {
         self.structs.insert(symbol, struct_type)
     }
 
-    pub fn get_enum(&self, symbol: &Rc<StructSymbol<TypedAST>>) -> Option<StructType<'ctx>> {
+    pub fn get_enum(&self, symbol: &Rc<EnumSymbol<TypedAST>>) -> Option<StructType<'ctx>> {
         self.structs.get(symbol).copied()
     }
 }
