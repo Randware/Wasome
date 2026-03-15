@@ -1,5 +1,4 @@
 mod registry;
 mod variable;
-pub use registry::TypeRegistry;
+pub use registry::SymbolRegistry;
 pub use variable::*;
-
