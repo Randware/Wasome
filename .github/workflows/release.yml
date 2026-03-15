@@ -254,6 +254,8 @@ jobs:
       - id: host
         shell: bash
         run: |
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.toml
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.lock 
           dist host ${{ needs.plan.outputs.tag-flag }} --steps=upload --steps=release --output-format=json > dist-manifest.json
           echo "artifacts uploaded and released successfully"
           cat dist-manifest.json
