@@ -3,18 +3,21 @@ use std::{collections::HashMap, io::Write};
 use inkwell::{
     builder::Builder,
     context::Context,
-    module::Module,
     passes::PassBuilderOptions,
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
 };
 
-use crate::types::{CodegenTypes, ModuleContext, OptLevel};
+use crate::{
+    symbols::TypeRegistry,
+    types::{CodegenTypes, ModuleContext, OptLevel},
+};
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
     modules: HashMap<String, ModuleContext<'ctx>>,
     machine: TargetMachine,
+    registry: TypeRegistry<'ctx>,
     types: CodegenTypes<'ctx>,
     opt_level: OptLevel,
 }
@@ -46,6 +49,7 @@ impl<'ctx> LLVMContext<'ctx> {
             builder,
             modules: HashMap::new(),
             machine,
+            registry: TypeRegistry::new(),
             types,
             opt_level,
         }
@@ -114,6 +118,10 @@ impl<'ctx> LLVMContext<'ctx> {
 
     pub fn machine(&self) -> &TargetMachine {
         &self.machine
+    }
+
+    pub fn type_registry(&self) -> &TypeRegistry {
+        &self.registry
     }
 
     pub fn types(&self) -> &CodegenTypes<'ctx> {

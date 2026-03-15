@@ -28,7 +28,7 @@ impl<'ctx> TypeRegistry<'ctx> {
     }
 
     pub fn get_struct(&self, symbol: &Rc<EnumSymbol<TypedAST>>) -> Option<StructType<'ctx>> {
-        self.structs.get(symbol).copied()
+        self.enums.get(symbol).copied()
     }
 
     pub fn register_enum(
@@ -40,6 +40,6 @@ impl<'ctx> TypeRegistry<'ctx> {
     }
 
     pub fn get_enum(&self, symbol: &Rc<EnumSymbol<TypedAST>>) -> Option<StructType<'ctx>> {
-        self.structs.get(symbol).copied()
+        self.enums.get(symbol).copied()
     }
 }
