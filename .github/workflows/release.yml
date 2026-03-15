@@ -77,8 +77,8 @@ jobs:
       # but also really annoying to build CI around when it needs secrets to work right.)
       - id: plan
         run: |
-          sed -i 's/cli/wasome/' cli/Cargo.toml
-          sed -i 's/cli/wasome/' cli/Cargo.lock
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.toml
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.lock
           dist ${{ (!github.event.pull_request && format('host --steps=create --tag={0}', github.ref_name)) || 'plan' }} --output-format=json > plan-dist-manifest.json
           echo "dist ran successfully"
           cat plan-dist-manifest.json
@@ -143,8 +143,8 @@ jobs:
           ${{ matrix.packages_install }}
       - name: Build artifacts
         run: |
-          sed -i 's/cli/wasome/' cli/Cargo.toml
-          sed -i 's/cli/wasome/' cli/Cargo.lock
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.toml
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.lock
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
@@ -199,8 +199,8 @@ jobs:
       - id: cargo-dist
         shell: bash
         run: |
-          sed -i 's/cli/wasome/' cli/Cargo.toml
-          sed -i 's/cli/wasome/' cli/Cargo.lock
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.toml
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.lock
           dist build ${{ needs.plan.outputs.tag-flag }} --output-format=json "--artifacts=global" > dist-manifest.json
           echo "dist ran successfully"
 
