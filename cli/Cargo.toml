@@ -3,6 +3,8 @@ name = "cli"
 version = "0.1.0"
 edition = "2024"
 repository = "https://github.com/Randware/Wasome"
+description = "The WebAssembly Language for Everyone"
+homepage = "https://wasome.dev/"
 
 [[bin]]
 name = "waso"
