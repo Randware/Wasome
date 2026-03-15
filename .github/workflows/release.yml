@@ -129,9 +129,6 @@ jobs:
       - name: Install Rust non-interactively if not already installed
         if: ${{ matrix.container }}
         run: |
-          sed -i'' -e 's/cli/wasome/' cli/Cargo.toml
-          sed -i'' -e 's/cli/wasome/' cli/Cargo.lock
-
           if ! command -v cargo > /dev/null 2>&1; then
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
@@ -150,6 +147,8 @@ jobs:
           ${{ matrix.packages_install }}
       - name: Build artifacts
         run: |
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.toml
+          sed -i'' -e 's/cli/wasome/' cli/Cargo.lock
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
