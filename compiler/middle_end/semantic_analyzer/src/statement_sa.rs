@@ -744,6 +744,7 @@ fn analyze_struct_field_assignment(
 
     let field = fields
         .iter()
+        .map(|field| &field.0)
         .find(|field| field.name() == to_analyze.struct_field())
         .ok_or_else(|| SemanticError::InvalidUsage {
             message: format!("Field '{}' not found in struct", to_analyze.struct_field()),

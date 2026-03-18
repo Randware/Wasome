@@ -20,6 +20,7 @@ use ast::{ASTNode, TypedAST, UntypedAST};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
+use ast::visibility::Visibility;
 
 /// Multiple [`SingleSyntaxElementMap`], one for each of syntax element with type parameters
 ///
@@ -118,7 +119,7 @@ impl<'a> SyntaxElementMap<'a> {
         &'b self,
         symbol: &StructSymbol<UntypedAST>,
         type_parameters: &[TypedTypeParameter],
-    ) -> Option<Ref<'b, Vec<Rc<StructFieldSymbol<TypedAST>>>>> {
+    ) -> Option<Ref<'b, Vec<(Rc<StructFieldSymbol<TypedAST>>, Visibility)>>> {
         self.structs.get_pre_implementation(symbol, type_parameters)
     }
 
@@ -186,7 +187,7 @@ impl<'a> SyntaxElementMap<'a> {
 pub(crate) type StructImplementation<'a> = (
     (
         Rc<StructSymbol<TypedAST>>,
-        Vec<Rc<StructFieldSymbol<TypedAST>>>,
+        Vec<(Rc<StructFieldSymbol<TypedAST>>, Visibility)>,
     ),
     SingleSyntaxElementMap<'a, AnalyzableMethod>,
 );

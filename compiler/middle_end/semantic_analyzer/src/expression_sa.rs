@@ -253,6 +253,7 @@ fn analyze_new_struct(
         .map(|param| {
             let field = struct_fields
                 .iter()
+                .map(|field| &field.0)
                 .find(|field| param.0.deref() == field.name())
                 .ok_or_else(|| SemanticError::InvalidUsage {
                     message: format!("Field '{}' not found in struct", param.0.deref()),
@@ -270,6 +271,7 @@ fn analyze_new_struct(
         .collect::<Result<Vec<_>, SemanticError>>()?;
 
     let all_struct_fields_exist_dt_match = struct_fields.iter().all(|field| {
+        let field = &field.0;
         parameter
             .iter()
             .find(|param| param.0.name() == field.name())
@@ -400,6 +402,7 @@ fn analyze_struct_field_access(
 
     let sf = sfs
         .iter()
+        .map(|sf| &sf.0)
         .find(|sf| sf.name() == to_analyze.field())
         .ok_or_else(|| SemanticError::InvalidUsage {
             message: format!("Field '{}' not found", to_analyze.field()),
