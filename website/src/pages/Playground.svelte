@@ -50,12 +50,54 @@ math = "1.0.1"`;
     };
   }
 
-  let tree = $state(createDefaultTree());
-  let files = $state(createDefaultFiles());
-  let openTabs = $state([]);
-  let activeTabPath = $state(null);
+  const STORAGE_KEY = "wasome-playground";
+
+  function loadSavedState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        return {
+          tree: saved.tree || createDefaultTree(),
+          files: saved.files || createDefaultFiles(),
+          openTabs: saved.openTabs || [],
+          activeTabPath: saved.activeTabPath || null,
+        };
+      }
+    } catch {}
+    return null;
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          tree: $state.snapshot(tree),
+          files: $state.snapshot(files),
+          openTabs: $state.snapshot(openTabs),
+          activeTabPath,
+        }),
+      );
+    } catch {}
+  }
+
+  const saved = loadSavedState();
+  let tree = $state(saved ? saved.tree : createDefaultTree());
+  let files = $state(saved ? saved.files : createDefaultFiles());
+  let openTabs = $state(saved ? saved.openTabs : []);
+  let activeTabPath = $state(saved ? saved.activeTabPath : null);
   let output = $state("// Output will appear here...");
   let isRunning = $state(false);
+
+  $effect(() => {
+    // Access all reactive state to track changes
+    void JSON.stringify(tree);
+    void JSON.stringify(files);
+    void JSON.stringify(openTabs);
+    void activeTabPath;
+    saveState();
+  });
 
   // ── Modal state ──
   let modal = $state({
@@ -276,6 +318,9 @@ math = "1.0.1"`;
         openTabs = [];
         activeTabPath = null;
         output = "// Output will appear here...";
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {}
       },
       "Reset",
     );
@@ -297,7 +342,10 @@ math = "1.0.1"`;
   }
 
   onMount(() => {
-    openFile({ name: "main.waso", path: "src/main.waso" });
+    // Only auto-open main.waso if no saved state
+    if (!saved) {
+      openFile({ name: "main.waso", path: "src/main.waso" });
+    }
   });
 </script>
 

@@ -1,12 +1,10 @@
 <script>
   import { highlight } from "../lib/highlighter";
 
-  export let code = "";
-  export let readonly = false;
-  export let lang = "wasome";
+  let { code = $bindable(""), readonly = false, lang = "wasome" } = $props();
 
-  let area;
-  let pre;
+  let area = $state(null);
+  let pre = $state(null);
 
   function handleScroll() {
     if (pre && area) {
@@ -39,9 +37,8 @@
     bind:value={code}
     {readonly}
     spellcheck="false"
-    on:scroll={handleScroll}
-    on:keydown={handleKeydown}
-    on:input
+    onscroll={handleScroll}
+    onkeydown={handleKeydown}
   ></textarea>
 </div>
 
