@@ -23,7 +23,8 @@ pub struct File<Type: ASTType> {
 }
 
 impl<Type: ASTType> File<Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         name: String,
         imports: Vec<ASTNode<Import>>,
         functions: Vec<ASTNode<Function<Type>>>,
@@ -39,27 +40,33 @@ impl<Type: ASTType> File<Type> {
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub fn imports(&self) -> &[ASTNode<Import>] {
         &self.imports
     }
 
+    #[must_use]
     pub fn functions(&self) -> &[ASTNode<Function<Type>>] {
         &self.functions
     }
 
-    pub fn enums(&self) -> &Vec<ASTNode<Enum<Type>>> {
+    #[must_use]
+    pub fn enums(&self) -> &[ASTNode<Enum<Type>>] {
         &self.enums
     }
 
-    pub fn structs(&self) -> &Vec<ASTNode<Struct<Type>>> {
+    #[must_use]
+    pub fn structs(&self) -> &[ASTNode<Struct<Type>>] {
         &self.structs
     }
 
     /// Gets the symbol with the specified identifier
+    #[must_use]
     pub fn symbol(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -68,6 +75,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the symbol with the specified identifier if it is public
+    #[must_use]
     pub fn symbol_public(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -88,6 +96,7 @@ impl<Type: ASTType> File<Type> {
     ///
     /// - `None`: If no symbol was found
     /// - `Some(<Symbol>)`: If a symbol was found
+    #[must_use]
     fn symbol_chosen_public(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -98,6 +107,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the function with the specified name
+    #[must_use]
     pub fn function_by_identifier(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -113,6 +123,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the struct with a specified identifier
+    #[must_use]
     pub fn struct_by_identifier(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
@@ -123,6 +134,7 @@ impl<Type: ASTType> File<Type> {
     }
 
     /// Gets the enum with the specified identifier
+    #[must_use]
     pub fn enum_by_identifier(
         &self,
         identifier: Type::SymbolIdentifier<'_>,
