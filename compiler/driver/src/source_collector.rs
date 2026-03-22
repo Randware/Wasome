@@ -1,7 +1,6 @@
 use crate::program_information::ProgramInformation;
 use crate::source_element::{
-    WasomeProgram, WasomeSourceDirectory,
-    WasomeSourceElementLocation, WasomeSourceFile,
+    WasomeProgram, WasomeSourceDirectory, WasomeSourceElementLocation, WasomeSourceFile,
 };
 use io::FullIO;
 use source::SourceMap;
@@ -29,7 +28,7 @@ const WASOME_FILE_ENDINGS: &[&str] = &[".waso", ".✨"];
 /// # Errors
 ///
 /// IO Errors may occur during the collection process
-pub(crate) fn collect_program(
+pub fn collect_program(
     to_collect: &ProgramInformation,
     load_from: &mut SourceMap<impl FullIO>,
 ) -> Result<WasomeProgram, CollectionError> {

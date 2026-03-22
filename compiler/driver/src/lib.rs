@@ -1,8 +1,11 @@
+use crate::error::DriverError;
 use crate::parser_driver::generate_untyped_ast;
-use crate::pipeline::{from_func, from_infallible_func, Pipeline};
+use crate::pipeline::{Pipeline, from_func, from_infallible_func};
 use crate::program_information::ProgramInformation;
+use crate::source_collector::{CollectionError, collect_program};
+use crate::source_element::WasomeProgram;
 use ::error::diagnostic::Diagnostic;
-use ast::{TypedAST, UntypedAST, AST};
+use ast::{AST, TypedAST, UntypedAST};
 use io::FullIO;
 use semantic_analyzer::analyze;
 use source::SourceMap;
@@ -44,9 +47,9 @@ pub(crate) fn load_parse_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
     Diagnostic,
     Output = (AST<UntypedAST>, &'a mut SourceMap<IO>),
 > {
-    let from: for<'a> fn((&'a _, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
+    let from: for<'a> fn((_, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
         |(pi, sm)| generate_untyped_ast(pi, sm).map(|unt_ast| (unt_ast, sm));
-    from_func(from)
+    load_pipeline().then(from_func(from))
 }
 
 #[must_use]
@@ -58,4 +61,20 @@ pub(crate) fn typed_ast_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
     let from: for<'a> fn((_, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
         |(ut_ast, sm)| Ok((analyze(ut_ast)?, sm));
     load_parse_pipeline().then(from_func(from))
+}
+
+#[must_use]
+pub fn load_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
+    (&'a ProgramInformation, &'a mut SourceMap<IO>),
+    Diagnostic,
+    Output = (WasomeProgram, &'a mut SourceMap<IO>),
+> {
+    let from: for<'a> fn((&'a _, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
+        |(program_info, load_from)| {
+            let program = collect_program(program_info, load_from);
+            program.map(|wp| (wp, load_from)).map_err(|err| match err {
+                CollectionError::Io(err) => DriverError::Io { source: err }.into(),
+            })
+        };
+    from_func(from)
 }
