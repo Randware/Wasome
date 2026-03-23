@@ -1,11 +1,11 @@
 use crate::error::DriverError;
 use crate::parser_driver::generate_untyped_ast;
-use crate::pipeline::{Pipeline, from_func, from_infallible_func};
+use crate::pipeline::{from_func, from_infallible_func, Pipeline};
 use crate::program_information::ProgramInformation;
 use crate::source_collector::{CollectionError, collect_program};
 use crate::source_element::WasomeProgram;
 use ::error::diagnostic::Diagnostic;
-use ast::{AST, TypedAST, UntypedAST};
+use ast::{TypedAST, UntypedAST, AST};
 use io::FullIO;
 use semantic_analyzer::analyze;
 use source::SourceMap;
