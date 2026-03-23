@@ -1,7 +1,7 @@
 use crate::{DirectoryLoader, FileLoader, PathResolver};
 use std::ffi::OsString;
 use std::fs;
-use std::fs::{metadata, read_dir, DirEntry, File, FileType};
+use std::fs::{DirEntry, File, FileType, metadata, read_dir};
 use std::io::{Error, Read};
 use std::path::{Path, PathBuf};
 
@@ -130,13 +130,11 @@ fn list_all_with_specific_property<
     directory: F,
     mut condition: Condition,
 ) -> Result<impl Iterator<Item = OsString> + 'a, Error> {
-    let entries = read_dir(directory)?
-        .collect::<Result<Vec<_>, _>>()?;
-    
-    Ok(entries.into_iter()
-        .filter_map(move |elem| {
-            condition(&elem).ok().map(|is_match| (is_match, elem))
-        })
+    let entries = read_dir(directory)?.collect::<Result<Vec<_>, _>>()?;
+
+    Ok(entries
+        .into_iter()
+        .filter_map(move |elem| condition(&elem).ok().map(|is_match| (is_match, elem)))
         .filter(|(is_match, _)| *is_match)
         .map(|(_, elem)| elem.file_name()))
 }
@@ -171,7 +169,7 @@ fn entry_is_directory(to_check: &DirEntry) -> Result<bool, Error> {
 
 /// Like [`entry_is_directory`], but symlinks aren't considered
 fn entry_is_non_symlink_directory(to_check: &DirEntry) -> Result<bool, Error> {
-    non_symlinkdir_entry_has_file_type_condition(to_check, |ft| ft.is_dir())
+    entry_has_file_type_condition_no_symlink_resolve(to_check, |ft| ft.is_dir())
 }
 
 fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
@@ -185,7 +183,7 @@ fn dir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
     Ok(condition(file_type))
 }
 
-fn non_symlinkdir_entry_has_file_type_condition<Condition: FnMut(FileType) -> bool>(
+fn entry_has_file_type_condition_no_symlink_resolve<Condition: FnMut(FileType) -> bool>(
     to_check: &DirEntry,
     mut condition: Condition,
 ) -> Result<bool, Error> {
@@ -270,7 +268,10 @@ mod tests {
 
         fs::create_dir(root.join("subdir")).unwrap();
 
-        let files: Vec<OsString> = WasomeLoader.list_files(root).expect("Should list files").collect();
+        let files: Vec<OsString> = WasomeLoader
+            .list_files(root)
+            .expect("Should list files")
+            .collect();
 
         assert!(files.contains(&OsString::from("file1.txt")));
         assert!(files.contains(&OsString::from("file2.rs")));
@@ -306,10 +307,16 @@ mod tests {
         let dir = tempdir().unwrap();
         let root = dir.path();
 
-        let files: Vec<_> = WasomeLoader.list_files(root).expect("Should succeed").collect();
+        let files: Vec<_> = WasomeLoader
+            .list_files(root)
+            .expect("Should succeed")
+            .collect();
         assert_eq!(files.len(), 0);
 
-        let subdirs: Vec<_> = WasomeLoader.list_subdirs(root).expect("Should succeed").collect();
+        let subdirs: Vec<_> = WasomeLoader
+            .list_subdirs(root)
+            .expect("Should succeed")
+            .collect();
         assert_eq!(subdirs.len(), 0);
     }
 
@@ -358,7 +365,10 @@ mod tests {
         .unwrap();
         symlink(real_path.clone().join("real_dir"), root.join("link_to_dir")).unwrap();
 
-        let files: Vec<OsString> = WasomeLoader.list_files(root).expect("Should list files").collect();
+        let files: Vec<OsString> = WasomeLoader
+            .list_files(root)
+            .expect("Should list files")
+            .collect();
         assert!(!files.contains(&OsString::from("real_file")));
         assert!(files.contains(&OsString::from("link_to_file")));
         assert!(!files.contains(&OsString::from("real_dir")));

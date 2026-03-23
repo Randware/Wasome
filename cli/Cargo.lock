@@ -269,6 +269,7 @@ dependencies = [
  "ast",
  "error",
  "io",
+ "ordered_hash_map",
  "parser",
  "semantic_analyzer",
  "source",
@@ -518,6 +519,15 @@ name = "once_cell_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
+
+[[package]]
+name = "ordered_hash_map"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6c699f8a30f345785be969deed7eee4c73a5de58c7faf61d6a3251ef798ff61"
+dependencies = [
+ "hashbrown 0.15.5",
+]
 
 [[package]]
 name = "parser"

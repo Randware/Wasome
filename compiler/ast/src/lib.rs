@@ -145,6 +145,9 @@ pub struct UnresolvedImports<Type: ASTType> {
 }
 
 impl<Type: ASTType> UnresolvedImports<Type> {
+    /// Gets the imports that went unresolved
+    ///
+    /// They will never be empty (`len == 0`)
     #[must_use]
     pub fn unresolved_imports(&self) -> Vec<&ASTNode<Import>> {
         self.ast.unresolved_imports()
