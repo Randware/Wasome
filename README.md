@@ -25,10 +25,6 @@
 
 <br/>
 
-<img src=".github/assets/divider.svg" width="100%" />
-
-<br/>
-
 <div align="center">
 <p>
 Wasome is a programming language built from scratch to compile to WebAssembly.<br/>
@@ -40,62 +36,25 @@ you write Wasome, compile to Wasm, and it <strong>just works</strong>.
 
 <br/>
 
-<img src=".github/assets/divider.svg" width="100%" />
-
-<br/>
-
 ## ✦ Features
 
-<br/>
-
-<table align="center" border="0" cellpadding="16" cellspacing="0">
-<tr>
-<td valign="top" width="50%">
-
-**⚡ WebAssembly Native**<br/>
+### ⚡ WebAssembly Native
 Compiles directly to Wasm. No runtime, no bloat. Near-native speed everywhere.
 
-</td>
-<td valign="top" width="50%">
+### 🛡️ Type-Safe
+Static types — `s32`, `u64`, `f64`, `bool`, `char` — plus user-defined. Bugs caught at compile time.
 
-**🛡 Type-Safe**<br/>
-Static types — `s32` `u64` `f64` `bool` `char` — plus user-defined. Bugs caught at compile time.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**🧱 Structs & Enums**<br/>
+### 🧱 Structs & Enums
 Define your own types, attach methods, and model your data the way it makes sense.
 
-</td>
-<td valign="top">
-
-**🔀 Generics**<br/>
+### 🔀 Generics
 Full generics for functions, structs, and enums. Flexible without sacrificing safety.
 
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**📦 Modules & Imports**<br/>
+### 📦 Modules & Imports
 Split code across files and projects. Clean, straightforward imports.
 
-</td>
-<td valign="top">
-
-**✨ Built-in Formatter**<br/>
+### ✨ Built-in Formatter
 Consistent style, zero configuration. Ships ready. Just the way it should be.
-
-</td>
-</tr>
-</table>
-
-<br/>
-
-<img src=".github/assets/divider.svg" width="100%" />
 
 <br/>
 
@@ -168,11 +127,6 @@ fn main() {
 
 </details>
 
-<br/>
-
-<img src=".github/assets/divider.svg" width="100%" />
-
-<br/>
 
 ## ✦ Explore Wasome
 
@@ -180,17 +134,16 @@ Everything you need to learn, experiment, and build with Wasome lives at [wasome
 
 <br/>
 
-<table align="center" border="0" cellpadding="24" cellspacing="0">
+<div align="center">
+<table border="0" cellpadding="24" cellspacing="0">
 <tr>
 <td align="center" valign="top" width="33%">
 
 **📚 Documentation**
 
+Guides, references, and the full language spec.
+
 <br/>
-
-Guides, references, and the full language spec. Everything to go from zero to your first project.
-
-<br/><br/>
 
 [![Read the Docs](https://img.shields.io/badge/Read%20the%20Docs-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/docs)
 
@@ -199,11 +152,9 @@ Guides, references, and the full language spec. Everything to go from zero to yo
 
 **🌟 Language Tour**
 
+An interactive walkthrough guided by **Bit**, your star companion.
+
 <br/>
-
-An interactive walkthrough of the language, guided by **Bit**, your friendly star companion.
-
-<br/><br/>
 
 [![Take the Tour](https://img.shields.io/badge/Take%20the%20Tour-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/tour)
 
@@ -212,21 +163,16 @@ An interactive walkthrough of the language, guided by **Bit**, your friendly sta
 
 **🧪 Playground**
 
+Write and run Wasome right in your browser. No install.
+
 <br/>
-
-Write and run Wasome right in your browser. No install needed. Basically a mini IDE.
-
-<br/><br/>
 
 [![Open Playground](https://img.shields.io/badge/Open%20Playground-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/playground)
 
 </td>
 </tr>
 </table>
-
-<br/>
-
-<img src=".github/assets/divider.svg" width="100%" />
+</div>
 
 <br/>
 
@@ -256,10 +202,6 @@ The `docs/examples/` directory has a growing collection of real programs, organi
 
 <br/>
 
-<img src=".github/assets/divider.svg" width="100%" />
-
-<br/>
-
 ## ✦ Installation
 
 Install the Wasome toolchain with a single command:
@@ -281,47 +223,6 @@ Then verify everything is working:
 ```sh
 waso --version
 ```
-
-<br/>
-
-<img src=".github/assets/divider.svg" width="100%" />
-
-<br/>
-
-## ✦ Architecture
-
-The Wasome compiler is a modular Rust workspace. Source flows through six stages:
-
-<br/>
-
-```mermaid
-graph LR
-    A[Source] --> B[Lexer]
-    B --> C[Parser]
-    C --> D[Semantic Analyzer]
-    D --> E[Code Gen]
-    E --> F[Linker]
-
-    classDef default fill:#1c1c1c,stroke:#444444,color:#ffffff
-    classDef output fill:#EAB308,stroke:#EAB308,color:#000000
-    class E,F output
-```
-
-<br/>
-
-**Supporting crates:**
-
-| Crate | Purpose |
-|---|---|
-| `ast` | Typed and untyped AST definitions with traversal helpers |
-| `driver` | Orchestrates the full pipeline end-to-end |
-| `error` | Structured error reporting and diagnostics |
-| `io` | File I/O utilities |
-| `formatter` | Automatic code formatting for `.waso` files |
-
-<br/>
-
-<img src=".github/assets/divider.svg" width="100%" />
 
 <br/>
 
@@ -348,10 +249,6 @@ Tested and verified across a wide range of platforms and architectures:
 
 <br/>
 
-<img src=".github/assets/divider.svg" width="100%" />
-
-<br/>
-
 ## ✦ License
 
 This project is dual-licensed under your choice of:
@@ -370,11 +267,7 @@ This project is dual-licensed under your choice of:
 
 <div align="center">
 
-<img src=".github/assets/divider.svg" width="60%" />
-
-<br/><br/>
-
-<sub>Built with Rust and Love &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
+<sub>Built with love and Rust &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
 
 <br/><br/>
 
