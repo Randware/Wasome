@@ -1,9 +1,5 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d0d0d,40:1a1400,100:EAB308&height=220&section=header&text=WASOME&fontSize=80&fontColor=ffffff&fontAlign=50&fontAlignY=38&desc=The%20WebAssembly%20Language%20for%20Everyone&descSize=19&descFontColor=EAB308&descAlignY=62&animation=fadeIn&stroke=EAB308&strokeWidth=1" width="100%" />
-
-<br/>
-
 <img src=".github/assets/Wasome_Yellow.png" width="148" alt="Wasome" />
 
 <br/><br/>
@@ -52,16 +48,50 @@ you write Wasome, compile to Wasm, and it <strong>just works</strong>.
 
 <br/>
 
-<div align="center">
+<table align="center" border="0" cellpadding="16" cellspacing="0">
+<tr>
+<td valign="top" width="50%">
 
-| &nbsp; | &nbsp; | &nbsp; |
-|:---:|:---:|:---:|
-| **WebAssembly Native** | **Type-Safe** | **Structs & Enums** |
-| Compiles directly to Wasm. No runtime, no bloat. Near-native speed in any Wasm-compatible environment. | Strong static types — `s32` `u64` `f64` `bool` `char` — plus user-defined types. Bugs caught at compile time, not at 3 AM. | Define your own types and attach methods to them. Model your data exactly the way it makes sense to you. |
-| **Generics** | **Modules & Imports** | **Built-in Formatter** |
-| Full generic support for functions, structs, and enums. Flexible, reusable code without sacrificing type safety. | Split your code across multiple files and projects. Importing modules is straightforward and clean. | Ships with a formatter out of the box. Consistent style, zero configuration. Just the way it should be. |
+**⚡ WebAssembly Native**<br/>
+Compiles directly to Wasm. No runtime, no bloat. Near-native speed everywhere.
 
-</div>
+</td>
+<td valign="top" width="50%">
+
+**🛡 Type-Safe**<br/>
+Static types — `s32` `u64` `f64` `bool` `char` — plus user-defined. Bugs caught at compile time.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**🧱 Structs & Enums**<br/>
+Define your own types, attach methods, and model your data the way it makes sense.
+
+</td>
+<td valign="top">
+
+**🔀 Generics**<br/>
+Full generics for functions, structs, and enums. Flexible without sacrificing safety.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**📦 Modules & Imports**<br/>
+Split code across files and projects. Clean, straightforward imports.
+
+</td>
+<td valign="top">
+
+**✨ Built-in Formatter**<br/>
+Consistent style, zero configuration. Ships ready. Just the way it should be.
+
+</td>
+</tr>
+</table>
 
 <br/>
 
@@ -158,9 +188,9 @@ Everything you need to learn, experiment, and build with Wasome lives at [wasome
 
 <br/>
 
-From zero to your first project.<br/>Guides, references,<br/>and the full language spec.
+Guides, references, and the full language spec. Everything to go from zero to your first project.
 
-<br/>
+<br/><br/>
 
 [![Read the Docs](https://img.shields.io/badge/Read%20the%20Docs-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/docs)
 
@@ -171,9 +201,9 @@ From zero to your first project.<br/>Guides, references,<br/>and the full langua
 
 <br/>
 
-An interactive walkthrough<br/>guided by **Bit**, your<br/>friendly star companion.
+An interactive walkthrough of the language, guided by **Bit**, your friendly star companion.
 
-<br/>
+<br/><br/>
 
 [![Take the Tour](https://img.shields.io/badge/Take%20the%20Tour-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/tour)
 
@@ -184,9 +214,9 @@ An interactive walkthrough<br/>guided by **Bit**, your<br/>friendly star compani
 
 <br/>
 
-Write and run Wasome<br/>right in your browser.<br/>No install. A mini IDE.
+Write and run Wasome right in your browser. No install needed. Basically a mini IDE.
 
-<br/>
+<br/><br/>
 
 [![Open Playground](https://img.shields.io/badge/Open%20Playground-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/playground)
 
@@ -209,17 +239,17 @@ The `docs/examples/` directory has a growing collection of real programs, organi
 <table border="0" cellpadding="8" cellspacing="0">
 <tr>
 <td width="10%" align="center">📄</td>
-<td width="20%"><b>Single File</b></td>
+<td width="20%"><a href="docs/examples/single_file"><b>Single File</b></a></td>
 <td>Standalone <code>.waso</code> files covering loops, structs, enums, generics, and operators. The perfect starting point.</td>
 </tr>
 <tr>
 <td align="center">📁</td>
-<td><b>Single Project</b></td>
+<td><a href="docs/examples/single_project"><b>Single Project</b></a></td>
 <td>Multi-file projects with module imports. See how Wasome scales beyond a single file.</td>
 </tr>
 <tr>
 <td align="center">🗂️</td>
-<td><b>Multi-Project</b></td>
+<td><a href="docs/examples/multi-project"><b>Multi-Project</b></a></td>
 <td>Workspace-style projects with multiple modules. Real-world architecture, Wasome style.</td>
 </tr>
 </table>
@@ -232,14 +262,14 @@ The `docs/examples/` directory has a growing collection of real programs, organi
 
 ## ✦ Installation
 
-Getting started is easy. Install the Wasome toolchain with a single command:
+Install the Wasome toolchain with a single command:
 
 <br/>
 
 <div align="center">
 
 ```sh
-curl -fsSL https://get.wasome.org/install | sh
+curl -fsSL https://get.wasome.dev/install | sh
 ```
 
 </div>
@@ -249,7 +279,7 @@ curl -fsSL https://get.wasome.org/install | sh
 Then verify everything is working:
 
 ```sh
-wasome --version
+waso --version
 ```
 
 <br/>
@@ -264,9 +294,18 @@ The Wasome compiler is a modular Rust workspace. Source flows through six stages
 
 <br/>
 
-<div align="center">
-<img src=".github/assets/pipeline.svg" width="100%" alt="Wasome compiler pipeline: Source → Lexer → Parser → Semantic Analyzer → Code Gen → Linker" />
-</div>
+```mermaid
+graph LR
+    A[Source] --> B[Lexer]
+    B --> C[Parser]
+    C --> D[Semantic Analyzer]
+    D --> E[Code Gen]
+    E --> F[Linker]
+
+    classDef default fill:#1c1c1c,stroke:#444444,color:#ffffff
+    classDef output fill:#EAB308,stroke:#EAB308,color:#000000
+    class E,F output
+```
 
 <br/>
 
