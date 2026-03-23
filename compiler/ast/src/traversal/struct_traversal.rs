@@ -12,23 +12,26 @@ pub struct StructTraversalHelper<'a, 'b, Type: ASTType> {
 }
 
 impl<'a, 'b, Type: ASTType> StructTraversalHelper<'a, 'b, Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         inner: &'b ASTNode<Struct<Type>>,
         parent: &'a FileTraversalHelper<'a, 'b, Type>,
     ) -> Self {
         Self { inner, parent }
     }
 
-    pub fn inner(&self) -> &'b ASTNode<Struct<Type>> {
+    #[must_use]
+    pub const fn inner(&self) -> &'b ASTNode<Struct<Type>> {
         self.inner
     }
 
-    pub fn parent(&self) -> &'a FileTraversalHelper<'a, 'b, Type> {
+    #[must_use]
+    pub const fn parent(&self) -> &'a FileTraversalHelper<'a, 'b, Type> {
         self.parent
     }
 }
 
-impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelper<'a, 'b, Type> {
+impl<'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelper<'_, 'b, Type> {
     fn len_functions(&self) -> usize {
         self.inner.functions().len()
     }
@@ -53,7 +56,7 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for StructTraversalHelpe
     }
 }
 
-impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'a, 'b, Type> {
+impl<'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'_, 'b, Type> {
     fn symbols<'c>(&'c self) -> impl SymbolTable<'b, Type> + 'c {
         StructSymbolTable::new(self)
     }
@@ -105,7 +108,7 @@ impl<'a, 'b, Type: ASTType> StructSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Iterator for StructSymbolTable<'a, 'b, Type> {
+impl<'b, Type: ASTType> Iterator for StructSymbolTable<'_, 'b, Type> {
     type Item = (
         Option<&'b ModuleUsageNameSymbol>,
         DirectlyAvailableSymbol<'b, Type>,
@@ -116,4 +119,4 @@ impl<'a, 'b, Type: ASTType> Iterator for StructSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for StructSymbolTable<'a, 'b, Type> {}
+impl<'b, Type: ASTType> SymbolTable<'b, Type> for StructSymbolTable<'_, 'b, Type> {}

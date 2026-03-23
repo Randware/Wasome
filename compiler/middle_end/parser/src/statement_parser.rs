@@ -5,7 +5,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{map, unspan_vec, ParserSpan};
+use crate::{ParserSpan, map, unspan_vec};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,
@@ -21,7 +21,8 @@ use std::rc::Rc;
 /// Ensures that T implements a specific trait
 ///
 /// This is only used to prevent type annotation issues without specifying the entire type
-fn narrow<
+#[must_use]
+const fn narrow<
     'src,
     T: Parser<'src, ParserInput<'src>, ASTNode<Statement<UntypedAST>>, Full<ParserError, (), ()>>
         + Clone,
@@ -32,7 +33,10 @@ fn narrow<
 }
 
 /// Parses a single statement
-pub(crate) fn statement_parser<'src>()
+// This is a purely functional parser
+// It being long does not really increase complexity
+#[allow(clippy::too_many_lines)]
+pub fn statement_parser<'src>()
 -> impl Parser<'src, ParserInput<'src>, ASTNode<Statement<UntypedAST>>, Full<ParserError, (), ()>> {
     recursive(|statement| {
         let statement = narrow(statement);
@@ -46,7 +50,7 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|(name, val)| {
-                let pos = name.span.merge(val.position().clone().into()).unwrap();
+                let pos = name.span.merge((*val.position()).into()).unwrap();
                 pos.make_wrapped(VariableAssignment::<UntypedAST>::new(name.inner, val))
             });
 
@@ -86,7 +90,7 @@ pub(crate) fn statement_parser<'src>()
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|((src, field), val)| {
-                let pos: ParserSpan = src.position().merge(*val.position()).unwrap().clone().into();
+                let pos: ParserSpan = src.position().merge(*val.position()).unwrap().into();
                 pos.make_wrapped(
                     StructFieldAssignment::<UntypedAST>::new(src, field.inner, val)
                 )
@@ -116,8 +120,7 @@ pub(crate) fn statement_parser<'src>()
                     .merge(
                         to_return
                             .as_ref()
-                            .map(|to_map| to_map.position().clone().into())
-                            .unwrap_or(return_keyword.span),
+                            .map_or(return_keyword.span, |to_map| (*to_map.position()).into()),
                     )
                     .unwrap();
                 pos.make_wrapped(Return::<UntypedAST>::new(to_return))
@@ -141,12 +144,10 @@ pub(crate) fn statement_parser<'src>()
                 let pos = if_keyword
                     .span
                     .merge(
-                        else_statement
+                        (*else_statement
                             .as_ref()
-                            .map(|to_map| to_map.position())
-                            .unwrap_or(then.position())
-                            .clone()
-                            .into(),
+                            .map_or_else(|| then.position(), ASTNode::position))
+                        .into(),
                     )
                     .unwrap();
                 pos.make_wrapped(Conditional::new(cond, then, else_statement))
@@ -181,12 +182,12 @@ pub(crate) fn statement_parser<'src>()
             .then(statement.clone())
             .map(
                 |(
-                    (if_keyword, ((((_, enum_identifier), enum_variant), vars), source)),
+                    (if_keyword, (((((), enum_identifier), enum_variant), vars), source)),
                     then_statement,
                 )| {
                     let pos = if_keyword
                         .span
-                        .merge(then_statement.position().clone().into())
+                        .merge((*then_statement.position()).into())
                         .unwrap();
 
                     let vars = vars
@@ -235,14 +236,11 @@ pub(crate) fn statement_parser<'src>()
                     )
                     .map(LoopType::While),
                 // The infinite loop has to be at the bottom to not "steal" from the other types
-                empty().map(|_| LoopType::Infinite),
+                empty().map(|()| LoopType::Infinite),
             )))
             .then(loop_body.clone())
             .map(|((loop_keyword, loop_type), body)| {
-                let pos = loop_keyword
-                    .span
-                    .merge(body.position().clone().into())
-                    .unwrap();
+                let pos = loop_keyword.span.merge((*body.position()).into()).unwrap();
                 pos.make_wrapped(Loop::new(body, loop_type))
             });
 
@@ -285,7 +283,7 @@ pub(crate) fn statement_parser<'src>()
             code_block.map(|code_block| map(code_block, Statement::Codeblock)),
             return_statement.map(|return_statement| map(return_statement, Statement::Return)),
             expression.map(|expr| -> Spanned<Statement<UntypedAST>, ParserSpan> {
-                let pos: ParserSpan = expr.position().clone().into();
+                let pos: ParserSpan = (*expr.position()).into();
                 pos.make_wrapped(Statement::Expression(expr))
             }),
         ))

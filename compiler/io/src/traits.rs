@@ -70,6 +70,9 @@ pub trait DirectoryLoader {
     ///
     /// There is no filtering (e.g.: hidden files) and symlinks are resolved.
     ///
+    /// The resulting files are unique. 
+    ///     - Therefore, duplicates are impossible
+    
     /// # Arguments
     ///
     /// * `path` - The absolute or canonical path to the directory.
@@ -87,6 +90,9 @@ pub trait DirectoryLoader {
     ///
     /// There is no filtering (e.g.: hidden directories) and symlinks are resolved.
     ///
+    /// The resulting subdirs are unique.
+    ///     - Therefore, duplicates are impossible
+    /// 
     /// # Arguments
     ///
     /// * `path` - The absolute or canonical path to the directory.
@@ -96,6 +102,14 @@ pub trait DirectoryLoader {
     /// * `Ok(impl Iterator<Item=OsString>)` - An iterator over the names of the subdirectories (not paths).
     /// * `Err(Error)` - If an IO error occurred.
     fn list_subdirs<'a, F: AsRef<Path> + 'a>(
+        &'a self,
+        path: F,
+    ) -> Result<impl Iterator<Item = OsString> + 'a, Error>;
+
+    /// Like [`Self::list_subdirs`], but symlinks are **not** followed
+    ///
+    /// This prevents directories from containing themselves
+    fn list_non_symlink_subdirs<'a, F: AsRef<Path> + 'a>(
         &'a self,
         path: F,
     ) -> Result<impl Iterator<Item = OsString> + 'a, Error>;

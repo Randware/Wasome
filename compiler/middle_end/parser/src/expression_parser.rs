@@ -15,7 +15,10 @@ use lexer::TokenType;
 use source::types::{BytePos, Span};
 
 /// Parses an expression
-pub(crate) fn expression_parser<'src>()
+// This is a purely functional parser
+// It being long does not really increase complexity
+#[allow(clippy::too_many_lines)]
+pub fn expression_parser<'src>()
 -> impl Parser<'src, ParserInput<'src>, ASTNode<Expression<UntypedAST>>, Full<ParserError, (), ()>>
 + Clone {
     recursive(|expr| {
@@ -23,7 +26,7 @@ pub(crate) fn expression_parser<'src>()
             select_ref! {
                 TokenType::Decimal(inner) => {
                             if inner.fract() == 0.0 {
-                                format!("{:.1}", inner)
+                                format!("{inner:.1}")
                             } else {
                                 inner.to_string()
                             }
@@ -44,7 +47,7 @@ pub(crate) fn expression_parser<'src>()
             token_parser(TokenType::True).map(|input| map(input, |_| "true".to_string())),
             token_parser(TokenType::False).map(|input| map(input, |_| "false".to_string())),
         ))
-        .map(|lit| map(lit, |lit| Expression::<UntypedAST>::Literal(lit)))
+        .map(|lit| map(lit, Expression::<UntypedAST>::Literal))
         .map(|lit| ASTNode::new(lit.inner, lit.span.0));
         let ident = identifier_parser();
         let ident_with_typ_param = identifier_with_type_parameter_parser();
@@ -65,8 +68,7 @@ pub(crate) fn expression_parser<'src>()
                     .span
                     .merge(
                         args.last()
-                            .map(|to_map| to_map.position().clone().into())
-                            .unwrap_or(name.span),
+                            .map_or(name.span, |to_map| (*to_map.position()).into()),
                     )
                     .unwrap();
                 let type_parameters = type_parameters
@@ -132,9 +134,7 @@ pub(crate) fn expression_parser<'src>()
                     .merge(
                         field_values
                             .as_ref()
-                            .and_then(|fv| {
-                                fv.last().map(|last_val| last_val.position().clone().into())
-                            })
+                            .and_then(|fv| fv.last().map(|last_val| (*last_val.position()).into()))
                             .unwrap_or(variant_name.span),
                     )
                     .unwrap();
@@ -213,7 +213,7 @@ pub(crate) fn expression_parser<'src>()
                 .ignored()
                 .then(datatype_parser())
                 .repeated(),
-            |expr, (_, new_type)| {
+            |expr, ((), new_type)| {
                 let new_pos = expr.position().merge(new_type.span.into()).unwrap();
                 ASTNode::new(
                     Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
@@ -374,11 +374,11 @@ fn unary_op_mapper(
     token_type: UnaryOpType<UntypedAST>,
     op_start: BytePos,
 ) -> impl Fn(ASTNode<Expression<UntypedAST>>) -> ASTNode<Expression<UntypedAST>> {
-    move |expr| map_unary_op(token_type.clone(), op_start, expr)
+    move |expr| map_unary_op(&token_type, op_start, expr)
 }
 
 fn map_unary_op(
-    operator_type: UnaryOpType<UntypedAST>,
+    operator_type: &UnaryOpType<UntypedAST>,
     op_start: BytePos,
     input: ASTNode<Expression<UntypedAST>>,
 ) -> ASTNode<Expression<UntypedAST>> {
