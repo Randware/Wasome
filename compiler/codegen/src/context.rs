@@ -1,14 +1,17 @@
 use std::{collections::HashMap, io::Write};
 
+use ast::{data_type::DataType, symbol::SymbolWithTypeParameter};
 use inkwell::{
     builder::Builder,
     context::Context,
     passes::PassBuilderOptions,
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
+    types::{BasicType, BasicTypeEnum},
 };
 
 use crate::{
-    symbols::TypeRegistry,
+    errors::CodegenError,
+    symbols::SymbolRegistry,
     types::{CodegenTypes, ModuleContext, OptLevel},
 };
 
@@ -17,7 +20,7 @@ pub struct LLVMContext<'ctx> {
     builder: Builder<'ctx>,
     modules: HashMap<String, ModuleContext<'ctx>>,
     machine: TargetMachine,
-    registry: TypeRegistry<'ctx>,
+    registry: SymbolRegistry<'ctx>,
     types: CodegenTypes<'ctx>,
     opt_level: OptLevel,
 }
@@ -49,7 +52,7 @@ impl<'ctx> LLVMContext<'ctx> {
             builder,
             modules: HashMap::new(),
             machine,
-            registry: TypeRegistry::new(),
+            registry: SymbolRegistry::new(),
             types,
             opt_level,
         }
@@ -104,6 +107,37 @@ impl<'ctx> LLVMContext<'ctx> {
         });
     }
 
+    pub fn lower_type(
+        &self,
+        data_type: &DataType,
+    ) -> Result<BasicTypeEnum<'ctx>, CodegenError<'ctx>> {
+        Ok(match data_type {
+            DataType::Char => self.context.i32_type().as_basic_type_enum(),
+            DataType::U8 => self.context.i8_type().as_basic_type_enum(),
+            DataType::S8 => self.context.i8_type().as_basic_type_enum(),
+            DataType::U16 => self.context.i16_type().as_basic_type_enum(),
+            DataType::S16 => self.context.i16_type().as_basic_type_enum(),
+            DataType::U32 => self.context.i32_type().as_basic_type_enum(),
+            DataType::S32 => self.context.i32_type().as_basic_type_enum(),
+            DataType::U64 => self.context.i64_type().as_basic_type_enum(),
+            DataType::S64 => self.context.i64_type().as_basic_type_enum(),
+            DataType::Bool => self.context.bool_type().as_basic_type_enum(),
+            DataType::F32 => self.context.f32_type().as_basic_type_enum(),
+            DataType::F64 => self.context.f32_type().as_basic_type_enum(),
+            DataType::Struct(_) => self
+                .context
+                .ptr_type(inkwell::AddressSpace::default())
+                .as_basic_type_enum(),
+            DataType::Enum(enum_symbol) => self
+                .registry
+                .get_enum(enum_symbol)
+                .ok_or_else(|| {
+                    CodegenError::Ice(format!("Enum {} was not registered", enum_symbol.name()))
+                })?
+                .as_basic_type_enum(),
+        })
+    }
+
     pub fn get_module(&self, name: impl AsRef<str>) -> Option<&ModuleContext<'ctx>> {
         self.modules.get(name.as_ref())
     }
@@ -120,7 +154,7 @@ impl<'ctx> LLVMContext<'ctx> {
         &self.machine
     }
 
-    pub fn type_registry(&self) -> &TypeRegistry {
+    pub fn type_registry(&self) -> &SymbolRegistry {
         &self.registry
     }
 
