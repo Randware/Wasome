@@ -134,45 +134,23 @@ Everything you need to learn, experiment, and build with Wasome lives at [wasome
 
 <br/>
 
-<div align="center">
-<table border="0" cellpadding="24" cellspacing="0">
+<table border="0" cellpadding="8" cellspacing="0">
 <tr>
-<td align="center" valign="top" width="33%">
-
-**📚 Documentation**
-
-Guides, references, and the full language spec.
-
-<br/>
-
-[![Read the Docs](https://img.shields.io/badge/Read%20the%20Docs-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/docs)
-
-</td>
-<td align="center" valign="top" width="33%">
-
-**🌟 Language Tour**
-
-An interactive walkthrough guided by **Bit**, your star companion.
-
-<br/>
-
-[![Take the Tour](https://img.shields.io/badge/Take%20the%20Tour-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/tour)
-
-</td>
-<td align="center" valign="top" width="33%">
-
-**🧪 Playground**
-
-Write and run Wasome right in your browser. No install.
-
-<br/>
-
-[![Open Playground](https://img.shields.io/badge/Open%20Playground-EAB308?style=for-the-badge&logoColor=000000)](https://wasome.dev/playground)
-
-</td>
+<td width="10%" align="center">📚</td>
+<td width="20%"><a href="https://wasome.dev/docs"><b>Documentation</b></a></td>
+<td>Guides, references, and the full language spec. Everything to go from zero to your first project.</td>
+</tr>
+<tr>
+<td align="center">🌟</td>
+<td><a href="https://wasome.dev/tour"><b>Language Tour</b></a></td>
+<td>An interactive walkthrough of the language, guided by <b>Bit</b>, your friendly star companion.</td>
+</tr>
+<tr>
+<td align="center">🧪</td>
+<td><a href="https://wasome.dev/playground"><b>Playground</b></a></td>
+<td>Write and run Wasome right in your browser. No install needed. Basically a mini IDE.</td>
 </tr>
 </table>
-</div>
 
 <br/>
 
