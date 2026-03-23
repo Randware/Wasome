@@ -41,7 +41,7 @@ pub(crate) fn collect_program(
             .map(|project| {
                 Result::<_, CollectionError>::Ok((
                     project.name().to_string(),
-                    collect_dir(to_collect.path().join(project.name()), load_from)?,
+                    collect_dir(to_collect.path().join(project.path()), load_from)?,
                 ))
             })
             .collect::<Result<_, _>>()?,
