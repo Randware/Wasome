@@ -1,68 +1,82 @@
 <div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:EAB308,35:F5D85A,100:111111&height=220&section=header&text=WASOME&fontSize=62&fontColor=ffffff&fontAlignY=37&desc=The%20WebAssembly%20Language%20for%20Everyone&descAlignY=58&animation=fadeIn" alt="Wasome header" />
 
-<img src=".github/assets/Wasome_Yellow.png" width="148" alt="Wasome" />
+  <img src=".github/assets/Wasome_Yellow.png" alt="Wasome compiler icon" width="132" />
 
-<br/><br/>
+  <h1>Write it. Compile it. Run it anywhere.</h1>
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=2000&color=EAB308&center=true&vCenter=true&width=620&height=60&lines=Write+it.+Compile+it.+Run+it+anywhere.;Type-safe+WebAssembly%2C+for+everyone.;Compiles+to+Wasm.+Runs+everywhere.;Clean+syntax.+Strong+types.+Zero+bloat.)](https://wasome.dev)
+  <p>
+    <a href="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&pause=1200&color=EAB308&center=true&vCenter=true&width=860&lines=Modern+and+type-safe+by+default;Compiles+directly+to+WebAssembly;From+browser+to+server+to+edge;Readable+syntax+without+runtime+bloat">
+      <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&pause=1200&color=EAB308&center=true&vCenter=true&width=860&lines=Modern+and+type-safe+by+default;Compiles+directly+to+WebAssembly;From+browser+to+server+to+edge;Readable+syntax+without+runtime+bloat" alt="Typing SVG" />
+    </a>
+  </p>
 
-<br/>
+  <p>
+    <a href="https://wasome.dev"><img src="https://img.shields.io/badge/Website-wasome.dev-111111?style=for-the-badge&logo=google-chrome&logoColor=EAB308&labelColor=111111" alt="Website" /></a>
+    <a href="https://wasome.dev/docs"><img src="https://img.shields.io/badge/Docs-Reference-EAB308?style=for-the-badge&logo=gitbook&logoColor=111111&labelColor=F9E27D" alt="Docs" /></a>
+    <a href="https://wasome.dev/tour"><img src="https://img.shields.io/badge/Tour-Interactive-111111?style=for-the-badge&logo=storybook&logoColor=EAB308&labelColor=111111" alt="Tour" /></a>
+    <a href="https://wasome.dev/playground"><img src="https://img.shields.io/badge/Playground-In_Browser-EAB308?style=for-the-badge&logo=stackblitz&logoColor=111111&labelColor=F9E27D" alt="Playground" /></a>
+    <a href="https://wasome.dev/examples"><img src="https://img.shields.io/badge/Examples-Real_Programs-111111?style=for-the-badge&logo=codeium&logoColor=EAB308&labelColor=111111" alt="Examples" /></a>
+    <a href="https://wasome.dev/install"><img src="https://img.shields.io/badge/Install-1_Command-EAB308?style=for-the-badge&logo=gnubash&logoColor=111111&labelColor=F9E27D" alt="Install" /></a>
+  </p>
 
-[![Website](https://img.shields.io/badge/wasome.dev-EAB308?style=for-the-badge&logo=googlechrome&logoColor=000000)](https://wasome.dev)
-[![Docs](https://img.shields.io/badge/Docs-111111?style=for-the-badge&logo=bookstack&logoColor=EAB308)](https://wasome.dev/docs)
-[![Tour](https://img.shields.io/badge/Tour-111111?style=for-the-badge&logo=compass&logoColor=EAB308)](https://wasome.dev/tour)
-[![Playground](https://img.shields.io/badge/Playground-111111?style=for-the-badge&logo=codepen&logoColor=EAB308)](https://wasome.dev/playground)
-[![Examples](https://img.shields.io/badge/Examples-111111?style=for-the-badge&logo=github&logoColor=EAB308)](https://wasome.dev/examples)
-[![Install](https://img.shields.io/badge/Install-EAB308?style=for-the-badge&logo=rust&logoColor=000000)](https://wasome.dev/install)
-
-<br/>
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-EAB308.svg?style=flat-square)](LICENSE-MIT)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-EAB308.svg?style=flat-square)](LICENSE-APACHE)
-[![Built with Rust](https://img.shields.io/badge/Built%20with-Rust-EAB308?style=flat-square&logo=rust&logoColor=000000)](https://www.rust-lang.org)
-
+  <p>
+    <img src="https://img.shields.io/badge/WebAssembly-Native-111111?style=flat-square&logo=webassembly&logoColor=EAB308" alt="WebAssembly Native" />
+    <img src="https://img.shields.io/badge/Type_System-Static-EAB308?style=flat-square&logo=typescript&logoColor=111111" alt="Static Type System" />
+    <img src="https://img.shields.io/badge/Formatter-Built--in-111111?style=flat-square&logo=prettier&logoColor=EAB308" alt="Built-in Formatter" />
+    <img src="https://img.shields.io/badge/License-MIT%20%7C%20Apache--2.0-EAB308?style=flat-square&logo=open-source-initiative&logoColor=111111" alt="License" />
+  </p>
 </div>
 
-<br/>
-
-<div align="center">
-<p>
-Wasome is a programming language built from scratch to compile to WebAssembly.<br/>
-A clean, expressive syntax paired with a strong type system that catches your mistakes before they become problems.<br/><br/>
-Whether you're targeting the browser, a server, or the edge,<br/>
-you write Wasome, compile to Wasm, and it <strong>just works</strong>.
+<p align="center">
+  <img src=".github/assets/divider.svg" alt="divider" width="100%" />
 </p>
-</div>
 
-<br/>
+## WASOME
 
-## ✦ Features
+Wasome is a programming language built from scratch to compile to WebAssembly. The idea is simple: a clean, expressive syntax paired with a strong type system that catches your mistakes before they become problems.
 
-### ⚡ WebAssembly Native
-Compiles directly to Wasm. No runtime, no bloat. Near-native speed everywhere.
+Whether you are targeting the browser, a server, or the edge, you write Wasome, compile to Wasm, and it just works.
 
-### 🛡️ Type-Safe
-Static types — `s32`, `u64`, `f64`, `bool`, `char` — plus user-defined. Bugs caught at compile time.
+> **Syntax note:** Wasome uses `<-` for assignment and `->` for return.
 
-### 🧱 Structs & Enums
-Define your own types, attach methods, and model your data the way it makes sense.
+Tested on Linux, macOS, Windows, FreeBSD, ARM (aarch64), and ARMv7.
+If it runs code, chances are Wasome runs on it.
 
-### 🔀 Generics
-Full generics for functions, structs, and enums. Flexible without sacrificing safety.
+<p align="center">
+  <img src=".github/assets/divider.svg" alt="divider" width="100%" />
+</p>
 
-### 📦 Modules & Imports
-Split code across files and projects. Clean, straightforward imports.
+## Table of Contents
 
-### ✨ Built-in Formatter
-Consistent style, zero configuration. Ships ready. Just the way it should be.
+- [Features](#features)
+- [Syntax at a glance](#syntax-at-a-glance)
+- [More examples](#more-examples)
+- [Explore Wasome](#explore-wasome)
+- [Installation](#installation)
+- [Architecture](#architecture)
+- [License](#license)
 
-<br/>
+<p align="center">
+  <img src=".github/assets/divider.svg" alt="divider" width="100%" />
+</p>
 
-## ✦ Syntax at a Glance
+## Features
 
-<div align="right"><sub><b>Note:</b> Wasome uses <code>&lt;-</code> for assignment and <code>-&gt;</code> for return.</sub></div>
+- **WebAssembly native:** Compiles directly to WebAssembly. No intermediate runtime, no bloat, near-native speed in any Wasm-compatible environment.
+- **Type-safe:** Strong static types (`s32`, `u64`, `f64`, `bool`, `char`) plus user-defined types. Bugs are caught at compile time, not at 3 AM.
+- **Structs and enums:** Define your own structs and enums, attach methods to them, and model data the way it makes sense to you.
+- **Generics:** Full generic support for functions, structs, and enums so code stays flexible and safe.
+- **Modules and imports:** Split code across files and projects with straightforward, readable imports.
+- **Built-in formatter:** Ships with formatting out of the box. Consistent style, zero configuration.
 
-```rust
+<p align="center">
+  <img src=".github/assets/divider.svg" alt="divider" width="100%" />
+</p>
+
+## Syntax at a glance
+
+```waso
 struct User {
     s32 id
     bool is_active
@@ -78,13 +92,15 @@ fn main() -> s32 {
 }
 ```
 
-<br/>
+<p align="center">
+  <img src=".github/assets/divider.svg" alt="divider" width="100%" />
+</p>
 
-<details>
-<summary><b>Fibonacci Sequence</b></summary>
-<br/>
+## More examples
 
-```rust
+### Fibonacci sequence
+
+```waso
 fn fibonacci(u8 n) -> u64 {
     u64 curr <- 1 as u32 as u64
     u64 prev <- 0 as u32 as u64
@@ -98,13 +114,9 @@ fn fibonacci(u8 n) -> u64 {
 }
 ```
 
-</details>
+### Generics
 
-<details>
-<summary><b>Generics</b></summary>
-<br/>
-
-```rust
+```waso
 struct Box[T] {
     T value
 }
@@ -125,128 +137,90 @@ fn main() {
 }
 ```
 
-</details>
+### Multi-file modules
 
+```waso
+// main.waso
+import "./utils" as u
 
-## ✦ Explore Wasome
-
-Everything you need to learn, experiment, and build with Wasome lives at [wasome.dev](https://wasome.dev).
-
-<br/>
-
-<table border="0" cellpadding="8" cellspacing="0">
-<tr>
-<td width="10%" align="center">📚</td>
-<td width="20%"><a href="https://wasome.dev/docs"><b>Documentation</b></a></td>
-<td>Guides, references, and the full language spec. Everything to go from zero to your first project.</td>
-</tr>
-<tr>
-<td align="center">🌟</td>
-<td><a href="https://wasome.dev/tour"><b>Language Tour</b></a></td>
-<td>An interactive walkthrough of the language, guided by <b>Bit</b>, your friendly star companion.</td>
-</tr>
-<tr>
-<td align="center">🧪</td>
-<td><a href="https://wasome.dev/playground"><b>Playground</b></a></td>
-<td>Write and run Wasome right in your browser. No install needed. Basically a mini IDE.</td>
-</tr>
-</table>
-
-<br/>
-
-## ✦ Examples
-
-The `docs/examples/` directory has a growing collection of real programs, organized by complexity:
-
-<br/>
-
-<table border="0" cellpadding="8" cellspacing="0">
-<tr>
-<td width="10%" align="center">📄</td>
-<td width="20%"><a href="docs/examples/single_file"><b>Single File</b></a></td>
-<td>Standalone <code>.waso</code> files covering loops, structs, enums, generics, and operators. The perfect starting point.</td>
-</tr>
-<tr>
-<td align="center">📁</td>
-<td><a href="docs/examples/single_project"><b>Single Project</b></a></td>
-<td>Multi-file projects with module imports. See how Wasome scales beyond a single file.</td>
-</tr>
-<tr>
-<td align="center">🗂️</td>
-<td><a href="docs/examples/multi-project"><b>Multi-Project</b></a></td>
-<td>Workspace-style projects with multiple modules. Real-world architecture, Wasome style.</td>
-</tr>
-</table>
-
-<br/>
-
-## ✦ Installation
-
-Install the Wasome toolchain with a single command:
-
-<br/>
-
-<div align="center">
-
-```sh
-curl -fsSL https://get.wasome.dev/install | sh
+fn main() -> s32 {
+    u.add(1, 2)
+    -> 0
+}
 ```
 
-</div>
+Need more? Check the live examples in `docs/examples/` and on the web examples page:
 
-<br/>
+- https://wasome.dev/examples
+- `docs/examples/single_file/`
+- `docs/examples/single_project/`
+- `docs/examples/multi-project/`
 
-Then verify everything is working:
+<p align="center">
+  <img src=".github/assets/divider.svg" alt="divider" width="100%" />
+</p>
 
-```sh
-waso --version
+## Explore Wasome
+
+Everything you need to learn, experiment, and build with Wasome lives at https://wasome.dev.
+
+- **Documentation:** Guides, references, and the full language surface at https://wasome.dev/docs
+- **Language Tour:** Interactive introduction with Bit, your friendly star companion, at https://wasome.dev/tour
+- **Playground:** Write and run Wasome directly in the browser at https://wasome.dev/playground
+
+<p align="center">
+  <img src=".github/assets/divider.svg" alt="divider" width="100%" />
+</p>
+
+## Installation
+
+Install the Wasome toolchain with one command:
+
+```bash
+curl -fsSL https://get.wasome.org/install | sh
 ```
 
-<br/>
+Then verify your install:
 
-## ✦ Platform Support
+```bash
+wasome --version
+```
 
-Tested and verified across a wide range of platforms and architectures:
+<p align="center">
+  <img src=".github/assets/divider.svg" alt="divider" width="100%" />
+</p>
 
-<br/>
+## Architecture
 
-<div align="center">
+The Wasome compiler is built in Rust as a modular workspace. Source flows through each stage in sequence:
 
-[![Linux](https://img.shields.io/badge/Linux-EAB308?style=for-the-badge&logo=linux&logoColor=000000)](https://wasome.dev)
-[![macOS](https://img.shields.io/badge/macOS-111111?style=for-the-badge&logo=apple&logoColor=EAB308)](https://wasome.dev)
-[![Windows](https://img.shields.io/badge/Windows-111111?style=for-the-badge&logo=windows11&logoColor=EAB308)](https://wasome.dev)
-[![FreeBSD](https://img.shields.io/badge/FreeBSD-111111?style=for-the-badge&logo=freebsd&logoColor=EAB308)](https://wasome.dev)
-[![ARM aarch64](https://img.shields.io/badge/ARM%20aarch64-111111?style=for-the-badge&logo=arm&logoColor=EAB308)](https://wasome.dev)
-[![ARMv7](https://img.shields.io/badge/ARMv7-111111?style=for-the-badge&logo=arm&logoColor=EAB308)](https://wasome.dev)
+1. **Source** - load and manage `.waso` files
+2. **Lexer** - tokenize source
+3. **Parser** - build untyped AST
+4. **Semantic analyzer** - type check, resolve symbols, validate
+5. **Code gen** - lower to object code
+6. **Linker** - produce final binary
 
-</div>
+<p align="center">
+  <img src=".github/assets/pipeline.svg" alt="Wasome compiler pipeline" width="100%" />
+</p>
 
-<br/>
+Supporting crates/components:
 
-<div align="center"><i>If it runs code, chances are Wasome runs on it.</i></div>
+- `ast` - typed and untyped AST definitions with traversal helpers
+- `driver` - orchestrates the full pipeline end to end
+- `error` - structured error reporting and diagnostics
+- `io` - file I/O utilities
+- `formatter` - automatic formatting for `.waso` files
 
-<br/>
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:111111,35:F5D85A,100:EAB308&height=130&section=footer" alt="Wasome footer wave" />
+</p>
 
-## ✦ License
+## License
 
-This project is dual-licensed under your choice of:
+This project is dual-licensed under your choice of MIT or Apache 2.0.
 
-<br/>
+Built with love and Rust.
 
-<div align="center">
-
-[![MIT](https://img.shields.io/badge/License-MIT-EAB308?style=for-the-badge)](LICENSE-MIT)
-&nbsp;&nbsp;
-[![Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-EAB308?style=for-the-badge)](LICENSE-APACHE)
-
-</div>
-
-<br/><br/>
-
-<div align="center">
-
-<sub>Built with love and Rust &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
-
-<br/><br/>
-
-</div>
+https://wasome.dev
