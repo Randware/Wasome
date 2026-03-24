@@ -59,7 +59,7 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     /// Gets the struct symbol of the containing struct if this function is defined inside a struct
     #[must_use]
     pub fn containing_struct(&self) -> Option<Rc<StructSymbol<Type>>> {
-        self.parent.containing_struct()
+        self.parent.maybe_struct_symbol()
     }
 }
 

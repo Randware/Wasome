@@ -62,20 +62,20 @@ pub trait FunctionContainer<'b, Type: ASTType> {
         'b: 'c;
 }
 
-/// Any type that can provide the containing struct symbol if it exists
-pub trait HasContainingStruct<Type: ASTType>: Debug {
+/// Any type that can provide a struct symbol if it is a struct
+pub trait MaybeHasStructSymbol<Type: ASTType>: Debug {
     /// Gets the struct symbol of the containing struct if it exists
-    fn containing_struct(&self) -> Option<Rc<StructSymbol<Type>>>;
+    fn maybe_struct_symbol(&self) -> Option<Rc<StructSymbol<Type>>>;
 }
 
-/// A trait that combines [`HasSymbols`] and [`HasContainingStruct`]
+/// A trait that combines [`HasSymbols`] and [`MaybeHasStructSymbol`]
 /// Auto-implemented for all types that satisfy both bounds
 pub trait FunctionScope<'b, Type: ASTType>:
-    HasSymbols<'b, Type> + HasContainingStruct<Type>
+    HasSymbols<'b, Type> + MaybeHasStructSymbol<Type>
 {
 }
 
 impl<'b, Type: ASTType, T> FunctionScope<'b, Type> for T where
-    T: HasSymbols<'b, Type> + HasContainingStruct<Type>
+    T: HasSymbols<'b, Type> + MaybeHasStructSymbol<Type>
 {
 }

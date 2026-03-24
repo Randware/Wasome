@@ -8,7 +8,7 @@ use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::enum_traversal::EnumTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::struct_traversal::StructTraversalHelper;
-use crate::traversal::{FunctionContainer, HasContainingStruct, HasSymbols};
+use crate::traversal::{FunctionContainer, MaybeHasStructSymbol, HasSymbols};
 use crate::{ASTNode, ASTType};
 use source::types::FileID;
 use std::iter;
@@ -201,8 +201,8 @@ impl<'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'_, 'b, Typ
     }
 }
 
-impl<Type: ASTType> HasContainingStruct<Type> for FileTraversalHelper<'_, '_, Type> {
-    fn containing_struct(&self) -> Option<Rc<StructSymbol<Type>>> {
+impl<Type: ASTType> MaybeHasStructSymbol<Type> for FileTraversalHelper<'_, '_, Type> {
+    fn maybe_struct_symbol(&self) -> Option<Rc<StructSymbol<Type>>> {
         None
     }
 }
