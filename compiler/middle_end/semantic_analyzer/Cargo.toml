@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ast = { path = "../../ast"}
-source = { path = "../../source"}
+ast = { path = "../../ast" }
+source = { path = "../../source" }
 typed-arena = "2.0.2"
 error = { path = "../../error" }
 
 [dev-dependencies]
 tempfile.workspace = true
 source = { path = "../../source", features = ["test-utils"] }
-driver = { path = "../../driver"}
+driver = { path = "../../driver" }
 io = { path = "../../io" }

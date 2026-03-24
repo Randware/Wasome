@@ -17,9 +17,9 @@ use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
+use ast::visibility::Visibility;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
-use ast::visibility::Visibility;
 
 pub mod function_symbol_mapper;
 pub mod global_system_collector;
@@ -452,10 +452,13 @@ fn convert_struct_pre_implementation(
 
             let dt = analyze_data_type(field_symbol.data_type(), context, span)?;
 
-            Ok((Rc::new(StructFieldSymbol::<TypedAST>::new(
-                field_symbol.name().to_owned(),
-                dt,
-            )), field_node.visibility()))
+            Ok((
+                Rc::new(StructFieldSymbol::<TypedAST>::new(
+                    field_symbol.name().to_owned(),
+                    dt,
+                )),
+                field_node.visibility(),
+            ))
         })
         .collect()
 }

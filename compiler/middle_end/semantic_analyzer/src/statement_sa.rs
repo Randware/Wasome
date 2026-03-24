@@ -2,6 +2,7 @@ use crate::error_sa::SemanticError;
 use crate::expression_sa::analyze_expression;
 use crate::mics_sa::{
     analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call,
+    check_struct_field_visibility,
 };
 use crate::symbol::SyntaxContext;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
@@ -742,15 +743,24 @@ fn analyze_struct_field_assignment(
             span: *to_analyze.struct_source().position(),
         })?;
 
-    let field = fields
+    let field_info = fields
         .iter()
-        .map(|field| &field.0)
-        .find(|field| field.name() == to_analyze.struct_field())
+        .find(|(field, _)| field.name() == to_analyze.struct_field())
         .ok_or_else(|| SemanticError::InvalidUsage {
             message: format!("Field '{}' not found in struct", to_analyze.struct_field()),
             span: *to_analyze.struct_source().position(),
-        })?
-        .clone();
+        })?;
+
+    let (field, field_visibility) = (field_info.0.clone(), field_info.1);
+
+    let field_span = *to_analyze.struct_source().position();
+    check_struct_field_visibility(
+        to_analyze.struct_field(),
+        field_visibility,
+        &untyped_symbol,
+        context,
+        field_span,
+    )?;
 
     let value = analyze_expression(to_analyze.value(), context, function_symbol_mapper)?;
     let value = ASTNode::new(value, *to_analyze.struct_source().position());

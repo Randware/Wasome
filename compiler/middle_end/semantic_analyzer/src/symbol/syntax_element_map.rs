@@ -16,11 +16,11 @@ use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
+use ast::visibility::Visibility;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
-use ast::visibility::Visibility;
 
 /// Multiple [`SingleSyntaxElementMap`], one for each of syntax element with type parameters
 ///

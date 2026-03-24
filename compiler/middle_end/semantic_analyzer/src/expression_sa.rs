@@ -1,7 +1,7 @@
 use crate::error_sa::SemanticError;
 use crate::mics_sa::{
     analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call,
-    analyze_struct_usage,
+    analyze_struct_usage, check_struct_field_visibility,
 };
 use crate::symbol::SyntaxContext;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
@@ -400,15 +400,23 @@ fn analyze_struct_field_access(
             span,
         })?;
 
-    let sf = sfs
+    let field_info = sfs
         .iter()
-        .map(|sf| &sf.0)
-        .find(|sf| sf.name() == to_analyze.field())
+        .find(|(sf, _)| sf.name() == to_analyze.field())
         .ok_or_else(|| SemanticError::InvalidUsage {
             message: format!("Field '{}' not found", to_analyze.field()),
             span,
-        })?
-        .clone();
+        })?;
+
+    let (sf, field_visibility) = (field_info.0.clone(), field_info.1);
+
+    check_struct_field_visibility(
+        to_analyze.field(),
+        field_visibility,
+        &untyped_symbol,
+        context,
+        span,
+    )?;
 
     let analyzed = StructFieldAccess::<TypedAST>::new(
         ASTNode::new(source_expr, *to_analyze.of().position()),

@@ -1,9 +1,10 @@
 use crate::composite::Struct;
-use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable};
+use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable};
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
-use crate::traversal::{FunctionContainer, HasSymbols};
+use crate::traversal::{FunctionContainer, HasContainingStruct, HasSymbols};
 use crate::{ASTNode, ASTType};
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct StructTraversalHelper<'a, 'b, Type: ASTType> {
@@ -63,6 +64,12 @@ impl<'b, Type: ASTType> HasSymbols<'b, Type> for StructTraversalHelper<'_, 'b, T
 
     fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_> {
         Box::new(self.symbols())
+    }
+}
+
+impl<Type: ASTType> HasContainingStruct<Type> for StructTraversalHelper<'_, '_, Type> {
+    fn containing_struct(&self) -> Option<Rc<StructSymbol<Type>>> {
+        Some(self.inner().symbol_owned())
     }
 }
 
