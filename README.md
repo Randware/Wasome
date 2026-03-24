@@ -38,23 +38,66 @@ you write Wasome, compile to Wasm, and it <strong>just works</strong>.
 
 ## ✦ Features
 
-### ⚡ WebAssembly Native
-Compiles directly to Wasm. No runtime, no bloat. Near-native speed everywhere.
+<table border="0" cellpadding="8" cellspacing="0">
+<tr>
+<td width="33%" valign="top">
 
-### 🛡️ Type-Safe
-Static types — `s32`, `u64`, `f64`, `bool`, `char` — plus user-defined. Bugs caught at compile time.
+<kbd>FEATURE::WASM_NATIVE</kbd>
 
-### 🧱 Structs & Enums
-Define your own types, attach methods, and model your data the way it makes sense.
+**⚡ WebAssembly Native**
 
-### 🔀 Generics
-Full generics for functions, structs, and enums. Flexible without sacrificing safety.
+Compiles directly to Wasm. No runtime, no bloat, near-native speed.
 
-### 📦 Modules & Imports
-Split code across files and projects. Clean, straightforward imports.
+</td>
+<td width="33%" valign="top">
 
-### ✨ Built-in Formatter
-Consistent style, zero configuration. Ships ready. Just the way it should be.
+<kbd>FEATURE::TYPE_SAFE</kbd>
+
+**🛡️ Type-Safe**
+
+Static types: `s32` `u64` `f64` `bool` `char` plus user-defined types.
+
+</td>
+<td width="33%" valign="top">
+
+<kbd>FEATURE::STRUCTS_ENUMS</kbd>
+
+**🧱 Structs & Enums**
+
+Model data cleanly with custom structs, enums, and methods.
+
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top">
+
+<kbd>FEATURE::GENERICS</kbd>
+
+**🔀 Generics**
+
+Generic functions, structs, and enums for reusable type-safe code.
+
+</td>
+<td width="33%" valign="top">
+
+<kbd>FEATURE::MODULES_IMPORTS</kbd>
+
+**📦 Modules & Imports**
+
+Split code across files and projects with straightforward imports.
+
+</td>
+<td width="33%" valign="top">
+
+<kbd>FEATURE::FORMATTER</kbd>
+
+**✨ Built-in Formatter**
+
+Consistent style, zero configuration, ships ready out of the box.
+
+</td>
+</tr>
+</table>
 
 <br/>
 
