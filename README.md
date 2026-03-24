@@ -38,66 +38,17 @@ you write Wasome, compile to Wasm, and it <strong>just works</strong>.
 
 ## ✦ Features
 
-<table border="0" cellpadding="8" cellspacing="0">
-<tr>
-<td width="33%" valign="top">
+.) **WebAssembly Native** Direct Wasm output, no runtime overhead.
 
-<kbd>FEATURE::WASM_NATIVE</kbd>
+.) **Type-Safe** Strong static types catch bugs early.
 
-**⚡ WebAssembly Native**
+.) **Structs & Enums** Model data with clean custom types.
 
-Compiles directly to Wasm. No runtime, no bloat, near-native speed.
+.) **Generics** Reusable abstractions without losing safety.
 
-</td>
-<td width="33%" valign="top">
+.) **Modules & Imports** Split code cleanly across files and projects.
 
-<kbd>FEATURE::TYPE_SAFE</kbd>
-
-**🛡️ Type-Safe**
-
-Static types: `s32` `u64` `f64` `bool` `char` plus user-defined types.
-
-</td>
-<td width="33%" valign="top">
-
-<kbd>FEATURE::STRUCTS_ENUMS</kbd>
-
-**🧱 Structs & Enums**
-
-Model data cleanly with custom structs, enums, and methods.
-
-</td>
-</tr>
-<tr>
-<td width="33%" valign="top">
-
-<kbd>FEATURE::GENERICS</kbd>
-
-**🔀 Generics**
-
-Generic functions, structs, and enums for reusable type-safe code.
-
-</td>
-<td width="33%" valign="top">
-
-<kbd>FEATURE::MODULES_IMPORTS</kbd>
-
-**📦 Modules & Imports**
-
-Split code across files and projects with straightforward imports.
-
-</td>
-<td width="33%" valign="top">
-
-<kbd>FEATURE::FORMATTER</kbd>
-
-**✨ Built-in Formatter**
-
-Consistent style, zero configuration, ships ready out of the box.
-
-</td>
-</tr>
-</table>
+.) **Built-in Formatter** Consistent style with zero configuration.
 
 <br/>
 
