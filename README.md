@@ -36,18 +36,6 @@ you write Wasome, compile to Wasm, and it <strong>just works</strong>.
 
 <br/>
 
-## ✦ Features
-
-<div align="center">
-
-`->` **WebAssembly Native** &nbsp; `->` **Type-Safe** &nbsp; `->` **Structs & Enums**
-
-`->` **Generics** &nbsp; `->` **Modules & Imports** &nbsp; `->` **Built-in Formatter**
-
-</div>
-
-<br/>
-
 ## ✦ Syntax at a Glance
 
 <div align="right"><sub><b>Note:</b> Wasome uses <code>&lt;-</code> for assignment and <code>-&gt;</code> for return.</sub></div>
@@ -116,6 +104,43 @@ fn main() {
 ```
 
 </details>
+
+<br/>
+
+## ✦ Features
+
+<table border="0" cellpadding="8" cellspacing="0">
+<tr>
+<td width="10%" align="center">⚡</td>
+<td width="25%"><a href="https://wasome.dev/docs"><b>WebAssembly Native</b></a></td>
+<td>Compiles directly to Wasm with no runtime overhead.</td>
+</tr>
+<tr>
+<td align="center">🛡️</td>
+<td><a href="https://wasome.dev/docs"><b>Type-Safe</b></a></td>
+<td>Strong static typing catches bugs before runtime.</td>
+</tr>
+<tr>
+<td align="center">🧱</td>
+<td><a href="https://wasome.dev/docs"><b>Structs & Enums</b></a></td>
+<td>Custom data models with methods and expressive patterns.</td>
+</tr>
+<tr>
+<td align="center">🔀</td>
+<td><a href="https://wasome.dev/docs"><b>Generics</b></a></td>
+<td>Reusable abstractions across functions, structs, and enums.</td>
+</tr>
+<tr>
+<td align="center">📦</td>
+<td><a href="https://wasome.dev/docs"><b>Modules & Imports</b></a></td>
+<td>Organize code cleanly across files and projects.</td>
+</tr>
+<tr>
+<td align="center">✨</td>
+<td><a href="https://wasome.dev/docs"><b>Built-in Formatter</b></a></td>
+<td>Consistent style with zero configuration.</td>
+</tr>
+</table>
 
 
 ## ✦ Explore Wasome
