@@ -127,12 +127,12 @@ fn main() {
 </tr>
 <tr>
 <td align="center">🔀</td>
-<td><a href="https://github.com/Randware/Wasome/blob/main/docs/examples/single_file/generic_methods.waso"><b>Generics</b></a></td>
+<td><b>Generics</b></td>
 <td>Reusable abstractions across functions, structs, and enums.</td>
 </tr>
 <tr>
 <td align="center">📦</td>
-<td><a href="https://github.com/Randware/Wasome/tree/main/docs/examples/single_project/simple"><b>Modules & Imports</b></a></td>
+<td><b>Modules & Imports</b></td>
 <td>Organize code cleanly across files and projects.</td>
 </tr>
 <tr>
