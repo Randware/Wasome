@@ -38,17 +38,13 @@ you write Wasome, compile to Wasm, and it <strong>just works</strong>.
 
 ## ✦ Features
 
--> **WebAssembly Native** Direct Wasm output, no runtime overhead.
+<div align="center">
 
--> **Type-Safe** Strong static types catch bugs early.
+`->` **WebAssembly Native** &nbsp; `->` **Type-Safe** &nbsp; `->` **Structs & Enums**
 
--> **Structs & Enums** Model data with clean custom types.
+`->` **Generics** &nbsp; `->` **Modules & Imports** &nbsp; `->` **Built-in Formatter**
 
--> **Generics** Reusable abstractions without losing safety.
-
--> **Modules & Imports** Split code cleanly across files and projects.
-
--> **Built-in Formatter** Consistent style with zero configuration.
+</div>
 
 <br/>
 
