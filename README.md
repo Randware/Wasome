@@ -112,32 +112,32 @@ fn main() {
 <table border="0" cellpadding="8" cellspacing="0">
 <tr>
 <td width="10%" align="center">⚡</td>
-<td width="25%"><a href="https://wasome.dev/docs"><b>WebAssembly Native</b></a></td>
+<td width="25%"><a href="https://webassembly.org/"><b>WebAssembly Native</b></a></td>
 <td>Compiles directly to Wasm with no runtime overhead.</td>
 </tr>
 <tr>
 <td align="center">🛡️</td>
-<td><a href="https://wasome.dev/docs"><b>Type-Safe</b></a></td>
+<td><a href="https://wasome.dev/docs#datatypes"><b>Type-Safe</b></a></td>
 <td>Strong static typing catches bugs before runtime.</td>
 </tr>
 <tr>
 <td align="center">🧱</td>
-<td><a href="https://wasome.dev/docs"><b>Structs & Enums</b></a></td>
+<td><a href="https://wasome.dev/docs#structs"><b>Structs & Enums</b></a></td>
 <td>Custom data models with methods and expressive patterns.</td>
 </tr>
 <tr>
 <td align="center">🔀</td>
-<td><a href="https://wasome.dev/docs"><b>Generics</b></a></td>
+<td><a href="https://github.com/Randware/Wasome/blob/main/docs/examples/single_file/generic_methods.waso"><b>Generics</b></a></td>
 <td>Reusable abstractions across functions, structs, and enums.</td>
 </tr>
 <tr>
 <td align="center">📦</td>
-<td><a href="https://wasome.dev/docs"><b>Modules & Imports</b></a></td>
+<td><a href="https://github.com/Randware/Wasome/tree/main/docs/examples/single_project/simple"><b>Modules & Imports</b></a></td>
 <td>Organize code cleanly across files and projects.</td>
 </tr>
 <tr>
 <td align="center">✨</td>
-<td><a href="https://wasome.dev/docs"><b>Built-in Formatter</b></a></td>
+<td><b>Built-in Formatter</b></td>
 <td>Consistent style with zero configuration.</td>
 </tr>
 </table>
