@@ -11,13 +11,14 @@ use ast::symbol::{
 use ast::top_level::{Function, Import, ImportRoot};
 use ast::type_parameter::TypedTypeParameter;
 use ast::visibility::Visibility;
-use ast::{AST, ASTNode, SemanticEq, TypedAST};
+use ast::{ASTNode, SemanticEq, TypedAST, AST};
 use driver::parser_driver::generate_untyped_ast;
 use driver::program_information::{ProgramInformation, Project};
+use driver::source_collector::collect_program;
 use io::WasomeLoader;
 use semantic_analyzer::analyze;
-use source::SourceMap;
 use source::types::{BytePos, FileID, Span};
+use source::SourceMap;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -79,7 +80,8 @@ fn test_multi_project_program() {
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let typed_ast = analyze(ast).unwrap();
 
@@ -209,7 +211,8 @@ fn test_multi_project_generics() {
     .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
     let typed_ast = analyze(ast).unwrap();
 
     // --- Symbols ---

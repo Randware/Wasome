@@ -1,6 +1,7 @@
 use ast::symbol::SymbolWithTypeParameter;
 use driver::parser_driver::generate_untyped_ast;
 use driver::program_information::{ProgramInformation, Project};
+use driver::source_collector::collect_program;
 use driver::syntax_check;
 use io::WasomeLoader;
 use source::SourceMap;
@@ -61,7 +62,8 @@ fn test_simple_program() {
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("simple").unwrap();
     assert_eq!(root_node.name(), "simple");
@@ -100,7 +102,8 @@ fn test_multi_module_program() {
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("multi_module").unwrap();
 
@@ -154,7 +157,8 @@ fn test_multi_project_program() {
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref();
 
@@ -209,7 +213,8 @@ fn test_empty_import_program() {
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref();
 
@@ -249,7 +254,8 @@ fn test_circular_imports() {
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("circular").unwrap();
 

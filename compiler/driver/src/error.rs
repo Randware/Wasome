@@ -17,28 +17,13 @@ const UNRESOLVED_IMPORT_ERROR: &str = "E4002";
 ///
 /// # Variants
 ///
-/// ## Main File Errors
-///
-/// These errors occur during the initial program validation phase when determining the
-/// entry point of the program.
-///
-/// - [`MainFileNonUtf8Chars`](Self::MainFileNonUtf8Chars) - The main file path contains
-///   invalid UTF-8 characters.
-/// - [`MainFileProjectNotFound`](Self::MainFileProjectNotFound) - The project containing
-///   the main file does not exist in the program configuration.
-/// - [`MainFilePathEmpty`](Self::MainFilePathEmpty) - The main file path is empty or
-///   does not specify a file.
-///
 /// ## File System Errors
 ///
 /// These errors occur when the driver attempts to read files or directories from the
 /// file system.
 ///
-/// - [`UnableToLoadFile`](Self::UnableToLoadFile) - Failed to read a source file.
-///   Contains the file path and the underlying I/O error.
-/// - [`UnableToLoadDirectory`](Self::UnableToLoadDirectory) - Failed to list files in
-///   a directory. Contains the directory path and the underlying I/O error. Should the directory
-///   not exist on disk, [`UnresolvedImport`](Self::UnresolvedImport) will be emitted instead.
+/// - [`Io`](Self::Io) - A generic IO error
+///   Contains the underlying error.
 ///
 /// ## Import Errors
 ///

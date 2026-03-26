@@ -5,19 +5,15 @@
 //! after parsing, decide what to load next.
 
 use crate::error::DriverError;
-use crate::program_information::ProgramInformation;
-use crate::source_element::{
-    WasomeProgram, WasomeSourceDirectory, WasomeSourceFile,
-};
-use crate::source_collector::{collect_program, CollectionError};
+use crate::source_element::{WasomeProgram, WasomeSourceDirectory, WasomeSourceFile};
 use ast::directory::Directory;
 use ast::file::File;
-use ast::{ASTNode, UntypedAST, AST};
+use ast::{AST, ASTNode, UntypedAST};
 use error::diagnostic::Diagnostic;
 use io::FullIO;
-use parser::{parse, FileInformation};
-use source::types::FileID;
+use parser::{FileInformation, parse};
 use source::SourceMap;
+use source::types::FileID;
 use std::path::PathBuf;
 
 /// Generates an entire untyped ast by loading it from the provided [`SourceMap`]
@@ -39,12 +35,9 @@ use std::path::PathBuf;
 /// - File system errors
 ///     - Including paths from `program_info` being unresolved
 pub fn generate_untyped_ast<Loader: FullIO>(
-    program_info: &ProgramInformation,
+    program: WasomeProgram,
     load_from: &mut SourceMap<Loader>,
 ) -> Result<AST<UntypedAST>, Diagnostic> {
-    let program = collect_program(program_info, load_from).map_err(|err| match err {
-        CollectionError::Io(err) => DriverError::Io { source: err },
-    })?;
     program.into_ast(load_from).map_err(Into::into)
 }
 
