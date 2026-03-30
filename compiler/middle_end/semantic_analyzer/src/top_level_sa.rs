@@ -5,7 +5,7 @@ use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::composite::{Enum, EnumVariant};
 use ast::statement::{ControlStructure, Statement};
 use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, SymbolWithTypeParameter};
-use ast::top_level::Function;
+use ast::top_level::{Function, FunctionType};
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
@@ -52,24 +52,29 @@ pub(crate) fn analyze_function(
             })?;
     }
 
-    let sth = StatementTraversalHelper::new_root(context.ast_reference);
-    let new_context = context.with_ast_reference(&sth);
+    let ft = match context.ast_reference.inner().function_type() {
+        FunctionType::Regular(implementation) => {
+            let sth = StatementTraversalHelper::new_root(context.ast_reference).unwrap();
+            let new_context = context.with_ast_reference(&sth);
 
-    let typed_implementation_statement = analyze_statement(&new_context, &mut func_mapper)?;
+            let typed_implementation_statement = analyze_statement(&new_context, &mut func_mapper)?;
 
-    if symbol.return_type().is_some() && !always_return(&typed_implementation_statement) {
-        return Err(SemanticError::MissingReturn {
-            func_name: symbol.name().to_string(),
-            span: *context.ast_reference.inner().implementation().position(),
-        });
-    }
+            if symbol.return_type().is_some() && !always_return(&typed_implementation_statement) {
+                return Err(SemanticError::MissingReturn {
+                    func_name: symbol.name().to_string(),
+                    span: *implementation.position(),
+                });
+            }
+
+            let code_area = *implementation.position();
+            FunctionType::Regular(ASTNode::new(typed_implementation_statement, code_area))
+        }
+        FunctionType::External => FunctionType::External
+    };
 
     let to_analyze = &context.ast_reference;
-    let code_area = *to_analyze.inner().implementation().position();
-    let implementation_node = ASTNode::new(typed_implementation_statement, code_area);
-
     Ok(ASTNode::new(
-        Function::new(symbol, implementation_node, to_analyze.inner().visibility()),
+        Function::new(symbol, ft, to_analyze.inner().visibility()),
         *to_analyze.inner().position(),
     ))
 }

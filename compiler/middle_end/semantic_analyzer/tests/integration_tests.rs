@@ -8,7 +8,7 @@ use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
     StructSymbol, VariableSymbol,
 };
-use ast::top_level::{Function, Import, ImportRoot};
+use ast::top_level::{Function, FunctionType, Import, ImportRoot};
 use ast::type_parameter::TypedTypeParameter;
 use ast::visibility::Visibility;
 use ast::{AST, ASTNode, SemanticEq, TypedAST};
@@ -102,7 +102,7 @@ fn test_multi_project_program() {
     let op_function = ASTNode::new(
         Function::new(
             op_symbol.clone(),
-            ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![])), dummy_span()),
+            FunctionType::Regular(ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![])), dummy_span())),
             Visibility::Public,
         ),
         dummy_span(),
@@ -142,10 +142,10 @@ fn test_multi_project_program() {
     let main_function = ASTNode::new(
         Function::new(
             main_symbol.clone(),
-            ASTNode::new(
+            FunctionType::Regular(ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![main_body_stmt])),
                 dummy_span(),
-            ),
+            )),
             Visibility::Private,
         ),
         dummy_span(),
@@ -350,10 +350,10 @@ fn test_multi_project_generics() {
     let main_func = ASTNode::new(
         Function::new(
             main_symbol.clone(),
-            ASTNode::new(
+            FunctionType::Regular(ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![tail_decl, head_decl])),
                 dummy_span(),
-            ),
+            )),
             Visibility::Private,
         ),
         dummy_span(),

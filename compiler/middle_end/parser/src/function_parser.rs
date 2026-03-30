@@ -7,7 +7,7 @@ use crate::misc_parsers::{
 use crate::statement_parser::statement_parser;
 use crate::{ParserSpan, map_visibility, unspan_vec};
 use ast::symbol::{FunctionSymbol, VariableSymbol};
-use ast::top_level::Function;
+use ast::top_level::{Function, FunctionType};
 use ast::{ASTNode, UntypedAST};
 use chumsky::IterParser;
 use chumsky::Parser;
@@ -72,7 +72,7 @@ pub fn function_parser<'src>()
                             params.into_iter().map(|param| param.inner).collect(),
                             unspan_vec(type_parameters),
                         )),
-                        implementation,
+                        FunctionType::Regular(implementation),
                         visibility,
                     ),
                     pos,

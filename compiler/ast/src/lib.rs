@@ -459,7 +459,7 @@ mod tests {
         UntypedTypeParameterSymbol, VariableSymbol,
     };
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_span};
-    use crate::top_level::{Function, Import, ImportRoot};
+    use crate::top_level::{Function, FunctionType, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::traversal::{FunctionContainer, HasSymbols};
@@ -518,10 +518,10 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
             )),
-            ASTNode::new(
+            FunctionType::Regular(ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![statement])),
                 sample_span(),
-            ),
+            )),
             Visibility::Public,
         );
 
@@ -533,7 +533,7 @@ mod tests {
             .function_by_identifier(("test", &[]))
             .unwrap();
 
-        let root = StatementTraversalHelper::new_root(&function_ref);
+        let root = StatementTraversalHelper::new_root(&function_ref).unwrap();
         let statement_ref = root.get_child(0).unwrap();
         assert_eq!(
             vec![DirectlyAvailableSymbol::Function(
@@ -593,7 +593,7 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
             )),
-            statement,
+            FunctionType::Regular(statement),
             Visibility::Public,
         );
 
@@ -605,7 +605,7 @@ mod tests {
             .function_by_identifier(("test", &[]))
             .unwrap();
 
-        let root = StatementTraversalHelper::new_root(&function_ref);
+        let root = StatementTraversalHelper::new_root(&function_ref).unwrap();
         let loop_statement = root.get_child(1).unwrap();
 
         assert_eq!(
@@ -651,7 +651,7 @@ mod tests {
             .function_by_identifier(("fibonacci", &[]))
             .unwrap();
 
-        let root = function_ref.ref_to_implementation();
+        let root = function_ref.ref_to_implementation().unwrap();
         let return_statement = root.get_child(3).unwrap();
 
         let actual = return_statement
@@ -715,7 +715,7 @@ mod tests {
         functions_into_ast(vec![ASTNode::new(
             Function::new(
                 fibonacci.clone(),
-                ASTNode::new(
+                FunctionType::Regular(ASTNode::new(
                     Statement::Codeblock(CodeBlock::new(vec![
                         ASTNode::new(
                             Statement::VariableDeclaration(
@@ -869,7 +869,7 @@ mod tests {
                         ),
                     ])),
                     sample_span(),
-                ),
+                )),
                 Visibility::Public,
             ),
             sample_span(),
@@ -905,7 +905,7 @@ mod tests {
         let ast = functions_into_ast(vec![ASTNode::new(
             Function::new(
                 fibonacci.clone(),
-                ASTNode::new(
+                FunctionType::Regular(ASTNode::new(
                     Statement::Codeblock(CodeBlock::new(vec![
                         ASTNode::new(
                             Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
@@ -1044,7 +1044,7 @@ mod tests {
                         ),
                     ])),
                     sample_span(),
-                ),
+                )),
                 Visibility::Public,
             ),
             sample_span(),
@@ -1056,7 +1056,7 @@ mod tests {
             .function_by_identifier("fibonacci")
             .unwrap();
 
-        let root = function_ref.ref_to_implementation();
+        let root = function_ref.ref_to_implementation().unwrap();
         let return_statement = root.get_child(3).unwrap();
 
         let actual = return_statement
@@ -1094,7 +1094,7 @@ mod tests {
         let add_function = ASTNode::new(
             Function::new(
                 add_fn_symbol.clone(),
-                ASTNode::new(
+                FunctionType::Regular(ASTNode::new(
                     Statement::Return(Return::new(Some(ASTNode::new(
                         Expression::BinaryOp(Box::new(
                             BinaryOp::<TypedAST>::new(
@@ -1107,7 +1107,7 @@ mod tests {
                         sample_span(),
                     )))),
                     sample_span(),
-                ),
+                )),
                 Visibility::Public,
             ),
             sample_span(),
@@ -1124,7 +1124,7 @@ mod tests {
         let main_function = ASTNode::new(
             Function::new(
                 main_fn_symbol.clone(),
-                ASTNode::new(
+                FunctionType::Regular(ASTNode::new(
                     Statement::Expression(ASTNode::new(
                         Expression::FunctionCall(
                             FunctionCall::<TypedAST>::new(
@@ -1145,7 +1145,7 @@ mod tests {
                         sample_span(),
                     )),
                     sample_span(),
-                ),
+                )),
                 Visibility::Public,
             ),
             sample_span(),
@@ -1349,7 +1349,7 @@ mod tests {
                                                             ASTNode::new(
                                                                 Function::new(
                                                                     error_msg_new_symbol.clone(),
-                                                                    ASTNode::new(
+                                                                    FunctionType::Regular(ASTNode::new(
                                                                         Statement::Return(Return::new(
                                                                             Some(ASTNode::new(
                                                                                 Expression::NewStruct(
@@ -1371,7 +1371,7 @@ mod tests {
                                                                             ))
                                                                         )),
                                                                         sample_span()
-                                                                    ),
+                                                                    )),
                                                                     Visibility::Public
                                                                 ),
                                                                 sample_span()
@@ -1379,7 +1379,7 @@ mod tests {
                                                             ASTNode::new(
                                                                 Function::new(
                                                                     error_msg_get_inner_symbol.clone(),
-                                                                    ASTNode::new(
+                                                                    FunctionType::Regular(ASTNode::new(
                                                                         Statement::Return(Return::new(
                                                                             Some(ASTNode::new(
                                                                                 Expression::StructFieldAccess(
@@ -1395,7 +1395,7 @@ mod tests {
                                                                             ))
                                                                         )),
                                                                         sample_span()
-                                                                    ),
+                                                                    )),
                                                                     Visibility::Public
                                                                 ),
                                                                 sample_span()
@@ -1441,7 +1441,7 @@ mod tests {
                                                             ASTNode::new(
                                                                 Function::new(
                                                                     warning_msg_new_symbol.clone(),
-                                                                    ASTNode::new(
+                                                                    FunctionType::Regular(ASTNode::new(
                                                                         Statement::Return(Return::new(
                                                                             Some(ASTNode::new(
                                                                                 Expression::NewStruct(
@@ -1463,7 +1463,7 @@ mod tests {
                                                                             ))
                                                                         )),
                                                                         sample_span()
-                                                                    ),
+                                                                    )),
                                                                     Visibility::Public
                                                                 ),
                                                                 sample_span()
@@ -1471,7 +1471,7 @@ mod tests {
                                                             ASTNode::new(
                                                                 Function::new(
                                                                     warning_msg_get_inner_symbol.clone(),
-                                                                    ASTNode::new(
+                                                                    FunctionType::Regular(ASTNode::new(
                                                                         Statement::Return(Return::new(
                                                                             Some(ASTNode::new(
                                                                                 Expression::StructFieldAccess(
@@ -1487,7 +1487,7 @@ mod tests {
                                                                             ))
                                                                         )),
                                                                         sample_span()
-                                                                    ),
+                                                                    )),
                                                                     Visibility::Public
                                                                 ),
                                                                 sample_span()
@@ -1531,7 +1531,7 @@ mod tests {
                             vec![ASTNode::new(
                                 Function::new(
                                     main_fn_symbol.clone(),
-                                    ASTNode::new(
+                                    FunctionType::Regular(ASTNode::new(
                                         Statement::Codeblock(
                                             CodeBlock::new(
                                                 vec![
@@ -1598,7 +1598,7 @@ mod tests {
                                             )
                                         ),
                                         sample_span()
-                                    ),
+                                    )),
                                     Visibility::Public
                                 ),
                                 sample_span()
@@ -1615,7 +1615,7 @@ mod tests {
         let root = DirectoryTraversalHelper::new_from_ast(&ast);
         let main = root.file_by_name("main").unwrap();
         let main_func = main.function_by_identifier(("main", &[])).unwrap();
-        let root_statement = main_func.ref_to_implementation();
+        let root_statement = main_func.ref_to_implementation().unwrap();
         let match_statement = root_statement.get_child(0).unwrap();
         let inner_function_call = match_statement.get_child(0).unwrap();
 
@@ -1637,7 +1637,7 @@ mod tests {
         let new_error_function = error_msg_struct
             .function_by_identifier(("new", &[]))
             .unwrap();
-        let root_statement = new_error_function.ref_to_implementation();
+        let root_statement = new_error_function.ref_to_implementation().unwrap();
         let symbols = root_statement
             .symbols()
             .map(|symbol| symbol.1)

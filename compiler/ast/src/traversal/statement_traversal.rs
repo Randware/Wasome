@@ -6,6 +6,7 @@ use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
 use std::ops::Index;
 use std::vec::IntoIter;
+use crate::top_level::FunctionType;
 
 /// This struct helps with traversing statements
 ///
@@ -30,15 +31,22 @@ pub struct StatementTraversalHelper<'a, 'b, Type: ASTType> {
     root: &'a FunctionTraversalHelper<'a, 'b, Type>,
 }
 
+#[derive(Debug)]
+pub enum StatementTraversalHelperCreationError {
+    ExternalFunction
+}
 impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     /// Creates a new `StatementTraversalHelper` where inner is the root
-    #[must_use]
-    pub fn new_root(root: &'a FunctionTraversalHelper<'a, 'b, Type>) -> Self {
-        Self {
-            inner: root.inner().implementation(),
-            location: StatementLocation::new_root(root.inner().implementation()),
+    pub fn new_root(root: &'a FunctionTraversalHelper<'a, 'b, Type>) -> Result<Self, StatementTraversalHelperCreationError> {
+        let implementation = match root.inner().function_type() {
+            FunctionType::Regular(implementation) => implementation,
+            FunctionType::External => return Err(StatementTraversalHelperCreationError::ExternalFunction)
+        };
+        Ok(Self {
+            inner: implementation,
+            location: StatementLocation::new_root(implementation),
             root,
-        }
+        })
     }
 
     #[must_use]
