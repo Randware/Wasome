@@ -360,13 +360,10 @@ impl<'a, Element: AnalyzableSyntaxElementWithTypeParameter> SingleSyntaxElementM
                 .insert_typed_variant(typed_variant, typed_type_parameters.clone())
                 .is_none()
             {
-                return Err(SemanticError::InvalidUsage {
-                    message: format!(
-                        "Invalid number of type parameters for '{}'. Expected {}, found {}",
-                        symbol.name(),
-                        symbol.type_parameters().len(),
-                        typed_type_parameters.len()
-                    ),
+                return Err(SemanticError::GenericArgumentCountMismatch {
+                    name: symbol.name().to_string(),
+                    expected: symbol.type_parameters().len(),
+                    found: typed_type_parameters.len(),
                     span,
                 });
             }

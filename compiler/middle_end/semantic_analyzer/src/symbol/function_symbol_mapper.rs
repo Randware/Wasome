@@ -99,11 +99,7 @@ impl FunctionSymbolMapper {
         let name = symbol.name().to_string();
 
         if current_scope.variables.contains_key(&name) {
-            return Err(SemanticError::AlreadyDeclared {
-                name,
-                kind: "Variable".to_string(),
-                span,
-            });
+            return Err(SemanticError::LocalVariableShadowing { name, span });
         }
 
         current_scope.variables.insert(name, symbol);

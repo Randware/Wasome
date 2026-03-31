@@ -345,7 +345,10 @@ fn convert_method_symbol(
         .type_parameter_context
         .parent
         .as_ref()
-        .unwrap()
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Method analysis started without parent struct context".to_string(),
+            span,
+        })?
         .current_owned();
 
     let mut typed_params = Vec::new();

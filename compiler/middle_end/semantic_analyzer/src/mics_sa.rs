@@ -73,8 +73,8 @@ fn analyze_primitive_data_type(
     span: source::types::Span,
 ) -> Result<DataType, SemanticError> {
     if !to_analyze.type_parameters().is_empty() {
-        return Err(SemanticError::InvalidUsage {
-            message: "Primitives cannot have type parameters".to_string(),
+        return Err(SemanticError::PrimitiveWithTypeParameters {
+            type_name: to_analyze.name().to_string(),
             span,
         });
     }
@@ -115,8 +115,9 @@ pub(crate) fn analyze_struct_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Struct(st) => st,
         _ => {
-            return Err(SemanticError::InvalidUsage {
-                message: format!("'{}' is not a struct", to_analyze),
+            return Err(SemanticError::SymbolKindMismatch {
+                name: to_analyze.to_string(),
+                expected: "struct".to_string(),
                 span,
             });
         }
@@ -156,8 +157,9 @@ pub(crate) fn analyze_struct_usage_from_typed_type_parameters<
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Struct(st) => st,
         _ => {
-            return Err(SemanticError::InvalidUsage {
-                message: format!("'{}' is not a struct", to_analyze),
+            return Err(SemanticError::SymbolKindMismatch {
+                name: to_analyze.to_string(),
+                expected: "struct".to_string(),
                 span,
             });
         }
@@ -187,8 +189,9 @@ pub(crate) fn analyze_enum_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Enum(st) => st,
         _ => {
-            return Err(SemanticError::InvalidUsage {
-                message: format!("'{}' is not an enum", to_analyze),
+            return Err(SemanticError::SymbolKindMismatch {
+                name: to_analyze.to_string(),
+                expected: "enum".to_string(),
                 span,
             });
         }
@@ -328,8 +331,9 @@ fn analyze_function_usage<'a>(
     let untyped_func_symbol = match found_symbol {
         DirectlyAvailableSymbol::Function(f) => f,
         _ => {
-            return Err(SemanticError::InvalidUsage {
-                message: format!("'{}' is not a function", name),
+            return Err(SemanticError::SymbolKindMismatch {
+                name: name.to_string(),
+                expected: "function".to_string(),
                 span,
             });
         }
@@ -357,8 +361,9 @@ pub(crate) fn analyze_method_call(
     let function_symbol = if let DirectlyAvailableSymbol::Function(func) = untyped_function_symbol {
         func
     } else {
-        return Err(SemanticError::InvalidUsage {
-            message: format!("'{}' is not a function", to_analyze.function().0),
+        return Err(SemanticError::SymbolKindMismatch {
+            name: to_analyze.function().0.clone(),
+            expected: "function".to_string(),
             span,
         });
     };
@@ -366,8 +371,8 @@ pub(crate) fn analyze_method_call(
     let struct_symbol = if let DataType::Struct(st) = struct_expr.data_type() {
         st
     } else {
-        return Err(SemanticError::InvalidUsage {
-            message: "Method called on non-struct type".to_string(),
+        return Err(SemanticError::MethodOnNonStruct {
+            type_name: format!("{:?}", struct_expr.data_type()),
             span: *to_analyze.struct_source().position(),
         });
     };

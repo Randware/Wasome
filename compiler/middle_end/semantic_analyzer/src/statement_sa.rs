@@ -304,13 +304,12 @@ fn analyze_return(
             Ok(Return::new(Some(typed_node)))
         }
 
-        (None, Some(expr_node)) => Err(SemanticError::InvalidUsage {
-            message: "Void function must not return a value".to_string(),
+        (None, Some(expr_node)) => Err(SemanticError::VoidReturnsValue {
             span: *expr_node.position(),
         }),
 
-        (Some(_), None) => Err(SemanticError::InvalidUsage {
-            message: "Missing return value".to_string(),
+        (Some(expected), None) => Err(SemanticError::MissingReturnValue {
+            expected_type: format!("{:?}", expected),
             span,
         }),
     }
@@ -540,8 +539,9 @@ fn analyze_if_enum_variant(
     })? {
         en
     } else {
-        return Err(SemanticError::InvalidUsage {
-            message: "Not an enum type".to_string(),
+        return Err(SemanticError::SymbolKindMismatch {
+            name: to_analyze.condition_enum().0.clone(),
+            expected: "enum".to_string(),
             span,
         });
     };
@@ -549,19 +549,17 @@ fn analyze_if_enum_variant(
     let enum_variants = context
         .global_elements
         .get_enum_variants(untyped_enum_symbol, condition_enum.type_parameters())
-        .ok_or_else(|| SemanticError::InvalidUsage {
-            message: "Could not retrieve enum variants".to_string(),
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Could not retrieve enum variants for confirmed enum type".to_string(),
             span,
         })?;
 
     let enum_variant = enum_variants
         .iter()
         .find(|variant| variant.name() == to_analyze.condition_enum_variant())
-        .ok_or_else(|| SemanticError::InvalidUsage {
-            message: format!(
-                "Enum variant '{}' not found",
-                to_analyze.condition_enum_variant()
-            ),
+        .ok_or_else(|| SemanticError::UnknownEnumVariant {
+            enum_name: to_analyze.condition_enum().0.clone(),
+            variant_name: to_analyze.condition_enum_variant().to_string(),
             span,
         })?
         .clone();
@@ -720,8 +718,8 @@ fn analyze_struct_field_assignment(
     let to_assign_to = if let DataType::Struct(st) = struct_source.data_type() {
         st
     } else {
-        return Err(SemanticError::InvalidUsage {
-            message: "Field assignment target must be a struct".to_string(),
+        return Err(SemanticError::FieldAccessOnNonStruct {
+            type_name: format!("{:?}", struct_source.data_type()),
             span: *to_analyze.struct_source().position(),
         });
     };
@@ -737,16 +735,17 @@ fn analyze_struct_field_assignment(
     let fields = context
         .global_elements
         .get_struct_fields(&untyped_symbol, to_assign_to.type_parameters())
-        .ok_or_else(|| SemanticError::InvalidUsage {
-            message: "Could not retrieve struct fields".to_string(),
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Could not retrieve struct fields for confirmed struct type".to_string(),
             span: *to_analyze.struct_source().position(),
         })?;
 
     let field = fields
         .iter()
         .find(|field| field.name() == to_analyze.struct_field())
-        .ok_or_else(|| SemanticError::InvalidUsage {
-            message: format!("Field '{}' not found in struct", to_analyze.struct_field()),
+        .ok_or_else(|| SemanticError::UnknownField {
+            struct_name: to_assign_to.name().to_string(),
+            field_name: to_analyze.struct_field().to_string(),
             span: *to_analyze.struct_source().position(),
         })?
         .clone();
