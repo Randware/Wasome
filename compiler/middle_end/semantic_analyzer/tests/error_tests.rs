@@ -344,4 +344,41 @@ mod tests {
         let code = "struct Vector {\n    s32 x\n}\nfn main() {\n    Vector v <- new Vector { y <- 1 }\n}\n";
         print_diagnostic_for_code(code);
     }
+
+    #[test]
+    #[ignore]
+    fn test_e3012_variant_payload_mismatch() {
+        // Expected: E3012
+        // Message should indicate that the enum variant payload does not match the expected types.
+        let code = "enum OptionalInt {\n    Some(s32)\n    None\n}\nfn main() {\n    OptionalInt opt <- OptionalInt::Some(true)\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3005_missing_return_nested() {
+        // Expected: E3005
+        // Message should indicate that a function path is missing a return.
+        // Tests control flow analysis for returns inside loops/branches.
+        let code = "fn get_val() -> s32 {\n    if (true) {\n        -> 1\n    }\n    // missing return here\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3003_type_mismatch_return() {
+        // Expected: E3003
+        // Message should indicate a type mismatch in return statement.
+        let code = "fn get_val() -> s32 {\n    -> true\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_all_loop_types_success() {
+        // This test verifies that all loop types (while, for, infinite)
+        // pass through the semantic analyzer without underflow or unwrap panics.
+        let code = "fn main() {\n    // while loop\n    s32 count1 <- 0\n    loop (count1 < 10) {\n        count1 <- count1 + 1\n    }\n    // for loop\n    s32 sum <- 0\n    loop (s32 count2 <- 0; count2 < 100; count2 <- count2 + 1) {\n        sum <- sum + count2\n    }\n    // infinite loop\n    s32 count3 <- 0\n    loop {\n        count3 <- count3 + 1\n    }\n}\n";
+        smoke_run_for_code(code);
+    }
 }
