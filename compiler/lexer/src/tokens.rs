@@ -176,6 +176,8 @@ pub enum TokenType {
     Import,
     #[token("let")]
     Let,
+    #[token("extern")]
+    Extern,
 
     // Symbols
     #[token("->")]
@@ -290,6 +292,7 @@ impl TokenType {
             New => "new".into(),
             Import => "import".into(),
             Let => "let".into(),
+            Extern => "extern".into(),
             Return => "->".into(),
             Assign => "<-".into(),
         }

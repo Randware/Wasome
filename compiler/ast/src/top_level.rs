@@ -11,6 +11,8 @@ use std::rc::Rc;
 #[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
+    // Just `type` is a reserved keyword in rust
+    #[allow(clippy::struct_field_names)]
     function_type: FunctionType<Type>,
     // The visibility is irrelevant when calling
     // Therefore, it doesn't belong into FunctionSymbol and should be here
@@ -20,16 +22,15 @@ pub struct Function<Type: ASTType> {
 #[derive(Debug, PartialEq)]
 pub enum FunctionType<Type: ASTType> {
     Regular(ASTNode<Statement<Type>>),
-    External
+    External,
 }
 
 impl<Type: ASTType> SemanticEq for FunctionType<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::External, Self::External) => true,
-            (Self::Regular(root), Self::Regular(other_root))
-            => root.semantic_eq(other_root),
-            _ => false
+            (Self::Regular(root), Self::Regular(other_root)) => root.semantic_eq(other_root),
+            _ => false,
         }
     }
 }
