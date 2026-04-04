@@ -11,22 +11,40 @@ use std::rc::Rc;
 #[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
-    implementation: ASTNode<Statement<Type>>,
+    // Just `type` is a reserved keyword in rust
+    #[allow(clippy::struct_field_names)]
+    function_type: FunctionType<Type>,
     // The visibility is irrelevant when calling
     // Therefore, it doesn't belong into FunctionSymbol and should be here
     visibility: Visibility,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FunctionType<Type: ASTType> {
+    Regular(ASTNode<Statement<Type>>),
+    External,
+}
+
+impl<Type: ASTType> SemanticEq for FunctionType<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::External, Self::External) => true,
+            (Self::Regular(root), Self::Regular(other_root)) => root.semantic_eq(other_root),
+            _ => false,
+        }
+    }
 }
 
 impl<Type: ASTType> Function<Type> {
     #[must_use]
     pub const fn new(
         declaration: Rc<FunctionSymbol<Type>>,
-        implementation: ASTNode<Statement<Type>>,
+        function_type: FunctionType<Type>,
         visibility: Visibility,
     ) -> Self {
         Self {
             declaration,
-            implementation,
+            function_type,
             visibility,
         }
     }
@@ -43,15 +61,15 @@ impl<Type: ASTType> Function<Type> {
     }
 
     #[must_use]
-    pub const fn implementation(&self) -> &ASTNode<Statement<Type>> {
-        &self.implementation
+    pub const fn function_type(&self) -> &FunctionType<Type> {
+        &self.function_type
     }
 }
 
 impl<Type: ASTType> SemanticEq for Function<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.declaration().semantic_eq(other.declaration())
-            && self.implementation.semantic_eq(&other.implementation)
+            && self.function_type.semantic_eq(&other.function_type)
     }
 }
 
