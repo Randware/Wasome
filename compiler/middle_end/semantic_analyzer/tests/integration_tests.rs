@@ -13,7 +13,7 @@ use ast::type_parameter::TypedTypeParameter;
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, TypedAST, AST};
 use driver::parser_driver::generate_untyped_ast;
-use driver::program_information::{ProgramInformation, Project};
+use driver::program_information::{ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation, ConcreteLoadInformation, Project};
 use driver::source_collector::collect_program;
 use io::WasomeLoader;
 use semantic_analyzer::analyze;
@@ -66,17 +66,18 @@ fn test_multi_project_program() {
     let root = dir.path().to_path_buf().join("multi_project");
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "multi_project".to_string(),
-        root.clone(),
-        vec![
-            Project::new("app".to_string(), PathBuf::from("app")),
-            Project::new("lib".to_string(), PathBuf::from("lib")),
-        ],
-        "app".to_string(),
-        main_file,
-    )
-    .unwrap();
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
+            "multi_project".to_string(),
+            root.clone(),
+            vec![
+                Project::new("app".to_string(), PathBuf::from("app")),
+                Project::new("lib".to_string(), PathBuf::from("lib")),
+            ]),
+        ConcreteBinaryProgramInformation::new(
+            "app".to_string(),
+            main_file)
+    ).unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
@@ -198,17 +199,18 @@ fn test_multi_project_generics() {
     let root = dir.path().to_path_buf().join("multi_project_generics");
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "multi_project_generics".to_string(),
-        root.clone(),
-        vec![
-            Project::new("app".to_string(), PathBuf::from("app")),
-            Project::new("lib".to_string(), PathBuf::from("lib")),
-        ],
-        "app".to_string(),
-        main_file,
-    )
-    .unwrap();
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
+            "multi_project_generics".to_string(),
+            root.clone(),
+            vec![
+                Project::new("app".to_string(), PathBuf::from("app")),
+                Project::new("lib".to_string(), PathBuf::from("lib")),
+            ]),
+        ConcreteBinaryProgramInformation::new(
+            "app".to_string(),
+            main_file)
+    ).unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
     let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
