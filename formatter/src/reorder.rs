@@ -26,7 +26,8 @@ pub struct TopLevelItem {
 }
 
 /// Identifies the category of a top-level item based on its first keyword.
-pub fn categorize_keyword(token: &TokenType) -> ItemCategory {
+#[must_use]
+pub const fn categorize_keyword(token: &TokenType) -> ItemCategory {
     match token {
         TokenType::Import => ItemCategory::Import,
         TokenType::Struct => ItemCategory::Struct,
@@ -48,7 +49,7 @@ struct TopLevelParser {
 }
 
 impl TopLevelParser {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             items: Vec::new(),
             current_tokens: Vec::new(),
@@ -92,17 +93,14 @@ impl TopLevelParser {
 
     /// Begins a new top-level item.
     /// If the buffer only contains comments/separators, they stay attached
-    /// to the new item. Otherwise the buffer is flushed as a separate item.
+    /// to the new item. Otherwise, the buffer is flushed as a separate item.
     fn start_new_item(&mut self, category: ItemCategory) {
-        if self.buffer_is_only_comments() {
-            // Keep leading comments — they belong to the next item
-            self.current_category = category;
-            self.in_item = true;
-        } else {
+        // Keep leading comments — they belong to the next item
+        if !self.buffer_is_only_comments() {
             self.finish_current_item();
-            self.current_category = category;
-            self.in_item = true;
         }
+        self.current_category = category;
+        self.in_item = true;
     }
 
     /// Updates category from `Other` when encountering the real keyword after `pub`.
@@ -167,6 +165,7 @@ impl TopLevelParser {
 }
 
 /// Parses tokens into top-level items.
+#[must_use]
 pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
     let mut parser = TopLevelParser::new();
 
@@ -189,6 +188,7 @@ pub fn parse_top_level_items(tokens: Vec<Token>) -> Vec<TopLevelItem> {
 }
 
 /// Reorders items according to the canonical order, while preserving the relative order between Items of the same kind
+#[must_use]
 pub fn reorder_items(mut items: Vec<TopLevelItem>) -> Vec<TopLevelItem> {
     items.sort_by_key(|item| item.category);
     items

@@ -1,22 +1,21 @@
+use crate::error::DriverError;
 use crate::parser_driver::generate_untyped_ast;
-use crate::pipeline::{Pipeline, from_func, from_infallible_func};
+use crate::pipeline::{from_func, from_infallible_func, Pipeline};
 use crate::program_information::ProgramInformation;
-use ast::{AST, TypedAST, UntypedAST};
-use error::diagnostic::Diagnostic;
+use crate::source_collector::{CollectionError, collect_program};
+use crate::source_element::WasomeProgram;
+use ::error::diagnostic::Diagnostic;
+use ast::{TypedAST, UntypedAST, AST};
 use io::FullIO;
 use semantic_analyzer::analyze;
 use source::SourceMap;
 
+pub mod error;
 pub mod parser_driver;
 pub mod pipeline;
 pub mod program_information;
-
-const INVALID_CHARS_IN_MAIN_FILE: &str = "E4001";
-const MAIN_FILE_PROJECT_NOT_FOUND: &str = "E4002";
-const MAIN_FILE_PATH_EMPTY: &str = "E4003";
-const UNABLE_TO_LOAD_FILE: &str = "E4004";
-const UNABLE_TO_LOAD_DIRECTORY: &str = "E4005";
-const UNRESOLVED_IMPORT_ERROR: &str = "E4006";
+pub mod source_collector;
+pub mod source_element;
 
 /// Like [`syntax_check_pipeline`], but the pipeline is used immediately
 ///
@@ -48,9 +47,9 @@ pub(crate) fn load_parse_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
     Diagnostic,
     Output = (AST<UntypedAST>, &'a mut SourceMap<IO>),
 > {
-    let from: for<'a> fn((&'a _, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
+    let from: for<'a> fn((_, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
         |(pi, sm)| generate_untyped_ast(pi, sm).map(|unt_ast| (unt_ast, sm));
-    from_func(from)
+    load_pipeline().then(from_func(from))
 }
 
 #[must_use]
@@ -62,4 +61,20 @@ pub(crate) fn typed_ast_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
     let from: for<'a> fn((_, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
         |(ut_ast, sm)| Ok((analyze(ut_ast)?, sm));
     load_parse_pipeline().then(from_func(from))
+}
+
+#[must_use]
+pub fn load_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
+    (&'a ProgramInformation, &'a mut SourceMap<IO>),
+    Diagnostic,
+    Output = (WasomeProgram, &'a mut SourceMap<IO>),
+> {
+    let from: for<'a> fn((&'a _, &'a mut _)) -> Result<(_, &'a mut _), Diagnostic> =
+        |(program_info, load_from)| {
+            let program = collect_program(program_info, load_from);
+            program.map(|wp| (wp, load_from)).map_err(|err| match err {
+                CollectionError::Io(err) => DriverError::Io { source: err }.into(),
+            })
+        };
+    from_func(from)
 }

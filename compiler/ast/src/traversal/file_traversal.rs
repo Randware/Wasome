@@ -30,7 +30,7 @@ pub struct FileTraversalHelper<'a, 'b, Type: ASTType> {
 
 impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     ///  Creates a new instance of self
-    pub(crate) fn new(
+    pub(crate) const fn new(
         inner: &'b ASTNode<File<Type>, FileID>,
         parent: &'a DirectoryTraversalHelper<'a, 'b, Type>,
     ) -> Self {
@@ -38,10 +38,12 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     }
 
     ///  Gets the inner file
-    pub fn inner(&self) -> &'b ASTNode<File<Type>, FileID> {
+    #[must_use]
+    pub const fn inner(&self) -> &'b ASTNode<File<Type>, FileID> {
         self.inner
     }
     /// Gets the length of functions that self contains
+    #[must_use]
     pub fn len_functions(&self) -> usize {
         self.inner.functions().len()
     }
@@ -50,11 +52,13 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     ///
     /// # Panics
     /// Panics if `index > self.len_functions()`
+    #[must_use]
     pub fn index_function(&self, index: usize) -> FunctionTraversalHelper<'_, 'b, Type> {
         FunctionTraversalHelper::new(&self.inner.functions()[index], self)
     }
 
     /// Gets the length of the enums
+    #[must_use]
     pub fn len_enums(&self) -> usize {
         self.inner.enums().len()
     }
@@ -64,6 +68,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /// ### Errors
     ///
     /// Errors if `index > self.len_enums()`
+    #[must_use]
     pub fn index_enums<'c>(&'c self, index: usize) -> Option<EnumTraversalHelper<'c, 'b, Type>> {
         self.inner
             .enums()
@@ -93,6 +98,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     }
 
     /// Gets the length of the enums
+    #[must_use]
     pub fn len_structs(&self) -> usize {
         self.inner.structs().len()
     }
@@ -102,6 +108,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     /// ### Errors
     ///
     /// Errors if `index > self.len_structs()`
+    #[must_use]
     pub fn index_struct(&self, index: usize) -> Option<StructTraversalHelper<'_, 'b, Type>> {
         Some(StructTraversalHelper::new(
             self.inner.structs().get(index)?,
@@ -129,6 +136,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
             .struct_iterator()
             .map(|st| StructTraversalHelper::new(st, self))
     }
+    #[must_use]
     pub fn function_by_name(&self, name: &str) -> Option<FunctionTraversalHelper<'_, 'b, Type>> {
         self.function_iterator()
             .find(|function| function.inner().declaration().name() == name)
@@ -156,7 +164,7 @@ impl<'a, 'b, Type: ASTType> FileTraversalHelper<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for FileTraversalHelper<'a, 'b, Type> {
+impl<'b, Type: ASTType> FunctionContainer<'b, Type> for FileTraversalHelper<'_, 'b, Type> {
     fn len_functions(&self) -> usize {
         self.inner.functions().len()
     }
@@ -181,7 +189,7 @@ impl<'a, 'b, Type: ASTType> FunctionContainer<'b, Type> for FileTraversalHelper<
     }
 }
 
-impl<'a, 'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'a, 'b, Type> {
+impl<'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'_, 'b, Type> {
     /// Gets all symbols defined in self
     fn symbols(&self) -> impl SymbolTable<'b, Type> {
         FileSymbolTable::new_file_traversal_helper(self)
@@ -249,7 +257,7 @@ impl<'a, 'b, Type: ASTType> FileSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> Iterator for FileSymbolTable<'a, 'b, Type> {
+impl<'b, Type: ASTType> Iterator for FileSymbolTable<'_, 'b, Type> {
     type Item = (
         Option<&'b ModuleUsageNameSymbol>,
         DirectlyAvailableSymbol<'b, Type>,
@@ -271,4 +279,4 @@ impl<'a, 'b, Type: ASTType> Iterator for FileSymbolTable<'a, 'b, Type> {
     }
 }
 
-impl<'a, 'b, Type: ASTType> SymbolTable<'b, Type> for FileSymbolTable<'a, 'b, Type> {}
+impl<'b, Type: ASTType> SymbolTable<'b, Type> for FileSymbolTable<'_, 'b, Type> {}

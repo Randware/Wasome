@@ -4,7 +4,6 @@ use std::fmt::{Debug, Formatter};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
-    marker::PhantomData,
     path::{Path, PathBuf},
 };
 
@@ -19,8 +18,7 @@ pub struct SourceMap<Loader: FileIO = WasomeLoader> {
     root_path: PathBuf,
     file_cache: HashMap<PathBuf, FileID>,
     files: Vec<SourceFile>,
-    /// The loader's purpose is to let the user define custom loading behavior
-    __loader: PhantomData<Loader>,
+    loader: Loader,
 }
 
 // This allows [`Debug`] to be used without the derive trait bounds
@@ -36,12 +34,26 @@ impl<Loader: FileIO> Debug for SourceMap<Loader> {
 
 impl<Loader: FileIO> SourceMap<Loader> {
     /// Creates a new and empty [`SourceMap`] that is rooted at the given path
-    pub fn new(root_path: PathBuf) -> Self {
+    pub fn new(root_path: PathBuf, loader: Loader) -> Self {
         Self {
             root_path,
             file_cache: HashMap::new(),
             files: Vec::new(),
-            __loader: PhantomData,
+            loader,
+        }
+    }
+
+    /// Creates a new and empty [`SourceMap`] that is rooted at the given path
+    /// using the default loader
+    pub fn with_default(root_path: PathBuf) -> Self
+    where
+        Loader: Default,
+    {
+        Self {
+            root_path,
+            file_cache: HashMap::new(),
+            files: Vec::new(),
+            loader: Loader::default(),
         }
     }
 
@@ -58,7 +70,7 @@ impl<Loader: FileIO> SourceMap<Loader> {
     /// * `Err()` - An i/o [error](std::io::Error) in case the underlying `OS` returns an [error](std::io::Error)
     pub fn load_file<F: AsRef<Path>>(&mut self, relative_path: F) -> Result<FileID, Error> {
         // Joining the path to get an absolute path
-        let path = Loader::resolve(&self.root_path, relative_path)?;
+        let path = self.loader.resolve(&self.root_path, relative_path)?;
 
         // Checks the cache
         if let Some(&id) = self.file_cache.get(&path) {
@@ -66,7 +78,7 @@ impl<Loader: FileIO> SourceMap<Loader> {
         }
 
         // If not cached, calls the loader
-        let source_file = Self::get_source_file(&path)?;
+        let source_file = self.get_source_file(&path)?;
 
         // Safety check
         if self.files().len() > u32::MAX as usize {
@@ -99,8 +111,8 @@ impl<Loader: FileIO> SourceMap<Loader> {
     ///
     /// * **Ok(SourceFile)** - The loading was successful
     /// + **Err(Error)** - There was an IO error
-    fn get_source_file(absolute_path: &Path) -> Result<SourceFile, Error> {
-        let content_string = Loader::load(absolute_path)?;
+    fn get_source_file(&self, absolute_path: &Path) -> Result<SourceFile, Error> {
+        let content_string = self.loader.load(absolute_path)?;
         Ok(SourceFile::new(absolute_path.to_path_buf(), content_string))
     }
 
@@ -178,6 +190,11 @@ impl<Loader: FileIO> SourceMap<Loader> {
     /// Gets the [files][`SourceMap::files`]
     pub fn files(&self) -> &[SourceFile] {
         &self.files
+    }
+
+    /// Gets a reference to the loader
+    pub fn loader(&self) -> &Loader {
+        &self.loader
     }
 }
 
@@ -334,10 +351,9 @@ impl SourceFile {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
-        SourceFile, SourceMap,
-        types::{BytePos, Span},
+        types::{BytePos, Span}, SourceFile,
+        SourceMap,
     };
     use io::{FileLoader, PathResolver};
     use std::{
@@ -350,6 +366,7 @@ mod tests {
     static MOCK_FS: LazyLock<Mutex<HashMap<PathBuf, String>>> =
         LazyLock::new(|| Mutex::new(HashMap::new()));
 
+    #[derive(Default)]
     struct MockLoader;
     impl MockLoader {
         fn save(path: &str, content: &str) {
@@ -358,7 +375,7 @@ mod tests {
         }
     }
     impl FileLoader for MockLoader {
-        fn load<F: AsRef<std::path::Path>>(path: F) -> Result<String, std::io::Error> {
+        fn load<F: AsRef<std::path::Path>>(&self, path: F) -> Result<String, std::io::Error> {
             let path = path.as_ref().to_path_buf();
             let fs = MOCK_FS.lock().unwrap();
 
@@ -371,6 +388,7 @@ mod tests {
 
     impl PathResolver for MockLoader {
         fn resolve<T: AsRef<std::path::Path>, F: AsRef<std::path::Path>>(
+            &self,
             root_path: T,
             relative_path: F,
         ) -> Result<PathBuf, Error> {
@@ -385,7 +403,7 @@ mod tests {
         let content = "fn main() { -> 0; }";
         MockLoader::save(filename, content);
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
 
         let id = sm.load_file(filename).expect("Should load existing file");
 
@@ -396,7 +414,7 @@ mod tests {
     /// Tests if the SourceMap returns an error if we try to load a missing file
     #[test]
     fn test_load_non_existent_file() {
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
 
         let result = sm.load_file("/ghost_file.waso");
 
@@ -411,7 +429,7 @@ mod tests {
         let filename = "/cached.waso";
         MockLoader::save(filename, "content");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
 
         let id1 = sm.load_file(filename).unwrap();
         let id2 = sm.load_file(filename).unwrap();
@@ -428,7 +446,7 @@ mod tests {
         MockLoader::save("/a.waso", "A");
         MockLoader::save("/b.waso", "B");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
 
         let id_a_1 = sm.load_file("/a.waso").unwrap();
         let id_b_1 = sm.load_file("/b.waso").unwrap();
@@ -444,7 +462,7 @@ mod tests {
         let filename = "/windows.waso";
         MockLoader::save(filename, "a\r\nb");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
         let file = sm.get_file(&id).unwrap();
 
@@ -474,7 +492,7 @@ mod tests {
         // Line 2: "✨" (3 bytes) + " = 1;"
         MockLoader::save(filename, "let \n✨ = 1;");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         // Target the '=' sign after the sparkles.
@@ -503,7 +521,7 @@ mod tests {
     #[test]
     fn test_empty_file() {
         MockLoader::save("/empty.waso", "");
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file("/empty.waso").unwrap();
 
         // Should verify that looking up index 0 doesn't panic and returns line 1, col 1 (or 0)
@@ -526,7 +544,7 @@ mod tests {
         let filename = "/no_eof.waso";
         MockLoader::save(filename, "line1\nline2"); // No \n after line2
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         // Check 'l' in "line2"
@@ -551,7 +569,7 @@ mod tests {
         let filename = "/slice.waso";
         MockLoader::save(filename, "let foo = 10;");
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         // "foo" is bytes 4, 5, 6 (0-based)
@@ -569,7 +587,7 @@ mod tests {
     fn test_empty_slice() {
         let filename = "/empty_slice.waso";
         MockLoader::save(filename, "");
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         let span = Span {
@@ -592,7 +610,7 @@ mod tests {
         }
         MockLoader::save(filename, &content);
 
-        let mut sm = SourceMap::<MockLoader>::new(PathBuf::from("/"));
+        let mut sm = SourceMap::<MockLoader>::with_default(PathBuf::from("/"));
         let id = sm.load_file(filename).unwrap();
 
         // Look up the very last 'a'

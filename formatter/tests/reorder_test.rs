@@ -1,13 +1,16 @@
-use lexer::{lex, TokenType};
 use formatter::format_source;
 use formatter::reorder::{ItemCategory, categorize_keyword, parse_top_level_items};
+use lexer::{TokenType, lex};
 
 #[test]
 fn test_categorize_keyword() {
     assert_eq!(categorize_keyword(&TokenType::Import), ItemCategory::Import);
     assert_eq!(categorize_keyword(&TokenType::Struct), ItemCategory::Struct);
     assert_eq!(categorize_keyword(&TokenType::Enum), ItemCategory::Enum);
-    assert_eq!(categorize_keyword(&TokenType::Function), ItemCategory::Function);
+    assert_eq!(
+        categorize_keyword(&TokenType::Function),
+        ItemCategory::Function
+    );
 }
 
 #[test]
@@ -24,7 +27,8 @@ fn test_parse_top_level_items() {
     let items = parse_top_level_items(tokens);
 
     // Filter out separator/whitespace items
-    let meaningful: Vec<_> = items.iter()
+    let meaningful: Vec<_> = items
+        .iter()
         .filter(|i| i.category != ItemCategory::Other)
         .collect();
 
@@ -51,5 +55,9 @@ fn test_reorder_output() {
 
     let lines: Vec<&str> = formatted.lines().collect();
     // After reordering: imports, structs, then functions
-    assert!(lines[0].starts_with("import"), "First item should be import, got: {}", lines[0]);
+    assert!(
+        lines[0].starts_with("import"),
+        "First item should be import, got: {}",
+        lines[0]
+    );
 }

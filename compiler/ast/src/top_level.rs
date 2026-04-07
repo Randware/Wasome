@@ -11,43 +11,65 @@ use std::rc::Rc;
 #[derive(Debug, PartialEq)]
 pub struct Function<Type: ASTType> {
     declaration: Rc<FunctionSymbol<Type>>,
-    implementation: ASTNode<Statement<Type>>,
+    // Just `type` is a reserved keyword in rust
+    #[allow(clippy::struct_field_names)]
+    function_type: FunctionType<Type>,
     // The visibility is irrelevant when calling
     // Therefore, it doesn't belong into FunctionSymbol and should be here
     visibility: Visibility,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum FunctionType<Type: ASTType> {
+    Regular(ASTNode<Statement<Type>>),
+    External,
+}
+
+impl<Type: ASTType> SemanticEq for FunctionType<Type> {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::External, Self::External) => true,
+            (Self::Regular(root), Self::Regular(other_root)) => root.semantic_eq(other_root),
+            _ => false,
+        }
+    }
+}
+
 impl<Type: ASTType> Function<Type> {
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         declaration: Rc<FunctionSymbol<Type>>,
-        implementation: ASTNode<Statement<Type>>,
+        function_type: FunctionType<Type>,
         visibility: Visibility,
     ) -> Self {
         Self {
             declaration,
-            implementation,
+            function_type,
             visibility,
         }
     }
 
+    #[must_use]
     pub fn declaration(&self) -> &FunctionSymbol<Type> {
         &self.declaration
     }
 
     /// Gets the declaration by cloning the rc
+    #[must_use]
     pub fn declaration_owned(&self) -> Rc<FunctionSymbol<Type>> {
         self.declaration.clone()
     }
 
-    pub fn implementation(&self) -> &ASTNode<Statement<Type>> {
-        &self.implementation
+    #[must_use]
+    pub const fn function_type(&self) -> &FunctionType<Type> {
+        &self.function_type
     }
 }
 
 impl<Type: ASTType> SemanticEq for Function<Type> {
     fn semantic_eq(&self, other: &Self) -> bool {
         self.declaration().semantic_eq(other.declaration())
-            && self.implementation.semantic_eq(&other.implementation)
+            && self.function_type.semantic_eq(&other.function_type)
     }
 }
 
@@ -59,7 +81,7 @@ impl<Type: ASTType> Visible for Function<Type> {
 
 /// An import
 /// In the typed AST, this has no semantic meaning and is only there to not lose any information
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Import {
     root: ImportRoot,
     path: Vec<String>,
@@ -76,7 +98,12 @@ pub struct Import {
 }
 
 impl Import {
-    pub fn new(root: ImportRoot, path: Vec<String>, usage_name: Rc<ModuleUsageNameSymbol>) -> Self {
+    #[must_use]
+    pub const fn new(
+        root: ImportRoot,
+        path: Vec<String>,
+        usage_name: Rc<ModuleUsageNameSymbol>,
+    ) -> Self {
         Self {
             root,
             path,
@@ -84,19 +111,23 @@ impl Import {
         }
     }
 
-    pub fn root(&self) -> &ImportRoot {
+    #[must_use]
+    pub const fn root(&self) -> &ImportRoot {
         &self.root
     }
 
-    pub fn path(&self) -> &Vec<String> {
+    #[must_use]
+    pub fn path(&self) -> &[String] {
         &self.path
     }
 
+    #[must_use]
     pub fn usage_name(&self) -> &ModuleUsageNameSymbol {
         &self.usage_name
     }
 
     /// Gets the usage name by cloning the underlying Rc
+    #[must_use]
     pub fn usage_name_owned(&self) -> Rc<ModuleUsageNameSymbol> {
         self.usage_name.clone()
     }
@@ -111,7 +142,7 @@ impl SemanticEq for Import {
 }
 
 /// The place from where the provided path in an import originates
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ImportRoot {
     /// In the current module, comparable with ./
     CurrentModule,

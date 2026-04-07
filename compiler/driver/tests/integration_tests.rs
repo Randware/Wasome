@@ -1,6 +1,7 @@
 use ast::symbol::SymbolWithTypeParameter;
 use driver::parser_driver::generate_untyped_ast;
 use driver::program_information::{ProgramInformation, Project};
+use driver::source_collector::collect_program;
 use driver::syntax_check;
 use io::WasomeLoader;
 use source::SourceMap;
@@ -20,6 +21,9 @@ const MULTI_MODULE_STRING: &str =
 const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/min/app/main.waso");
 const MULTI_PROJECT_LIB_OPS: &str =
     include_str!("test_programs/multi-project/min/lib/math/ops.waso");
+
+const EMPTY_IMPORT_MAIN: &str =
+    include_str!("test_programs/multi-project/empty_import/app/main.waso");
 
 const CIRCULAR_A: &str = include_str!("test_programs/single_project/circular/a/a.waso");
 const CIRCULAR_B: &str = include_str!("test_programs/single_project/circular/b/b.waso");
@@ -56,9 +60,10 @@ fn test_simple_program() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("simple").unwrap();
     assert_eq!(root_node.name(), "simple");
@@ -95,9 +100,10 @@ fn test_multi_module_program() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("multi_module").unwrap();
 
@@ -149,9 +155,10 @@ fn test_multi_project_program() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref();
 
@@ -179,6 +186,51 @@ fn test_multi_project_program() {
     );
 }
 
+// This is for https://github.com/Randware/Wasome/issues/45
+#[test]
+fn test_empty_import_program() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let path = root.join("empty_import/app/main.waso");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::create_dir_all(root.join("empty_import/lib")).unwrap();
+    fs::write(path, EMPTY_IMPORT_MAIN).unwrap();
+
+    let root = dir.path().to_path_buf().join("empty_import");
+    let main_file = PathBuf::from("main.waso");
+
+    let prog_info = ProgramInformation::new(
+        "empty_import".to_string(),
+        root.clone(),
+        vec![
+            Project::new("app".to_string(), PathBuf::from("app")),
+            Project::new("lib".to_string(), PathBuf::from("lib")),
+        ],
+        "app".to_string(),
+        main_file,
+    )
+    .unwrap();
+
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
+
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
+
+    let root_node = ast.deref();
+
+    // Check app project
+    let app_dir = root_node
+        .subdirectory_by_name("app")
+        .expect("app dir not found");
+    let main_file_node = app_dir.file_by_name("main").expect("main not found");
+    assert_eq!(main_file_node.imports().len(), 1); // imports lib/math
+
+    // Check lib project
+    root_node
+        .subdirectory_by_name("lib")
+        .expect("lib dir not found");
+}
+
 #[test]
 fn test_circular_imports() {
     let dir = setup_temp_project(&[
@@ -200,9 +252,10 @@ fn test_circular_imports() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("circular").unwrap();
 
@@ -247,7 +300,7 @@ fn test_syntax_check_simple() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     syntax_check(&prog_info, &mut sm).expect("Syntax check failed for simple program");
 }
@@ -274,7 +327,7 @@ fn test_syntax_check_multi_module() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     syntax_check(&prog_info, &mut sm).expect("Syntax check failed for multi-module program");
 }
@@ -300,7 +353,7 @@ fn test_syntax_check_multi_project() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     syntax_check(&prog_info, &mut sm).expect("Syntax check failed for multi-project program");
 }
@@ -326,7 +379,7 @@ fn test_syntax_check_circular() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
     syntax_check(&prog_info, &mut sm).expect("Syntax check failed for circular imports");
 }

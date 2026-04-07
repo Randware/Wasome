@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic, clippy::nursery)]
 //! This is the Abstract syntax tree, the interface between the parser and the codegen
 //! It consists of five "levels", from highest to lowest:
 //! 1. Directories
@@ -10,8 +11,15 @@
 //! Each level can contain instances of the level below it and its own level.
 //!
 //! In addition to these main types, there are also six traversial helpers:
-//! DirectoryTraversalHelper, FileTraversalHelper, FunctionTraversalHelper, StatementTraversalHelper, StructTraversalHelper and EnumTraversalHelper
-//! They all contain references to an instance of Directory, File, Function, Statement or Struct and allow to list all
+//! [`DirectoryTraversalHelper`](traversal::directory_traversal::DirectoryTraversalHelper),
+//! [`FileTraversalHelper`](traversal::file_traversal::FileTraversalHelper),
+//! [`FunctionTraversalHelper`](traversal::function_traversal::FunctionTraversalHelper),
+//! [`StatementTraversalHelper`](traversal::statement_traversal::StatementTraversalHelper),
+//! [`StructTraversalHelper`](traversal::struct_traversal::StructTraversalHelper) and
+//! [`EnumTraversalHelper`](traversal::enum_traversal::EnumTraversalHelper).
+//! They all contain references to an instance of [`Directory`], [`File`](file::File),
+//! [`Function`](top_level::Function), [`Statement`](statement::Statement),
+//! [`Struct`](composite::Struct) or [`Enum`](composite::Enum) and allow to list all
 //! symbols available to it.
 //!
 //! For more information on how to use this, refer to the tests in this file.
@@ -57,6 +65,7 @@ pub mod visibility;
 pub trait SemanticEq {
     ///  The equality method.
     /// For more information, refer to the trait documentation
+    #[must_use]
     fn semantic_eq(&self, other: &Self) -> bool;
 }
 
@@ -78,10 +87,10 @@ impl<T: SemanticEq> SemanticEq for Option<T> {
     fn semantic_eq(&self, other: &Self) -> bool {
         // Check if both are some and compare then
         // Or both are none
-        self.as_ref()
-            .zip(other.as_ref())
-            .map(|(a, b)| a.semantic_eq(b))
-            .unwrap_or(self.is_none() && other.is_none())
+        self.as_ref().zip(other.as_ref()).map_or_else(
+            || self.is_none() && other.is_none(),
+            |(a, b)| a.semantic_eq(b),
+        )
     }
 }
 
@@ -106,7 +115,7 @@ impl<T: SemanticEq> SemanticEq for &T {
 
 impl<T: SemanticEq> SemanticEq for Rc<T> {
     fn semantic_eq(&self, other: &Self) -> bool {
-        self.deref().semantic_eq(other.deref())
+        (**self).semantic_eq(&**other)
     }
 }
 
@@ -136,6 +145,10 @@ pub struct UnresolvedImports<Type: ASTType> {
 }
 
 impl<Type: ASTType> UnresolvedImports<Type> {
+    /// Gets the imports that went unresolved
+    ///
+    /// They will never be empty (`len == 0`)
+    #[must_use]
     pub fn unresolved_imports(&self) -> Vec<&ASTNode<Import>> {
         self.ast.unresolved_imports()
     }
@@ -144,7 +157,13 @@ impl<Type: ASTType> UnresolvedImports<Type> {
 impl<Type: ASTType> AST<Type> {
     /// Creates a new instance of AST
     ///
-    /// Returns Err if unresolved imports are contained. The problematic imports will be contained in the error
+    /// # Returns
+    ///
+    /// Err if unresolved imports are contained. The problematic imports will be contained in the error
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UnresolvedImports`] if the AST contains unresolved imports.
     // Lifetime issues prevent the imports from being returned directly
     pub fn new(inner: ASTNode<Directory<Type>, PathBuf>) -> Result<Self, UnresolvedImports<Type>> {
         let ast = Self { inner };
@@ -169,7 +188,7 @@ impl<Type: ASTType> AST<Type> {
         imports
     }
 
-    /// Checks a specifiec import for validity. source_dir is where the import is from
+    /// Checks a specifiec import for validity. `source_dir` is where the import is from
     fn check_import(&self, to_check: &Import, source_dir: &Directory<Type>) -> bool {
         let check_origin = match to_check.root() {
             ImportRoot::CurrentModule => source_dir,
@@ -198,9 +217,9 @@ impl<Type: ASTType> SemanticEq for AST<Type> {
 ///
 /// # Equality
 ///
-/// Two different ASTNodes are never equal.
+/// Two different `ASTNode`s are never equal.
 ///
-/// Use semantic_equals from [`SemanticEq`] to check semantics only
+/// Use `semantic_eq` from [`SemanticEq`] to check semantics only
 
 #[derive(Debug)]
 pub struct ASTNode<T: Debug, Position = Span> {
@@ -218,7 +237,7 @@ impl<T: Debug, Position> ASTNode<T, Position> {
         }
     }
 
-    pub fn position(&self) -> &Position {
+    pub const fn position(&self) -> &Position {
         &self.position
     }
 }
@@ -245,7 +264,7 @@ impl<T: SemanticEq + Debug, Position> SemanticEq for ASTNode<T, Position> {
 
 impl<T: Debug> Hash for ASTNode<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state)
+        self.id.hash(state);
     }
 }
 
@@ -269,7 +288,7 @@ impl<T: Debug + PartialEq, Position> Eq for ASTNode<T, Position> {}
 /// # return
 /// - None if not equal
 /// - Some if equal
-fn eq_return_option<T: PartialEq>(left: T, right: T) -> Option<()> {
+fn eq_return_option<T: PartialEq>(left: &T, right: &T) -> Option<()> {
     if left == right {
         return Some(());
     }
@@ -331,12 +350,12 @@ pub struct TypedAST {}
 impl ASTType for TypedAST {
     type LiteralType = Literal;
     type GeneralDataType = DataType;
-    type FunctionCallSymbol = Rc<FunctionSymbol<TypedAST>>;
-    type VariableUse = Rc<VariableSymbol<TypedAST>>;
-    type StructUse = Rc<StructSymbol<TypedAST>>;
-    type EnumUse = Rc<EnumSymbol<TypedAST>>;
-    type EnumVariantUse = Rc<EnumVariantSymbol<TypedAST>>;
-    type StructFieldUse = Rc<StructFieldSymbol<TypedAST>>;
+    type FunctionCallSymbol = Rc<FunctionSymbol<Self>>;
+    type VariableUse = Rc<VariableSymbol<Self>>;
+    type StructUse = Rc<StructSymbol<Self>>;
+    type EnumUse = Rc<EnumSymbol<Self>>;
+    type EnumVariantUse = Rc<EnumVariantSymbol<Self>>;
+    type StructFieldUse = Rc<StructFieldSymbol<Self>>;
     type TypeParameterDeclaration = TypedTypeParameter;
     type SymbolIdentifier<'a> = (&'a str, &'a [TypedTypeParameter]);
     fn type_parameter_symbols_of_symbol_with_type_parameter(
@@ -373,9 +392,7 @@ impl ASTType for UntypedAST {
     fn type_parameter_symbols_of_symbol_with_type_parameter(
         of: &impl SymbolWithTypeParameter<Self>,
     ) -> impl Iterator<Item = &UntypedTypeParameterSymbol> {
-        of.type_parameters()
-            .iter()
-            .map(|type_param| type_param.inner())
+        of.type_parameters().iter().map(UntypedTypeParameter::inner)
     }
 
     fn symbol_with_type_parameter_matches_identifier(
@@ -442,7 +459,7 @@ mod tests {
         UntypedTypeParameterSymbol, VariableSymbol,
     };
     use crate::test_shared::{basic_test_variable, functions_into_ast, sample_span};
-    use crate::top_level::{Function, Import, ImportRoot};
+    use crate::top_level::{Function, FunctionType, Import, ImportRoot};
     use crate::traversal::directory_traversal::DirectoryTraversalHelper;
     use crate::traversal::statement_traversal::StatementTraversalHelper;
     use crate::traversal::{FunctionContainer, HasSymbols};
@@ -501,10 +518,10 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
             )),
-            ASTNode::new(
+            FunctionType::Regular(ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![statement])),
                 sample_span(),
-            ),
+            )),
             Visibility::Public,
         );
 
@@ -516,7 +533,7 @@ mod tests {
             .function_by_identifier(("test", &[]))
             .unwrap();
 
-        let root = StatementTraversalHelper::new_root(&function_ref);
+        let root = StatementTraversalHelper::new_root(&function_ref).unwrap();
         let statement_ref = root.get_child(0).unwrap();
         assert_eq!(
             vec![DirectlyAvailableSymbol::Function(
@@ -576,7 +593,7 @@ mod tests {
                 Vec::new(),
                 Vec::new(),
             )),
-            statement,
+            FunctionType::Regular(statement),
             Visibility::Public,
         );
 
@@ -588,7 +605,7 @@ mod tests {
             .function_by_identifier(("test", &[]))
             .unwrap();
 
-        let root = StatementTraversalHelper::new_root(&function_ref);
+        let root = StatementTraversalHelper::new_root(&function_ref).unwrap();
         let loop_statement = root.get_child(1).unwrap();
 
         assert_eq!(
@@ -610,7 +627,6 @@ mod tests {
 
         let actual = statement_ref
             .symbols_available_after()
-            .unwrap()
             .map(|symbol| symbol.1)
             .collect::<Vec<_>>();
         let expected = vec![
@@ -635,7 +651,7 @@ mod tests {
             .function_by_identifier(("fibonacci", &[]))
             .unwrap();
 
-        let root = function_ref.ref_to_implementation();
+        let root = function_ref.ref_to_implementation().unwrap();
         let return_statement = root.get_child(3).unwrap();
 
         let actual = return_statement
@@ -699,7 +715,7 @@ mod tests {
         functions_into_ast(vec![ASTNode::new(
             Function::new(
                 fibonacci.clone(),
-                ASTNode::new(
+                FunctionType::Regular(ASTNode::new(
                     Statement::Codeblock(CodeBlock::new(vec![
                         ASTNode::new(
                             Statement::VariableDeclaration(
@@ -853,7 +869,7 @@ mod tests {
                         ),
                     ])),
                     sample_span(),
-                ),
+                )),
                 Visibility::Public,
             ),
             sample_span(),
@@ -889,7 +905,7 @@ mod tests {
         let ast = functions_into_ast(vec![ASTNode::new(
             Function::new(
                 fibonacci.clone(),
-                ASTNode::new(
+                FunctionType::Regular(ASTNode::new(
                     Statement::Codeblock(CodeBlock::new(vec![
                         ASTNode::new(
                             Statement::VariableDeclaration(VariableDeclaration::<UntypedAST>::new(
@@ -1028,7 +1044,7 @@ mod tests {
                         ),
                     ])),
                     sample_span(),
-                ),
+                )),
                 Visibility::Public,
             ),
             sample_span(),
@@ -1040,7 +1056,7 @@ mod tests {
             .function_by_identifier("fibonacci")
             .unwrap();
 
-        let root = function_ref.ref_to_implementation();
+        let root = function_ref.ref_to_implementation().unwrap();
         let return_statement = root.get_child(3).unwrap();
 
         let actual = return_statement
@@ -1078,7 +1094,7 @@ mod tests {
         let add_function = ASTNode::new(
             Function::new(
                 add_fn_symbol.clone(),
-                ASTNode::new(
+                FunctionType::Regular(ASTNode::new(
                     Statement::Return(Return::new(Some(ASTNode::new(
                         Expression::BinaryOp(Box::new(
                             BinaryOp::<TypedAST>::new(
@@ -1091,7 +1107,7 @@ mod tests {
                         sample_span(),
                     )))),
                     sample_span(),
-                ),
+                )),
                 Visibility::Public,
             ),
             sample_span(),
@@ -1108,7 +1124,7 @@ mod tests {
         let main_function = ASTNode::new(
             Function::new(
                 main_fn_symbol.clone(),
-                ASTNode::new(
+                FunctionType::Regular(ASTNode::new(
                     Statement::Expression(ASTNode::new(
                         Expression::FunctionCall(
                             FunctionCall::<TypedAST>::new(
@@ -1129,7 +1145,7 @@ mod tests {
                         sample_span(),
                     )),
                     sample_span(),
-                ),
+                )),
                 Visibility::Public,
             ),
             sample_span(),
@@ -1333,7 +1349,7 @@ mod tests {
                                                             ASTNode::new(
                                                                 Function::new(
                                                                     error_msg_new_symbol.clone(),
-                                                                    ASTNode::new(
+                                                                    FunctionType::Regular(ASTNode::new(
                                                                         Statement::Return(Return::new(
                                                                             Some(ASTNode::new(
                                                                                 Expression::NewStruct(
@@ -1355,7 +1371,7 @@ mod tests {
                                                                             ))
                                                                         )),
                                                                         sample_span()
-                                                                    ),
+                                                                    )),
                                                                     Visibility::Public
                                                                 ),
                                                                 sample_span()
@@ -1363,7 +1379,7 @@ mod tests {
                                                             ASTNode::new(
                                                                 Function::new(
                                                                     error_msg_get_inner_symbol.clone(),
-                                                                    ASTNode::new(
+                                                                    FunctionType::Regular(ASTNode::new(
                                                                         Statement::Return(Return::new(
                                                                             Some(ASTNode::new(
                                                                                 Expression::StructFieldAccess(
@@ -1379,7 +1395,7 @@ mod tests {
                                                                             ))
                                                                         )),
                                                                         sample_span()
-                                                                    ),
+                                                                    )),
                                                                     Visibility::Public
                                                                 ),
                                                                 sample_span()
@@ -1425,7 +1441,7 @@ mod tests {
                                                             ASTNode::new(
                                                                 Function::new(
                                                                     warning_msg_new_symbol.clone(),
-                                                                    ASTNode::new(
+                                                                    FunctionType::Regular(ASTNode::new(
                                                                         Statement::Return(Return::new(
                                                                             Some(ASTNode::new(
                                                                                 Expression::NewStruct(
@@ -1447,7 +1463,7 @@ mod tests {
                                                                             ))
                                                                         )),
                                                                         sample_span()
-                                                                    ),
+                                                                    )),
                                                                     Visibility::Public
                                                                 ),
                                                                 sample_span()
@@ -1455,7 +1471,7 @@ mod tests {
                                                             ASTNode::new(
                                                                 Function::new(
                                                                     warning_msg_get_inner_symbol.clone(),
-                                                                    ASTNode::new(
+                                                                    FunctionType::Regular(ASTNode::new(
                                                                         Statement::Return(Return::new(
                                                                             Some(ASTNode::new(
                                                                                 Expression::StructFieldAccess(
@@ -1471,7 +1487,7 @@ mod tests {
                                                                             ))
                                                                         )),
                                                                         sample_span()
-                                                                    ),
+                                                                    )),
                                                                     Visibility::Public
                                                                 ),
                                                                 sample_span()
@@ -1515,7 +1531,7 @@ mod tests {
                             vec![ASTNode::new(
                                 Function::new(
                                     main_fn_symbol.clone(),
-                                    ASTNode::new(
+                                    FunctionType::Regular(ASTNode::new(
                                         Statement::Codeblock(
                                             CodeBlock::new(
                                                 vec![
@@ -1582,7 +1598,7 @@ mod tests {
                                             )
                                         ),
                                         sample_span()
-                                    ),
+                                    )),
                                     Visibility::Public
                                 ),
                                 sample_span()
@@ -1599,7 +1615,7 @@ mod tests {
         let root = DirectoryTraversalHelper::new_from_ast(&ast);
         let main = root.file_by_name("main").unwrap();
         let main_func = main.function_by_identifier(("main", &[])).unwrap();
-        let root_statement = main_func.ref_to_implementation();
+        let root_statement = main_func.ref_to_implementation().unwrap();
         let match_statement = root_statement.get_child(0).unwrap();
         let inner_function_call = match_statement.get_child(0).unwrap();
 
@@ -1621,7 +1637,7 @@ mod tests {
         let new_error_function = error_msg_struct
             .function_by_identifier(("new", &[]))
             .unwrap();
-        let root_statement = new_error_function.ref_to_implementation();
+        let root_statement = new_error_function.ref_to_implementation().unwrap();
         let symbols = root_statement
             .symbols()
             .map(|symbol| symbol.1)

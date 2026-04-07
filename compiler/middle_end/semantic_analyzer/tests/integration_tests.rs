@@ -8,16 +8,17 @@ use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
     StructSymbol, VariableSymbol,
 };
-use ast::top_level::{Function, Import, ImportRoot};
+use ast::top_level::{Function, FunctionType, Import, ImportRoot};
 use ast::type_parameter::TypedTypeParameter;
 use ast::visibility::Visibility;
-use ast::{AST, ASTNode, SemanticEq, TypedAST};
+use ast::{ASTNode, SemanticEq, TypedAST, AST};
 use driver::parser_driver::generate_untyped_ast;
 use driver::program_information::{ProgramInformation, Project};
+use driver::source_collector::collect_program;
 use io::WasomeLoader;
 use semantic_analyzer::analyze;
-use source::SourceMap;
 use source::types::{BytePos, FileID, Span};
+use source::SourceMap;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -77,9 +78,10 @@ fn test_multi_project_program() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let typed_ast = analyze(ast).unwrap();
 
@@ -102,7 +104,7 @@ fn test_multi_project_program() {
     let op_function = ASTNode::new(
         Function::new(
             op_symbol.clone(),
-            ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![])), dummy_span()),
+            FunctionType::Regular(ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![])), dummy_span())),
             Visibility::Public,
         ),
         dummy_span(),
@@ -142,10 +144,10 @@ fn test_multi_project_program() {
     let main_function = ASTNode::new(
         Function::new(
             main_symbol.clone(),
-            ASTNode::new(
+            FunctionType::Regular(ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![main_body_stmt])),
                 dummy_span(),
-            ),
+            )),
             Visibility::Private,
         ),
         dummy_span(),
@@ -208,8 +210,9 @@ fn test_multi_project_generics() {
     )
     .unwrap();
 
-    let mut sm = SourceMap::<WasomeLoader>::new(root);
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let mut sm = SourceMap::<WasomeLoader>::with_default(root);
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
     let typed_ast = analyze(ast).unwrap();
 
     // --- Symbols ---
@@ -350,10 +353,10 @@ fn test_multi_project_generics() {
     let main_func = ASTNode::new(
         Function::new(
             main_symbol.clone(),
-            ASTNode::new(
+            FunctionType::Regular(ASTNode::new(
                 Statement::Codeblock(CodeBlock::new(vec![tail_decl, head_decl])),
                 dummy_span(),
-            ),
+            )),
             Visibility::Private,
         ),
         dummy_span(),

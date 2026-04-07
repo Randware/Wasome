@@ -1,13 +1,12 @@
+#![warn(clippy::pedantic, clippy::nursery)]
 use crate::input::ParserInput;
 use crate::top_level_parser::top_level_parser;
+use ::error::diagnostic::{Diagnostic, Snippet};
 use ast::UntypedAST;
 use ast::file::File;
 use ast::visibility::Visibility;
 use chumsky::Parser;
-use chumsky::error::{RichPattern, RichReason};
-use chumsky::prelude::Rich;
 use chumsky::span::{Span, Spanned, WrappingSpan};
-use error::diagnostic::{Diagnostic, Snippet};
 use io::FullIO;
 use lexer::tokens::LexError;
 use lexer::{Token, TokenType, lex};
@@ -17,6 +16,7 @@ use std::fmt::Debug;
 use std::ops::Range;
 
 mod composite_parser;
+mod error;
 mod expression_parser;
 mod function_parser;
 mod input;
@@ -25,7 +25,6 @@ mod statement_parser;
 mod top_level_parser;
 
 const INVALID_FILE_CODE: &str = "E2001";
-const PARSING_CODE: &str = "E2002";
 const LEXING_CODE: &str = "E1001";
 
 /// Newtype to bypass trait implementation rules
@@ -37,7 +36,7 @@ impl ParserSpan {
         Some(Self(self.0.merge(other.0)?))
     }
 
-    fn set_end(&mut self, end: BytePos) {
+    const fn set_end(&mut self, end: BytePos) {
         self.0.end = end;
     }
 }
@@ -47,9 +46,9 @@ impl From<SourceSpan> for ParserSpan {
     }
 }
 
-impl Into<SourceSpan> for ParserSpan {
-    fn into(self) -> SourceSpan {
-        self.0
+impl From<ParserSpan> for SourceSpan {
+    fn from(val: ParserSpan) -> Self {
+        val.0
     }
 }
 
@@ -75,7 +74,7 @@ impl Span for ParserSpan {
 }
 
 impl<T> WrappingSpan<T> for ParserSpan {
-    type Spanned = Spanned<T, ParserSpan>;
+    type Spanned = Spanned<T, Self>;
 
     fn make_wrapped(self, inner: T) -> Self::Spanned {
         Spanned { inner, span: self }
@@ -103,7 +102,7 @@ pub(crate) fn map<T, S, O>(curr: Spanned<T, S>, mapper: impl FnOnce(T) -> O) -> 
 pub struct FileInformation<'a, Loader: FullIO> {
     /// The file
     ///
-    /// Must always be contained within source_map in order for `FileInformation` to be valid
+    /// Must always be contained within `source_map` in order for `FileInformation` to be valid
     file: FileID,
     /// The name of the module where the file is located
     module_name: &'a str,
@@ -112,13 +111,13 @@ pub struct FileInformation<'a, Loader: FullIO> {
 }
 
 impl<'a, Loader: FullIO> FileInformation<'a, Loader> {
-    /// Attempts to create a new FileInformation
+    /// Attempts to create a new `FileInformation`
     ///
     /// # Params
     ///
-    /// - **file**: The file, must be included in `source_map`
-    /// - **module_name**: The name of the module where `file` is located
-    /// - **source_map**: The source map that includes **file**
+    /// - **`file`**: The file, must be included in `source_map`
+    /// - **`module_name`**: The name of the module where `file` is located
+    /// - **`source_map`**: The source map that includes **file**
     ///
     /// # Return
     ///
@@ -137,19 +136,23 @@ impl<'a, Loader: FullIO> FileInformation<'a, Loader> {
         })
     }
 
-    pub fn file(&self) -> FileID {
+    #[must_use]
+    pub const fn file(&self) -> FileID {
         self.file
     }
 
-    pub fn module_name(&self) -> &'a str {
+    #[must_use]
+    pub const fn module_name(&self) -> &'a str {
         self.module_name
     }
 
-    pub fn source_map(&self) -> &'a SourceMap<Loader> {
+    #[must_use]
+    pub const fn source_map(&self) -> &'a SourceMap<Loader> {
         self.source_map
     }
 
     /// Gets the content of the file of self
+    #[must_use]
     pub fn file_content(&self) -> &'a str {
         self.file_resolved().content()
     }
@@ -189,14 +192,20 @@ impl<'a, Loader: FullIO> FileInformation<'a, Loader> {
 ///
 /// # Parameter
 ///
-/// **to_parse**: The [`SourceFile`] to parse
+/// **`to_parse`**: The [`SourceFile`] to parse
 ///
 /// # Return
 ///
 /// - **Err**: The parsing failed
 /// - **Some**: The parsing succeeded and the result is contained within
+///
+/// # Errors
+///
+/// This function can fail for the following reasons:
+/// - Lexing errors
+/// - Parsing errors
 pub fn parse<Loader: FullIO>(
-    to_parse: FileInformation<'_, Loader>,
+    to_parse: &FileInformation<'_, Loader>,
 ) -> Result<File<UntypedAST>, Diagnostic> {
     let content = to_parse.file_content();
     let mut tokens = Vec::new();
@@ -205,14 +214,14 @@ pub fn parse<Loader: FullIO>(
         Ok(inner_token) => tokens.push(inner_token),
         Err(err) => {
             if first_err.is_none() {
-                first_err = Some(err)
+                first_err = Some(err);
             }
         }
     });
     if let Some(first_err) = first_err {
         return Err(lexer_error(to_parse.file, first_err));
     }
-    parse_tokens(tokens, &to_parse)
+    parse_tokens(tokens, to_parse)
 }
 
 fn parse_tokens<Loader: FullIO>(
@@ -224,7 +233,7 @@ fn parse_tokens<Loader: FullIO>(
         .ok_or_else(|| invalid_filename_error(file_information.file_resolved()))?
         .to_owned();
     let to_parse_with_file_info = prepare_tokens(to_parse, file_information.file);
-    let input = ParserInput::new(&to_parse_with_file_info);
+    let input = ParserInput::new(&to_parse_with_file_info, file_information.file);
     // It's not a good idea to put this into a static to prevent recreating the parser
     // as it would require unsafe code
     let parser = top_level_parser(file_information);
@@ -236,7 +245,7 @@ fn parse_tokens<Loader: FullIO>(
         })
         .map_err(|mut err| {
             let err = err.pop().unwrap();
-            parser_error(file_information.file(), err)
+            err.into()
         })
 }
 
@@ -247,42 +256,6 @@ fn invalid_filename_error(file: &SourceFile) -> Diagnostic {
             file.path().to_string_lossy()
         ))
         .code(INVALID_FILE_CODE)
-        .build()
-}
-
-fn parser_error(file: FileID, err: Rich<TokenType, ParserSpan>) -> Diagnostic {
-    let span = *err.span();
-    let msg = match err.into_reason() {
-        RichReason::ExpectedFound { expected, found } => {
-            let expected = expected
-                .into_iter()
-                .map(|pat| match pat {
-                    RichPattern::Token(tok) => tok.token_to_printable_string().to_string(),
-                    RichPattern::EndOfInput => "end of input".to_string(),
-                    // Future improvement: Use custom for all other errors
-                    RichPattern::SomethingElse | RichPattern::Any => "something else".to_string(),
-                    _ => unreachable!("This should never happen"),
-                })
-                .collect::<Vec<_>>()
-                .join(" or ");
-            let found = match found {
-                None => "end of input".to_string(),
-                Some(tok) => tok.token_to_printable_string().to_string(),
-            };
-            format!("Expected {expected}, but found {found}")
-        }
-        RichReason::Custom(msg) => msg,
-    };
-    Diagnostic::builder()
-        .message("Token mismatch")
-        .code(PARSING_CODE)
-        .snippet(
-            Snippet::builder()
-                .file(file)
-                .primary(span.0.start..span.0.end, msg)
-                .build(),
-        )
-        .help("Provide a valid token".to_string())
         .build()
 }
 
@@ -306,6 +279,8 @@ fn prepare_tokens(raw_tokens: Vec<Token>, file: FileID) -> Vec<Spanned<TokenType
         .filter(|token| !matches!(token.kind, TokenType::Comment(_)))
         // End will never be before start
         .map(|token| {
+            // We only support files up to 4GB
+            #[allow(clippy::cast_possible_truncation)]
             ParserSpan(file.span(token.span.start as u32, token.span.end as u32))
                 .make_wrapped(token.kind)
         })
@@ -320,9 +295,7 @@ fn unspan_vec<T: PartialEq + Debug, U>(type_parameters: Vec<Spanned<T, U>>) -> V
 }
 
 pub(crate) fn map_visibility(visibility: Option<&Spanned<TokenType, ParserSpan>>) -> Visibility {
-    visibility
-        .map(|_| Visibility::Public)
-        .unwrap_or(Visibility::Private)
+    visibility.map_or(Visibility::Private, |_| Visibility::Public)
 }
 
 #[cfg(test)]
@@ -349,6 +322,6 @@ pub(crate) mod test_shared {
     pub(crate) fn convert_nonempty_input(
         source: &[Spanned<TokenType, ParserSpan>],
     ) -> ParserInput<'_> {
-        ParserInput::new(source)
+        ParserInput::new(source, FileID::from(0))
     }
 }

@@ -10,17 +10,17 @@ pub struct IndentTracker {
 
 impl IndentTracker {
     /// Creates a new indent tracker at level 0.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { level: 0 }
     }
 
     /// Increases indentation by one level.
-    pub fn increase(&mut self) {
+    pub const fn increase(&mut self) {
         self.level += 1;
     }
 
     /// Decreases indentation by one level (minimum 0).
-    pub fn decrease(&mut self) {
+    pub const fn decrease(&mut self) {
         self.level = self.level.saturating_sub(1);
     }
 
@@ -30,7 +30,7 @@ impl IndentTracker {
     }
 
     /// Returns true if at top level (indent level 0).
-    pub fn is_at_top_level(&self) -> bool {
+    pub const fn is_at_top_level(&self) -> bool {
         self.level == 0
     }
 }

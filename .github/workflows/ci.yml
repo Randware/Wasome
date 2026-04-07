@@ -23,12 +23,16 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: compiler
+          workspaces: |
+            compiler
+            cli
 
       - name: Run Tests
         id: test
-        working-directory: compiler
-        run: cargo test --workspace
+        shell: bash
+        run: |
+          cargo test --workspace --manifest-path compiler/Cargo.toml
+          cargo test --workspace --manifest-path cli/Cargo.toml
 
       - name: Save Result
         if: always()
@@ -53,8 +57,8 @@ jobs:
           prepare: pkg install -y rust git cmake
           run: |
             set -e # Exit immediately if command fails
-            cd compiler
-            cargo test --workspace --jobs 2 # This is done to prevent OOM errors: https://github.com/Randware/Wasome/issues/33
+            cargo test --workspace --manifest-path compiler/Cargo.toml --jobs 2 # This is done to prevent OOM errors: https://github.com/Randware/Wasome/issues/33
+            cargo test --workspace --manifest-path cli/Cargo.toml --jobs 2
 
       - name: Save Result
         if: always()
@@ -84,7 +88,9 @@ jobs:
 
       - name: Test via QEMU
         id: sim
-        run: cross test --workspace --target ${{ matrix.target }} --manifest-path compiler/Cargo.toml
+        run: |
+          cross test --workspace --target ${{ matrix.target }} --manifest-path compiler/Cargo.toml
+          cross test --workspace --target ${{ matrix.target }} --manifest-path cli/Cargo.toml
 
       - name: Save Result
         if: always()

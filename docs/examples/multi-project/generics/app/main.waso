@@ -2,8 +2,8 @@ import "lib" as d
 
 fn main() {
     // Create the tail of the list
-    d.LinkedList<s32> tail <- new d.LinkedList<s32> { value <- 10, next <- d.Option<d.LinkedList<s32>>::None }
+    d.LinkedList[s32] tail <- new d.LinkedList[s32] { value <- 10, next <- d.Option[d.LinkedList[s32]]::None }
 
     // Create the head, pointing to the tail
-    d.LinkedList<s32> head <- new d.LinkedList<s32> { value <- 20, next <- d.Option<d.LinkedList<s32>>::Some(tail) }
+    d.LinkedList[s32] head <- new d.LinkedList[s32] { value <- 20, next <- d.Option[d.LinkedList[s32]]::Some(tail) }
 }

@@ -12,5 +12,6 @@ pub enum Visibility {
 
 /// Types that have a specific visibility
 pub trait Visible {
+    #[must_use]
     fn visibility(&self) -> Visibility;
 }

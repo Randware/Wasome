@@ -1,0 +1,5 @@
+// This is for a test regarding https://github.com/Randware/Wasome/issues/45
+import "lib"
+
+fn main() {
+}

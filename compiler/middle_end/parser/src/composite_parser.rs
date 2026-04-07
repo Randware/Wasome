@@ -1,27 +1,22 @@
+use crate::error::ParserError;
 use crate::function_parser::function_parser;
 use crate::input::ParserInput;
+use crate::map_visibility;
 use crate::misc_parsers::{
     datatype_parser, identifier_parser, maybe_statement_separator, statement_separator,
     token_parser, type_parameter_declaration_parser, visibility_parser,
 };
-use crate::{ParserSpan, map_visibility};
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
 use ast::symbol::{EnumSymbol, EnumVariantSymbol, StructFieldSymbol, StructSymbol};
-use ast::visibility::Visibility;
 use ast::{ASTNode, UntypedAST};
-use chumsky::error::Rich;
 use chumsky::extra::Full;
 use chumsky::{IterParser, Parser};
 use lexer::TokenType;
 use std::rc::Rc;
 
 /// Parses a struct
-pub(crate) fn struct_parser<'src>() -> impl Parser<
-    'src,
-    ParserInput<'src>,
-    ASTNode<Struct<UntypedAST>>,
-    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-> {
+pub fn struct_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Struct<UntypedAST>>, Full<ParserError, (), ()>> {
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let function = function_parser().boxed();
@@ -58,10 +53,7 @@ pub(crate) fn struct_parser<'src>() -> impl Parser<
                 let fields = fields
                     .into_iter()
                     .map(|((visibility, data_type), name)| {
-                        let start = visibility
-                            .as_ref()
-                            .map(|vis| vis.span)
-                            .unwrap_or(data_type.span);
+                        let start = visibility.as_ref().map_or(data_type.span, |vis| vis.span);
                         // This will never panic as data_type is before name
                         let pos = start.merge(name.span).unwrap();
                         ASTNode::new(
@@ -80,8 +72,7 @@ pub(crate) fn struct_parser<'src>() -> impl Parser<
                 //This will never panic as the start is before the closing bracket
                 let pos = visibility
                     .as_ref()
-                    .map(|vis| vis.span)
-                    .unwrap_or(struct_token.span)
+                    .map_or(struct_token.span, |vis| vis.span)
                     .merge(end.span)
                     .unwrap();
                 let type_parameters = type_parameters
@@ -96,12 +87,8 @@ pub(crate) fn struct_parser<'src>() -> impl Parser<
 }
 
 /// Parses an enum
-pub(crate) fn enum_parser<'src>() -> impl Parser<
-    'src,
-    ParserInput<'src>,
-    ASTNode<Enum<UntypedAST>>,
-    Full<Rich<'src, TokenType, ParserSpan>, (), ()>,
-> {
+pub fn enum_parser<'src>()
+-> impl Parser<'src, ParserInput<'src>, ASTNode<Enum<UntypedAST>>, Full<ParserError, (), ()>> {
     let data_type = datatype_parser();
     let ident = identifier_parser();
     let variant = ident.clone().then(
@@ -157,13 +144,10 @@ pub(crate) fn enum_parser<'src>() -> impl Parser<
                 //This will never panic as the start is before the closing bracket
                 let pos = visibility
                     .as_ref()
-                    .map(|vis| vis.span)
-                    .unwrap_or(enum_token.span)
+                    .map_or(enum_token.span, |vis| vis.span)
                     .merge(end.span)
                     .unwrap();
-                let visibility = visibility
-                    .map(|_| Visibility::Public)
-                    .unwrap_or(Visibility::Private);
+                let visibility = map_visibility(visibility.as_ref());
                 let type_parameters = type_parameters
                     .into_iter()
                     .map(|type_param| type_param.inner)

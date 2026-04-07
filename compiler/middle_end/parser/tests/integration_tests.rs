@@ -1,8 +1,8 @@
 use ast::composite::{Enum, EnumVariant, Struct, StructField};
 use ast::data_type::UntypedDataType;
 use ast::expression::{
-    BinaryOp, BinaryOpType, Expression, FunctionCall, NewEnum, NewStruct, StructFieldAccess,
-    Typecast, UnaryOp, UnaryOpType,
+    BinaryOp, BinaryOpType, Expression, FunctionCall, MethodCall, NewEnum, NewStruct,
+    StructFieldAccess, Typecast, UnaryOp, UnaryOpType,
 };
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
@@ -12,7 +12,7 @@ use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
     StructSymbol, VariableSymbol,
 };
-use ast::top_level::{Function, Import, ImportRoot};
+use ast::top_level::{Function, FunctionType, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
 use parser::{FileInformation, parse};
@@ -61,9 +61,9 @@ const UNARY_CAST: &'static str = include_str!("test_programs/single_file/unary_c
 const IF_TEST: &'static str = include_str!("test_programs/single_file/if.waso");
 const LOOP_TEST: &'static str = include_str!("test_programs/single_file/loop.waso");
 const OPERATOR_TEST: &'static str = include_str!("test_programs/single_file/operator.waso");
-const MISSING_STATEMENT_SEPARATOR: &'static str =
-    include_str!("test_programs/single_file/missing_statement_separator.waso");
+const MISSING_STATEMENT_SEPARATOR: &'static str = include_str!("missing_statement_separator.waso");
 const STRUCT_TEST: &'static str = include_str!("test_programs/single_file/struct.waso");
+const METHOD_CALL_TEST: &'static str = include_str!("test_programs/single_file/method_call.waso");
 const ENUM_TEST: &'static str = include_str!("test_programs/single_file/enum.waso");
 const EXHAUSTIVE_DEFS: &'static str =
     include_str!("test_programs/single_project/exhaustive/defs.waso");
@@ -78,12 +78,15 @@ const GENERICS_MULTI_FILE_DEFS: &'static str =
     include_str!("test_programs/single_project/generic_multi_file/defs.waso");
 const GENERICS_MULTI_FILE_MAIN: &'static str =
     include_str!("test_programs/single_project/generic_multi_file/main.waso");
+const EMPTY: &'static str = include_str!("test_programs/single_file/empty.waso");
+const EXTERN_FUNCTION: &'static str =
+    include_str!("test_programs/single_file/extern_function.waso");
 
 #[test]
 fn test_parse_generics() {
     let (sm, id) = setup_source_map(GENERICS_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     use ast::symbol::UntypedTypeParameterSymbol;
     use ast::type_parameter::UntypedTypeParameter;
@@ -162,11 +165,11 @@ fn test_parse_generics() {
     ));
     let identity_func = wrap(Function::new(
         identity_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::Variable(
                 "val".to_string(),
             ))))),
-        )]))),
+        )])))),
         Visibility::Public,
     ));
 
@@ -217,12 +220,12 @@ fn test_parse_generics() {
     )));
     let map_func = wrap(Function::new(
         map_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             result_decl,
             wrap(Statement::Return(Return::new(Some(wrap(
                 Expression::Variable("result".to_string()),
             ))))),
-        ]))),
+        ])))),
         Visibility::Public,
     ));
 
@@ -341,9 +344,9 @@ fn test_parse_generics() {
 
     let main_func = wrap(Function::new(
         main_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             b_decl, o_decl, p_decl, id_decl,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -362,7 +365,7 @@ fn test_parse_generics() {
 fn test_parse_generics_nested() {
     let (sm, id) = setup_source_map(GENERICS_NESTED_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     use ast::symbol::UntypedTypeParameterSymbol;
     use ast::type_parameter::UntypedTypeParameter;
@@ -485,10 +488,10 @@ fn test_parse_generics_nested() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             nested_decl,
             opt_box_decl,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -507,7 +510,7 @@ fn test_parse_generics_nested() {
 fn test_parse_generics_methods() {
     let (sm, id) = setup_source_map(GENERICS_METHODS_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     use ast::symbol::UntypedTypeParameterSymbol;
     use ast::type_parameter::UntypedTypeParameter;
@@ -524,14 +527,14 @@ fn test_parse_generics_methods() {
     ));
     let get_item_func = wrap(Function::new(
         get_item_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::StructFieldAccess(
                 Box::new(StructFieldAccess::<UntypedAST>::new(
                     wrap(Expression::Variable("self".to_string())),
                     "item".to_string(),
                 )),
             ))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -557,7 +560,7 @@ fn test_parse_generics_methods() {
     )));
     let update_func = wrap(Function::new(
         update_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             temp_decl,
             wrap(Statement::Return(Return::new(Some(wrap(
                 Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(
@@ -565,7 +568,7 @@ fn test_parse_generics_methods() {
                     "item".to_string(),
                 ))),
             ))))),
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -647,9 +650,9 @@ fn test_parse_generics_methods() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             w_decl, val_decl, old_decl,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -668,7 +671,7 @@ fn test_parse_generics_methods() {
 fn test_parse_generics_multi_file_defs() {
     let (sm, id) = setup_source_map(GENERICS_MULTI_FILE_DEFS);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     use ast::symbol::UntypedTypeParameterSymbol;
     use ast::type_parameter::UntypedTypeParameter;
@@ -730,7 +733,7 @@ fn test_parse_generics_multi_file_defs() {
     ));
     let create_container_func = wrap(Function::new(
         create_container_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::NewStruct(Box::new(
                 NewStruct::<UntypedAST>::new(
                     (
@@ -743,7 +746,7 @@ fn test_parse_generics_multi_file_defs() {
                     )],
                 ),
             )))))),
-        )]))),
+        )])))),
         Visibility::Public,
     ));
 
@@ -763,7 +766,7 @@ fn test_parse_generics_multi_file_defs() {
 fn test_parse_generics_multi_file_main() {
     let (sm, id) = setup_source_map(GENERICS_MULTI_FILE_MAIN);
     let to_parse = FileInformation::new(id, "generic_multi_file", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     // import "./"
     let import = wrap(Import::new(
@@ -834,7 +837,7 @@ fn test_parse_generics_multi_file_main() {
             vec![],
             Vec::new(),
         )),
-        main_body,
+        FunctionType::Regular(main_body),
         Visibility::Private,
     ));
 
@@ -854,7 +857,7 @@ fn test_parse_simple_program() {
     let (sm, id) = setup_source_map(FIBONACCI);
 
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     // Construct Expected AST
     let n_symbol = Rc::new(VariableSymbol::new(
@@ -1010,7 +1013,7 @@ fn test_parse_simple_program() {
 
     let function = wrap(Function::new(
         fib_symbol,
-        function_body,
+        FunctionType::Regular(function_body),
         Visibility::Private,
     ));
 
@@ -1029,7 +1032,7 @@ fn test_parse_simple_program() {
 fn test_parse_max() {
     let (sm, id) = setup_source_map(MAX);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let a_symbol = Rc::new(VariableSymbol::new(
         "a".to_string(),
@@ -1070,7 +1073,9 @@ fn test_parse_max() {
 
     let function = wrap(Function::new(
         max_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![conditional]))),
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
+            conditional,
+        ])))),
         Visibility::Private,
     ));
 
@@ -1088,7 +1093,7 @@ fn test_parse_max() {
 fn test_parse_sum_n() {
     let (sm, id) = setup_source_map(SUM_N);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let n_symbol = Rc::new(VariableSymbol::new(
         "n".to_string(),
@@ -1168,9 +1173,9 @@ fn test_parse_sum_n() {
 
     let function = wrap(Function::new(
         sum_n_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             sum_decl, loop_stmt, ret_stmt,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -1188,7 +1193,7 @@ fn test_parse_sum_n() {
 fn test_parse_is_even() {
     let (sm, id) = setup_source_map(IS_EVEN);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let n_symbol = Rc::new(VariableSymbol::new(
         "n".to_string(),
@@ -1227,10 +1232,10 @@ fn test_parse_is_even() {
 
     let function = wrap(Function::new(
         is_even_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             conditional,
             ret_stmt,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -1247,7 +1252,7 @@ fn test_parse_is_even() {
 fn setup_source_map(content: &'static str) -> (SourceMap, FileID) {
     let (dir, _path) = setup_file("main.waso", content);
 
-    let mut sm: SourceMap = SourceMap::new(dir.path().to_path_buf());
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
 
     let id = sm
         .load_file("main.waso")
@@ -1261,7 +1266,7 @@ fn test_parse_modular_arithmetic() {
     {
         let (sm, id) = setup_source_map(MODULAR_ADD);
         let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-        let parsed = parse(to_parse).expect("Parsing failed");
+        let parsed = parse(&to_parse).expect("Parsing failed");
 
         let a_symbol = Rc::new(VariableSymbol::new(
             "a".to_string(),
@@ -1296,7 +1301,11 @@ fn test_parse_modular_arithmetic() {
             )))))),
         )])));
 
-        let function = wrap(Function::new(mod_add_symbol, body, Visibility::Private));
+        let function = wrap(Function::new(
+            mod_add_symbol,
+            FunctionType::Regular(body),
+            Visibility::Private,
+        ));
         let expected = ast::file::File::new(
             "main".to_string(),
             Vec::new(),
@@ -1311,7 +1320,7 @@ fn test_parse_modular_arithmetic() {
     {
         let (sm, id) = setup_source_map(MODULAR_MUL);
         let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-        let parsed = parse(to_parse).expect("Parsing failed");
+        let parsed = parse(&to_parse).expect("Parsing failed");
 
         let test_symbol = Rc::new(ModuleUsageNameSymbol::new("test".to_string()));
         let import = wrap(Import::new(
@@ -1356,7 +1365,11 @@ fn test_parse_modular_arithmetic() {
             Statement::Return(Return::new(Some(call))),
         )])));
 
-        let function = wrap(Function::new(mod_mul_symbol, body, Visibility::Private));
+        let function = wrap(Function::new(
+            mod_mul_symbol,
+            FunctionType::Regular(body),
+            Visibility::Private,
+        ));
         let expected = ast::file::File::new(
             "main".to_string(),
             vec![import],
@@ -1372,7 +1385,7 @@ fn test_parse_modular_arithmetic() {
 fn test_misc_features() {
     let (sm, id) = setup_source_map(MISC_FEATURES);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     // 1. public_func
     let pub_func = wrap(Function::new(
@@ -1382,7 +1395,7 @@ fn test_misc_features() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![])))),
         Visibility::Public,
     ));
 
@@ -1402,7 +1415,7 @@ fn test_misc_features() {
             vec![a.clone(), b.clone()],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::BinaryOp(Box::new(
                 BinaryOp::<UntypedAST>::new(
                     BinaryOpType::BitwiseOr,
@@ -1422,7 +1435,7 @@ fn test_misc_features() {
                     )))),
                 ),
             )))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1434,12 +1447,12 @@ fn test_misc_features() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
                 wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
                 LoopType::Infinite,
             )))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1451,11 +1464,11 @@ fn test_misc_features() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::Literal(
                 "'c'".to_string(),
             ))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1471,7 +1484,7 @@ fn test_misc_features() {
             vec![bool_a.clone()],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::UnaryOp(Box::new(
                 UnaryOp::<UntypedAST>::new(
                     UnaryOpType::Not,
@@ -1481,7 +1494,7 @@ fn test_misc_features() {
                     )))),
                 ),
             )))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1505,7 +1518,7 @@ fn test_misc_features() {
             vec![u32_a.clone(), u32_b.clone(), u32_c.clone()],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::BinaryOp(Box::new(
                 BinaryOp::<UntypedAST>::new(
                     BinaryOpType::Addition,
@@ -1517,7 +1530,7 @@ fn test_misc_features() {
                     )))),
                 ),
             )))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1543,7 +1556,7 @@ fn test_misc_features() {
 fn test_unary_on_typecast() {
     let (sm, id) = setup_source_map(UNARY_CAST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let main_symbol = Rc::new(FunctionSymbol::new(
         "main".to_string(),
@@ -1567,7 +1580,11 @@ fn test_unary_on_typecast() {
         )))))),
     )])));
 
-    let function = wrap(Function::new(main_symbol, body, Visibility::Private));
+    let function = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(body),
+        Visibility::Private,
+    ));
     let expected = ast::file::File::new(
         "main".to_string(),
         Vec::new(),
@@ -1582,7 +1599,7 @@ fn test_unary_on_typecast() {
 fn test_parse_if() {
     let (sm, id) = setup_source_map(IF_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     // fn main() { char wasome <- showcase_if_conditionals() }
     let main_symbol = Rc::new(FunctionSymbol::new(
@@ -1603,7 +1620,11 @@ fn test_parse_if() {
             ))),
         )),
     )])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     // fn showcase_if_conditionals() -> char
     let showcase_symbol = Rc::new(FunctionSymbol::new(
@@ -1651,7 +1672,7 @@ fn test_parse_if() {
     ])));
     let showcase_func = wrap(Function::new(
         showcase_symbol,
-        showcase_body,
+        FunctionType::Regular(showcase_body),
         Visibility::Private,
     ));
 
@@ -1669,7 +1690,7 @@ fn test_parse_if() {
 fn test_parse_loop() {
     let (sm, id) = setup_source_map(LOOP_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let main_symbol = Rc::new(FunctionSymbol::new(
         "main".to_string(),
@@ -1795,7 +1816,11 @@ fn test_parse_loop() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         decl1, while_loop, decl_sum, for_loop, decl3, inf_loop,
     ])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -1811,7 +1836,7 @@ fn test_parse_loop() {
 fn test_parse_operator() {
     let (sm, id) = setup_source_map(OPERATOR_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let main_symbol = Rc::new(FunctionSymbol::new(
         "main".to_string(),
@@ -1928,7 +1953,11 @@ fn test_parse_operator() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         decl_math, decl_num, if_lt, if_le, if_eq, if_ne, if_gt, if_ge, if_and, if_or,
     ])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -1944,7 +1973,7 @@ fn test_parse_operator() {
 fn test_missing_statement_separator() {
     let (sm, id) = setup_source_map(MISSING_STATEMENT_SEPARATOR);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse);
+    let parsed = parse(&to_parse);
     assert!(parsed.is_err());
 }
 
@@ -1952,7 +1981,7 @@ fn test_missing_statement_separator() {
 fn test_parse_struct() {
     let (sm, id) = setup_source_map(STRUCT_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let point_symbol = Rc::new(StructSymbol::new("Point".to_string(), Vec::new()));
     let x_field = wrap(StructField::new(
@@ -2041,7 +2070,134 @@ fn test_parse_struct() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         stmt1, stmt2, stmt3,
     ])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![main_func],
+        Vec::new(),
+        vec![point_struct],
+    );
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_method_call() {
+    let (sm, id) = setup_source_map(METHOD_CALL_TEST);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(&to_parse).expect("Parsing failed");
+
+    let point_symbol = Rc::new(StructSymbol::new("Point".to_string(), Vec::new()));
+    let x_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new(
+            "x".to_string(),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
+        )),
+        Visibility::Private,
+    ));
+    let y_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new(
+            "y".to_string(),
+            UntypedDataType::new("s32".to_string(), Vec::new()),
+        )),
+        Visibility::Private,
+    ));
+
+    let access_expr = wrap(Expression::StructFieldAccess(Box::new(
+        StructFieldAccess::<UntypedAST>::new(
+            wrap(Expression::Variable("self".to_string())),
+            "x".to_string(),
+        ),
+    )));
+    let stmt = wrap(Statement::Return(Return::<UntypedAST>::new(Some(
+        access_expr,
+    ))));
+
+    let get_x_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt])));
+
+    let get_x_symbol = Rc::new(FunctionSymbol::new(
+        "get_x".to_string(),
+        Some(UntypedDataType::new("s32".to_string(), Vec::new())),
+        vec![],
+        Vec::new(),
+    ));
+    let get_x_method = wrap(Function::new(
+        get_x_symbol,
+        FunctionType::Regular(get_x_body),
+        Visibility::Public,
+    ));
+
+    let point_struct = wrap(Struct::new(
+        point_symbol.clone(),
+        vec![get_x_method],
+        vec![x_field, y_field],
+        Visibility::Private,
+    ));
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+        Vec::new(),
+    ));
+
+    // Point point <- new Point { x <- 10, y <- 20 }
+    let point_var = Rc::new(VariableSymbol::new(
+        "point".to_string(),
+        UntypedDataType::new("Point".to_string(), Vec::new()),
+    ));
+    let new_point_expr = wrap(Expression::NewStruct(Box::new(
+        NewStruct::<UntypedAST>::new(
+            ("Point".to_string(), Vec::new()),
+            vec![
+                (
+                    wrap("x".to_string()),
+                    wrap(Expression::Literal("10".to_string())),
+                ),
+                (
+                    wrap("y".to_string()),
+                    wrap(Expression::Literal("20".to_string())),
+                ),
+            ],
+        ),
+    )));
+    let stmt1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        point_var.clone(),
+        new_point_expr,
+    )));
+
+    // s32 old_x_coordinate <- point.x
+    let old_x_var = Rc::new(VariableSymbol::new(
+        "x_coordinate".to_string(),
+        UntypedDataType::new("s32".to_string(), Vec::new()),
+    ));
+    let access_expr = wrap(Expression::<UntypedAST>::MethodCall(Box::new(
+        MethodCall::new(
+            wrap(Expression::Variable("point".to_string())),
+            ("get_x".to_string(), Vec::new()),
+            Vec::new(),
+        ),
+    )));
+    let stmt2 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        old_x_var.clone(),
+        access_expr,
+    )));
+
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt1, stmt2])));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -2057,7 +2213,7 @@ fn test_parse_struct() {
 fn test_parse_enum() {
     let (sm, id) = setup_source_map(ENUM_TEST);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing failed");
+    let parsed = parse(&to_parse).expect("Parsing failed");
 
     let weekday_symbol = Rc::new(EnumSymbol::new("Weekday".to_string(), Vec::new()));
     let variants = vec![
@@ -2109,7 +2265,11 @@ fn test_parse_enum() {
     )));
 
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt1])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -2125,7 +2285,7 @@ fn test_parse_enum() {
 fn test_parse_exhaustive_defs() {
     let (sm, id) = setup_source_map(EXHAUSTIVE_DEFS);
     let to_parse = FileInformation::new(id, "exhaustive", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing defs failed");
+    let parsed = parse(&to_parse).expect("Parsing defs failed");
 
     let status_symbol = Rc::new(EnumSymbol::new("Status".to_string(), Vec::new()));
     let ok_variant = wrap(EnumVariant::new(Rc::new(EnumVariantSymbol::new(
@@ -2197,7 +2357,7 @@ fn test_parse_exhaustive_defs() {
     )])));
     let create_point_func = wrap(Function::new(
         create_point_symbol,
-        create_point_body,
+        FunctionType::Regular(create_point_body),
         Visibility::Public,
     ));
 
@@ -2215,7 +2375,7 @@ fn test_parse_exhaustive_defs() {
 fn test_parse_exhaustive_main() {
     let (sm, id) = setup_source_map(EXHAUSTIVE_MAIN);
     let to_parse = FileInformation::new(id, "exhaustive", &sm).unwrap();
-    let parsed = parse(to_parse).expect("Parsing main failed");
+    let parsed = parse(&to_parse).expect("Parsing main failed");
 
     let import = wrap(Import::new(
         ImportRoot::CurrentModule,
@@ -2294,7 +2454,11 @@ fn test_parse_exhaustive_main() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         p_decl, if_let, p_y_assign,
     ])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -2303,5 +2467,48 @@ fn test_parse_exhaustive_main() {
         Vec::new(),
         Vec::new(),
     );
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_empty() {
+    let (sm, id) = setup_source_map(EMPTY);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(&to_parse).expect("Parsing empty file failed");
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_extern_function() {
+    let (sm, id) = setup_source_map(EXTERN_FUNCTION);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(&to_parse).expect("Parsing empty file failed");
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![wrap(Function::new(
+            Rc::new(FunctionSymbol::new(
+                "test".into(),
+                Some(UntypedDataType::new("u64".to_string(), Vec::new())),
+                Vec::new(),
+                Vec::new(),
+            )),
+            FunctionType::External,
+            Visibility::Public,
+        ))],
+        Vec::new(),
+        Vec::new(),
+    );
+
     assert!(parsed.semantic_eq(&expected));
 }
