@@ -1,9 +1,10 @@
-use std::collections::btree_map::Iter;
-use ast::file::File;
+use crate::{context::LLVMContext, errors::CodegenError, types::ModuleContext, Codegen};
+use ast::id::Id;
+use ast::symbol::{EnumSymbol, StructSymbol, SymbolWithTypeParameter};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::TypedAST;
-use crate::{Codegen, context::LLVMContext, errors::CodegenError, types::ModuleContext};
+use std::rc::Rc;
 
 impl<'ctx> Codegen<'ctx> {
     pub fn compile(&mut self) -> Result<(), CodegenError<'_>> {
@@ -14,7 +15,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub fn compile_project(
         &mut self,
-        llvm_context: &mut LLVMContext<'_>,
+        llvm_context: &mut LLVMContext<'ctx>,
     ) -> Result<(), CodegenError<'_>> {
         let helper = DirectoryTraversalHelper::new_from_ast(&self.ast);
 
@@ -25,6 +26,16 @@ impl<'ctx> Codegen<'ctx> {
                 .ok_or_else(|| {
                     CodegenError::DuplicateProjectName(project.inner().name().to_string())
                 })?;
+
+            for st in recursive_structs_of_dir(project.clone()) {
+                let lowered = self.context.opaque_struct_type(&mangle(st.name(), st.id().clone()));
+                debug_assert!(llvm_context.type_registry_mut().register_struct(st, lowered).is_none())
+            }
+
+            for en in recursive_enums_of_dir(project.clone()) {
+                let lowered = self.context.opaque_struct_type(&mangle(en.name(), en.id().clone()));
+                debug_assert!(llvm_context.type_registry_mut().register_enum(en, lowered).is_none())
+            }
         }
 
         // Pass 2
@@ -49,51 +60,27 @@ impl<'ctx> Codegen<'ctx> {
     }
 }
 
-pub fn recursive_files_of_dir<'a, 'b: 'a, T: 'static>(dir: DirectoryTraversalHelper<'b, 'b, TypedAST>,
-                                      map_with: &impl Fn(FileTraversalHelper<'a, 'b, TypedAST>) -> T)
-    -> Box<dyn Iterator<Item=T>> {
-    Box::new(dir.subdirectories_iterator().map(|subdir| recursive_files_of_dir(subdir, map_with))
+fn mangle(name: &str, id: Id) -> String {
+    format!("{}-{}", name, id.as_unique_string())
+}
+
+fn recursive_enums_of_dir(dir: DirectoryTraversalHelper<TypedAST>) -> Vec<Rc<EnumSymbol<TypedAST>>> {
+    recursive_files_of_dir(dir,
+                           &|file|
+                               file.enums_iterator().map(|en| en.inner().symbol_owned()).collect::<Vec<_>>().into_iter())
+}
+
+fn recursive_structs_of_dir(dir: DirectoryTraversalHelper<TypedAST>) -> Vec<Rc<StructSymbol<TypedAST>>> {
+    recursive_files_of_dir(dir,
+                           &|file|
+                               file.structs_iterator().map(|en| en.inner().symbol_owned()).collect::<Vec<_>>().into_iter())
+}
+
+fn recursive_files_of_dir<'b, T: 'static, Iter: Iterator<Item=T>, Mapper: Fn(FileTraversalHelper<'_, 'b, TypedAST>) -> Iter>
+(dir: DirectoryTraversalHelper<'_, 'b, TypedAST>,
+                                      map_with: &Mapper )
+    -> Vec<T>{
+    dir.subdirectories_iterator().map(|subdir| recursive_files_of_dir(subdir, map_with).into_iter())
         .flatten()
-        .chain(dir.files_iterator().map(map_with)))
+        .chain(dir.files_iterator().map(map_with).flatten()).collect()
 }
-
-/*struct FileIterator<'a, 'b> {
-    dir: DirectoryTraversalHelper<'a, 'b, TypedAST>,
-    subdirs_left: Vec<FileIterator<'a, 'b>>,
-    files_left: Vec<FileTraversalHelper<'a, 'b, TypedAST>>
-}
-
-impl<'a, 'b> FileIterator<'a, 'b> {
-    pub fn new(dir: DirectoryTraversalHelper<'b, 'b, TypedAST>) -> Self {
-        let mut to_ret = Self {
-            dir,
-            subdirs_left: Vec::new(),
-            files_left: Vec::new()
-        };
-        to_ret.files_left = to_ret.dir.files_iterator().collect();
-        to_ret.subdirs_left = to_ret.dir.subdirectories_iterator().map(|subdir| FileIterator::new(subdir)).collect();
-        to_ret
-    }
-}
-
-impl<'a, 'b> Iterator for FileIterator<'a, 'b> {
-    type Item = FileTraversalHelper<'a, 'b, TypedAST>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.files_left.pop()
-            .or_else(|| {
-                if self.subdirs_left.is_empty() {
-                    return None;
-                }
-                let file = self.subdirs_left.last_mut()?.next();
-                match file {
-                    None => {
-                        self.subdirs_left.pop();
-                        self.next()
-                    }
-                    Some(val) => Some(val)
-                }
-
-            })
-    }
-}*/

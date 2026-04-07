@@ -154,9 +154,13 @@ impl<'ctx> LLVMContext<'ctx> {
         &self.machine
     }
 
-    pub fn type_registry(&self) -> &SymbolRegistry {
+    pub fn type_registry(&self) -> &SymbolRegistry<'ctx> {
         &self.registry
     }
+    pub fn type_registry_mut(&mut self) -> &mut SymbolRegistry<'ctx> {
+        &mut self.registry
+    }
+
 
     pub fn types(&self) -> &CodegenTypes<'ctx> {
         &self.types

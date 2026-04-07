@@ -4,6 +4,7 @@ use inkwell::{
     targets::TargetData,
     types::{IntType, VoidType},
 };
+use inkwell::types::FloatType;
 
 mod opt_level;
 pub use opt_level::OptLevel;
@@ -12,10 +13,19 @@ pub use module::ModuleContext;
 
 pub struct CodegenTypes<'ctx> {
     pub void: VoidType<'ctx>,
-    pub i32: IntType<'ctx>,
-    pub bool: IntType<'ctx>,
-    pub i8: IntType<'ctx>,
     pub usize: IntType<'ctx>,
+    pub u64: IntType<'ctx>,
+    pub i64: IntType<'ctx>,
+    pub f64: FloatType<'ctx>,
+    pub u32: IntType<'ctx>,
+    pub i32: IntType<'ctx>,
+    pub f32: FloatType<'ctx>,
+    pub u16: IntType<'ctx>,
+    pub i16: IntType<'ctx>,
+    pub u8: IntType<'ctx>,
+    pub i8: IntType<'ctx>,
+    pub bool: IntType<'ctx>,
+    pub char: IntType<'ctx>
 }
 
 impl<'ctx> CodegenTypes<'ctx> {
@@ -27,9 +37,18 @@ impl<'ctx> CodegenTypes<'ctx> {
         Self {
             void: context.void_type(),
             i32: context.i32_type(),
+            f32: context.f32_type(),
+            u16: context.i16_type(),
+            i16: context.i16_type(),
             bool: context.bool_type(),
             i8: context.i8_type(),
             usize: usize_type,
+            u64: context.i64_type(),
+            i64: context.i64_type(),
+            f64: context.f64_type(),
+            u32: context.i32_type(),
+            u8: context.i8_type(),
+            char: context.i32_type(),
         }
     }
 }
