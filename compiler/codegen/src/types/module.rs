@@ -1,6 +1,6 @@
-use inkwell::{builder::Builder, context::ContextRef, module::Module};
+use inkwell::{context::ContextRef, module::Module};
 
-use crate::{context::LLVMContext, symbols::VariableTable};
+use crate::symbols::VariableTable;
 
 pub struct ModuleContext<'ctx> {
     pub(crate) inner: Module<'ctx>,

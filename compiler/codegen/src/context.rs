@@ -161,7 +161,6 @@ impl<'ctx> LLVMContext<'ctx> {
         &mut self.registry
     }
 
-
     pub fn types(&self) -> &CodegenTypes<'ctx> {
         &self.types
     }

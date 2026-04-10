@@ -1,10 +1,10 @@
+use inkwell::types::FloatType;
 use inkwell::{
     context::Context,
     data_layout::DataLayout,
     targets::TargetData,
     types::{IntType, VoidType},
 };
-use inkwell::types::FloatType;
 
 mod opt_level;
 pub use opt_level::OptLevel;
@@ -25,7 +25,7 @@ pub struct CodegenTypes<'ctx> {
     pub u8: IntType<'ctx>,
     pub i8: IntType<'ctx>,
     pub bool: IntType<'ctx>,
-    pub char: IntType<'ctx>
+    pub char: IntType<'ctx>,
 }
 
 impl<'ctx> CodegenTypes<'ctx> {

@@ -5,6 +5,8 @@ mod memory;
 mod symbols;
 mod temp;
 mod types;
+mod value;
+
 use std::path::PathBuf;
 
 use ast::{AST, TypedAST};

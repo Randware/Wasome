@@ -1,9 +1,11 @@
-use crate::{context::LLVMContext, errors::CodegenError, types::ModuleContext, Codegen};
+mod expression;
+
+use crate::{Codegen, context::LLVMContext, errors::CodegenError, types::ModuleContext};
+use ast::TypedAST;
 use ast::id::Id;
 use ast::symbol::{EnumSymbol, StructSymbol, SymbolWithTypeParameter};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
-use ast::TypedAST;
 use std::rc::Rc;
 
 impl<'ctx> Codegen<'ctx> {
@@ -28,13 +30,27 @@ impl<'ctx> Codegen<'ctx> {
                 })?;
 
             for st in recursive_structs_of_dir(project.clone()) {
-                let lowered = self.context.opaque_struct_type(&mangle(st.name(), st.id().clone()));
-                debug_assert!(llvm_context.type_registry_mut().register_struct(st, lowered).is_none())
+                let lowered = self
+                    .context
+                    .opaque_struct_type(&mangle(st.name(), st.id().clone()));
+                debug_assert!(
+                    llvm_context
+                        .type_registry_mut()
+                        .register_struct(st, lowered)
+                        .is_none()
+                )
             }
 
             for en in recursive_enums_of_dir(project.clone()) {
-                let lowered = self.context.opaque_struct_type(&mangle(en.name(), en.id().clone()));
-                debug_assert!(llvm_context.type_registry_mut().register_enum(en, lowered).is_none())
+                let lowered = self
+                    .context
+                    .opaque_struct_type(&mangle(en.name(), en.id().clone()));
+                debug_assert!(
+                    llvm_context
+                        .type_registry_mut()
+                        .register_enum(en, lowered)
+                        .is_none()
+                )
             }
         }
 
@@ -64,23 +80,40 @@ fn mangle(name: &str, id: Id) -> String {
     format!("{}-{}", name, id.as_unique_string())
 }
 
-fn recursive_enums_of_dir(dir: DirectoryTraversalHelper<TypedAST>) -> Vec<Rc<EnumSymbol<TypedAST>>> {
-    recursive_files_of_dir(dir,
-                           &|file|
-                               file.enums_iterator().map(|en| en.inner().symbol_owned()).collect::<Vec<_>>().into_iter())
+fn recursive_enums_of_dir(
+    dir: DirectoryTraversalHelper<TypedAST>,
+) -> Vec<Rc<EnumSymbol<TypedAST>>> {
+    recursive_files_of_dir(dir, &|file| {
+        file.enums_iterator()
+            .map(|en| en.inner().symbol_owned())
+            .collect::<Vec<_>>()
+            .into_iter()
+    })
 }
 
-fn recursive_structs_of_dir(dir: DirectoryTraversalHelper<TypedAST>) -> Vec<Rc<StructSymbol<TypedAST>>> {
-    recursive_files_of_dir(dir,
-                           &|file|
-                               file.structs_iterator().map(|en| en.inner().symbol_owned()).collect::<Vec<_>>().into_iter())
+fn recursive_structs_of_dir(
+    dir: DirectoryTraversalHelper<TypedAST>,
+) -> Vec<Rc<StructSymbol<TypedAST>>> {
+    recursive_files_of_dir(dir, &|file| {
+        file.structs_iterator()
+            .map(|en| en.inner().symbol_owned())
+            .collect::<Vec<_>>()
+            .into_iter()
+    })
 }
 
-fn recursive_files_of_dir<'b, T: 'static, Iter: Iterator<Item=T>, Mapper: Fn(FileTraversalHelper<'_, 'b, TypedAST>) -> Iter>
-(dir: DirectoryTraversalHelper<'_, 'b, TypedAST>,
-                                      map_with: &Mapper )
-    -> Vec<T>{
-    dir.subdirectories_iterator().map(|subdir| recursive_files_of_dir(subdir, map_with).into_iter())
+fn recursive_files_of_dir<
+    'b,
+    T: 'static,
+    Iter: Iterator<Item = T>,
+    Mapper: Fn(FileTraversalHelper<'_, 'b, TypedAST>) -> Iter,
+>(
+    dir: DirectoryTraversalHelper<'_, 'b, TypedAST>,
+    map_with: &Mapper,
+) -> Vec<T> {
+    dir.subdirectories_iterator()
+        .map(|subdir| recursive_files_of_dir(subdir, map_with).into_iter())
         .flatten()
-        .chain(dir.files_iterator().map(map_with).flatten()).collect()
+        .chain(dir.files_iterator().map(map_with).flatten())
+        .collect()
 }
