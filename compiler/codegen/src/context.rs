@@ -1,18 +1,19 @@
 use std::{collections::HashMap, io::Write};
 
+use crate::{
+    errors::CodegenError,
+    symbols::SymbolRegistry,
+    types::{CodegenTypes, ModuleContext, OptLevel},
+};
 use ast::{data_type::DataType, symbol::SymbolWithTypeParameter};
+use inkwell::basic_block::BasicBlock;
+use inkwell::values::FunctionValue;
 use inkwell::{
     builder::Builder,
     context::Context,
     passes::PassBuilderOptions,
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     types::{BasicType, BasicTypeEnum},
-};
-
-use crate::{
-    errors::CodegenError,
-    symbols::SymbolRegistry,
-    types::{CodegenTypes, ModuleContext, OptLevel},
 };
 
 pub struct LLVMContext<'ctx> {
@@ -163,5 +164,37 @@ impl<'ctx> LLVMContext<'ctx> {
 
     pub fn types(&self) -> &CodegenTypes<'ctx> {
         &self.types
+    }
+}
+
+pub(crate) struct StatementContext<'ctx> {
+    last_breakable_block: Option<BasicBlock<'ctx>>,
+    current_function: FunctionValue<'ctx>,
+}
+
+impl<'ctx> StatementContext<'ctx> {
+    pub fn new(
+        last_breakable_block: Option<BasicBlock<'ctx>>,
+        current_function: FunctionValue<'ctx>,
+    ) -> Self {
+        Self {
+            last_breakable_block,
+            current_function,
+        }
+    }
+
+    pub fn last_breakable_block(&self) -> Option<BasicBlock<'ctx>> {
+        self.last_breakable_block
+    }
+
+    pub fn current_function(&self) -> FunctionValue<'ctx> {
+        self.current_function
+    }
+
+    pub fn with_last_breakable_block(&self, last_breakable_block: BasicBlock<'ctx>) -> Self {
+        Self {
+            last_breakable_block: Some(last_breakable_block),
+            current_function: self.current_function,
+        }
     }
 }

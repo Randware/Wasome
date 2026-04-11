@@ -1,4 +1,5 @@
 mod expression;
+mod statement;
 
 use crate::{Codegen, context::LLVMContext, errors::CodegenError, types::ModuleContext};
 use ast::TypedAST;

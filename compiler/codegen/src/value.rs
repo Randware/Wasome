@@ -1,4 +1,5 @@
-use inkwell::values::{FloatValue, IntValue, PointerValue};
+use inkwell::types::BasicTypeEnum;
+use inkwell::values::{BasicValueEnum, FloatValue, IntValue, PointerValue};
 
 pub(crate) enum Value<'a> {
     Uint(IntValue<'a>),
@@ -36,6 +37,16 @@ impl<'a> Value<'a> {
         match self {
             Value::Bool(bool) => bool,
             _ => panic!("This is not a bool"),
+        }
+    }
+
+    pub(crate) fn into_basic_value_enum(self) -> BasicValueEnum<'a> {
+        match self {
+            Value::Uint(val) | Value::Sint(val) | Value::Char(val) | Value::Bool(val) => {
+                BasicValueEnum::IntValue(val)
+            }
+            Value::Float(float) => BasicValueEnum::FloatValue(float),
+            Value::Ptr(prt) => BasicValueEnum::PointerValue(prt),
         }
     }
 }
