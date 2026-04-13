@@ -52,6 +52,25 @@ impl DataType {
             _ => false
         }
     }
+    
+    pub fn size_bytes(&self) -> usize {
+        match self {
+            DataType::Bool |
+            DataType::U8 |
+            DataType::S8 => 1,
+            DataType::U16 |
+            DataType::S16 => 2,
+            DataType::Char |
+            DataType::U32 |
+            DataType::S32 |
+            DataType::F32 => 4,
+            DataType::U64 |
+            DataType::S64 |
+            DataType::F64 |
+            DataType::Struct(_) |
+            DataType::Enum(_) => 8
+        }
+    }
 }
 
 /// A syntax element in wasome with a data type.

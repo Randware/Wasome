@@ -1,18 +1,19 @@
+use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use crate::Codegen;
+use ast::TypedAST;
+use ast::expression::FunctionCall;
 use ast::statement::{
-    Conditional, ControlStructure, Loop, LoopType, Return, Statement,
-    VariableAssignment, VariableDeclaration,
+    Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
+    VariableDeclaration,
 };
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use ast::TypedAST;
-use inkwell::values::BasicValue;
 use inkwell::IntPredicate;
+use inkwell::values::BasicValue;
 use std::ops::Deref;
 
 impl<'ctx> Codegen<'ctx> {
-    pub(crate) fn compile_statement_internal(
+    pub(crate) fn compile_statement(
         &mut self,
         llvm_context: &mut LLVMContext<'ctx>,
         statement_context: &StatementContext<'ctx>,
@@ -41,7 +42,7 @@ impl<'ctx> Codegen<'ctx> {
             Statement::Codeblock(_) => {
                 self.compile_codeblock(llvm_context, statement_context, vars, to_generate)
             }
-            Statement::VoidFunctionCall(_) => todo!(),
+            Statement::VoidFunctionCall(vc) => self.compile_void_call(llvm_context, vars, vc),
             Statement::Break => self.compile_break(llvm_context, statement_context),
         }
     }
@@ -147,7 +148,7 @@ impl<'ctx> Codegen<'ctx> {
                     .context
                     .append_basic_block(statement_context.current_function(), "false");
                 llvm_context.builder().position_at_end(false_block);
-                self.compile_statement_internal(
+                self.compile_statement(
                     llvm_context,
                     statement_context,
                     vars,
@@ -162,7 +163,7 @@ impl<'ctx> Codegen<'ctx> {
             }
         };
         llvm_context.builder().position_at_end(true_block);
-        self.compile_statement_internal(
+        self.compile_statement(
             llvm_context,
             statement_context,
             vars,
@@ -217,7 +218,7 @@ impl<'ctx> Codegen<'ctx> {
         let statement_context = statement_context.with_last_breakable_block(after_block);
 
         llvm_context.builder().position_at_end(loop_block);
-        self.compile_statement_internal(
+        self.compile_statement(
             llvm_context,
             &statement_context,
             vars,
@@ -259,7 +260,7 @@ impl<'ctx> Codegen<'ctx> {
                 after_each: _after_each,
             } => {
                 llvm_context.builder().position_at_end(curr_block);
-                self.compile_statement_internal(
+                self.compile_statement(
                     llvm_context,
                     &statement_context,
                     vars,
@@ -284,7 +285,7 @@ impl<'ctx> Codegen<'ctx> {
                     )
                     .unwrap();
                 llvm_context.builder().position_at_end(loop_block);
-                self.compile_statement_internal(
+                self.compile_statement(
                     llvm_context,
                     &statement_context,
                     vars,
@@ -319,7 +320,7 @@ impl<'ctx> Codegen<'ctx> {
         let mut index = 0;
         while let Some(statement) = to_generate.get_child(index) {
             index += 1;
-            self.compile_statement_internal(llvm_context, &statement_context, vars, &statement);
+            self.compile_statement(llvm_context, &statement_context, vars, &statement);
         }
     }
 
@@ -336,5 +337,36 @@ impl<'ctx> Codegen<'ctx> {
                     .expect("Break outside loop"),
             )
             .unwrap();
+    }
+
+    pub(crate) fn compile_void_call(
+        &mut self,
+        llvm_context: &mut LLVMContext<'ctx>,
+        vars: &VariableTable<'ctx>,
+        to_generate: &FunctionCall<TypedAST>,
+    ) {
+        let func = llvm_context
+            .type_registry()
+            .get_function(to_generate.function())
+            .expect("Call to unknown function!");
+        let args = to_generate
+            .args()
+            .iter()
+            .map(|arg| {
+                self.compile_expression(llvm_context, vars, arg)
+                    .into_basic_value_enum()
+                    .into()
+            })
+            .collect::<Vec<_>>();
+        debug_assert!(
+            llvm_context
+                .builder()
+                .build_call(func, &args, "call")
+                .unwrap()
+                .try_as_basic_value()
+                .basic()
+                .is_some(),
+            "Non-void call as statement"
+        );
     }
 }

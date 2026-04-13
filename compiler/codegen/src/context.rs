@@ -1,5 +1,3 @@
-use std::{collections::HashMap, io::Write};
-
 use crate::{
     errors::CodegenError,
     symbols::SymbolRegistry,
@@ -15,13 +13,15 @@ use inkwell::{
     targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     types::{BasicType, BasicTypeEnum},
 };
+use std::cell::{Ref, RefCell, RefMut};
+use std::{collections::HashMap, io::Write};
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
     modules: HashMap<String, ModuleContext<'ctx>>,
     machine: TargetMachine,
-    registry: SymbolRegistry<'ctx>,
+    registry: RefCell<SymbolRegistry<'ctx>>,
     types: CodegenTypes<'ctx>,
     opt_level: OptLevel,
 }
@@ -53,7 +53,7 @@ impl<'ctx> LLVMContext<'ctx> {
             builder,
             modules: HashMap::new(),
             machine,
-            registry: SymbolRegistry::new(),
+            registry: RefCell::new(SymbolRegistry::new()),
             types,
             opt_level,
         }
@@ -131,6 +131,7 @@ impl<'ctx> LLVMContext<'ctx> {
                 .as_basic_type_enum(),
             DataType::Enum(enum_symbol) => self
                 .registry
+                .borrow()
                 .get_enum(enum_symbol)
                 .ok_or_else(|| {
                     CodegenError::Ice(format!("Enum {} was not registered", enum_symbol.name()))
@@ -155,11 +156,11 @@ impl<'ctx> LLVMContext<'ctx> {
         &self.machine
     }
 
-    pub fn type_registry(&self) -> &SymbolRegistry<'ctx> {
-        &self.registry
+    pub fn type_registry(&self) -> Ref<SymbolRegistry<'ctx>> {
+        self.registry.borrow()
     }
-    pub fn type_registry_mut(&mut self) -> &mut SymbolRegistry<'ctx> {
-        &mut self.registry
+    pub fn type_registry_mut(&self) -> RefMut<SymbolRegistry<'ctx>> {
+        self.registry.borrow_mut()
     }
 
     pub fn types(&self) -> &CodegenTypes<'ctx> {

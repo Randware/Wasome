@@ -4,11 +4,14 @@ use crate::symbols::VariableTable;
 use crate::value::Value;
 use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
-use ast::expression::{BinaryOp, BinaryOpType, Expression, Literal, UnaryOp, UnaryOpType};
+use ast::expression::{
+    BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, UnaryOp, UnaryOpType,
+};
 use ast::symbol::VariableSymbol;
 use inkwell::types::IntType;
 use inkwell::values::IntValue;
 use inkwell::{FloatPredicate, IntPredicate};
+use std::env::var;
 
 impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_expression(
@@ -18,7 +21,7 @@ impl<'ctx> Codegen<'ctx> {
         to_generate: &Expression<TypedAST>,
     ) -> Value<'ctx> {
         match to_generate {
-            Expression::FunctionCall(_) => todo!(),
+            Expression::FunctionCall(call) => self.compile_call(llvm_context, vars, call),
             // Method call is only supposed to exist in the untyped AST
             Expression::MethodCall(_) => unreachable!(),
             Expression::Variable(var) => self.compile_var_access(llvm_context, vars, var),
@@ -674,6 +677,51 @@ impl<'ctx> Codegen<'ctx> {
                     )
                 }
             }
+        }
+    }
+
+    pub(crate) fn compile_call(
+        &mut self,
+        llvm_context: &mut LLVMContext<'ctx>,
+        vars: &VariableTable<'ctx>,
+        to_generate: &FunctionCall<TypedAST>,
+    ) -> Value<'ctx> {
+        let func = llvm_context
+            .type_registry()
+            .get_function(to_generate.function())
+            .expect("Call to unknown function!");
+        let args = to_generate
+            .args()
+            .iter()
+            .map(|arg| {
+                self.compile_expression(llvm_context, vars, arg)
+                    .into_basic_value_enum()
+                    .into()
+            })
+            .collect::<Vec<_>>();
+        let ret = llvm_context
+            .builder()
+            .build_call(func, &args, "call")
+            .unwrap()
+            .try_as_basic_value()
+            .basic()
+            .expect("Void call as expression");
+        match to_generate
+            .function()
+            .return_type()
+            .expect("Void call as expression")
+        {
+            DataType::Char => Value::Char(ret.into_int_value()),
+            DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64 => {
+                Value::Uint(ret.into_int_value())
+            }
+            DataType::S8 | DataType::S16 | DataType::S32 | DataType::S64 => {
+                Value::Sint(ret.into_int_value())
+            }
+            DataType::Bool => Value::Bool(ret.into_int_value()),
+            DataType::F32 | DataType::F64 => Value::Float(ret.into_float_value()),
+            DataType::Struct(_) => Value::Ptr(ret.into_pointer_value()),
+            DataType::Enum(_) => Value::Ptr(ret.into_pointer_value()),
         }
     }
 

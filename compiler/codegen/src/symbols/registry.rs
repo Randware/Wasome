@@ -29,7 +29,7 @@ impl<'ctx> SymbolRegistry<'ctx> {
         self.structs.insert(symbol, struct_type)
     }
 
-    pub fn get_struct(&self, symbol: &Rc<StructSymbol<TypedAST>>) -> Option<StructType<'ctx>> {
+    pub fn get_struct(&self, symbol: &StructSymbol<TypedAST>) -> Option<StructType<'ctx>> {
         self.structs.get(symbol).copied()
     }
 
@@ -41,7 +41,7 @@ impl<'ctx> SymbolRegistry<'ctx> {
         self.enums.insert(symbol, struct_type)
     }
 
-    pub fn get_enum(&self, symbol: &Rc<EnumSymbol<TypedAST>>) -> Option<StructType<'ctx>> {
+    pub fn get_enum(&self, symbol: &EnumSymbol<TypedAST>) -> Option<StructType<'ctx>> {
         self.enums.get(symbol).copied()
     }
 
@@ -53,10 +53,7 @@ impl<'ctx> SymbolRegistry<'ctx> {
         self.functions.insert(symbol, function_value)
     }
 
-    pub fn get_function(
-        &self,
-        symbol: &Rc<FunctionSymbol<TypedAST>>,
-    ) -> Option<FunctionValue<'ctx>> {
+    pub fn get_function(&self, symbol: &FunctionSymbol<TypedAST>) -> Option<FunctionValue<'ctx>> {
         self.functions.get(symbol).copied()
     }
 }
