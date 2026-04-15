@@ -1,6 +1,7 @@
 mod context;
 mod errors;
 mod generators;
+mod global_registry;
 mod memory;
 mod symbols;
 mod temp;

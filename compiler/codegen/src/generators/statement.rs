@@ -1,21 +1,22 @@
-use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use ast::TypedAST;
+use crate::Codegen;
+use ast::data_type::{DataType, Typed};
 use ast::expression::FunctionCall;
 use ast::statement::{
-    Conditional, ControlStructure, Loop, LoopType, Return, Statement, VariableAssignment,
-    VariableDeclaration,
+    Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
+    StructFieldAssignment, VariableAssignment, VariableDeclaration,
 };
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use inkwell::IntPredicate;
+use ast::TypedAST;
 use inkwell::values::BasicValue;
+use inkwell::IntPredicate;
 use std::ops::Deref;
 
 impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_statement(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         statement_context: &StatementContext<'ctx>,
         vars: &mut VariableTable<'ctx>,
         to_generate: &StatementTraversalHelper<TypedAST>,
@@ -24,7 +25,9 @@ impl<'ctx> Codegen<'ctx> {
             Statement::VariableAssignment(va) => {
                 self.compile_variable_assignment(llvm_context, vars, va)
             }
-            Statement::StructFieldAssignment(sfa) => todo!(),
+            Statement::StructFieldAssignment(sfa) => {
+                self.compile_struct_field_assignment(llvm_context, vars, sfa)
+            }
             Statement::VariableDeclaration(vd) => {
                 self.compile_variable_declaration(llvm_context, vars, vd)
             }
@@ -49,7 +52,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_variable_assignment(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &VariableAssignment<TypedAST>,
     ) {
@@ -65,7 +68,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_variable_declaration(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &mut VariableTable<'ctx>,
         to_generate: &VariableDeclaration<TypedAST>,
     ) {
@@ -88,7 +91,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_return(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &Return<TypedAST>,
     ) {
@@ -104,7 +107,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_control_structure(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         statement_context: &StatementContext<'ctx>,
         vars: &mut VariableTable<'ctx>,
         statement: &StatementTraversalHelper<TypedAST>,
@@ -114,7 +117,9 @@ impl<'ctx> Codegen<'ctx> {
             ControlStructure::Conditional(cond) => {
                 self.compile_conditional(llvm_context, statement_context, vars, statement, cond)
             }
-            ControlStructure::IfEnumVariant(_) => todo!(),
+            ControlStructure::IfEnumVariant(iev) => {
+                self.compile_if_enum_variant(llvm_context, statement_context, vars, statement, iev)
+            }
             ControlStructure::Loop(loop_inner) => {
                 self.compile_loop(llvm_context, statement_context, vars, statement, loop_inner)
             }
@@ -123,7 +128,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_conditional(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         statement_context: &StatementContext<'ctx>,
         vars: &mut VariableTable<'ctx>,
         statement: &StatementTraversalHelper<TypedAST>,
@@ -196,7 +201,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_loop(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         statement_context: &StatementContext<'ctx>,
         vars: &mut VariableTable<'ctx>,
         statement: &StatementTraversalHelper<TypedAST>,
@@ -312,7 +317,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_codeblock(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         statement_context: &StatementContext<'ctx>,
         vars: &mut VariableTable<'ctx>,
         to_generate: &StatementTraversalHelper<TypedAST>,
@@ -326,7 +331,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_break(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         statement_context: &StatementContext<'ctx>,
     ) {
         llvm_context
@@ -341,7 +346,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_void_call(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &FunctionCall<TypedAST>,
     ) {
@@ -368,5 +373,139 @@ impl<'ctx> Codegen<'ctx> {
                 .is_some(),
             "Non-void call as statement"
         );
+    }
+
+    pub(crate) fn compile_struct_field_assignment(
+        &mut self,
+        llvm_context: &LLVMContext<'ctx>,
+        vars: &VariableTable<'ctx>,
+        to_generate: &StructFieldAssignment<TypedAST>,
+    ) {
+        let of = self
+            .compile_expression(llvm_context, vars, to_generate.struct_source())
+            .into_prt();
+        let struct_type = match to_generate.struct_source().data_type() {
+            DataType::Struct(st) => st,
+            _ => unreachable!(),
+        };
+        let tr = llvm_context.type_registry();
+        let struct_type = tr.get_struct(&struct_type).expect("Unknown struct");
+        let struct_field = struct_type
+            .fields()
+            .iter()
+            .position(|field| field == to_generate.struct_field())
+            .expect("Unknown field");
+        let field = llvm_context
+            .builder()
+            .build_struct_gep(
+                struct_type.lowered(),
+                of,
+                struct_field as u32 + 1,
+                "field_access_gep",
+            )
+            .expect("Unknown struct field");
+        let val = self.compile_expression(llvm_context, vars, to_generate.value());
+        llvm_context
+            .builder()
+            .build_store(field, val.into_basic_value_enum())
+            .unwrap();
+    }
+
+    pub(crate) fn compile_if_enum_variant(
+        &mut self,
+        llvm_context: &LLVMContext<'ctx>,
+        statement_context: &StatementContext<'ctx>,
+        vars: &mut VariableTable<'ctx>,
+        statement: &StatementTraversalHelper<TypedAST>,
+        to_generate: &IfEnumVariant<TypedAST>,
+    ) {
+        let of = self
+            .compile_expression(llvm_context, vars, to_generate.assignment_expression())
+            .into_prt();
+        let enum_type = to_generate.condition_enum();
+        let tr = llvm_context.type_registry();
+        let enum_type = tr.get_enum(enum_type).expect("Unregistered enum");
+        let expected_tag = enum_type
+            .index_of(to_generate.condition_enum_variant())
+            .expect("Unknown enum variant");
+        let variant = enum_type
+            .lookup(to_generate.condition_enum_variant())
+            .expect("Unknown enum variant");
+
+        let match_block = self
+            .context
+            .append_basic_block(statement_context.current_function(), "match");
+        let after_block = self
+            .context
+            .append_basic_block(statement_context.current_function(), "after");
+
+        let tag = llvm_context
+            .builder()
+            .build_struct_gep(llvm_context.global_registry().base_enum(), of, 1, "tag_gep")
+            .expect("Enum must have tag");
+        let tag = llvm_context
+            .builder()
+            .build_load(self.context.i32_type(), tag, "load_load")
+            .unwrap();
+
+        llvm_context
+            .builder()
+            .build_conditional_branch(
+                llvm_context
+                    .builder()
+                    .build_int_compare(
+                        IntPredicate::EQ,
+                        tag.into_int_value(),
+                        llvm_context
+                            .context()
+                            .i32_type()
+                            .const_int(expected_tag as u64, false),
+                        "cond",
+                    )
+                    .unwrap(),
+                match_block,
+                after_block,
+            )
+            .unwrap();
+
+        llvm_context.builder().position_at_end(match_block);
+
+        for (i, var) in to_generate.variables().iter().enumerate() {
+            let prt = llvm_context
+                .builder()
+                .build_alloca(
+                    llvm_context
+                        .lower_type(var.data_type())
+                        .expect("Unregistered type"),
+                    var.name(),
+                )
+                .unwrap();
+            vars.insert(var.clone(), prt);
+            let val = llvm_context
+                .builder()
+                .build_struct_gep(variant, of, (i + 2) as u32, "enum_field_gep")
+                .expect("Unknown enum field");
+            let val = llvm_context
+                .builder()
+                .build_load(
+                    llvm_context.lower_type(var.data_type()).unwrap(),
+                    val,
+                    "load_load",
+                )
+                .unwrap();
+
+            llvm_context.builder().build_store(prt, val).unwrap();
+        }
+        self.compile_statement(
+            llvm_context,
+            statement_context,
+            vars,
+            &statement.get_child(0).expect("There is no then statement"),
+        );
+        llvm_context
+            .builder()
+            .build_unconditional_branch(after_block)
+            .unwrap();
+        llvm_context.builder().position_at_end(after_block);
     }
 }

@@ -1,9 +1,10 @@
+use crate::global_registry::GlobalRegistry;
 use crate::{
     errors::CodegenError,
     symbols::SymbolRegistry,
     types::{CodegenTypes, ModuleContext, OptLevel},
 };
-use ast::{data_type::DataType, symbol::SymbolWithTypeParameter};
+use ast::data_type::DataType;
 use inkwell::basic_block::BasicBlock;
 use inkwell::values::FunctionValue;
 use inkwell::{
@@ -24,6 +25,7 @@ pub struct LLVMContext<'ctx> {
     registry: RefCell<SymbolRegistry<'ctx>>,
     types: CodegenTypes<'ctx>,
     opt_level: OptLevel,
+    global_registry: GlobalRegistry<'ctx>,
 }
 
 impl<'ctx> LLVMContext<'ctx> {
@@ -48,6 +50,7 @@ impl<'ctx> LLVMContext<'ctx> {
 
         let types = CodegenTypes::new(context, &layout);
 
+        let global_registry = GlobalRegistry::new(context);
         Self {
             context,
             builder,
@@ -56,6 +59,7 @@ impl<'ctx> LLVMContext<'ctx> {
             registry: RefCell::new(SymbolRegistry::new()),
             types,
             opt_level,
+            global_registry,
         }
     }
 
@@ -125,17 +129,9 @@ impl<'ctx> LLVMContext<'ctx> {
             DataType::Bool => self.context.bool_type().as_basic_type_enum(),
             DataType::F32 => self.context.f32_type().as_basic_type_enum(),
             DataType::F64 => self.context.f32_type().as_basic_type_enum(),
-            DataType::Struct(_) => self
+            DataType::Struct(_) | DataType::Enum(_) => self
                 .context
                 .ptr_type(inkwell::AddressSpace::default())
-                .as_basic_type_enum(),
-            DataType::Enum(enum_symbol) => self
-                .registry
-                .borrow()
-                .get_enum(enum_symbol)
-                .ok_or_else(|| {
-                    CodegenError::Ice(format!("Enum {} was not registered", enum_symbol.name()))
-                })?
                 .as_basic_type_enum(),
         })
     }
@@ -165,6 +161,10 @@ impl<'ctx> LLVMContext<'ctx> {
 
     pub fn types(&self) -> &CodegenTypes<'ctx> {
         &self.types
+    }
+
+    pub fn global_registry(&self) -> &GlobalRegistry<'ctx> {
+        &self.global_registry
     }
 }
 

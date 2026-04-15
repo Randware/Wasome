@@ -1,5 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
+use crate::symbols::{EnumInformation, StructInformation};
+use ast::symbol::StructFieldSymbol;
 use ast::{
     TypedAST,
     symbol::{EnumSymbol, FunctionSymbol, StructSymbol},
@@ -7,8 +9,8 @@ use ast::{
 use inkwell::{types::StructType, values::FunctionValue};
 
 pub struct SymbolRegistry<'ctx> {
-    structs: HashMap<Rc<StructSymbol<TypedAST>>, StructType<'ctx>>,
-    enums: HashMap<Rc<EnumSymbol<TypedAST>>, StructType<'ctx>>,
+    structs: HashMap<Rc<StructSymbol<TypedAST>>, StructInformation<'ctx>>,
+    enums: HashMap<Rc<EnumSymbol<TypedAST>>, EnumInformation<'ctx>>,
     functions: HashMap<Rc<FunctionSymbol<TypedAST>>, FunctionValue<'ctx>>,
 }
 
@@ -24,25 +26,36 @@ impl<'ctx> SymbolRegistry<'ctx> {
     pub fn register_struct(
         &mut self,
         symbol: Rc<StructSymbol<TypedAST>>,
-        struct_type: StructType<'ctx>,
-    ) -> Option<StructType<'ctx>> {
+        struct_type: StructInformation<'ctx>,
+    ) -> Option<StructInformation<'ctx>> {
         self.structs.insert(symbol, struct_type)
     }
 
-    pub fn get_struct(&self, symbol: &StructSymbol<TypedAST>) -> Option<StructType<'ctx>> {
-        self.structs.get(symbol).copied()
+    pub fn get_struct(&self, symbol: &StructSymbol<TypedAST>) -> Option<&StructInformation<'ctx>> {
+        self.structs.get(symbol)
+    }
+
+    pub fn get_struct_mut(
+        &mut self,
+        symbol: &StructSymbol<TypedAST>,
+    ) -> Option<&mut StructInformation<'ctx>> {
+        self.structs.get_mut(symbol)
     }
 
     pub fn register_enum(
         &mut self,
         symbol: Rc<EnumSymbol<TypedAST>>,
-        struct_type: StructType<'ctx>,
-    ) -> Option<StructType<'ctx>> {
+        struct_type: EnumInformation<'ctx>,
+    ) -> Option<EnumInformation<'ctx>> {
         self.enums.insert(symbol, struct_type)
     }
 
-    pub fn get_enum(&self, symbol: &EnumSymbol<TypedAST>) -> Option<StructType<'ctx>> {
-        self.enums.get(symbol).copied()
+    pub fn get_enum(&self, symbol: &EnumSymbol<TypedAST>) -> Option<&EnumInformation<'ctx>> {
+        self.enums.get(symbol)
+    }
+
+    pub fn get_enum_mut(&mut self, symbol: &EnumSymbol<TypedAST>) -> Option<&mut EnumInformation<'ctx>> {
+        self.enums.get_mut(symbol)
     }
 
     pub fn register_function(

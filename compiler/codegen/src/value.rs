@@ -40,6 +40,13 @@ impl<'a> Value<'a> {
         }
     }
 
+    pub(crate) fn into_prt(self) -> PointerValue<'a> {
+        match self {
+            Value::Ptr(bool) => bool,
+            _ => panic!("This is not a pointer"),
+        }
+    }
+
     pub(crate) fn into_basic_value_enum(self) -> BasicValueEnum<'a> {
         match self {
             Value::Uint(val) | Value::Sint(val) | Value::Char(val) | Value::Bool(val) => {

@@ -5,18 +5,18 @@ use crate::value::Value;
 use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{
-    BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, UnaryOp, UnaryOpType,
+    BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
+    StructFieldAccess, UnaryOp, UnaryOpType,
 };
 use ast::symbol::VariableSymbol;
 use inkwell::types::IntType;
 use inkwell::values::IntValue;
-use inkwell::{FloatPredicate, IntPredicate};
-use std::env::var;
+use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
 
 impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_expression(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &Expression<TypedAST>,
     ) -> Value<'ctx> {
@@ -28,15 +28,15 @@ impl<'ctx> Codegen<'ctx> {
             Expression::Literal(lit) => self.compile_literal(llvm_context, lit),
             Expression::UnaryOp(un) => self.compile_unary_op(llvm_context, vars, un),
             Expression::BinaryOp(bin) => self.compile_binary_op(llvm_context, vars, bin),
-            Expression::NewStruct(_) => todo!(),
-            Expression::NewEnum(_) => todo!(),
-            Expression::StructFieldAccess(_) => todo!(),
+            Expression::NewStruct(ns) => self.compile_new_struct(llvm_context, vars, ns),
+            Expression::NewEnum(ne) => self.compile_new_enum(llvm_context, vars, ne),
+            Expression::StructFieldAccess(sfa) => self.compile_sfa(llvm_context, vars, sfa),
         }
     }
 
     pub(crate) fn compile_var_access(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &VariableSymbol<TypedAST>,
     ) -> Value<'ctx> {
@@ -129,14 +129,23 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap()
                     .into_float_value(),
             ),
-            DataType::Struct(_) => todo!(),
-            DataType::Enum(_) => todo!(),
+            DataType::Struct(_) | DataType::Enum(_) => Value::Ptr(
+                llvm_context
+                    .builder()
+                    .build_load(
+                        self.context.ptr_type(AddressSpace::default()),
+                        var,
+                        "var_load",
+                    )
+                    .unwrap()
+                    .into_pointer_value(),
+            ),
         }
     }
 
     pub(crate) fn compile_literal(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         to_generate: &Literal,
     ) -> Value<'ctx> {
         match to_generate {
@@ -153,7 +162,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_unary_op(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &UnaryOp<TypedAST>,
     ) -> Value<'ctx> {
@@ -271,7 +280,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_binary_op(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &BinaryOp<TypedAST>,
     ) -> Value<'ctx> {
@@ -682,7 +691,7 @@ impl<'ctx> Codegen<'ctx> {
 
     pub(crate) fn compile_call(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &FunctionCall<TypedAST>,
     ) -> Value<'ctx> {
@@ -722,6 +731,205 @@ impl<'ctx> Codegen<'ctx> {
             DataType::F32 | DataType::F64 => Value::Float(ret.into_float_value()),
             DataType::Struct(_) => Value::Ptr(ret.into_pointer_value()),
             DataType::Enum(_) => Value::Ptr(ret.into_pointer_value()),
+        }
+    }
+
+    pub(crate) fn compile_new_struct(
+        &mut self,
+        llvm_context: &LLVMContext<'ctx>,
+        vars: &VariableTable<'ctx>,
+        to_generate: &NewStruct<TypedAST>,
+    ) -> Value<'ctx> {
+        let tr = llvm_context.type_registry();
+        let to_alloc = tr.get_struct(to_generate.symbol()).expect("Unknown struct");
+        let alloc = llvm_context
+            .builder()
+            .build_malloc(to_alloc.lowered(), "alloc_struct")
+            .unwrap();
+        for (i, field) in to_alloc.fields().iter().enumerate() {
+            let val = to_generate
+                .parameters()
+                .iter()
+                .find(|param| &*param.0 == field)
+                .expect("Struct field is not provided");
+            let val = self.compile_expression(llvm_context, vars, &val.1);
+            let field = llvm_context
+                .builder()
+                .build_struct_gep(to_alloc.lowered(), alloc, i as u32 + 1, "field_init_gep")
+                .expect("Unknown struct field");
+            llvm_context
+                .builder()
+                .build_store(field, val.into_basic_value_enum())
+                .unwrap();
+        }
+        Value::Ptr(alloc)
+    }
+
+    pub(crate) fn compile_new_enum(
+        &mut self,
+        llvm_context: &LLVMContext<'ctx>,
+        vars: &VariableTable<'ctx>,
+        to_generate: &NewEnum<TypedAST>,
+    ) -> Value<'ctx> {
+        let tr = llvm_context.type_registry();
+        let en = tr.get_enum(to_generate.to_create()).expect("Unknown enum");
+        let to_alloc = en.lookup(to_generate.variant()).expect("Unknown variant");
+        let alloc = llvm_context
+            .builder()
+            .build_malloc(to_alloc, "alloc_enum")
+            .unwrap();
+        for (i, field) in to_generate.parameters().iter().enumerate() {
+            let val = self.compile_expression(llvm_context, vars, field);
+            let field = llvm_context
+                .builder()
+                .build_struct_gep(to_alloc, alloc, i as u32 + 2, "field_init_gep")
+                .expect("Unknown enum field");
+            llvm_context
+                .builder()
+                .build_store(field, val.into_basic_value_enum())
+                .unwrap();
+        }
+        let field_tag = en.index_of(to_generate.variant()).expect("Unknown variant");
+        let tag = llvm_context
+            .builder()
+            .build_struct_gep(to_alloc, alloc, 1, "tag_init_gep")
+            .expect("Tag is missing");
+        llvm_context
+            .builder()
+            .build_store(
+                tag,
+                self.context.i32_type().const_int(field_tag as u64, false),
+            )
+            .unwrap();
+        Value::Ptr(alloc)
+    }
+
+    pub(crate) fn compile_sfa(
+        &mut self,
+        llvm_context: &LLVMContext<'ctx>,
+        vars: &VariableTable<'ctx>,
+        to_generate: &StructFieldAccess<TypedAST>,
+    ) -> Value<'ctx> {
+        let of = self
+            .compile_expression(llvm_context, vars, to_generate.of())
+            .into_prt();
+        let struct_type = match to_generate.of().data_type() {
+            DataType::Struct(st) => st,
+            _ => unreachable!(),
+        };
+        let tr = llvm_context.type_registry();
+        let struct_type = tr.get_struct(&struct_type).expect("Unknown struct");
+        let struct_field = struct_type
+            .fields()
+            .iter()
+            .position(|field| field == to_generate.field())
+            .expect("Unknown field");
+        let field = llvm_context
+            .builder()
+            .build_struct_gep(
+                struct_type.lowered(),
+                of,
+                struct_field as u32 + 1,
+                "field_access_gep",
+            )
+            .expect("Unknown struct field");
+
+        match to_generate.data_type() {
+            DataType::Char => Value::Char(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i32_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::U8 => Value::Uint(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i8_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::S8 => Value::Sint(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i8_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::U16 => Value::Uint(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i16_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::S16 => Value::Sint(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i16_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::U32 => Value::Uint(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i32_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::S32 => Value::Sint(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i32_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::U64 => Value::Uint(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i64_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::S64 => Value::Sint(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.i64_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::Bool => Value::Bool(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.bool_type(), field, "var_load")
+                    .unwrap()
+                    .into_int_value(),
+            ),
+            DataType::F32 => Value::Float(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.f32_type(), field, "var_load")
+                    .unwrap()
+                    .into_float_value(),
+            ),
+            DataType::F64 => Value::Float(
+                llvm_context
+                    .builder()
+                    .build_load(self.context.f64_type(), field, "var_load")
+                    .unwrap()
+                    .into_float_value(),
+            ),
+            DataType::Struct(_) | DataType::Enum(_) => Value::Ptr(
+                llvm_context
+                    .builder()
+                    .build_load(
+                        self.context.ptr_type(AddressSpace::default()),
+                        field,
+                        "var_load",
+                    )
+                    .unwrap()
+                    .into_pointer_value(),
+            ),
         }
     }
 
