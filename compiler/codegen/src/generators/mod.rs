@@ -22,11 +22,10 @@ use inkwell::AddressSpace;
 impl<'ctx> Codegen<'ctx> {
     pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Result<(), CodegenError<'_>> {
         let mut llvm_context = LLVMContext::new(self.context, self.opt_level);
-        self.compile_project(&mut llvm_context, to_compile)?;
-        todo!()
+        self.compile_internal(&mut llvm_context, to_compile)
     }
 
-    pub fn compile_project(
+    pub fn compile_internal(
         &mut self,
         llvm_context: &mut LLVMContext<'ctx>,
         to_compile: &AST<TypedAST>,
@@ -168,16 +167,7 @@ impl<'ctx> Codegen<'ctx> {
         });
 
         recursive_functions_of_dir(root, |func| self.compile_function(llvm_context, &func));
-
-        todo!()
-    }
-
-    pub fn compile_file(
-        &mut self,
-        context: &mut LLVMContext<'ctx>,
-        module: ModuleContext<'ctx>,
-    ) -> Result<(), CodegenError<'_>> {
-        todo!()
+        Ok(())
     }
 }
 
