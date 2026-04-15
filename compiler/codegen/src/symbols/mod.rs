@@ -1,8 +1,8 @@
 mod registry;
 mod variable;
 
-use ast::symbol::{EnumVariantSymbol, StructFieldSymbol};
 use ast::TypedAST;
+use ast::symbol::{EnumVariantSymbol, StructFieldSymbol};
 use inkwell::types::StructType;
 use inkwell::values::FunctionValue;
 pub use registry::SymbolRegistry;
@@ -12,14 +12,14 @@ pub use variable::*;
 #[derive(Eq, PartialEq)]
 pub struct EnumInformation<'ctx> {
     variants: Vec<(Rc<EnumVariantSymbol<TypedAST>>, StructType<'ctx>)>,
-    on_drop: FunctionValue<'ctx>
+    on_drop: FunctionValue<'ctx>,
 }
 
 impl<'ctx> EnumInformation<'ctx> {
     pub fn new(on_drop: FunctionValue<'ctx>) -> Self {
         Self {
             variants: Vec::new(),
-            on_drop
+            on_drop,
         }
     }
 
@@ -57,7 +57,7 @@ pub struct StructInformation<'ctx> {
     variants: Vec<Rc<StructFieldSymbol<TypedAST>>>,
     lowered: StructType<'ctx>,
     on_drop: FunctionValue<'ctx>,
-    predrop: Option<FunctionValue<'ctx>>
+    predrop: Option<FunctionValue<'ctx>>,
 }
 
 impl<'ctx> StructInformation<'ctx> {
@@ -66,7 +66,7 @@ impl<'ctx> StructInformation<'ctx> {
             variants: Vec::new(),
             lowered,
             on_drop,
-            predrop: None
+            predrop: None,
         }
     }
     pub fn lowered(&self) -> StructType<'ctx> {

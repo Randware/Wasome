@@ -6,6 +6,7 @@ use crate::{
 };
 use ast::data_type::DataType;
 use inkwell::basic_block::BasicBlock;
+use inkwell::module::Module;
 use inkwell::values::FunctionValue;
 use inkwell::{
     builder::Builder,
@@ -16,7 +17,6 @@ use inkwell::{
 };
 use std::cell::{Ref, RefCell, RefMut};
 use std::{collections::HashMap, io::Write};
-use inkwell::module::Module;
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
@@ -69,11 +69,11 @@ impl<'ctx> LLVMContext<'ctx> {
     }
 
     pub fn dump_ir<W: Write>(&self, mut output: W) -> Result<(), std::io::Error> {
-            let ir_string = self.module.print_to_string();
+        let ir_string = self.module.print_to_string();
 
-            output.write_all(ir_string.to_bytes())?;
+        output.write_all(ir_string.to_bytes())?;
 
-            output.write_all(b"\n")?;
+        output.write_all(b"\n")?;
 
         Ok(())
     }
@@ -83,18 +83,18 @@ impl<'ctx> LLVMContext<'ctx> {
     }
 
     pub fn apply_passes(&mut self) {
-            let passes = PassBuilderOptions::create();
+        let passes = PassBuilderOptions::create();
 
-            // Explicitly lock down expensive passes at O0
-            if self.opt_level == OptLevel::O0 {
-                passes.set_loop_vectorization(false);
-                passes.set_loop_unrolling(false);
-                passes.set_loop_interleaving(false);
-            }
+        // Explicitly lock down expensive passes at O0
+        if self.opt_level == OptLevel::O0 {
+            passes.set_loop_vectorization(false);
+            passes.set_loop_unrolling(false);
+            passes.set_loop_interleaving(false);
+        }
 
-            self.module
-                .run_passes(self.opt_level.as_llvm_pipeline(), &self.machine, passes)
-                .expect("Could not run passes");
+        self.module
+            .run_passes(self.opt_level.as_llvm_pipeline(), &self.machine, passes)
+            .expect("Could not run passes");
     }
 
     pub fn lower_type(

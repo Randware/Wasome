@@ -22,16 +22,28 @@ impl<'ctx> Codegen<'ctx> {
         to_generate: &Expression<TypedAST>,
     ) -> Value<'ctx> {
         match to_generate {
-            Expression::FunctionCall(call) => self.compile_call(llvm_context, vars, statement_context, call),
+            Expression::FunctionCall(call) => {
+                self.compile_call(llvm_context, vars, statement_context, call)
+            }
             // Method call is only supposed to exist in the untyped AST
             Expression::MethodCall(_) => unreachable!(),
             Expression::Variable(var) => self.compile_var_access(llvm_context, vars, var),
             Expression::Literal(lit) => self.compile_literal(llvm_context, lit),
-            Expression::UnaryOp(un) => self.compile_unary_op(llvm_context, vars, statement_context, un),
-            Expression::BinaryOp(bin) => self.compile_binary_op(llvm_context, vars, statement_context, bin),
-            Expression::NewStruct(ns) => self.compile_new_struct(llvm_context, vars, statement_context, ns),
-            Expression::NewEnum(ne) => self.compile_new_enum(llvm_context, vars, statement_context, ne),
-            Expression::StructFieldAccess(sfa) => self.compile_sfa(llvm_context, vars, statement_context, sfa),
+            Expression::UnaryOp(un) => {
+                self.compile_unary_op(llvm_context, vars, statement_context, un)
+            }
+            Expression::BinaryOp(bin) => {
+                self.compile_binary_op(llvm_context, vars, statement_context, bin)
+            }
+            Expression::NewStruct(ns) => {
+                self.compile_new_struct(llvm_context, vars, statement_context, ns)
+            }
+            Expression::NewEnum(ne) => {
+                self.compile_new_enum(llvm_context, vars, statement_context, ne)
+            }
+            Expression::StructFieldAccess(sfa) => {
+                self.compile_sfa(llvm_context, vars, statement_context, sfa)
+            }
         }
     }
 
@@ -141,10 +153,8 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap()
                     .into_pointer_value();
                 self.compile_inc_refcount(llvm_context, prt);
-                Value::Ptr(
-                    prt,
-                )
-            },
+                Value::Ptr(prt)
+            }
         }
     }
 
@@ -173,7 +183,8 @@ impl<'ctx> Codegen<'ctx> {
 
         to_generate: &UnaryOp<TypedAST>,
     ) -> Value<'ctx> {
-        let inner = self.compile_expression(llvm_context, vars, statement_context, to_generate.input());
+        let inner =
+            self.compile_expression(llvm_context, vars, statement_context, to_generate.input());
         match to_generate.op_type() {
             UnaryOpType::Negative => {
                 if to_generate.data_type().is_float() {
@@ -292,8 +303,10 @@ impl<'ctx> Codegen<'ctx> {
         statement_context: &StatementContext<'ctx>,
         to_generate: &BinaryOp<TypedAST>,
     ) -> Value<'ctx> {
-        let lhs = self.compile_expression(llvm_context, vars, statement_context, to_generate.left());
-        let rhs = self.compile_expression(llvm_context, vars, statement_context, to_generate.right());
+        let lhs =
+            self.compile_expression(llvm_context, vars, statement_context, to_generate.left());
+        let rhs =
+            self.compile_expression(llvm_context, vars, statement_context, to_generate.right());
         let dt = to_generate.left().data_type();
         match to_generate.op_type() {
             BinaryOpType::Addition => {
@@ -718,20 +731,30 @@ impl<'ctx> Codegen<'ctx> {
             .collect::<Vec<_>>();
         let ret = llvm_context
             .builder()
-            .build_call(func, &args.iter().copied().map(Into::into).collect::<Vec<_>>(), "call")
+            .build_call(
+                func,
+                &args.iter().copied().map(Into::into).collect::<Vec<_>>(),
+                "call",
+            )
             .unwrap()
             .try_as_basic_value()
             .basic()
             .expect("Void call as expression");
         for arg in args.iter().zip(to_generate.args()) {
             match arg.1.data_type() {
-                DataType::Struct(st) => {
-                    self.compile_struct_dec_refcount(llvm_context, statement_context.current_function(), &st, arg.0.into_pointer_value())
-                }
-                DataType::Enum(en) => {
-                    self.compile_enum_dec_refcount(llvm_context, statement_context.current_function(), &en, arg.0.into_pointer_value())
-                }
-                _ => ()
+                DataType::Struct(st) => self.compile_struct_dec_refcount(
+                    llvm_context,
+                    statement_context.current_function(),
+                    &st,
+                    arg.0.into_pointer_value(),
+                ),
+                DataType::Enum(en) => self.compile_enum_dec_refcount(
+                    llvm_context,
+                    statement_context.current_function(),
+                    &en,
+                    arg.0.into_pointer_value(),
+                ),
+                _ => (),
             }
         }
         match to_generate
@@ -943,7 +966,7 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap()
                     .into_float_value(),
             ),
-            DataType::Struct(_) | DataType::Enum(_) =>  {
+            DataType::Struct(_) | DataType::Enum(_) => {
                 let prt = llvm_context
                     .builder()
                     .build_load(
@@ -954,12 +977,15 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap()
                     .into_pointer_value();
                 self.compile_inc_refcount(llvm_context, prt);
-                Value::Ptr(
-                    prt,
-                )
-            },
+                Value::Ptr(prt)
+            }
         };
-        self.compile_struct_dec_refcount(llvm_context, statement_context.current_function(), &struct_type, of);
+        self.compile_struct_dec_refcount(
+            llvm_context,
+            statement_context.current_function(),
+            &struct_type,
+            of,
+        );
         result
     }
 

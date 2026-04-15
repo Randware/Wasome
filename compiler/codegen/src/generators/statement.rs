@@ -1,18 +1,18 @@
+use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use crate::Codegen;
+use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
 use ast::expression::FunctionCall;
 use ast::statement::{
     Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,
 };
+use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use ast::TypedAST;
 use inkwell::values::BasicValue;
 use inkwell::{AddressSpace, IntPredicate};
 use std::ops::Deref;
-use ast::symbol::DirectlyAvailableSymbol;
 
 impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_statement(
@@ -35,7 +35,9 @@ impl<'ctx> Codegen<'ctx> {
             Statement::Expression(expr) => {
                 self.compile_expression(llvm_context, vars, statement_context, expr);
             }
-            Statement::Return(ret) => self.compile_return(llvm_context, vars, statement_context, ret),
+            Statement::Return(ret) => {
+                self.compile_return(llvm_context, vars, statement_context, ret)
+            }
             Statement::ControlStructure(contrl) => self.compile_control_structure(
                 llvm_context,
                 statement_context,
@@ -46,26 +48,40 @@ impl<'ctx> Codegen<'ctx> {
             Statement::Codeblock(_) => {
                 self.compile_codeblock(llvm_context, statement_context, vars, to_generate)
             }
-            Statement::VoidFunctionCall(vc) => self.compile_void_call(llvm_context, vars, statement_context, vc),
+            Statement::VoidFunctionCall(vc) => {
+                self.compile_void_call(llvm_context, vars, statement_context, vc)
+            }
             Statement::Break => self.compile_break(llvm_context, statement_context),
         }
-        for var in to_generate.symbols_defined_directly_in().into_iter().chain(to_generate.inner().get_direct_child_only_symbols()) {
+        for var in to_generate
+            .symbols_defined_directly_in()
+            .into_iter()
+            .chain(to_generate.inner().get_direct_child_only_symbols())
+        {
             match var {
                 DirectlyAvailableSymbol::Variable(var) => {
                     let ptr = vars.lookup(var).expect("Unknown variable");
                     match var.data_type() {
                         DataType::Struct(st) => {
-                            self.compile_struct_dec_refcount(llvm_context, statement_context.current_function(), &st, ptr.pointer);
+                            self.compile_struct_dec_refcount(
+                                llvm_context,
+                                statement_context.current_function(),
+                                &st,
+                                ptr.pointer,
+                            );
                         }
                         DataType::Enum(en) => {
-                            self.compile_enum_dec_refcount(llvm_context, statement_context.current_function(), &en, ptr.pointer);
-
+                            self.compile_enum_dec_refcount(
+                                llvm_context,
+                                statement_context.current_function(),
+                                &en,
+                                ptr.pointer,
+                            );
                         }
-                        _ => ()
+                        _ => (),
                     }
-
                 }
-                _ => ()
+                _ => (),
             }
         }
     }
@@ -82,16 +98,41 @@ impl<'ctx> Codegen<'ctx> {
             .expect("Assign to undeclared variable");
         match to_generate.variable().data_type() {
             DataType::Struct(st) => {
-                let to_drop = llvm_context.builder().build_load(self.context.ptr_type(AddressSpace::default()), var.pointer, "drop_load").unwrap();
-                self.compile_struct_dec_refcount(llvm_context, statement_context.current_function(), &st, to_drop.into_pointer_value());
+                let to_drop = llvm_context
+                    .builder()
+                    .build_load(
+                        self.context.ptr_type(AddressSpace::default()),
+                        var.pointer,
+                        "drop_load",
+                    )
+                    .unwrap();
+                self.compile_struct_dec_refcount(
+                    llvm_context,
+                    statement_context.current_function(),
+                    &st,
+                    to_drop.into_pointer_value(),
+                );
             }
             DataType::Enum(en) => {
-                let to_drop = llvm_context.builder().build_load(self.context.ptr_type(AddressSpace::default()), var.pointer, "drop_load").unwrap();
-                self.compile_enum_dec_refcount(llvm_context, statement_context.current_function(), &en, to_drop.into_pointer_value());
+                let to_drop = llvm_context
+                    .builder()
+                    .build_load(
+                        self.context.ptr_type(AddressSpace::default()),
+                        var.pointer,
+                        "drop_load",
+                    )
+                    .unwrap();
+                self.compile_enum_dec_refcount(
+                    llvm_context,
+                    statement_context.current_function(),
+                    &en,
+                    to_drop.into_pointer_value(),
+                );
             }
-            _ => ()
+            _ => (),
         }
-        let val = self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
+        let val =
+            self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
         llvm_context
             .builder()
             .build_store(var.pointer, val.into_basic_value_enum())
@@ -115,7 +156,8 @@ impl<'ctx> Codegen<'ctx> {
             )
             .unwrap();
         vars.insert(to_generate.variable_owned(), prt);
-        let val = self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
+        let val =
+            self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
         llvm_context
             .builder()
             .build_store(prt, val.into_basic_value_enum())
@@ -168,7 +210,12 @@ impl<'ctx> Codegen<'ctx> {
         statement: &StatementTraversalHelper<TypedAST>,
         to_generate: &Conditional<TypedAST>,
     ) {
-        let cond = self.compile_expression(llvm_context, vars, statement_context, to_generate.condition());
+        let cond = self.compile_expression(
+            llvm_context,
+            vars,
+            statement_context,
+            to_generate.condition(),
+        );
 
         let curr_block = statement_context
             .current_function()
@@ -188,12 +235,7 @@ impl<'ctx> Codegen<'ctx> {
                     .append_basic_block(statement_context.current_function(), "false");
                 llvm_context.builder().position_at_end(false_block);
                 let false_statement = statement.get_child(1).expect("There is no else block");
-                self.compile_statement(
-                    llvm_context,
-                    statement_context,
-                    vars,
-                    &false_statement,
-                );
+                self.compile_statement(llvm_context, statement_context, vars, &false_statement);
                 llvm_context
                     .builder()
                     .build_unconditional_branch(after_block)
@@ -204,12 +246,7 @@ impl<'ctx> Codegen<'ctx> {
         };
         llvm_context.builder().position_at_end(true_block);
         let true_statement = statement.get_child(0).expect("There is no then block");
-        self.compile_statement(
-            llvm_context,
-            statement_context,
-            vars,
-            &true_statement,
-        );
+        self.compile_statement(llvm_context, statement_context, vars, &true_statement);
         llvm_context
             .builder()
             .build_unconditional_branch(after_block)
@@ -260,13 +297,9 @@ impl<'ctx> Codegen<'ctx> {
 
         llvm_context.builder().position_at_end(loop_block);
         let to_loop_on = statement
-            .get_child(to_generate.to_loop_on_index()).expect("To loop on does not exist!");
-        self.compile_statement(
-            llvm_context,
-            &inner_statement_context,
-            vars,
-            &to_loop_on,
-        );
+            .get_child(to_generate.to_loop_on_index())
+            .expect("To loop on does not exist!");
+        self.compile_statement(llvm_context, &inner_statement_context, vars, &to_loop_on);
         llvm_context.builder().position_at_end(cond_block);
 
         match to_generate.loop_type() {
@@ -412,13 +445,19 @@ impl<'ctx> Codegen<'ctx> {
         );
         for arg in args.iter().zip(to_generate.args()) {
             match arg.1.data_type() {
-                DataType::Struct(st) => {
-                    self.compile_struct_dec_refcount(llvm_context, statement_context.current_function(), &st, arg.0.into_pointer_value())
-                }
-                DataType::Enum(en) => {
-                    self.compile_enum_dec_refcount(llvm_context, statement_context.current_function(), &en, arg.0.into_pointer_value())
-                }
-                _ => ()
+                DataType::Struct(st) => self.compile_struct_dec_refcount(
+                    llvm_context,
+                    statement_context.current_function(),
+                    &st,
+                    arg.0.into_pointer_value(),
+                ),
+                DataType::Enum(en) => self.compile_enum_dec_refcount(
+                    llvm_context,
+                    statement_context.current_function(),
+                    &en,
+                    arg.0.into_pointer_value(),
+                ),
+                _ => (),
             }
         }
     }
@@ -431,7 +470,12 @@ impl<'ctx> Codegen<'ctx> {
         to_generate: &StructFieldAssignment<TypedAST>,
     ) {
         let of = self
-            .compile_expression(llvm_context, vars, statement_context, to_generate.struct_source())
+            .compile_expression(
+                llvm_context,
+                vars,
+                statement_context,
+                to_generate.struct_source(),
+            )
             .into_prt();
         let struct_type = match to_generate.struct_source().data_type() {
             DataType::Struct(st) => st,
@@ -455,16 +499,41 @@ impl<'ctx> Codegen<'ctx> {
             .expect("Unknown struct field");
         match to_generate.struct_field().data_type() {
             DataType::Struct(st) => {
-                let to_drop = llvm_context.builder().build_load(self.context.ptr_type(AddressSpace::default()), field, "drop_load").unwrap();
-                self.compile_struct_dec_refcount(llvm_context, statement_context.current_function(), &st, to_drop.into_pointer_value());
+                let to_drop = llvm_context
+                    .builder()
+                    .build_load(
+                        self.context.ptr_type(AddressSpace::default()),
+                        field,
+                        "drop_load",
+                    )
+                    .unwrap();
+                self.compile_struct_dec_refcount(
+                    llvm_context,
+                    statement_context.current_function(),
+                    &st,
+                    to_drop.into_pointer_value(),
+                );
             }
             DataType::Enum(en) => {
-                let to_drop = llvm_context.builder().build_load(self.context.ptr_type(AddressSpace::default()), field, "drop_load").unwrap();
-                self.compile_enum_dec_refcount(llvm_context, statement_context.current_function(), &en, to_drop.into_pointer_value());
+                let to_drop = llvm_context
+                    .builder()
+                    .build_load(
+                        self.context.ptr_type(AddressSpace::default()),
+                        field,
+                        "drop_load",
+                    )
+                    .unwrap();
+                self.compile_enum_dec_refcount(
+                    llvm_context,
+                    statement_context.current_function(),
+                    &en,
+                    to_drop.into_pointer_value(),
+                );
             }
-            _ => ()
+            _ => (),
         }
-        let val = self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
+        let val =
+            self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
         llvm_context
             .builder()
             .build_store(field, val.into_basic_value_enum())
@@ -480,7 +549,12 @@ impl<'ctx> Codegen<'ctx> {
         to_generate: &IfEnumVariant<TypedAST>,
     ) {
         let of = self
-            .compile_expression(llvm_context, vars, statement_context, to_generate.assignment_expression())
+            .compile_expression(
+                llvm_context,
+                vars,
+                statement_context,
+                to_generate.assignment_expression(),
+            )
             .into_prt();
         let enum_type = to_generate.condition_enum();
         let tr = llvm_context.type_registry();
@@ -567,6 +641,11 @@ impl<'ctx> Codegen<'ctx> {
             .build_unconditional_branch(after_block)
             .unwrap();
         llvm_context.builder().position_at_end(after_block);
-        self.compile_enum_dec_refcount(llvm_context, statement_context.current_function(), &enum_type, of);
+        self.compile_enum_dec_refcount(
+            llvm_context,
+            statement_context.current_function(),
+            &enum_type,
+            of,
+        );
     }
 }

@@ -54,7 +54,10 @@ impl<'ctx> SymbolRegistry<'ctx> {
         self.enums.get(symbol)
     }
 
-    pub fn get_enum_mut(&mut self, symbol: &EnumSymbol<TypedAST>) -> Option<&mut EnumInformation<'ctx>> {
+    pub fn get_enum_mut(
+        &mut self,
+        symbol: &EnumSymbol<TypedAST>,
+    ) -> Option<&mut EnumInformation<'ctx>> {
         self.enums.get_mut(symbol)
     }
 
