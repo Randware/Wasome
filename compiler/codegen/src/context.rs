@@ -16,11 +16,12 @@ use inkwell::{
 };
 use std::cell::{Ref, RefCell, RefMut};
 use std::{collections::HashMap, io::Write};
+use inkwell::module::Module;
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
-    modules: HashMap<String, ModuleContext<'ctx>>,
+    module: Module<'ctx>,
     machine: TargetMachine,
     registry: RefCell<SymbolRegistry<'ctx>>,
     types: CodegenTypes<'ctx>,
@@ -51,10 +52,14 @@ impl<'ctx> LLVMContext<'ctx> {
         let types = CodegenTypes::new(context, &layout);
 
         let global_registry = GlobalRegistry::new(context);
+
+        let module = context.create_module(&"wasome");
+        module.set_triple(&machine.get_triple());
+        module.set_data_layout(&machine.get_target_data().get_data_layout());
         Self {
             context,
             builder,
-            modules: HashMap::new(),
+            module,
             machine,
             registry: RefCell::new(SymbolRegistry::new()),
             types,
@@ -64,13 +69,11 @@ impl<'ctx> LLVMContext<'ctx> {
     }
 
     pub fn dump_ir<W: Write>(&self, mut output: W) -> Result<(), std::io::Error> {
-        for module in self.modules.values() {
-            let ir_string = module.inner.print_to_string();
+            let ir_string = self.module.print_to_string();
 
             output.write_all(ir_string.to_bytes())?;
 
             output.write_all(b"\n")?;
-        }
 
         Ok(())
     }
@@ -79,23 +82,7 @@ impl<'ctx> LLVMContext<'ctx> {
         self.dump_ir(std::io::stdout())
     }
 
-    /// Adds a module.
-    ///
-    /// If the module with that name is not present, [`None`] is returned.
-    ///
-    /// If the there is a module with the same name, the module is updated, and the old
-    /// modules is returned.
-    pub fn add_module(&mut self, module_name: impl Into<String>) -> Option<ModuleContext<'ctx>> {
-        let name = module_name.into();
-        let module = self.context.create_module(&name);
-        module.set_triple(&self.machine.get_triple());
-        module.set_data_layout(&self.machine.get_target_data().get_data_layout());
-
-        self.modules.insert(name, module.into())
-    }
-
     pub fn apply_passes(&mut self) {
-        self.modules.values_mut().for_each(|module| {
             let passes = PassBuilderOptions::create();
 
             // Explicitly lock down expensive passes at O0
@@ -105,11 +92,9 @@ impl<'ctx> LLVMContext<'ctx> {
                 passes.set_loop_interleaving(false);
             }
 
-            module
-                .inner
+            self.module
                 .run_passes(self.opt_level.as_llvm_pipeline(), &self.machine, passes)
                 .expect("Could not run passes");
-        });
     }
 
     pub fn lower_type(
@@ -134,10 +119,6 @@ impl<'ctx> LLVMContext<'ctx> {
                 .ptr_type(inkwell::AddressSpace::default())
                 .as_basic_type_enum(),
         })
-    }
-
-    pub fn get_module(&self, name: impl AsRef<str>) -> Option<&ModuleContext<'ctx>> {
-        self.modules.get(name.as_ref())
     }
 
     pub fn context(&self) -> &'ctx Context {
@@ -165,6 +146,10 @@ impl<'ctx> LLVMContext<'ctx> {
 
     pub fn global_registry(&self) -> &GlobalRegistry<'ctx> {
         &self.global_registry
+    }
+
+    pub fn module(&self) -> &Module<'ctx> {
+        &self.module
     }
 }
 

@@ -32,9 +32,7 @@ impl<'ctx> Codegen<'ctx> {
     ) -> Result<(), CodegenError<'_>> {
         let root = DirectoryTraversalHelper::new_from_ast(to_compile);
         let project_name = root.inner().name();
-        let module = llvm_context
-            .get_module(project_name)
-            .ok_or_else(|| CodegenError::Ice("LLVM module is missing".to_string()))?;
+        let module = llvm_context.module();
 
         let drop_type = self.context.void_type().fn_type(&[self.context.ptr_type(AddressSpace::default()).as_basic_type_enum().into()], false);
         recursive_structs_of_dir(root.clone(), |st| {
@@ -43,7 +41,7 @@ impl<'ctx> Codegen<'ctx> {
             let lowered = self
                 .context
                 .opaque_struct_type(&name);
-            let drop = module.inner.add_function(&format!("{}-drop", name), drop_type, None);
+            let drop = module.add_function(&format!("{}-drop", name), drop_type, None);
             debug_assert!(
                 llvm_context
                     .type_registry_mut()
@@ -55,7 +53,7 @@ impl<'ctx> Codegen<'ctx> {
         recursive_enums_of_dir(root.clone(), |en| {
             let symbol = en.inner().symbol_owned();
             let name = mangle(symbol.name(), symbol.id().clone());
-            let drop = module.inner.add_function(&format!("{}-drop", name), drop_type, None);
+            let drop = module.add_function(&format!("{}-drop", name), drop_type, None);
             debug_assert!(
                 llvm_context
                     .type_registry_mut()
@@ -130,7 +128,7 @@ impl<'ctx> Codegen<'ctx> {
                     format!("{}-{}", symbol.name(), sizes)
                 }
             };
-            let lowered = module.inner.add_function(&name, lowered_type, None);
+            let lowered = module.add_function(&name, lowered_type, None);
             debug_assert!(
                 llvm_context
                     .type_registry_mut()
