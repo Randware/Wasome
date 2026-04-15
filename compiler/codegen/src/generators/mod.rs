@@ -1,6 +1,7 @@
 mod expression;
 mod function;
 mod statement;
+mod memory;
 
 use crate::symbols::{EnumInformation, StructInformation};
 use crate::{Codegen, context::LLVMContext, errors::CodegenError, types::ModuleContext};
@@ -16,6 +17,7 @@ use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::{AST, TypedAST};
 use inkwell::types::BasicType;
 use std::iter::once;
+use inkwell::AddressSpace;
 
 impl<'ctx> Codegen<'ctx> {
     pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Result<(), CodegenError<'_>> {
@@ -30,31 +32,38 @@ impl<'ctx> Codegen<'ctx> {
         to_compile: &AST<TypedAST>,
     ) -> Result<(), CodegenError<'_>> {
         let root = DirectoryTraversalHelper::new_from_ast(to_compile);
+        let project_name = root.inner().name();
+        let module = llvm_context
+            .get_module(project_name)
+            .ok_or_else(|| CodegenError::Ice("LLVM module is missing".to_string()))?;
 
+        let drop_type = self.context.void_type().fn_type(&[self.context.ptr_type(AddressSpace::default()).as_basic_type_enum().into()], false);
         recursive_structs_of_dir(root.clone(), |st| {
             let symbol = st.inner().symbol_owned();
+            let name = mangle(symbol.name(), symbol.id().clone());
             let lowered = self
                 .context
-                .opaque_struct_type(&mangle(symbol.name(), symbol.id().clone()));
+                .opaque_struct_type(&name);
+            let drop = module.inner.add_function(&format!("{}-drop", name), drop_type, None);
             debug_assert!(
                 llvm_context
                     .type_registry_mut()
-                    .register_struct(symbol, StructInformation::new(lowered))
+                    .register_struct(symbol, StructInformation::new(lowered, drop))
                     .is_none()
             )
         });
 
         recursive_enums_of_dir(root.clone(), |en| {
             let symbol = en.inner().symbol_owned();
+            let name = mangle(symbol.name(), symbol.id().clone());
+            let drop = module.inner.add_function(&format!("{}-drop", name), drop_type, None);
             debug_assert!(
                 llvm_context
                     .type_registry_mut()
-                    .register_enum(symbol, EnumInformation::new())
+                    .register_enum(symbol, EnumInformation::new(drop))
                     .is_none()
             )
         });
-
-        // Pass 2
 
         recursive_structs_of_dir(root.clone(), |st| {
             let symbol = st.inner().symbol();
@@ -80,11 +89,11 @@ impl<'ctx> Codegen<'ctx> {
             let mut tr = llvm_context.type_registry_mut();
             let lowered = tr.get_enum_mut(&symbol).expect("Unregistered struct");
             let variants = st.inner().variants();
-            let base_enum = 
+            let base_enum =
                 &[
                     self.context.i32_type().as_basic_type_enum(),
                     self.context.i32_type().as_basic_type_enum(),
-                ];            
+                ];
             for variant in variants {
                 let fields_lowered = base_enum.iter().copied()
                     .chain(variant.inner().fields().iter().map(|field| {
@@ -97,11 +106,6 @@ impl<'ctx> Codegen<'ctx> {
                 lowered.insert(variant.inner_owned(), variant_lowered);
             }
         });
-
-        let project_name = root.inner().name();
-        let module = llvm_context
-            .get_module(project_name)
-            .ok_or_else(|| CodegenError::Ice("LLVM module is missing".to_string()))?;
 
         recursive_functions_of_dir(root.clone(), |func| {
             let symbol = func.inner().declaration_owned();
@@ -134,6 +138,33 @@ impl<'ctx> Codegen<'ctx> {
                     .register_function(symbol, lowered)
                     .is_none()
             )
+        });
+
+        recursive_structs_of_dir(root.clone(), |st| {
+            let predrop = st.function_iterator().find(|func| {
+                let symbol = func.inner().declaration();
+                symbol.name() == "predrop" && symbol.type_parameters().is_empty() && symbol.params().len() == 1 && symbol.return_type().is_none()
+            } ).map(|func| llvm_context.type_registry().get_function(func.inner().declaration()).expect("Unknown function"));
+            let symbol = st.inner().symbol();
+            let mut tr = llvm_context.type_registry_mut();
+            let lowered = tr.get_struct_mut(&symbol).expect("Unregistered struct");
+            predrop.into_iter().for_each(|predrop| lowered.set_predrop(predrop));
+            let func = lowered.on_drop();
+            let main_bb = self.context.append_basic_block(func, "main");
+            llvm_context.builder().position_at_end(main_bb);
+
+            self.compile_struct_drop(llvm_context, func, symbol, func.get_first_param().expect("Drop function takes no parameters").into_pointer_value());
+        });
+
+        recursive_enums_of_dir(root.clone(), |st| {
+            let symbol = st.inner().symbol();
+            let mut tr = llvm_context.type_registry_mut();
+            let lowered = tr.get_enum(&symbol).expect("Unregistered enum");
+            let func = lowered.on_drop();
+            let main_bb = self.context.append_basic_block(func, "main");
+            llvm_context.builder().position_at_end(main_bb);
+
+            self.compile_enum_drop(llvm_context, func, symbol, func.get_first_param().expect("Drop function takes no parameters").into_pointer_value());
         });
 
         recursive_functions_of_dir(root, |func| self.compile_function(llvm_context, &func));

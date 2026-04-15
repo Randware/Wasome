@@ -1,5 +1,5 @@
 use crate::Codegen;
-use crate::context::LLVMContext;
+use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
 use crate::value::Value;
 use ast::TypedAST;
@@ -18,19 +18,20 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
+        statement_context: &StatementContext<'ctx>,
         to_generate: &Expression<TypedAST>,
     ) -> Value<'ctx> {
         match to_generate {
-            Expression::FunctionCall(call) => self.compile_call(llvm_context, vars, call),
+            Expression::FunctionCall(call) => self.compile_call(llvm_context, vars, statement_context, call),
             // Method call is only supposed to exist in the untyped AST
             Expression::MethodCall(_) => unreachable!(),
             Expression::Variable(var) => self.compile_var_access(llvm_context, vars, var),
             Expression::Literal(lit) => self.compile_literal(llvm_context, lit),
-            Expression::UnaryOp(un) => self.compile_unary_op(llvm_context, vars, un),
-            Expression::BinaryOp(bin) => self.compile_binary_op(llvm_context, vars, bin),
-            Expression::NewStruct(ns) => self.compile_new_struct(llvm_context, vars, ns),
-            Expression::NewEnum(ne) => self.compile_new_enum(llvm_context, vars, ne),
-            Expression::StructFieldAccess(sfa) => self.compile_sfa(llvm_context, vars, sfa),
+            Expression::UnaryOp(un) => self.compile_unary_op(llvm_context, vars, statement_context, un),
+            Expression::BinaryOp(bin) => self.compile_binary_op(llvm_context, vars, statement_context, bin),
+            Expression::NewStruct(ns) => self.compile_new_struct(llvm_context, vars, statement_context, ns),
+            Expression::NewEnum(ne) => self.compile_new_enum(llvm_context, vars, statement_context, ne),
+            Expression::StructFieldAccess(sfa) => self.compile_sfa(llvm_context, vars, statement_context, sfa),
         }
     }
 
@@ -129,8 +130,8 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap()
                     .into_float_value(),
             ),
-            DataType::Struct(_) | DataType::Enum(_) => Value::Ptr(
-                llvm_context
+            DataType::Struct(_) | DataType::Enum(_) => {
+                let prt = llvm_context
                     .builder()
                     .build_load(
                         self.context.ptr_type(AddressSpace::default()),
@@ -138,8 +139,12 @@ impl<'ctx> Codegen<'ctx> {
                         "var_load",
                     )
                     .unwrap()
-                    .into_pointer_value(),
-            ),
+                    .into_pointer_value();
+                self.compile_inc_refcount(llvm_context, prt);
+                Value::Ptr(
+                    prt,
+                )
+            },
         }
     }
 
@@ -164,9 +169,11 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
+        statement_context: &StatementContext<'ctx>,
+
         to_generate: &UnaryOp<TypedAST>,
     ) -> Value<'ctx> {
-        let inner = self.compile_expression(llvm_context, vars, to_generate.input());
+        let inner = self.compile_expression(llvm_context, vars, statement_context, to_generate.input());
         match to_generate.op_type() {
             UnaryOpType::Negative => {
                 if to_generate.data_type().is_float() {
@@ -282,10 +289,11 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
+        statement_context: &StatementContext<'ctx>,
         to_generate: &BinaryOp<TypedAST>,
     ) -> Value<'ctx> {
-        let lhs = self.compile_expression(llvm_context, vars, to_generate.left());
-        let rhs = self.compile_expression(llvm_context, vars, to_generate.right());
+        let lhs = self.compile_expression(llvm_context, vars, statement_context, to_generate.left());
+        let rhs = self.compile_expression(llvm_context, vars, statement_context, to_generate.right());
         let dt = to_generate.left().data_type();
         match to_generate.op_type() {
             BinaryOpType::Addition => {
@@ -693,6 +701,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
+        statement_context: &StatementContext<'ctx>,
         to_generate: &FunctionCall<TypedAST>,
     ) -> Value<'ctx> {
         let func = llvm_context
@@ -703,18 +712,28 @@ impl<'ctx> Codegen<'ctx> {
             .args()
             .iter()
             .map(|arg| {
-                self.compile_expression(llvm_context, vars, arg)
+                self.compile_expression(llvm_context, vars, statement_context, arg)
                     .into_basic_value_enum()
-                    .into()
             })
             .collect::<Vec<_>>();
         let ret = llvm_context
             .builder()
-            .build_call(func, &args, "call")
+            .build_call(func, &args.iter().copied().map(Into::into).collect::<Vec<_>>(), "call")
             .unwrap()
             .try_as_basic_value()
             .basic()
             .expect("Void call as expression");
+        for arg in args.iter().zip(to_generate.args()) {
+            match arg.1.data_type() {
+                DataType::Struct(st) => {
+                    self.compile_struct_dec_refcount(llvm_context, statement_context.current_function(), &st, arg.0.into_pointer_value())
+                }
+                DataType::Enum(en) => {
+                    self.compile_enum_dec_refcount(llvm_context, statement_context.current_function(), &en, arg.0.into_pointer_value())
+                }
+                _ => ()
+            }
+        }
         match to_generate
             .function()
             .return_type()
@@ -738,6 +757,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
+        statement_context: &StatementContext<'ctx>,
         to_generate: &NewStruct<TypedAST>,
     ) -> Value<'ctx> {
         let tr = llvm_context.type_registry();
@@ -752,7 +772,7 @@ impl<'ctx> Codegen<'ctx> {
                 .iter()
                 .find(|param| &*param.0 == field)
                 .expect("Struct field is not provided");
-            let val = self.compile_expression(llvm_context, vars, &val.1);
+            let val = self.compile_expression(llvm_context, vars, statement_context, &val.1);
             let field = llvm_context
                 .builder()
                 .build_struct_gep(to_alloc.lowered(), alloc, i as u32 + 1, "field_init_gep")
@@ -762,6 +782,7 @@ impl<'ctx> Codegen<'ctx> {
                 .build_store(field, val.into_basic_value_enum())
                 .unwrap();
         }
+        self.compile_inc_refcount(llvm_context, alloc);
         Value::Ptr(alloc)
     }
 
@@ -769,6 +790,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
+        statement_context: &StatementContext<'ctx>,
         to_generate: &NewEnum<TypedAST>,
     ) -> Value<'ctx> {
         let tr = llvm_context.type_registry();
@@ -779,7 +801,7 @@ impl<'ctx> Codegen<'ctx> {
             .build_malloc(to_alloc, "alloc_enum")
             .unwrap();
         for (i, field) in to_generate.parameters().iter().enumerate() {
-            let val = self.compile_expression(llvm_context, vars, field);
+            let val = self.compile_expression(llvm_context, vars, statement_context, field);
             let field = llvm_context
                 .builder()
                 .build_struct_gep(to_alloc, alloc, i as u32 + 2, "field_init_gep")
@@ -801,6 +823,7 @@ impl<'ctx> Codegen<'ctx> {
                 self.context.i32_type().const_int(field_tag as u64, false),
             )
             .unwrap();
+        self.compile_inc_refcount(llvm_context, alloc);
         Value::Ptr(alloc)
     }
 
@@ -808,18 +831,19 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
+        statement_context: &StatementContext<'ctx>,
         to_generate: &StructFieldAccess<TypedAST>,
     ) -> Value<'ctx> {
         let of = self
-            .compile_expression(llvm_context, vars, to_generate.of())
+            .compile_expression(llvm_context, vars, statement_context, to_generate.of())
             .into_prt();
         let struct_type = match to_generate.of().data_type() {
             DataType::Struct(st) => st,
             _ => unreachable!(),
         };
         let tr = llvm_context.type_registry();
-        let struct_type = tr.get_struct(&struct_type).expect("Unknown struct");
-        let struct_field = struct_type
+        let struct_type_lowered = tr.get_struct(&struct_type).expect("Unknown struct");
+        let struct_field = struct_type_lowered
             .fields()
             .iter()
             .position(|field| field == to_generate.field())
@@ -827,14 +851,14 @@ impl<'ctx> Codegen<'ctx> {
         let field = llvm_context
             .builder()
             .build_struct_gep(
-                struct_type.lowered(),
+                struct_type_lowered.lowered(),
                 of,
                 struct_field as u32 + 1,
                 "field_access_gep",
             )
             .expect("Unknown struct field");
 
-        match to_generate.data_type() {
+        let result = match to_generate.data_type() {
             DataType::Char => Value::Char(
                 llvm_context
                     .builder()
@@ -919,8 +943,8 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap()
                     .into_float_value(),
             ),
-            DataType::Struct(_) | DataType::Enum(_) => Value::Ptr(
-                llvm_context
+            DataType::Struct(_) | DataType::Enum(_) =>  {
+                let prt = llvm_context
                     .builder()
                     .build_load(
                         self.context.ptr_type(AddressSpace::default()),
@@ -928,9 +952,15 @@ impl<'ctx> Codegen<'ctx> {
                         "var_load",
                     )
                     .unwrap()
-                    .into_pointer_value(),
-            ),
-        }
+                    .into_pointer_value();
+                self.compile_inc_refcount(llvm_context, prt);
+                Value::Ptr(
+                    prt,
+                )
+            },
+        };
+        self.compile_struct_dec_refcount(llvm_context, statement_context.current_function(), &struct_type, of);
+        result
     }
 
     fn int_dt_to_llvm_dt(&mut self, cast: &DataType) -> IntType<'ctx> {

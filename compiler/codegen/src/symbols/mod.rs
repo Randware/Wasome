@@ -1,23 +1,25 @@
 mod registry;
 mod variable;
 
+use ast::symbol::{EnumVariantSymbol, StructFieldSymbol};
 use ast::TypedAST;
-use ast::symbol::{EnumSymbol, EnumVariantSymbol, StructFieldSymbol, StructSymbol};
 use inkwell::types::StructType;
+use inkwell::values::FunctionValue;
 pub use registry::SymbolRegistry;
-use std::collections::HashMap;
 use std::rc::Rc;
 pub use variable::*;
 
 #[derive(Eq, PartialEq)]
 pub struct EnumInformation<'ctx> {
     variants: Vec<(Rc<EnumVariantSymbol<TypedAST>>, StructType<'ctx>)>,
+    on_drop: FunctionValue<'ctx>
 }
 
 impl<'ctx> EnumInformation<'ctx> {
-    pub fn new() -> Self {
+    pub fn new(on_drop: FunctionValue<'ctx>) -> Self {
         Self {
             variants: Vec::new(),
+            on_drop
         }
     }
 
@@ -40,19 +42,31 @@ impl<'ctx> EnumInformation<'ctx> {
             .find(|(_, to_check)| &*to_check.0 == key)
             .map(|(i, _)| i)
     }
+
+    pub fn on_drop(&self) -> FunctionValue<'ctx> {
+        self.on_drop
+    }
+
+    pub fn variants(&self) -> &Vec<(Rc<EnumVariantSymbol<TypedAST>>, StructType<'ctx>)> {
+        &self.variants
+    }
 }
 
 #[derive(PartialEq, Eq)]
 pub struct StructInformation<'ctx> {
     variants: Vec<Rc<StructFieldSymbol<TypedAST>>>,
     lowered: StructType<'ctx>,
+    on_drop: FunctionValue<'ctx>,
+    predrop: Option<FunctionValue<'ctx>>
 }
 
 impl<'ctx> StructInformation<'ctx> {
-    pub fn new(lowered: StructType<'ctx>) -> Self {
+    pub fn new(lowered: StructType<'ctx>, on_drop: FunctionValue<'ctx>) -> Self {
         Self {
             variants: Vec::new(),
             lowered,
+            on_drop,
+            predrop: None
         }
     }
     pub fn lowered(&self) -> StructType<'ctx> {
@@ -64,5 +78,17 @@ impl<'ctx> StructInformation<'ctx> {
     }
     pub fn add_field(&mut self, field: Rc<StructFieldSymbol<TypedAST>>) {
         self.variants.push(field)
+    }
+
+    pub fn on_drop(&self) -> FunctionValue<'ctx> {
+        self.on_drop
+    }
+
+    pub fn predrop(&self) -> Option<FunctionValue<'ctx>> {
+        self.predrop
+    }
+
+    pub fn set_predrop(&mut self, predrop: FunctionValue<'ctx>) {
+        self.predrop = Some(predrop);
     }
 }

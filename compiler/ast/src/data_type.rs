@@ -52,6 +52,13 @@ impl DataType {
             _ => false
         }
     }
+
+    pub fn is_prt(&self) -> bool {
+        match self {
+            DataType::Struct(_) | DataType::Enum(_) => true,
+            _ => false
+        }
+    }
     
     pub fn size_bytes(&self) -> usize {
         match self {
