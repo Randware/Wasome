@@ -11,7 +11,7 @@ pub struct EnumInformation<'ctx> {
 }
 
 impl<'ctx> EnumInformation<'ctx> {
-    pub fn new(on_drop: FunctionValue<'ctx>) -> Self {
+    pub const fn new(on_drop: FunctionValue<'ctx>) -> Self {
         Self {
             variants: Vec::new(),
             on_drop,
@@ -19,7 +19,7 @@ impl<'ctx> EnumInformation<'ctx> {
     }
 
     pub fn insert(&mut self, key: Rc<EnumVariantSymbol<TypedAST>>, val: StructType<'ctx>) {
-        self.variants.push((key, val))
+        self.variants.push((key, val));
     }
 
     pub fn lookup(&self, key: &EnumVariantSymbol<TypedAST>) -> Option<StructType<'ctx>> {
@@ -38,11 +38,11 @@ impl<'ctx> EnumInformation<'ctx> {
             .map(|(i, _)| i)
     }
 
-    pub fn on_drop(&self) -> FunctionValue<'ctx> {
+    pub const fn on_drop(&self) -> FunctionValue<'ctx> {
         self.on_drop
     }
 
-    pub fn variants(&self) -> &Vec<(Rc<EnumVariantSymbol<TypedAST>>, StructType<'ctx>)> {
+    pub const fn variants(&self) -> &Vec<(Rc<EnumVariantSymbol<TypedAST>>, StructType<'ctx>)> {
         &self.variants
     }
 }

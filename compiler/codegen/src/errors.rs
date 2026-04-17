@@ -1,7 +1,7 @@
 use source::types::Span;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum CodegenError<'src> {
     #[error("Unknown variable '{0}'")]
     UnknownVariable(&'src str, Span),

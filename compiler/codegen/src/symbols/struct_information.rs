@@ -13,7 +13,7 @@ pub struct StructInformation<'ctx> {
 }
 
 impl<'ctx> StructInformation<'ctx> {
-    pub fn new(lowered: StructType<'ctx>, on_drop: FunctionValue<'ctx>) -> Self {
+    pub const fn new(lowered: StructType<'ctx>, on_drop: FunctionValue<'ctx>) -> Self {
         Self {
             variants: Vec::new(),
             lowered,
@@ -21,26 +21,26 @@ impl<'ctx> StructInformation<'ctx> {
             predrop: None,
         }
     }
-    pub fn lowered(&self) -> StructType<'ctx> {
+    pub const fn lowered(&self) -> StructType<'ctx> {
         self.lowered
     }
 
-    pub fn fields(&self) -> &Vec<Rc<StructFieldSymbol<TypedAST>>> {
+    pub const fn fields(&self) -> &Vec<Rc<StructFieldSymbol<TypedAST>>> {
         &self.variants
     }
     pub fn add_field(&mut self, field: Rc<StructFieldSymbol<TypedAST>>) {
-        self.variants.push(field)
+        self.variants.push(field);
     }
 
-    pub fn on_drop(&self) -> FunctionValue<'ctx> {
+    pub const fn on_drop(&self) -> FunctionValue<'ctx> {
         self.on_drop
     }
 
-    pub fn predrop(&self) -> Option<FunctionValue<'ctx>> {
+    pub const fn predrop(&self) -> Option<FunctionValue<'ctx>> {
         self.predrop
     }
 
-    pub fn set_predrop(&mut self, predrop: FunctionValue<'ctx>) {
+    pub const fn set_predrop(&mut self, predrop: FunctionValue<'ctx>) {
         self.predrop = Some(predrop);
     }
 }

@@ -5,7 +5,7 @@ use inkwell::module::Module;
 use inkwell::types::{BasicType, StructType};
 use inkwell::values::FunctionValue;
 
-pub(crate) struct GlobalRegistry<'ctx> {
+pub struct GlobalRegistry<'ctx> {
     base_enum: StructType<'ctx>,
     base_heap_allocated: StructType<'ctx>,
     stacksave: FunctionValue<'ctx>,
@@ -47,19 +47,19 @@ impl<'ctx> GlobalRegistry<'ctx> {
         }
     }
 
-    pub fn base_enum(&self) -> StructType<'ctx> {
+    pub const fn base_enum(&self) -> StructType<'ctx> {
         self.base_enum
     }
 
-    pub fn base_heap_allocated(&self) -> StructType<'ctx> {
+    pub const fn base_heap_allocated(&self) -> StructType<'ctx> {
         self.base_heap_allocated
     }
 
-    pub fn stacksave(&self) -> FunctionValue<'ctx> {
+    pub const fn stacksave(&self) -> FunctionValue<'ctx> {
         self.stacksave
     }
 
-    pub fn stackrestore(&self) -> FunctionValue<'ctx> {
+    pub const fn stackrestore(&self) -> FunctionValue<'ctx> {
         self.stackrestore
     }
 }

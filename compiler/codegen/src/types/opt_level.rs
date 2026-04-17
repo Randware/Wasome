@@ -37,14 +37,14 @@ impl From<OptLevel> for &'static str {
 impl From<OptLevel> for inkwell::OptimizationLevel {
     fn from(val: OptLevel) -> Self {
         match val {
-            OptLevel::O0 => inkwell::OptimizationLevel::None,
-            OptLevel::O1 => inkwell::OptimizationLevel::Less,
-            OptLevel::O2 => inkwell::OptimizationLevel::Default,
-            OptLevel::O3 => inkwell::OptimizationLevel::Aggressive,
+            OptLevel::O0 => Self::None,
+            OptLevel::O1 => Self::Less,
+            OptLevel::O2 => Self::Default,
+            OptLevel::O3 => Self::Aggressive,
             // Os and Oz don't have their own OptLevel because they get treated they same
             // by the `TargetMachine` creation
-            OptLevel::Os => inkwell::OptimizationLevel::Default,
-            OptLevel::Oz => inkwell::OptimizationLevel::Default,
+            OptLevel::Os => Self::Default,
+            OptLevel::Oz => Self::Default,
         }
     }
 }

@@ -6,7 +6,7 @@ use ast::symbol::{EnumSymbol, StructSymbol};
 use inkwell::IntPredicate;
 use inkwell::values::{BasicValue, FunctionValue, PointerValue};
 
-impl<'ctx, 'fc> Codegen<'ctx> {
+impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_inc_refcount(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -259,7 +259,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                             "gep_field_drop",
                         )
                         .unwrap();
-                    self.compile_struct_dec_refcount(llvm_context, func, st, field)
+                    self.compile_struct_dec_refcount(llvm_context, func, st, field);
                 }
                 DataType::Enum(en) => {
                     let field = llvm_context
@@ -271,7 +271,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                             "gep_field_drop",
                         )
                         .unwrap();
-                    self.compile_enum_dec_refcount(llvm_context, func, en, field)
+                    self.compile_enum_dec_refcount(llvm_context, func, en, field);
                 }
                 _ => (),
             }
@@ -293,12 +293,12 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let cond_blocks = lowered
             .variants()
             .iter()
-            .map(|variant| llvm_context.context().append_basic_block(*func, "cond"))
+            .map(|_| llvm_context.context().append_basic_block(*func, "cond"))
             .collect::<Vec<_>>();
         let drop_blocks = lowered
             .variants()
             .iter()
-            .map(|variant| llvm_context.context().append_basic_block(*func, "drop"))
+            .map(|_| llvm_context.context().append_basic_block(*func, "drop"))
             .collect::<Vec<_>>();
         let tag = llvm_context
             .builder()
@@ -350,7 +350,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                                 "gep_field_drop",
                             )
                             .unwrap();
-                        self.compile_struct_dec_refcount(llvm_context, func, st, field)
+                        self.compile_struct_dec_refcount(llvm_context, func, st, field);
                     }
                     DataType::Enum(en) => {
                         let field = llvm_context
@@ -362,7 +362,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                                 "gep_field_drop",
                             )
                             .unwrap();
-                        self.compile_enum_dec_refcount(llvm_context, func, en, field)
+                        self.compile_enum_dec_refcount(llvm_context, func, en, field);
                     }
                     _ => (),
                 }

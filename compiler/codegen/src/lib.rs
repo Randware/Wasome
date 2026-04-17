@@ -21,7 +21,7 @@ pub struct Codegen<'ctx> {
 #[bon]
 impl<'ctx> Codegen<'ctx> {
     #[builder]
-    pub fn new(
+    pub const fn new(
         context: &'ctx Context,
         #[builder(default = OptLevel::O0)] opt_level: OptLevel,
     ) -> Self {

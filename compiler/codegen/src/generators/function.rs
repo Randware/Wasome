@@ -4,7 +4,7 @@ use crate::symbols::VariableTable;
 use ast::TypedAST;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 
-impl<'ctx, 'fc> Codegen<'ctx> {
+impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_function(
         &mut self,
         llvm_context: &mut LLVMContext<'ctx>,

@@ -1,6 +1,6 @@
 use inkwell::values::{BasicValueEnum, FloatValue, IntValue, PointerValue};
 
-pub(crate) enum Value<'a> {
+pub enum Value<'a> {
     Uint(IntValue<'a>),
     Sint(IntValue<'a>),
     Float(FloatValue<'a>),
@@ -46,7 +46,7 @@ impl<'a> Value<'a> {
         }
     }
 
-    pub(crate) fn into_basic_value_enum(self) -> BasicValueEnum<'a> {
+    pub(crate) const fn into_basic_value_enum(self) -> BasicValueEnum<'a> {
         match self {
             Value::Uint(val) | Value::Sint(val) | Value::Char(val) | Value::Bool(val) => {
                 BasicValueEnum::IntValue(val)

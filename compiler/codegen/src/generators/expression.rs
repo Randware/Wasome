@@ -28,7 +28,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             // Method call is only supposed to exist in the untyped AST
             Expression::MethodCall(_) => unreachable!(),
             Expression::Variable(var) => self.compile_var_access(llvm_context, vars, var),
-            Expression::Literal(lit) => self.compile_literal(llvm_context, lit),
+            Expression::Literal(lit) => self.compile_literal(lit),
             Expression::UnaryOp(un) => {
                 self.compile_unary_op(llvm_context, vars, statement_context, un)
             }
@@ -160,16 +160,15 @@ impl<'ctx, 'fc> Codegen<'ctx> {
 
     pub(crate) fn compile_literal(
         &mut self,
-        llvm_context: &LLVMContext<'ctx>,
         to_generate: &Literal,
     ) -> Value<'ctx> {
         match to_generate {
             Literal::S32(val) => Value::Sint(self.context.i32_type().const_int(*val as u64, true)),
             Literal::Bool(val) => {
-                Value::Bool(self.context.bool_type().const_int(*val as u64, false))
+                Value::Bool(self.context.bool_type().const_int(u64::from(*val), false))
             }
             Literal::Char(val) => {
-                Value::Char(self.context.i32_type().const_int(*val as u64, false))
+                Value::Char(self.context.i32_type().const_int(u64::from(*val), false))
             }
             Literal::F64(val) => Value::Float(self.context.f64_type().const_float(*val)),
         }

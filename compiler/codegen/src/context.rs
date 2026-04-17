@@ -131,15 +131,15 @@ impl<'ctx> LLVMContext<'ctx> {
         })
     }
 
-    pub fn context(&self) -> &'ctx Context {
+    pub const fn context(&self) -> &'ctx Context {
         self.context
     }
 
-    pub fn builder(&self) -> &Builder<'ctx> {
+    pub const fn builder(&self) -> &Builder<'ctx> {
         &self.builder
     }
 
-    pub fn machine(&self) -> &TargetMachine {
+    pub const fn machine(&self) -> &TargetMachine {
         &self.machine
     }
 
@@ -150,37 +150,37 @@ impl<'ctx> LLVMContext<'ctx> {
         self.registry.borrow_mut()
     }
 
-    pub fn types(&self) -> &CodegenTypes<'ctx> {
+    pub const fn types(&self) -> &CodegenTypes<'ctx> {
         &self.types
     }
 
-    pub fn global_registry(&self) -> &GlobalRegistry<'ctx> {
+    pub const fn global_registry(&self) -> &GlobalRegistry<'ctx> {
         &self.global_registry
     }
 
-    pub fn module(&self) -> &Module<'ctx> {
+    pub const fn module(&self) -> &Module<'ctx> {
         &self.module
     }
 }
 
-pub(crate) struct FunctionContext<'ctx> {
+pub struct FunctionContext<'ctx> {
     current_function: FunctionValue<'ctx>,
     current_block: BasicBlock<'ctx>,
 }
 
 impl<'ctx> FunctionContext<'ctx> {
-    pub fn new(current_function: FunctionValue<'ctx>, current_block: BasicBlock<'ctx>) -> Self {
+    pub const fn new(current_function: FunctionValue<'ctx>, current_block: BasicBlock<'ctx>) -> Self {
         Self {
             current_function,
             current_block,
         }
     }
 
-    pub fn current_function(&self) -> &FunctionValue<'ctx> {
+    pub const fn current_function(&self) -> &FunctionValue<'ctx> {
         &self.current_function
     }
 
-    pub fn current_block(&self) -> BasicBlock<'ctx> {
+    pub const fn current_block(&self) -> BasicBlock<'ctx> {
         self.current_block
     }
 
@@ -190,13 +190,13 @@ impl<'ctx> FunctionContext<'ctx> {
     }
 }
 
-pub(crate) struct StatementContext<'ctx, 'fc> {
+pub struct StatementContext<'ctx, 'fc> {
     last_breakable_block: Option<BasicBlock<'ctx>>,
     function_context: &'fc mut FunctionContext<'ctx>,
 }
 
 impl<'ctx, 'fc> StatementContext<'ctx, 'fc> {
-    pub fn new(
+    pub const fn new(
         last_breakable_block: Option<BasicBlock<'ctx>>,
         function_context: &'fc mut FunctionContext<'ctx>,
     ) -> Self {
@@ -206,15 +206,11 @@ impl<'ctx, 'fc> StatementContext<'ctx, 'fc> {
         }
     }
 
-    pub fn last_breakable_block(&self) -> Option<BasicBlock<'ctx>> {
+    pub const fn last_breakable_block(&self) -> Option<BasicBlock<'ctx>> {
         self.last_breakable_block
     }
 
-    pub fn function_context(&self) -> &FunctionContext<'ctx> {
-        self.function_context
-    }
-
-    pub fn function_context_mut(&mut self) -> &mut FunctionContext<'ctx> {
+    pub const fn function_context(&self) -> &FunctionContext<'ctx> {
         self.function_context
     }
 
@@ -223,7 +219,7 @@ impl<'ctx, 'fc> StatementContext<'ctx, 'fc> {
             .set_current_block(llvm_context.builder(), block);
     }
 
-    pub fn with_last_breakable_block(
+    pub const fn with_last_breakable_block(
         &mut self,
         last_breakable_block: BasicBlock<'ctx>,
     ) -> StatementContext<'ctx, '_> {

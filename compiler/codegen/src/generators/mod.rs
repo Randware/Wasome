@@ -18,7 +18,7 @@ use inkwell::AddressSpace;
 use inkwell::types::BasicType;
 use std::iter::once;
 
-impl<'ctx, 'fc> Codegen<'ctx> {
+impl<'ctx> Codegen<'ctx> {
     pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Vec<u8> {
         let mut llvm_context = LLVMContext::new(self.context, self.opt_level);
         self.compile_internal(&mut llvm_context, to_compile);
@@ -45,25 +45,25 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             let symbol = st.inner().symbol_owned();
             let name = mangle(symbol.name(), symbol.id().clone());
             let lowered = self.context.opaque_struct_type(&name);
-            let drop = module.add_function(&format!("{}-drop", name), drop_type, None);
+            let drop = module.add_function(&format!("{name}-drop"), drop_type, None);
             debug_assert!(
                 llvm_context
                     .type_registry_mut()
                     .register_struct(symbol, StructInformation::new(lowered, drop))
                     .is_none()
-            )
+            );
         });
 
         recursive_enums_of_dir(root.clone(), |en| {
             let symbol = en.inner().symbol_owned();
             let name = mangle(symbol.name(), symbol.id().clone());
-            let drop = module.add_function(&format!("{}-drop", name), drop_type, None);
+            let drop = module.add_function(&format!("{name}-drop"), drop_type, None);
             debug_assert!(
                 llvm_context
                     .type_registry_mut()
                     .register_enum(symbol, EnumInformation::new(drop))
                     .is_none()
-            )
+            );
         });
 
         recursive_structs_of_dir(root.clone(), |st| {
@@ -142,7 +142,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     .type_registry_mut()
                     .register_function(symbol, lowered)
                     .is_none()
-            )
+            );
         });
 
         recursive_structs_of_dir(root.clone(), |st| {
@@ -228,8 +228,8 @@ fn recursive_enums_of_dir(
     mut callback: impl FnMut(EnumTraversalHelper<TypedAST>),
 ) {
     recursive_files_of_dir(dir, &mut |file| {
-        file.enums_iterator().for_each(&mut callback)
-    })
+        file.enums_iterator().for_each(&mut callback);
+    });
 }
 
 fn recursive_structs_of_dir(
@@ -237,8 +237,8 @@ fn recursive_structs_of_dir(
     mut callback: impl FnMut(StructTraversalHelper<TypedAST>),
 ) {
     recursive_files_of_dir(dir, &mut |file| {
-        file.structs_iterator().for_each(&mut callback)
-    })
+        file.structs_iterator().for_each(&mut callback);
+    });
 }
 
 fn recursive_files_of_dir<'b, Callback: FnMut(FileTraversalHelper<'_, 'b, TypedAST>)>(
@@ -247,5 +247,5 @@ fn recursive_files_of_dir<'b, Callback: FnMut(FileTraversalHelper<'_, 'b, TypedA
 ) {
     dir.subdirectories_iterator()
         .for_each(|subdir| recursive_files_of_dir(subdir, callback));
-    dir.files_iterator().for_each(callback)
+    dir.files_iterator().for_each(callback);
 }

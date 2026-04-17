@@ -24,19 +24,19 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     ) {
         match to_generate.inner().deref() {
             Statement::VariableAssignment(va) => {
-                self.compile_variable_assignment(llvm_context, vars, statement_context, va)
+                self.compile_variable_assignment(llvm_context, vars, statement_context, va);
             }
             Statement::StructFieldAssignment(sfa) => {
-                self.compile_struct_field_assignment(llvm_context, vars, statement_context, sfa)
+                self.compile_struct_field_assignment(llvm_context, vars, statement_context, sfa);
             }
             Statement::VariableDeclaration(vd) => {
-                self.compile_variable_declaration(llvm_context, vars, statement_context, vd)
+                self.compile_variable_declaration(llvm_context, vars, statement_context, vd);
             }
             Statement::Expression(expr) => {
                 self.compile_expression(llvm_context, vars, statement_context, expr);
             }
             Statement::Return(ret) => {
-                self.compile_return(llvm_context, vars, statement_context, ret)
+                self.compile_return(llvm_context, vars, statement_context, ret);
             }
             Statement::ControlStructure(contrl) => self.compile_control_structure(
                 llvm_context,
@@ -46,10 +46,10 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 contrl,
             ),
             Statement::Codeblock(_) => {
-                self.compile_codeblock(llvm_context, statement_context, vars, to_generate)
+                self.compile_codeblock(llvm_context, statement_context, vars, to_generate);
             }
             Statement::VoidFunctionCall(vc) => {
-                self.compile_void_call(llvm_context, vars, statement_context, vc)
+                self.compile_void_call(llvm_context, vars, statement_context, vc);
             }
             Statement::Break => self.compile_break(llvm_context, statement_context),
         }
@@ -188,13 +188,13 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     ) {
         match to_generate {
             ControlStructure::Conditional(cond) => {
-                self.compile_conditional(llvm_context, statement_context, vars, statement, cond)
+                self.compile_conditional(llvm_context, statement_context, vars, statement, cond);
             }
             ControlStructure::IfEnumVariant(iev) => {
-                self.compile_if_enum_variant(llvm_context, statement_context, vars, statement, iev)
+                self.compile_if_enum_variant(llvm_context, statement_context, vars, statement, iev);
             }
             ControlStructure::Loop(loop_inner) => {
-                self.compile_loop(llvm_context, statement_context, vars, statement, loop_inner)
+                self.compile_loop(llvm_context, statement_context, vars, statement, loop_inner);
             }
         }
     }
@@ -223,22 +223,19 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             *statement_context.function_context().current_function(),
             "after",
         );
-        let false_block = match to_generate.else_statement() {
-            None => after_block,
-            Some(_) => {
-                let false_block = self.context.append_basic_block(
-                    *statement_context.function_context().current_function(),
-                    "false",
-                );
-                statement_context.set_current_block(llvm_context, false_block);
-                let false_statement = statement.get_child(1).expect("There is no else block");
-                self.compile_statement(llvm_context, statement_context, vars, &false_statement);
-                llvm_context
-                    .builder()
-                    .build_unconditional_branch(after_block)
-                    .unwrap();
-                false_block
-            }
+        let false_block = if to_generate.else_statement().is_none() { after_block } else {
+            let false_block = self.context.append_basic_block(
+                *statement_context.function_context().current_function(),
+                "false",
+            );
+            statement_context.set_current_block(llvm_context, false_block);
+            let false_statement = statement.get_child(1).expect("There is no else block");
+            self.compile_statement(llvm_context, statement_context, vars, &false_statement);
+            llvm_context
+                .builder()
+                .build_unconditional_branch(after_block)
+                .unwrap();
+            false_block
         };
         statement_context.set_current_block(llvm_context, true_block);
         let true_statement = statement.get_child(0).expect("There is no then block");

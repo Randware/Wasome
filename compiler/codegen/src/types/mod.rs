@@ -8,7 +8,6 @@ use inkwell::{
 
 mod opt_level;
 pub use opt_level::OptLevel;
-mod module;
 
 pub struct CodegenTypes<'ctx> {
     pub void: VoidType<'ctx>,
