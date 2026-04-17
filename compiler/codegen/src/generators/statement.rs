@@ -228,7 +228,7 @@ impl<'ctx> Codegen<'ctx> {
             .context
             .append_basic_block(statement_context.current_function(), "after");
         let false_block = match to_generate.else_statement() {
-            None => curr_block,
+            None => after_block,
             Some(_) => {
                 let false_block = self
                     .context
@@ -240,7 +240,6 @@ impl<'ctx> Codegen<'ctx> {
                     .builder()
                     .build_unconditional_branch(after_block)
                     .unwrap();
-                llvm_context.builder().position_at_end(curr_block);
                 false_block
             }
         };
@@ -295,11 +294,6 @@ impl<'ctx> Codegen<'ctx> {
             .append_basic_block(statement_context.current_function(), "after");
         let inner_statement_context = statement_context.with_last_breakable_block(after_block);
 
-        llvm_context.builder().position_at_end(loop_block);
-        let to_loop_on = statement
-            .get_child(to_generate.to_loop_on_index())
-            .expect("To loop on does not exist!");
-        self.compile_statement(llvm_context, &inner_statement_context, vars, &to_loop_on);
         llvm_context.builder().position_at_end(cond_block);
 
         match to_generate.loop_type() {
@@ -340,6 +334,7 @@ impl<'ctx> Codegen<'ctx> {
                     vars,
                     &statement.get_child(0).expect("There is no start block!"),
                 );
+                llvm_context.builder().build_unconditional_branch(cond_block).unwrap();
                 llvm_context.builder().position_at_end(cond_block);
                 let cond = self.compile_expression(llvm_context, vars, statement_context, cond);
                 llvm_context
@@ -358,29 +353,36 @@ impl<'ctx> Codegen<'ctx> {
                         loop_block,
                     )
                     .unwrap();
-                llvm_context.builder().position_at_end(loop_block);
-                self.compile_statement(
-                    llvm_context,
-                    &inner_statement_context,
-                    vars,
-                    &statement
-                        .get_child(2)
-                        .expect("To after each does not exist!"),
-                );
             }
         }
 
         llvm_context.builder().position_at_end(loop_block);
+        if matches!(to_generate.loop_type(), LoopType::For { ..}) {
+            self.compile_statement(
+                llvm_context,
+                &inner_statement_context,
+                vars,
+                &statement
+                    .get_child(2)
+                    .expect("To after each does not exist!"),
+            );
+        }
+        else {
+            llvm_context.builder().position_at_end(curr_block);
+            llvm_context.builder().build_unconditional_branch(cond_block).unwrap();
+            llvm_context.builder().position_at_end(loop_block);
+        }
+        let to_loop_on = statement
+            .get_child(to_generate.to_loop_on_index())
+            .expect("To loop on does not exist!");
+        self.compile_statement(llvm_context, &inner_statement_context, vars, &to_loop_on);
         llvm_context
             .builder()
             .build_unconditional_branch(cond_block)
             .unwrap();
+        llvm_context.builder().build_unconditional_branch(cond_block).unwrap();
 
-        llvm_context.builder().position_at_end(curr_block);
-        llvm_context
-            .builder()
-            .build_unconditional_branch(cond_block)
-            .unwrap();
+
         llvm_context.builder().position_at_end(after_block);
     }
 
@@ -440,7 +442,7 @@ impl<'ctx> Codegen<'ctx> {
                 .unwrap()
                 .try_as_basic_value()
                 .basic()
-                .is_some(),
+                .is_none(),
             "Non-void call as statement"
         );
         for arg in args.iter().zip(to_generate.args()) {

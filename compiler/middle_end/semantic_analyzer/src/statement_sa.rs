@@ -500,7 +500,7 @@ fn analyze_loop(
         let body_index = if matches!(to_analyze.loop_type(), LoopType::For { .. }) {
             1
         } else {
-            to_analyze.loop_type().len() - 1
+            to_analyze.loop_type().len()
         };
 
         let sth = context.ast_reference.get_child(body_index).unwrap();

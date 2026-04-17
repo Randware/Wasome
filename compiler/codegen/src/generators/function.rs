@@ -44,5 +44,8 @@ impl<'ctx> Codegen<'ctx> {
             &mut vars,
             &root,
         );
+        if to_generate.inner().declaration().return_type().is_none() {
+            llvm_context.builder().build_return(None).unwrap();
+        }
     }
 }

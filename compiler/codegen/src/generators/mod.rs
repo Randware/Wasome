@@ -20,18 +20,18 @@ use inkwell::types::BasicType;
 use std::iter::once;
 
 impl<'ctx> Codegen<'ctx> {
-    pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Result<(), CodegenError<'_>> {
+    pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Vec<u8> {
         let mut llvm_context = LLVMContext::new(self.context, self.opt_level);
-        self.compile_internal(&mut llvm_context, to_compile)
+        self.compile_internal(&mut llvm_context, to_compile);
+        llvm_context.get_object()
     }
 
     pub fn compile_internal(
         &mut self,
         llvm_context: &mut LLVMContext<'ctx>,
         to_compile: &AST<TypedAST>,
-    ) -> Result<(), CodegenError<'_>> {
+    ) {
         let root = DirectoryTraversalHelper::new_from_ast(to_compile);
-        let project_name = root.inner().name();
         let module = llvm_context.module();
 
         let drop_type = self.context.void_type().fn_type(
@@ -129,8 +129,13 @@ impl<'ctx> Codegen<'ctx> {
                         .map(|param| param.data_type().size_bytes())
                         .map(|param| param.to_string())
                         .collect::<Vec<_>>()
-                        .join("-");
-                    format!("{}-{}", symbol.name(), sizes)
+                        .join("_");
+                    if sizes.is_empty() {
+                        symbol.name().to_string()
+                    }
+                    else {
+                        format!("{}_{}", symbol.name(), sizes)
+                    }
                 }
             };
             let lowered = module.add_function(&name, lowered_type, None);
@@ -165,6 +170,7 @@ impl<'ctx> Codegen<'ctx> {
                 .into_iter()
                 .for_each(|predrop| lowered.set_predrop(predrop));
             let func = lowered.on_drop();
+            drop(tr);
             let main_bb = self.context.append_basic_block(func, "main");
             llvm_context.builder().position_at_end(main_bb);
 
@@ -183,6 +189,7 @@ impl<'ctx> Codegen<'ctx> {
             let mut tr = llvm_context.type_registry_mut();
             let lowered = tr.get_enum(&symbol).expect("Unregistered enum");
             let func = lowered.on_drop();
+            drop(tr);
             let main_bb = self.context.append_basic_block(func, "main");
             llvm_context.builder().position_at_end(main_bb);
 
@@ -196,8 +203,12 @@ impl<'ctx> Codegen<'ctx> {
             );
         });
 
-        recursive_functions_of_dir(root, |func| self.compile_function(llvm_context, &func));
-        Ok(())
+        recursive_functions_of_dir(root, |func| {
+            match func.inner().function_type() {
+                FunctionType::Regular(_) => self.compile_function(llvm_context, &func),
+                FunctionType::External => ()
+            }
+        });
     }
 }
 

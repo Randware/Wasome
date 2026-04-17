@@ -17,6 +17,7 @@ use inkwell::{
 };
 use std::cell::{Ref, RefCell, RefMut};
 use std::{collections::HashMap, io::Write};
+use inkwell::targets::FileType;
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
@@ -80,6 +81,14 @@ impl<'ctx> LLVMContext<'ctx> {
 
     pub fn print_ir(&self) -> Result<(), std::io::Error> {
         self.dump_ir(std::io::stdout())
+    }
+
+    pub fn get_object(&self) -> Vec<u8> {
+        self.print_ir().unwrap();
+        let buffer = self.machine()
+            .write_to_memory_buffer(&self.module, FileType::Object)
+            .expect("Failed to emit object to memory");
+        buffer.as_slice().to_vec()
     }
 
     pub fn apply_passes(&mut self) {

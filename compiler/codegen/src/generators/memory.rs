@@ -372,6 +372,7 @@ impl<'ctx> Codegen<'ctx> {
                 .build_unconditional_branch(after_block)
                 .unwrap();
         }
+        llvm_context.builder().position_at_end(after_block);
         llvm_context.builder().build_free(to_generate).unwrap();
     }
 }

@@ -311,6 +311,14 @@ impl<'ctx> Codegen<'ctx> {
         match to_generate.op_type() {
             BinaryOpType::Addition => {
                 if dt.is_float() {
+
+                    Value::Float(
+                        llvm_context
+                            .builder()
+                            .build_float_add(lhs.into_float(), rhs.into_float(), "add")
+                            .unwrap(),
+                    )
+                } else {
                     let val = llvm_context
                         .builder()
                         .build_int_add(lhs.into_int(), rhs.into_int(), "add")
@@ -320,17 +328,17 @@ impl<'ctx> Codegen<'ctx> {
                     } else {
                         Value::Uint(val)
                     }
-                } else {
-                    Value::Float(
-                        llvm_context
-                            .builder()
-                            .build_float_add(lhs.into_float(), rhs.into_float(), "add")
-                            .unwrap(),
-                    )
                 }
             }
             BinaryOpType::Subtraction => {
                 if dt.is_float() {
+                    Value::Float(
+                        llvm_context
+                            .builder()
+                            .build_float_sub(lhs.into_float(), rhs.into_float(), "sub")
+                            .unwrap(),
+                    )
+                } else {
                     let val = llvm_context
                         .builder()
                         .build_int_sub(lhs.into_int(), rhs.into_int(), "sub")
@@ -340,17 +348,17 @@ impl<'ctx> Codegen<'ctx> {
                     } else {
                         Value::Uint(val)
                     }
-                } else {
-                    Value::Float(
-                        llvm_context
-                            .builder()
-                            .build_float_sub(lhs.into_float(), rhs.into_float(), "sub")
-                            .unwrap(),
-                    )
                 }
             }
             BinaryOpType::Multiplication => {
                 if dt.is_float() {
+                    Value::Float(
+                        llvm_context
+                            .builder()
+                            .build_float_mul(lhs.into_float(), rhs.into_float(), "mul")
+                            .unwrap(),
+                    )
+                } else {
                     let val = llvm_context
                         .builder()
                         .build_int_mul(lhs.into_int(), rhs.into_int(), "mul")
@@ -360,17 +368,17 @@ impl<'ctx> Codegen<'ctx> {
                     } else {
                         Value::Uint(val)
                     }
-                } else {
-                    Value::Float(
-                        llvm_context
-                            .builder()
-                            .build_float_mul(lhs.into_float(), rhs.into_float(), "mul")
-                            .unwrap(),
-                    )
                 }
             }
             BinaryOpType::Division => {
                 if dt.is_float() {
+                    Value::Float(
+                        llvm_context
+                            .builder()
+                            .build_float_div(lhs.into_float(), rhs.into_float(), "div")
+                            .unwrap(),
+                    )
+                } else {
                     if dt.is_sint() {
                         Value::Sint(
                             llvm_context
@@ -386,17 +394,17 @@ impl<'ctx> Codegen<'ctx> {
                                 .unwrap(),
                         )
                     }
-                } else {
-                    Value::Float(
-                        llvm_context
-                            .builder()
-                            .build_float_div(lhs.into_float(), rhs.into_float(), "div")
-                            .unwrap(),
-                    )
                 }
             }
             BinaryOpType::Modulo => {
                 if dt.is_float() {
+                    Value::Float(
+                        llvm_context
+                            .builder()
+                            .build_float_rem(lhs.into_float(), rhs.into_float(), "mod")
+                            .unwrap(),
+                    )
+                } else {
                     if dt.is_sint() {
                         Value::Sint(
                             llvm_context
@@ -412,13 +420,6 @@ impl<'ctx> Codegen<'ctx> {
                                 .unwrap(),
                         )
                     }
-                } else {
-                    Value::Float(
-                        llvm_context
-                            .builder()
-                            .build_float_rem(lhs.into_float(), rhs.into_float(), "mod")
-                            .unwrap(),
-                    )
                 }
             }
             BinaryOpType::LeftShift => {

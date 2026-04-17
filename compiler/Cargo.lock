@@ -122,8 +122,11 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "bon",
+ "driver",
  "inkwell",
+ "io",
  "source",
+ "tempfile",
  "thiserror",
 ]
 

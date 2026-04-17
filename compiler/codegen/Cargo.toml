@@ -11,3 +11,9 @@ thiserror = "2"
 bon = "3"
 source = { path = "../source" }
 ast = { path = "../ast" }
+
+[dev-dependencies]
+source = { path = "../source", features = ["test-utils"] }
+driver = { path = "../driver" }
+io = { path = "../io" }
+tempfile.workspace = true

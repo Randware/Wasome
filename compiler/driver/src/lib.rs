@@ -53,7 +53,7 @@ pub(crate) fn load_parse_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
 }
 
 #[must_use]
-pub(crate) fn typed_ast_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
+pub fn typed_ast_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
     (&'a ProgramInformation, &'a mut SourceMap<IO>),
     Diagnostic,
     Output = (AST<TypedAST>, &'a mut SourceMap<IO>),
