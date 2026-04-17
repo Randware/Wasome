@@ -3,19 +3,19 @@ mod function;
 mod statement;
 
 use crate::symbols::{EnumInformation, StructInformation};
-use crate::{context::LLVMContext, Codegen};
+use crate::{Codegen, context::LLVMContext};
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::FunctionType;
+use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
-use ast::traversal::FunctionContainer;
-use ast::{TypedAST, AST};
-use inkwell::types::BasicType;
+use ast::{AST, TypedAST};
 use inkwell::AddressSpace;
+use inkwell::types::BasicType;
 use std::iter::once;
 
 impl<'ctx, 'fc> Codegen<'ctx> {
@@ -46,20 +46,24 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             let name = mangle(symbol.name(), symbol.id().clone());
             let lowered = self.context.opaque_struct_type(&name);
             let drop = module.add_function(&format!("{}-drop", name), drop_type, None);
-            debug_assert!(llvm_context
-                .type_registry_mut()
-                .register_struct(symbol, StructInformation::new(lowered, drop))
-                .is_none())
+            debug_assert!(
+                llvm_context
+                    .type_registry_mut()
+                    .register_struct(symbol, StructInformation::new(lowered, drop))
+                    .is_none()
+            )
         });
 
         recursive_enums_of_dir(root.clone(), |en| {
             let symbol = en.inner().symbol_owned();
             let name = mangle(symbol.name(), symbol.id().clone());
             let drop = module.add_function(&format!("{}-drop", name), drop_type, None);
-            debug_assert!(llvm_context
-                .type_registry_mut()
-                .register_enum(symbol, EnumInformation::new(drop))
-                .is_none())
+            debug_assert!(
+                llvm_context
+                    .type_registry_mut()
+                    .register_enum(symbol, EnumInformation::new(drop))
+                    .is_none()
+            )
         });
 
         recursive_structs_of_dir(root.clone(), |st| {
@@ -133,10 +137,12 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 }
             };
             let lowered = module.add_function(&name, lowered_type, None);
-            debug_assert!(llvm_context
-                .type_registry_mut()
-                .register_function(symbol, lowered)
-                .is_none())
+            debug_assert!(
+                llvm_context
+                    .type_registry_mut()
+                    .register_function(symbol, lowered)
+                    .is_none()
+            )
         });
 
         recursive_structs_of_dir(root.clone(), |st| {

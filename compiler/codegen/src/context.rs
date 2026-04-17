@@ -1,4 +1,5 @@
 use crate::global_registry::GlobalRegistry;
+use crate::symbols::SymbolRegistry;
 use crate::{
     errors::CodegenError,
     types::{CodegenTypes, OptLevel},
@@ -17,7 +18,6 @@ use inkwell::values::FunctionValue;
 use std::cell::{Ref, RefCell, RefMut};
 use std::io::Write;
 use std::rc::Rc;
-use crate::symbols::SymbolRegistry;
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,

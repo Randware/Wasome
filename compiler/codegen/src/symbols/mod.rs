@@ -1,10 +1,9 @@
-mod registry;
-mod variable;
 mod enum_information;
+mod registry;
 mod struct_information;
+mod variable;
 
-pub use registry::*;
-pub use variable::*;
 pub use enum_information::*;
+pub use registry::*;
 pub use struct_information::*;
-
+pub use variable::*;

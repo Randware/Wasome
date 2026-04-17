@@ -24,17 +24,26 @@ impl<'ctx> GlobalRegistry<'ctx> {
         );
 
         let ptr_type = ctx.ptr_type(AddressSpace::default()).as_basic_type_enum();
-        let stacksave_intrinsic = Intrinsic::find("llvm.stacksave").expect("Hardcoded intrinsic should exist");
-        let stacksave = stacksave_intrinsic.get_declaration(&module, &[ptr_type]).unwrap();
+        let stacksave_intrinsic =
+            Intrinsic::find("llvm.stacksave").expect("Hardcoded intrinsic should exist");
+        let stacksave = stacksave_intrinsic
+            .get_declaration(&module, &[ptr_type])
+            .unwrap();
 
-        let stackrestore_intrinsic = Intrinsic::find("llvm.stackrestore").expect("Hardcoded intrinsic should exist");
-        let stackrestore = stackrestore_intrinsic.get_declaration(&module, &[ctx.ptr_type(AddressSpace::default()).as_basic_type_enum()]).unwrap();
+        let stackrestore_intrinsic =
+            Intrinsic::find("llvm.stackrestore").expect("Hardcoded intrinsic should exist");
+        let stackrestore = stackrestore_intrinsic
+            .get_declaration(
+                &module,
+                &[ctx.ptr_type(AddressSpace::default()).as_basic_type_enum()],
+            )
+            .unwrap();
 
         Self {
             base_enum,
             base_heap_allocated,
             stacksave,
-            stackrestore
+            stackrestore,
         }
     }
 

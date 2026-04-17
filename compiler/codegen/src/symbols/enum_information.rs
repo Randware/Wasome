@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use ast::TypedAST;
+use ast::symbol::EnumVariantSymbol;
 use inkwell::types::StructType;
 use inkwell::values::FunctionValue;
-use ast::symbol::EnumVariantSymbol;
-use ast::TypedAST;
+use std::rc::Rc;
 
 #[derive(Eq, PartialEq)]
 pub struct EnumInformation<'ctx> {

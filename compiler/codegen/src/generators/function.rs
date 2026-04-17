@@ -1,8 +1,8 @@
+use crate::Codegen;
 use crate::context::{FunctionContext, LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use crate::Codegen;
-use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::TypedAST;
+use ast::traversal::function_traversal::FunctionTraversalHelper;
 
 impl<'ctx, 'fc> Codegen<'ctx> {
     pub(crate) fn compile_function(

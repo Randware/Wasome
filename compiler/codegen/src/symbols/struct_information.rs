@@ -1,8 +1,8 @@
-use std::rc::Rc;
+use ast::TypedAST;
+use ast::symbol::StructFieldSymbol;
 use inkwell::types::StructType;
 use inkwell::values::FunctionValue;
-use ast::symbol::StructFieldSymbol;
-use ast::TypedAST;
+use std::rc::Rc;
 
 #[derive(PartialEq, Eq)]
 pub struct StructInformation<'ctx> {

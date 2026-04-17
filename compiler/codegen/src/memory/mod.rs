@@ -1,10 +1,10 @@
-use crate::context::LLVMContext;
 use crate::Codegen;
+use crate::context::LLVMContext;
+use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::{EnumSymbol, StructSymbol};
-use ast::TypedAST;
-use inkwell::values::{BasicValue, FunctionValue, PointerValue};
 use inkwell::IntPredicate;
+use inkwell::values::{BasicValue, FunctionValue, PointerValue};
 
 impl<'ctx, 'fc> Codegen<'ctx> {
     pub(crate) fn compile_inc_refcount(
@@ -376,4 +376,3 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         llvm_context.builder().build_free(to_generate).unwrap();
     }
 }
-

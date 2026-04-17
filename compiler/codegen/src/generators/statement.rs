@@ -1,6 +1,7 @@
+use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use crate::Codegen;
+use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
 use ast::expression::FunctionCall;
 use ast::statement::{
@@ -9,7 +10,6 @@ use ast::statement::{
 };
 use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use ast::TypedAST;
 use inkwell::values::{BasicValue, BasicValueEnum, PointerValue};
 use inkwell::{AddressSpace, IntPredicate};
 use std::ops::Deref;
@@ -380,14 +380,26 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .get_child(to_generate.to_loop_on_index())
             .expect("To loop on does not exist!");
         let mut inner_statement_context = statement_context.with_last_breakable_block(after_block);
-        let sf = llvm_context.builder().build_call(llvm_context.global_registry().stacksave(), &[], "stacksave").unwrap().try_as_basic_value().unwrap_basic();
+        let sf = llvm_context
+            .builder()
+            .build_call(llvm_context.global_registry().stacksave(), &[], "stacksave")
+            .unwrap()
+            .try_as_basic_value()
+            .unwrap_basic();
         self.compile_statement(
             llvm_context,
             &mut inner_statement_context,
             vars,
             &to_loop_on,
         );
-        llvm_context.builder().build_call(llvm_context.global_registry().stackrestore(), &[sf.into()], "stackrestore").unwrap();
+        llvm_context
+            .builder()
+            .build_call(
+                llvm_context.global_registry().stackrestore(),
+                &[sf.into()],
+                "stackrestore",
+            )
+            .unwrap();
         llvm_context
             .builder()
             .build_unconditional_branch(cond_block)

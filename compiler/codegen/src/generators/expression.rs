@@ -1,14 +1,14 @@
+use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
 use crate::value::Value;
-use crate::Codegen;
+use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
     StructFieldAccess, UnaryOp, UnaryOpType,
 };
 use ast::symbol::VariableSymbol;
-use ast::TypedAST;
 use inkwell::types::IntType;
 use inkwell::values::IntValue;
 use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
