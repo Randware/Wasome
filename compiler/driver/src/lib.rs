@@ -1,11 +1,11 @@
 use crate::error::DriverError;
 use crate::parser_driver::generate_untyped_ast;
-use crate::pipeline::{from_func, from_infallible_func, Pipeline};
-use crate::program_information::ProgramInformation;
+use crate::pipeline::{Pipeline, from_func, from_infallible_func};
+use crate::program_information::{LoadBinaryProgramInformation, LoadInformation};
 use crate::source_collector::{CollectionError, collect_program};
 use crate::source_element::WasomeProgram;
 use ::error::diagnostic::Diagnostic;
-use ast::{TypedAST, UntypedAST, AST};
+use ast::{AST, TypedAST, UntypedAST};
 use io::FullIO;
 use semantic_analyzer::analyze;
 use source::SourceMap;
@@ -23,7 +23,7 @@ pub mod source_element;
 ///
 /// If an error is found, it is returned
 pub fn syntax_check<'a, IO: FullIO>(
-    to_check: &'a ProgramInformation,
+    to_check: &'a impl LoadBinaryProgramInformation,
     source_map: &'a mut SourceMap<IO>,
 ) -> Result<(), Diagnostic> {
     syntax_check_pipeline().process((to_check, source_map))
@@ -35,15 +35,15 @@ pub fn syntax_check<'a, IO: FullIO>(
 /// 3. Performs semantic analysis
 /// 4. Voids all errors
 #[must_use]
-pub fn syntax_check_pipeline<IO: FullIO>()
--> impl for<'a> Pipeline<(&'a ProgramInformation, &'a mut SourceMap<IO>), Diagnostic, Output = ()> {
+pub fn syntax_check_pipeline<IO: FullIO, T: LoadBinaryProgramInformation>()
+-> impl for<'a> Pipeline<(&'a T, &'a mut SourceMap<IO>), Diagnostic, Output = ()> {
     let from: fn((_, &mut SourceMap<IO>)) = |_| ();
     typed_ast_pipeline().then(from_infallible_func::<_, (), (), _>(from))
 }
 
 #[must_use]
-pub(crate) fn load_parse_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
-    (&'a ProgramInformation, &'a mut SourceMap<IO>),
+pub(crate) fn load_parse_pipeline<IO: FullIO, T: LoadInformation>() -> impl for<'a> Pipeline<
+    (&'a T, &'a mut SourceMap<IO>),
     Diagnostic,
     Output = (AST<UntypedAST>, &'a mut SourceMap<IO>),
 > {
@@ -53,8 +53,9 @@ pub(crate) fn load_parse_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
 }
 
 #[must_use]
-pub(crate) fn typed_ast_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
-    (&'a ProgramInformation, &'a mut SourceMap<IO>),
+pub(crate) fn typed_ast_pipeline<IO: FullIO, T: LoadBinaryProgramInformation>()
+-> impl for<'a> Pipeline<
+    (&'a T, &'a mut SourceMap<IO>),
     Diagnostic,
     Output = (AST<TypedAST>, &'a mut SourceMap<IO>),
 > {
@@ -64,8 +65,8 @@ pub(crate) fn typed_ast_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
 }
 
 #[must_use]
-pub fn load_pipeline<IO: FullIO>() -> impl for<'a> Pipeline<
-    (&'a ProgramInformation, &'a mut SourceMap<IO>),
+pub fn load_pipeline<IO: FullIO, T: LoadInformation>() -> impl for<'a> Pipeline<
+    (&'a T, &'a mut SourceMap<IO>),
     Diagnostic,
     Output = (WasomeProgram, &'a mut SourceMap<IO>),
 > {

@@ -5,7 +5,7 @@ mod tests {
     use tempfile::TempDir;
 
     use driver::parser_driver::generate_untyped_ast;
-    use driver::program_information::{ProgramInformation, Project};
+    use driver::program_information::{ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation, ConcreteLoadInformation, Project};
     use driver::source_collector::collect_program;
     use io::WasomeLoader;
     use semantic_analyzer::analyze;
@@ -31,14 +31,17 @@ mod tests {
         let root = dir.path().to_path_buf().join("error_project");
         let main_file = PathBuf::from("main.waso");
 
-        let prog_info = ProgramInformation::new(
-            "error_project".to_string(),
-            root.clone(),
-            vec![Project::new("app".to_string(), PathBuf::from("app"))],
-            "app".to_string(),
-            main_file,
-        )
-        .expect("Failed to create ProgramInformation");
+        let prog_info = ConcreteLoadBinaryProgramInformation::new(
+            ConcreteLoadInformation::new(
+                "error_project".to_string(),
+                root.clone(),
+                vec![
+                    Project::new("app".to_string(), PathBuf::from("app")),
+                ]),
+            ConcreteBinaryProgramInformation::new(
+                "app".to_string(),
+                main_file)
+        ).expect("Failed to create ProgramInformation");
 
         let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
 
@@ -73,14 +76,17 @@ mod tests {
         let root = dir.path().to_path_buf().join("error_project");
         let main_file = PathBuf::from("main.waso");
 
-        let prog_info = ProgramInformation::new(
-            "error_project".to_string(),
-            root.clone(),
-            vec![Project::new("app".to_string(), PathBuf::from("app"))],
-            "app".to_string(),
-            main_file,
-        )
-        .expect("Failed to create ProgramInformation");
+        let prog_info = ConcreteLoadBinaryProgramInformation::new(
+            ConcreteLoadInformation::new(
+                "error_project".to_string(),
+                root.clone(),
+                vec![
+                    Project::new("app".to_string(), PathBuf::from("app")),
+                ]),
+            ConcreteBinaryProgramInformation::new(
+                "app".to_string(),
+                main_file)
+        ).expect("Failed to create ProgramInformation");
 
         let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
         let untyped_ast = generate_untyped_ast(
