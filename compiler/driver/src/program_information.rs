@@ -16,15 +16,16 @@ pub trait LoadInformation: Debug {
 }
 
 pub trait BinaryProgramInformation: Debug {
-    /// The project of the main file
-    ///
-    /// A project with this name must exist in `projects`
-    #[must_use]
-    fn main_file(&self) -> &Path;
     /// The main file
     ///
     /// Relative to the project root
     /// May not be empty
+    #[must_use]
+    fn main_file(&self) -> &Path;
+
+    /// The project of the main file
+    ///
+    /// A project with this name must exist in `projects`
     #[must_use]
     fn main_project(&self) -> &str;
 }
