@@ -27,14 +27,14 @@ impl<'ctx> GlobalRegistry<'ctx> {
         let stacksave_intrinsic =
             Intrinsic::find("llvm.stacksave").expect("Hardcoded intrinsic should exist");
         let stacksave = stacksave_intrinsic
-            .get_declaration(&module, &[ptr_type])
+            .get_declaration(module, &[ptr_type])
             .unwrap();
 
         let stackrestore_intrinsic =
             Intrinsic::find("llvm.stackrestore").expect("Hardcoded intrinsic should exist");
         let stackrestore = stackrestore_intrinsic
             .get_declaration(
-                &module,
+                module,
                 &[ctx.ptr_type(AddressSpace::default()).as_basic_type_enum()],
             )
             .unwrap();

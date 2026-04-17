@@ -69,7 +69,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         recursive_structs_of_dir(root.clone(), |st| {
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
-            let lowered = tr.get_struct_mut(&symbol).expect("Unregistered struct");
+            let lowered = tr.get_struct_mut(symbol).expect("Unregistered struct");
             let fields = st.inner().fields();
             let ref_count_field = self.context.i32_type().as_basic_type_enum();
             let fields_lowered = once(ref_count_field)
@@ -88,7 +88,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         recursive_enums_of_dir(root.clone(), |st| {
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
-            let lowered = tr.get_enum_mut(&symbol).expect("Unregistered struct");
+            let lowered = tr.get_enum_mut(symbol).expect("Unregistered struct");
             let variants = st.inner().variants();
             let base_enum = &[
                 self.context.i32_type().as_basic_type_enum(),
@@ -163,7 +163,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 });
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
-            let lowered = tr.get_struct_mut(&symbol).expect("Unregistered struct");
+            let lowered = tr.get_struct_mut(symbol).expect("Unregistered struct");
             predrop
                 .into_iter()
                 .for_each(|predrop| lowered.set_predrop(predrop));
@@ -184,8 +184,8 @@ impl<'ctx, 'fc> Codegen<'ctx> {
 
         recursive_enums_of_dir(root.clone(), |st| {
             let symbol = st.inner().symbol();
-            let mut tr = llvm_context.type_registry_mut();
-            let lowered = tr.get_enum(&symbol).expect("Unregistered enum");
+            let tr = llvm_context.type_registry_mut();
+            let lowered = tr.get_enum(symbol).expect("Unregistered enum");
             let func = lowered.on_drop();
             drop(tr);
             let main_bb = self.context.append_basic_block(func, "main");

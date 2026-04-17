@@ -14,6 +14,12 @@ pub struct SymbolRegistry<'ctx> {
     functions: HashMap<Rc<FunctionSymbol<TypedAST>>, FunctionValue<'ctx>>,
 }
 
+impl<'ctx> Default for SymbolRegistry<'ctx> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'ctx> SymbolRegistry<'ctx> {
     pub fn new() -> Self {
         Self {

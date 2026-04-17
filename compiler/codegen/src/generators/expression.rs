@@ -377,22 +377,20 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                             .build_float_div(lhs.into_float(), rhs.into_float(), "div")
                             .unwrap(),
                     )
+                } else if dt.is_sint() {
+                    Value::Sint(
+                        llvm_context
+                            .builder()
+                            .build_int_signed_div(lhs.into_int(), rhs.into_int(), "div")
+                            .unwrap(),
+                    )
                 } else {
-                    if dt.is_sint() {
-                        Value::Sint(
-                            llvm_context
-                                .builder()
-                                .build_int_signed_div(lhs.into_int(), rhs.into_int(), "div")
-                                .unwrap(),
-                        )
-                    } else {
-                        Value::Uint(
-                            llvm_context
-                                .builder()
-                                .build_int_unsigned_div(lhs.into_int(), rhs.into_int(), "div")
-                                .unwrap(),
-                        )
-                    }
+                    Value::Uint(
+                        llvm_context
+                            .builder()
+                            .build_int_unsigned_div(lhs.into_int(), rhs.into_int(), "div")
+                            .unwrap(),
+                    )
                 }
             }
             BinaryOpType::Modulo => {
@@ -403,22 +401,20 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                             .build_float_rem(lhs.into_float(), rhs.into_float(), "mod")
                             .unwrap(),
                     )
+                } else if dt.is_sint() {
+                    Value::Sint(
+                        llvm_context
+                            .builder()
+                            .build_int_signed_rem(lhs.into_int(), rhs.into_int(), "mod")
+                            .unwrap(),
+                    )
                 } else {
-                    if dt.is_sint() {
-                        Value::Sint(
-                            llvm_context
-                                .builder()
-                                .build_int_signed_rem(lhs.into_int(), rhs.into_int(), "mod")
-                                .unwrap(),
-                        )
-                    } else {
-                        Value::Uint(
-                            llvm_context
-                                .builder()
-                                .build_int_unsigned_rem(lhs.into_int(), rhs.into_int(), "mod")
-                                .unwrap(),
-                        )
-                    }
+                    Value::Uint(
+                        llvm_context
+                            .builder()
+                            .build_int_unsigned_rem(lhs.into_int(), rhs.into_int(), "mod")
+                            .unwrap(),
+                    )
                 }
             }
             BinaryOpType::LeftShift => {

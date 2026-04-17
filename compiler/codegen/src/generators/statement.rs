@@ -10,7 +10,7 @@ use ast::statement::{
 };
 use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use inkwell::values::{BasicValue, BasicValueEnum, PointerValue};
+use inkwell::values::BasicValue;
 use inkwell::{AddressSpace, IntPredicate};
 use std::ops::Deref;
 
@@ -58,30 +58,27 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .into_iter()
             .chain(to_generate.inner().get_direct_child_only_symbols())
         {
-            match var {
-                DirectlyAvailableSymbol::Variable(var) => {
-                    let ptr = vars.lookup(var).expect("Unknown variable");
-                    match var.data_type() {
-                        DataType::Struct(st) => {
-                            self.compile_struct_dec_refcount(
-                                llvm_context,
-                                statement_context.function_context().current_function(),
-                                &st,
-                                ptr.pointer,
-                            );
-                        }
-                        DataType::Enum(en) => {
-                            self.compile_enum_dec_refcount(
-                                llvm_context,
-                                statement_context.function_context().current_function(),
-                                &en,
-                                ptr.pointer,
-                            );
-                        }
-                        _ => (),
+            if let DirectlyAvailableSymbol::Variable(var) = var {
+                let ptr = vars.lookup(var).expect("Unknown variable");
+                match var.data_type() {
+                    DataType::Struct(st) => {
+                        self.compile_struct_dec_refcount(
+                            llvm_context,
+                            statement_context.function_context().current_function(),
+                            st,
+                            ptr.pointer,
+                        );
                     }
+                    DataType::Enum(en) => {
+                        self.compile_enum_dec_refcount(
+                            llvm_context,
+                            statement_context.function_context().current_function(),
+                            en,
+                            ptr.pointer,
+                        );
+                    }
+                    _ => (),
                 }
-                _ => (),
             }
         }
     }
@@ -109,7 +106,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 self.compile_struct_dec_refcount(
                     llvm_context,
                     statement_context.function_context().current_function(),
-                    &st,
+                    st,
                     to_drop.into_pointer_value(),
                 );
             }
@@ -125,7 +122,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 self.compile_enum_dec_refcount(
                     llvm_context,
                     statement_context.function_context().current_function(),
-                    &en,
+                    en,
                     to_drop.into_pointer_value(),
                 );
             }
@@ -534,7 +531,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 self.compile_struct_dec_refcount(
                     llvm_context,
                     statement_context.function_context().current_function(),
-                    &st,
+                    st,
                     to_drop.into_pointer_value(),
                 );
             }
@@ -550,7 +547,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 self.compile_enum_dec_refcount(
                     llvm_context,
                     statement_context.function_context().current_function(),
-                    &en,
+                    en,
                     to_drop.into_pointer_value(),
                 );
             }
@@ -670,7 +667,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         self.compile_enum_dec_refcount(
             llvm_context,
             statement_context.function_context().current_function(),
-            &enum_type,
+            enum_type,
             of,
         );
     }

@@ -7,13 +7,11 @@ mod symbols;
 mod types;
 mod value;
 
-use std::path::PathBuf;
 
-use ast::{AST, TypedAST};
 use bon::bon;
 use inkwell::context::Context;
 
-use crate::{context::LLVMContext, types::OptLevel};
+use crate::types::OptLevel;
 
 pub struct Codegen<'ctx> {
     context: &'ctx Context,

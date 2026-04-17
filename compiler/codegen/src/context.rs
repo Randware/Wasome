@@ -17,7 +17,6 @@ use inkwell::types::{BasicType, BasicTypeEnum};
 use inkwell::values::FunctionValue;
 use std::cell::{Ref, RefCell, RefMut};
 use std::io::Write;
-use std::rc::Rc;
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
@@ -52,7 +51,7 @@ impl<'ctx> LLVMContext<'ctx> {
 
         let types = CodegenTypes::new(context, &layout);
 
-        let module = context.create_module(&"wasome");
+        let module = context.create_module("wasome");
 
         let global_registry = GlobalRegistry::new(context, &module);
 
@@ -144,10 +143,10 @@ impl<'ctx> LLVMContext<'ctx> {
         &self.machine
     }
 
-    pub fn type_registry(&self) -> Ref<SymbolRegistry<'ctx>> {
+    pub fn type_registry(&self) -> Ref<'_, SymbolRegistry<'ctx>> {
         self.registry.borrow()
     }
-    pub fn type_registry_mut(&self) -> RefMut<SymbolRegistry<'ctx>> {
+    pub fn type_registry_mut(&self) -> RefMut<'_, SymbolRegistry<'ctx>> {
         self.registry.borrow_mut()
     }
 

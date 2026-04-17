@@ -1,4 +1,3 @@
-use inkwell::types::BasicTypeEnum;
 use inkwell::values::{BasicValueEnum, FloatValue, IntValue, PointerValue};
 
 pub(crate) enum Value<'a> {
