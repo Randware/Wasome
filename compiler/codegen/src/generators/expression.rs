@@ -1,24 +1,24 @@
-use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
 use crate::value::Value;
-use ast::TypedAST;
+use crate::Codegen;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
     StructFieldAccess, UnaryOp, UnaryOpType,
 };
 use ast::symbol::VariableSymbol;
+use ast::TypedAST;
 use inkwell::types::IntType;
 use inkwell::values::IntValue;
 use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
 
-impl<'ctx> Codegen<'ctx> {
+impl<'ctx, 'fc> Codegen<'ctx> {
     pub(crate) fn compile_expression(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &Expression<TypedAST>,
     ) -> Value<'ctx> {
         match to_generate {
@@ -179,7 +179,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
 
         to_generate: &UnaryOp<TypedAST>,
     ) -> Value<'ctx> {
@@ -300,7 +300,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &BinaryOp<TypedAST>,
     ) -> Value<'ctx> {
         let lhs =
@@ -311,7 +311,6 @@ impl<'ctx> Codegen<'ctx> {
         match to_generate.op_type() {
             BinaryOpType::Addition => {
                 if dt.is_float() {
-
                     Value::Float(
                         llvm_context
                             .builder()
@@ -715,7 +714,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &FunctionCall<TypedAST>,
     ) -> Value<'ctx> {
         let func = llvm_context
@@ -745,13 +744,13 @@ impl<'ctx> Codegen<'ctx> {
             match arg.1.data_type() {
                 DataType::Struct(st) => self.compile_struct_dec_refcount(
                     llvm_context,
-                    statement_context.current_function(),
+                    statement_context.function_context().current_function(),
                     &st,
                     arg.0.into_pointer_value(),
                 ),
                 DataType::Enum(en) => self.compile_enum_dec_refcount(
                     llvm_context,
-                    statement_context.current_function(),
+                    statement_context.function_context().current_function(),
                     &en,
                     arg.0.into_pointer_value(),
                 ),
@@ -781,7 +780,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &NewStruct<TypedAST>,
     ) -> Value<'ctx> {
         let tr = llvm_context.type_registry();
@@ -814,7 +813,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &NewEnum<TypedAST>,
     ) -> Value<'ctx> {
         let tr = llvm_context.type_registry();
@@ -855,7 +854,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &StructFieldAccess<TypedAST>,
     ) -> Value<'ctx> {
         let of = self
@@ -983,7 +982,7 @@ impl<'ctx> Codegen<'ctx> {
         };
         self.compile_struct_dec_refcount(
             llvm_context,
-            statement_context.current_function(),
+            statement_context.function_context().current_function(),
             &struct_type,
             of,
         );

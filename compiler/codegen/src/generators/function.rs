@@ -1,10 +1,10 @@
-use crate::Codegen;
-use crate::context::{LLVMContext, StatementContext};
+use crate::context::{FunctionContext, LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use ast::TypedAST;
+use crate::Codegen;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
+use ast::TypedAST;
 
-impl<'ctx> Codegen<'ctx> {
+impl<'ctx, 'fc> Codegen<'ctx> {
     pub(crate) fn compile_function(
         &mut self,
         llvm_context: &mut LLVMContext<'ctx>,
@@ -15,6 +15,7 @@ impl<'ctx> Codegen<'ctx> {
             .get_function(to_generate.inner().declaration())
             .unwrap();
         let main_bb = self.context.append_basic_block(func, "main");
+        let mut function_context = FunctionContext::new(func, main_bb);
         llvm_context.builder().position_at_end(main_bb);
         let mut vars = VariableTable::new();
         for (i, param) in func.get_param_iter().enumerate() {
@@ -40,7 +41,7 @@ impl<'ctx> Codegen<'ctx> {
 
         self.compile_statement(
             llvm_context,
-            &StatementContext::new(None, func),
+            &mut StatementContext::new(None, &mut function_context),
             &mut vars,
             &root,
         );

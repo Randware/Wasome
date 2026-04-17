@@ -1,7 +1,6 @@
-use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use ast::TypedAST;
+use crate::Codegen;
 use ast::data_type::{DataType, Typed};
 use ast::expression::FunctionCall;
 use ast::statement::{
@@ -10,15 +9,16 @@ use ast::statement::{
 };
 use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use inkwell::values::BasicValue;
+use ast::TypedAST;
+use inkwell::values::{BasicValue, BasicValueEnum, PointerValue};
 use inkwell::{AddressSpace, IntPredicate};
 use std::ops::Deref;
 
-impl<'ctx> Codegen<'ctx> {
+impl<'ctx, 'fc> Codegen<'ctx> {
     pub(crate) fn compile_statement(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         vars: &mut VariableTable<'ctx>,
         to_generate: &StatementTraversalHelper<TypedAST>,
     ) {
@@ -65,7 +65,7 @@ impl<'ctx> Codegen<'ctx> {
                         DataType::Struct(st) => {
                             self.compile_struct_dec_refcount(
                                 llvm_context,
-                                statement_context.current_function(),
+                                statement_context.function_context().current_function(),
                                 &st,
                                 ptr.pointer,
                             );
@@ -73,7 +73,7 @@ impl<'ctx> Codegen<'ctx> {
                         DataType::Enum(en) => {
                             self.compile_enum_dec_refcount(
                                 llvm_context,
-                                statement_context.current_function(),
+                                statement_context.function_context().current_function(),
                                 &en,
                                 ptr.pointer,
                             );
@@ -90,7 +90,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &VariableAssignment<TypedAST>,
     ) {
         let var = vars
@@ -108,7 +108,7 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap();
                 self.compile_struct_dec_refcount(
                     llvm_context,
-                    statement_context.current_function(),
+                    statement_context.function_context().current_function(),
                     &st,
                     to_drop.into_pointer_value(),
                 );
@@ -124,7 +124,7 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap();
                 self.compile_enum_dec_refcount(
                     llvm_context,
-                    statement_context.current_function(),
+                    statement_context.function_context().current_function(),
                     &en,
                     to_drop.into_pointer_value(),
                 );
@@ -143,7 +143,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &mut VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &VariableDeclaration<TypedAST>,
     ) {
         let prt = llvm_context
@@ -168,7 +168,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &Return<TypedAST>,
     ) {
         let to_ret = to_generate.to_return().map(|to_ret| {
@@ -184,7 +184,7 @@ impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_control_structure(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         vars: &mut VariableTable<'ctx>,
         statement: &StatementTraversalHelper<TypedAST>,
         to_generate: &ControlStructure<TypedAST>,
@@ -205,7 +205,7 @@ impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_conditional(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         vars: &mut VariableTable<'ctx>,
         statement: &StatementTraversalHelper<TypedAST>,
         to_generate: &Conditional<TypedAST>,
@@ -217,23 +217,23 @@ impl<'ctx> Codegen<'ctx> {
             to_generate.condition(),
         );
 
-        let curr_block = statement_context
-            .current_function()
-            .get_last_basic_block()
-            .expect("There are no blocks");
-        let true_block = self
-            .context
-            .append_basic_block(statement_context.current_function(), "true");
-        let after_block = self
-            .context
-            .append_basic_block(statement_context.current_function(), "after");
+        let curr_block = statement_context.function_context().current_block();
+        let true_block = self.context.append_basic_block(
+            *statement_context.function_context().current_function(),
+            "true",
+        );
+        let after_block = self.context.append_basic_block(
+            *statement_context.function_context().current_function(),
+            "after",
+        );
         let false_block = match to_generate.else_statement() {
             None => after_block,
             Some(_) => {
-                let false_block = self
-                    .context
-                    .append_basic_block(statement_context.current_function(), "false");
-                llvm_context.builder().position_at_end(false_block);
+                let false_block = self.context.append_basic_block(
+                    *statement_context.function_context().current_function(),
+                    "false",
+                );
+                statement_context.set_current_block(llvm_context, false_block);
                 let false_statement = statement.get_child(1).expect("There is no else block");
                 self.compile_statement(llvm_context, statement_context, vars, &false_statement);
                 llvm_context
@@ -243,14 +243,14 @@ impl<'ctx> Codegen<'ctx> {
                 false_block
             }
         };
-        llvm_context.builder().position_at_end(true_block);
+        statement_context.set_current_block(llvm_context, true_block);
         let true_statement = statement.get_child(0).expect("There is no then block");
         self.compile_statement(llvm_context, statement_context, vars, &true_statement);
         llvm_context
             .builder()
             .build_unconditional_branch(after_block)
             .unwrap();
-        llvm_context.builder().position_at_end(curr_block);
+        statement_context.set_current_block(llvm_context, curr_block);
 
         llvm_context
             .builder()
@@ -268,33 +268,32 @@ impl<'ctx> Codegen<'ctx> {
                 true_block,
             )
             .unwrap();
-        llvm_context.builder().position_at_end(after_block);
+        statement_context.set_current_block(llvm_context, after_block);
     }
 
     pub(crate) fn compile_loop(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         vars: &mut VariableTable<'ctx>,
         statement: &StatementTraversalHelper<TypedAST>,
         to_generate: &Loop<TypedAST>,
     ) {
-        let curr_block = statement_context
-            .current_function()
-            .get_last_basic_block()
-            .expect("There are no blocks");
-        let cond_block = self
-            .context
-            .append_basic_block(statement_context.current_function(), "cond");
-        let loop_block = self
-            .context
-            .append_basic_block(statement_context.current_function(), "loop");
-        let after_block = self
-            .context
-            .append_basic_block(statement_context.current_function(), "after");
-        let inner_statement_context = statement_context.with_last_breakable_block(after_block);
+        let curr_block = statement_context.function_context().current_block();
+        let cond_block = self.context.append_basic_block(
+            *statement_context.function_context().current_function(),
+            "cond",
+        );
+        let loop_block = self.context.append_basic_block(
+            *statement_context.function_context().current_function(),
+            "loop",
+        );
+        let after_block = self.context.append_basic_block(
+            *statement_context.function_context().current_function(),
+            "after",
+        );
 
-        llvm_context.builder().position_at_end(cond_block);
+        statement_context.set_current_block(llvm_context, cond_block);
 
         match to_generate.loop_type() {
             LoopType::Infinite => {
@@ -327,15 +326,18 @@ impl<'ctx> Codegen<'ctx> {
                 cond,
                 after_each: _after_each,
             } => {
-                llvm_context.builder().position_at_end(curr_block);
+                statement_context.set_current_block(llvm_context, curr_block);
                 self.compile_statement(
                     llvm_context,
-                    &inner_statement_context,
+                    statement_context,
                     vars,
                     &statement.get_child(0).expect("There is no start block!"),
                 );
-                llvm_context.builder().build_unconditional_branch(cond_block).unwrap();
-                llvm_context.builder().position_at_end(cond_block);
+                llvm_context
+                    .builder()
+                    .build_unconditional_branch(cond_block)
+                    .unwrap();
+                statement_context.set_current_block(llvm_context, cond_block);
                 let cond = self.compile_expression(llvm_context, vars, statement_context, cond);
                 llvm_context
                     .builder()
@@ -356,54 +358,62 @@ impl<'ctx> Codegen<'ctx> {
             }
         }
 
-        llvm_context.builder().position_at_end(loop_block);
-        if matches!(to_generate.loop_type(), LoopType::For { ..}) {
+        statement_context.set_current_block(llvm_context, loop_block);
+        if matches!(to_generate.loop_type(), LoopType::For { .. }) {
             self.compile_statement(
                 llvm_context,
-                &inner_statement_context,
+                statement_context,
                 vars,
                 &statement
                     .get_child(2)
                     .expect("To after each does not exist!"),
             );
-        }
-        else {
-            llvm_context.builder().position_at_end(curr_block);
-            llvm_context.builder().build_unconditional_branch(cond_block).unwrap();
-            llvm_context.builder().position_at_end(loop_block);
+        } else {
+            statement_context.set_current_block(llvm_context, curr_block);
+            llvm_context
+                .builder()
+                .build_unconditional_branch(cond_block)
+                .unwrap();
+            statement_context.set_current_block(llvm_context, loop_block);
         }
         let to_loop_on = statement
             .get_child(to_generate.to_loop_on_index())
             .expect("To loop on does not exist!");
-        self.compile_statement(llvm_context, &inner_statement_context, vars, &to_loop_on);
+        let mut inner_statement_context = statement_context.with_last_breakable_block(after_block);
+        let sf = llvm_context.builder().build_call(llvm_context.global_registry().stacksave(), &[], "stacksave").unwrap().try_as_basic_value().unwrap_basic();
+        self.compile_statement(
+            llvm_context,
+            &mut inner_statement_context,
+            vars,
+            &to_loop_on,
+        );
+        llvm_context.builder().build_call(llvm_context.global_registry().stackrestore(), &[sf.into()], "stackrestore").unwrap();
         llvm_context
             .builder()
             .build_unconditional_branch(cond_block)
             .unwrap();
-        llvm_context.builder().build_unconditional_branch(cond_block).unwrap();
 
-
-        llvm_context.builder().position_at_end(after_block);
+        statement_context.set_current_block(llvm_context, after_block);
     }
 
     pub(crate) fn compile_codeblock(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         vars: &mut VariableTable<'ctx>,
         to_generate: &StatementTraversalHelper<TypedAST>,
     ) {
         let mut index = 0;
         while let Some(statement) = to_generate.get_child(index) {
             index += 1;
-            self.compile_statement(llvm_context, &statement_context, vars, &statement);
+            self.compile_statement(llvm_context, statement_context, vars, &statement);
         }
     }
 
     pub(crate) fn compile_break(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
     ) {
         llvm_context
             .builder()
@@ -419,7 +429,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &FunctionCall<TypedAST>,
     ) {
         let func = llvm_context
@@ -449,13 +459,13 @@ impl<'ctx> Codegen<'ctx> {
             match arg.1.data_type() {
                 DataType::Struct(st) => self.compile_struct_dec_refcount(
                     llvm_context,
-                    statement_context.current_function(),
+                    statement_context.function_context().current_function(),
                     &st,
                     arg.0.into_pointer_value(),
                 ),
                 DataType::Enum(en) => self.compile_enum_dec_refcount(
                     llvm_context,
-                    statement_context.current_function(),
+                    statement_context.function_context().current_function(),
                     &en,
                     arg.0.into_pointer_value(),
                 ),
@@ -468,7 +478,7 @@ impl<'ctx> Codegen<'ctx> {
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &StructFieldAssignment<TypedAST>,
     ) {
         let of = self
@@ -511,7 +521,7 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap();
                 self.compile_struct_dec_refcount(
                     llvm_context,
-                    statement_context.current_function(),
+                    statement_context.function_context().current_function(),
                     &st,
                     to_drop.into_pointer_value(),
                 );
@@ -527,7 +537,7 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap();
                 self.compile_enum_dec_refcount(
                     llvm_context,
-                    statement_context.current_function(),
+                    statement_context.function_context().current_function(),
                     &en,
                     to_drop.into_pointer_value(),
                 );
@@ -545,7 +555,7 @@ impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_if_enum_variant(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        statement_context: &StatementContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
         vars: &mut VariableTable<'ctx>,
         statement: &StatementTraversalHelper<TypedAST>,
         to_generate: &IfEnumVariant<TypedAST>,
@@ -568,12 +578,14 @@ impl<'ctx> Codegen<'ctx> {
             .lookup(to_generate.condition_enum_variant())
             .expect("Unknown enum variant");
 
-        let match_block = self
-            .context
-            .append_basic_block(statement_context.current_function(), "match");
-        let after_block = self
-            .context
-            .append_basic_block(statement_context.current_function(), "after");
+        let match_block = self.context.append_basic_block(
+            *statement_context.function_context().current_function(),
+            "match",
+        );
+        let after_block = self.context.append_basic_block(
+            *statement_context.function_context().current_function(),
+            "after",
+        );
 
         let tag = llvm_context
             .builder()
@@ -604,7 +616,7 @@ impl<'ctx> Codegen<'ctx> {
             )
             .unwrap();
 
-        llvm_context.builder().position_at_end(match_block);
+        statement_context.set_current_block(llvm_context, match_block);
 
         for (i, var) in to_generate.variables().iter().enumerate() {
             let prt = llvm_context
@@ -642,10 +654,10 @@ impl<'ctx> Codegen<'ctx> {
             .builder()
             .build_unconditional_branch(after_block)
             .unwrap();
-        llvm_context.builder().position_at_end(after_block);
+        statement_context.set_current_block(llvm_context, after_block);
         self.compile_enum_dec_refcount(
             llvm_context,
-            statement_context.current_function(),
+            statement_context.function_context().current_function(),
             &enum_type,
             of,
         );

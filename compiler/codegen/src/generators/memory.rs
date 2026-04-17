@@ -1,12 +1,12 @@
-use crate::Codegen;
 use crate::context::LLVMContext;
-use ast::TypedAST;
+use crate::Codegen;
 use ast::data_type::DataType;
 use ast::symbol::{EnumSymbol, StructSymbol};
-use inkwell::IntPredicate;
+use ast::TypedAST;
 use inkwell::values::{BasicValue, FunctionValue, PointerValue};
+use inkwell::IntPredicate;
 
-impl<'ctx> Codegen<'ctx> {
+impl<'ctx, 'fc> Codegen<'ctx> {
     pub(crate) fn compile_inc_refcount(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -39,7 +39,7 @@ impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_struct_dec_refcount(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        func: FunctionValue<'ctx>,
+        func: &FunctionValue<'ctx>,
         struc: &StructSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
@@ -68,8 +68,8 @@ impl<'ctx> Codegen<'ctx> {
             .unwrap();
         llvm_context.builder().build_store(refc, dec).unwrap();
 
-        let drop_bb = llvm_context.context().append_basic_block(func, "drop");
-        let after_bb = llvm_context.context().append_basic_block(func, "after");
+        let drop_bb = llvm_context.context().append_basic_block(*func, "drop");
+        let after_bb = llvm_context.context().append_basic_block(*func, "after");
 
         llvm_context
             .builder()
@@ -106,7 +106,7 @@ impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_enum_dec_refcount(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        func: FunctionValue<'ctx>,
+        func: &FunctionValue<'ctx>,
         enu: &EnumSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
@@ -135,8 +135,8 @@ impl<'ctx> Codegen<'ctx> {
             .unwrap();
         llvm_context.builder().build_store(refc, dec).unwrap();
 
-        let drop_bb = llvm_context.context().append_basic_block(func, "drop");
-        let after_bb = llvm_context.context().append_basic_block(func, "after");
+        let drop_bb = llvm_context.context().append_basic_block(*func, "drop");
+        let after_bb = llvm_context.context().append_basic_block(*func, "after");
 
         llvm_context
             .builder()
@@ -173,7 +173,7 @@ impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_struct_drop(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        func: FunctionValue<'ctx>,
+        func: &FunctionValue<'ctx>,
         struc: &StructSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
@@ -182,7 +182,7 @@ impl<'ctx> Codegen<'ctx> {
 
         let after_block = llvm_context
             .context()
-            .append_basic_block(func, "after_block");
+            .append_basic_block(*func, "after_block");
 
         match lowered.predrop() {
             None => {
@@ -194,7 +194,7 @@ impl<'ctx> Codegen<'ctx> {
             Some(predrop) => {
                 let drop_abort_block = llvm_context
                     .context()
-                    .append_basic_block(func, "drop_abort_block");
+                    .append_basic_block(*func, "drop_abort_block");
 
                 // Set the refcount to 2
                 // This way, it can never be dropped again and can't cause infinite loops
@@ -282,23 +282,23 @@ impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_enum_drop(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        func: FunctionValue<'ctx>,
+        func: &FunctionValue<'ctx>,
         en: &EnumSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_enum(en).expect("Unknown struct");
 
-        let after_block = llvm_context.context().append_basic_block(func, "after");
+        let after_block = llvm_context.context().append_basic_block(*func, "after");
         let cond_blocks = lowered
             .variants()
             .iter()
-            .map(|variant| llvm_context.context().append_basic_block(func, "cond"))
+            .map(|variant| llvm_context.context().append_basic_block(*func, "cond"))
             .collect::<Vec<_>>();
         let drop_blocks = lowered
             .variants()
             .iter()
-            .map(|variant| llvm_context.context().append_basic_block(func, "drop"))
+            .map(|variant| llvm_context.context().append_basic_block(*func, "drop"))
             .collect::<Vec<_>>();
         let tag = llvm_context
             .builder()

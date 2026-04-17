@@ -4,22 +4,22 @@ mod memory;
 mod statement;
 
 use crate::symbols::{EnumInformation, StructInformation};
-use crate::{Codegen, context::LLVMContext, errors::CodegenError, types::ModuleContext};
+use crate::{context::LLVMContext, Codegen};
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::FunctionType;
-use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
-use ast::{AST, TypedAST};
-use inkwell::AddressSpace;
+use ast::traversal::FunctionContainer;
+use ast::{TypedAST, AST};
 use inkwell::types::BasicType;
+use inkwell::AddressSpace;
 use std::iter::once;
 
-impl<'ctx> Codegen<'ctx> {
+impl<'ctx, 'fc> Codegen<'ctx> {
     pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Vec<u8> {
         let mut llvm_context = LLVMContext::new(self.context, self.opt_level);
         self.compile_internal(&mut llvm_context, to_compile);
@@ -47,24 +47,20 @@ impl<'ctx> Codegen<'ctx> {
             let name = mangle(symbol.name(), symbol.id().clone());
             let lowered = self.context.opaque_struct_type(&name);
             let drop = module.add_function(&format!("{}-drop", name), drop_type, None);
-            debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_struct(symbol, StructInformation::new(lowered, drop))
-                    .is_none()
-            )
+            debug_assert!(llvm_context
+                .type_registry_mut()
+                .register_struct(symbol, StructInformation::new(lowered, drop))
+                .is_none())
         });
 
         recursive_enums_of_dir(root.clone(), |en| {
             let symbol = en.inner().symbol_owned();
             let name = mangle(symbol.name(), symbol.id().clone());
             let drop = module.add_function(&format!("{}-drop", name), drop_type, None);
-            debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_enum(symbol, EnumInformation::new(drop))
-                    .is_none()
-            )
+            debug_assert!(llvm_context
+                .type_registry_mut()
+                .register_enum(symbol, EnumInformation::new(drop))
+                .is_none())
         });
 
         recursive_structs_of_dir(root.clone(), |st| {
@@ -132,19 +128,16 @@ impl<'ctx> Codegen<'ctx> {
                         .join("_");
                     if sizes.is_empty() {
                         symbol.name().to_string()
-                    }
-                    else {
+                    } else {
                         format!("{}_{}", symbol.name(), sizes)
                     }
                 }
             };
             let lowered = module.add_function(&name, lowered_type, None);
-            debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_function(symbol, lowered)
-                    .is_none()
-            )
+            debug_assert!(llvm_context
+                .type_registry_mut()
+                .register_function(symbol, lowered)
+                .is_none())
         });
 
         recursive_structs_of_dir(root.clone(), |st| {
@@ -176,7 +169,7 @@ impl<'ctx> Codegen<'ctx> {
 
             self.compile_struct_drop(
                 llvm_context,
-                func,
+                &func,
                 symbol,
                 func.get_first_param()
                     .expect("Drop function takes no parameters")
@@ -195,7 +188,7 @@ impl<'ctx> Codegen<'ctx> {
 
             self.compile_enum_drop(
                 llvm_context,
-                func,
+                &func,
                 symbol,
                 func.get_first_param()
                     .expect("Drop function takes no parameters")
@@ -203,11 +196,9 @@ impl<'ctx> Codegen<'ctx> {
             );
         });
 
-        recursive_functions_of_dir(root, |func| {
-            match func.inner().function_type() {
-                FunctionType::Regular(_) => self.compile_function(llvm_context, &func),
-                FunctionType::External => ()
-            }
+        recursive_functions_of_dir(root, |func| match func.inner().function_type() {
+            FunctionType::Regular(_) => self.compile_function(llvm_context, &func),
+            FunctionType::External => (),
         });
     }
 }

@@ -2,22 +2,22 @@ use crate::global_registry::GlobalRegistry;
 use crate::{
     errors::CodegenError,
     symbols::SymbolRegistry,
-    types::{CodegenTypes, ModuleContext, OptLevel},
+    types::{CodegenTypes, OptLevel},
 };
 use ast::data_type::DataType;
 use inkwell::basic_block::BasicBlock;
+use inkwell::builder::Builder;
+use inkwell::context::Context;
 use inkwell::module::Module;
-use inkwell::values::FunctionValue;
-use inkwell::{
-    builder::Builder,
-    context::Context,
-    passes::PassBuilderOptions,
-    targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
-    types::{BasicType, BasicTypeEnum},
+use inkwell::passes::PassBuilderOptions;
+use inkwell::targets::{
+    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
 };
+use inkwell::types::{BasicType, BasicTypeEnum};
+use inkwell::values::FunctionValue;
 use std::cell::{Ref, RefCell, RefMut};
-use std::{collections::HashMap, io::Write};
-use inkwell::targets::FileType;
+use std::io::Write;
+use std::rc::Rc;
 
 pub struct LLVMContext<'ctx> {
     context: &'ctx Context,
@@ -52,9 +52,10 @@ impl<'ctx> LLVMContext<'ctx> {
 
         let types = CodegenTypes::new(context, &layout);
 
-        let global_registry = GlobalRegistry::new(context);
-
         let module = context.create_module(&"wasome");
+
+        let global_registry = GlobalRegistry::new(context, &module);
+
         module.set_triple(&machine.get_triple());
         module.set_data_layout(&machine.get_target_data().get_data_layout());
         Self {
@@ -85,7 +86,8 @@ impl<'ctx> LLVMContext<'ctx> {
 
     pub fn get_object(&self) -> Vec<u8> {
         self.print_ir().unwrap();
-        let buffer = self.machine()
+        let buffer = self
+            .machine()
             .write_to_memory_buffer(&self.module, FileType::Object)
             .expect("Failed to emit object to memory");
         buffer.as_slice().to_vec()
@@ -162,19 +164,46 @@ impl<'ctx> LLVMContext<'ctx> {
     }
 }
 
-pub(crate) struct StatementContext<'ctx> {
-    last_breakable_block: Option<BasicBlock<'ctx>>,
+pub(crate) struct FunctionContext<'ctx> {
     current_function: FunctionValue<'ctx>,
+    current_block: BasicBlock<'ctx>,
 }
 
-impl<'ctx> StatementContext<'ctx> {
+impl<'ctx> FunctionContext<'ctx> {
+    pub fn new(current_function: FunctionValue<'ctx>, current_block: BasicBlock<'ctx>) -> Self {
+        Self {
+            current_function,
+            current_block,
+        }
+    }
+
+    pub fn current_function(&self) -> &FunctionValue<'ctx> {
+        &self.current_function
+    }
+
+    pub fn current_block(&self) -> BasicBlock<'ctx> {
+        self.current_block
+    }
+
+    pub fn set_current_block(&mut self, builder: &Builder<'ctx>, block: BasicBlock<'ctx>) {
+        self.current_block = block;
+        builder.position_at_end(block);
+    }
+}
+
+pub(crate) struct StatementContext<'ctx, 'fc> {
+    last_breakable_block: Option<BasicBlock<'ctx>>,
+    function_context: &'fc mut FunctionContext<'ctx>,
+}
+
+impl<'ctx, 'fc> StatementContext<'ctx, 'fc> {
     pub fn new(
         last_breakable_block: Option<BasicBlock<'ctx>>,
-        current_function: FunctionValue<'ctx>,
+        function_context: &'fc mut FunctionContext<'ctx>,
     ) -> Self {
         Self {
             last_breakable_block,
-            current_function,
+            function_context,
         }
     }
 
@@ -182,14 +211,26 @@ impl<'ctx> StatementContext<'ctx> {
         self.last_breakable_block
     }
 
-    pub fn current_function(&self) -> FunctionValue<'ctx> {
-        self.current_function
+    pub fn function_context(&self) -> &FunctionContext<'ctx> {
+        self.function_context
     }
 
-    pub fn with_last_breakable_block(&self, last_breakable_block: BasicBlock<'ctx>) -> Self {
-        Self {
+    pub fn function_context_mut(&mut self) -> &mut FunctionContext<'ctx> {
+        self.function_context
+    }
+
+    pub fn set_current_block(&mut self, llvm_context: &LLVMContext<'ctx>, block: BasicBlock<'ctx>) {
+        self.function_context
+            .set_current_block(llvm_context.builder(), block);
+    }
+
+    pub fn with_last_breakable_block(
+        &mut self,
+        last_breakable_block: BasicBlock<'ctx>,
+    ) -> StatementContext<'ctx, '_> {
+        StatementContext {
             last_breakable_block: Some(last_breakable_block),
-            current_function: self.current_function,
+            function_context: self.function_context,
         }
     }
 }
