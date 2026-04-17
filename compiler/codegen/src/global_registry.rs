@@ -2,7 +2,7 @@ use inkwell::AddressSpace;
 use inkwell::context::Context;
 use inkwell::intrinsics::Intrinsic;
 use inkwell::module::Module;
-use inkwell::types::{BasicType, StructType};
+use inkwell::types::{BasicType, FunctionType, StructType};
 use inkwell::values::FunctionValue;
 
 pub struct GlobalRegistry<'ctx> {
@@ -10,6 +10,7 @@ pub struct GlobalRegistry<'ctx> {
     base_heap_allocated: StructType<'ctx>,
     stacksave: FunctionValue<'ctx>,
     stackrestore: FunctionValue<'ctx>,
+    drop: FunctionType<'ctx>
 }
 
 impl<'ctx> GlobalRegistry<'ctx> {
@@ -38,12 +39,20 @@ impl<'ctx> GlobalRegistry<'ctx> {
                 &[ctx.ptr_type(AddressSpace::default()).as_basic_type_enum()],
             )
             .unwrap();
+        let drop = ctx.void_type().fn_type(
+            &[ctx
+                .ptr_type(AddressSpace::default())
+                .as_basic_type_enum()
+                .into()],
+            false,
+        );
 
         Self {
             base_enum,
             base_heap_allocated,
             stacksave,
             stackrestore,
+            drop
         }
     }
 
@@ -61,5 +70,9 @@ impl<'ctx> GlobalRegistry<'ctx> {
 
     pub const fn stackrestore(&self) -> FunctionValue<'ctx> {
         self.stackrestore
+    }
+
+    pub fn drop(&self) -> FunctionType<'ctx> {
+        self.drop
     }
 }

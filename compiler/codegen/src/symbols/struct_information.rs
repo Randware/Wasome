@@ -25,7 +25,7 @@ impl<'ctx> StructInformation<'ctx> {
         self.lowered
     }
 
-    pub const fn fields(&self) -> &Vec<Rc<StructFieldSymbol<TypedAST>>> {
+    pub fn fields(&self) -> &[Rc<StructFieldSymbol<TypedAST>>] {
         &self.variants
     }
     pub fn add_field(&mut self, field: Rc<StructFieldSymbol<TypedAST>>) {

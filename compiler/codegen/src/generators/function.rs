@@ -7,7 +7,7 @@ use ast::traversal::function_traversal::FunctionTraversalHelper;
 impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_function(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         to_generate: &FunctionTraversalHelper<TypedAST>,
     ) {
         let func = llvm_context
@@ -24,10 +24,7 @@ impl<'ctx> Codegen<'ctx> {
             param.set_name(name);
             let var = llvm_context
                 .builder()
-                .build_alloca(
-                    llvm_context.lower_type(param_var.data_type()).unwrap(),
-                    name,
-                )
+                .build_alloca(llvm_context.lower_type(param_var.data_type()), name)
                 .unwrap();
 
             llvm_context.builder().build_store(var, param).unwrap();

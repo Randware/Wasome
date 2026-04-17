@@ -8,7 +8,7 @@ use inkwell::values::{BasicValue, FunctionValue, PointerValue};
 
 impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_inc_refcount(
-        &mut self,
+        &self,
         llvm_context: &LLVMContext<'ctx>,
         to_generate: PointerValue<'ctx>,
     ) {
@@ -37,9 +37,9 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     pub(crate) fn compile_struct_dec_refcount(
-        &mut self,
+        &self,
         llvm_context: &LLVMContext<'ctx>,
-        func: &FunctionValue<'ctx>,
+        func: FunctionValue<'ctx>,
         struc: &StructSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
@@ -68,8 +68,8 @@ impl<'ctx> Codegen<'ctx> {
             .unwrap();
         llvm_context.builder().build_store(refc, dec).unwrap();
 
-        let drop_bb = llvm_context.context().append_basic_block(*func, "drop");
-        let after_bb = llvm_context.context().append_basic_block(*func, "after");
+        let drop_bb = llvm_context.context().append_basic_block(func, "drop");
+        let after_bb = llvm_context.context().append_basic_block(func, "after");
 
         llvm_context
             .builder()
@@ -104,9 +104,9 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     pub(crate) fn compile_enum_dec_refcount(
-        &mut self,
+        &self,
         llvm_context: &LLVMContext<'ctx>,
-        func: &FunctionValue<'ctx>,
+        func: FunctionValue<'ctx>,
         enu: &EnumSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
@@ -135,8 +135,8 @@ impl<'ctx> Codegen<'ctx> {
             .unwrap();
         llvm_context.builder().build_store(refc, dec).unwrap();
 
-        let drop_bb = llvm_context.context().append_basic_block(*func, "drop");
-        let after_bb = llvm_context.context().append_basic_block(*func, "after");
+        let drop_bb = llvm_context.context().append_basic_block(func, "drop");
+        let after_bb = llvm_context.context().append_basic_block(func, "after");
 
         llvm_context
             .builder()
@@ -171,9 +171,9 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     pub(crate) fn compile_struct_drop(
-        &mut self,
+        &self,
         llvm_context: &LLVMContext<'ctx>,
-        func: &FunctionValue<'ctx>,
+        func: FunctionValue<'ctx>,
         struc: &StructSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
@@ -182,7 +182,7 @@ impl<'ctx> Codegen<'ctx> {
 
         let after_block = llvm_context
             .context()
-            .append_basic_block(*func, "after_block");
+            .append_basic_block(func, "after_block");
 
         match lowered.predrop() {
             None => {
@@ -194,7 +194,7 @@ impl<'ctx> Codegen<'ctx> {
             Some(predrop) => {
                 let drop_abort_block = llvm_context
                     .context()
-                    .append_basic_block(*func, "drop_abort_block");
+                    .append_basic_block(func, "drop_abort_block");
 
                 // Set the refcount to 2
                 // This way, it can never be dropped again and can't cause infinite loops
@@ -255,7 +255,7 @@ impl<'ctx> Codegen<'ctx> {
                         .build_struct_gep(
                             lowered.lowered(),
                             to_generate,
-                            (i + 1) as u32,
+                            u32::try_from(i + 1).unwrap(),
                             "gep_field_drop",
                         )
                         .unwrap();
@@ -267,7 +267,7 @@ impl<'ctx> Codegen<'ctx> {
                         .build_struct_gep(
                             lowered.lowered(),
                             to_generate,
-                            (i + 1) as u32,
+                            u32::try_from(i + 1).unwrap(),
                             "gep_field_drop",
                         )
                         .unwrap();
@@ -280,25 +280,25 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     pub(crate) fn compile_enum_drop(
-        &mut self,
+        &self,
         llvm_context: &LLVMContext<'ctx>,
-        func: &FunctionValue<'ctx>,
+        func: FunctionValue<'ctx>,
         en: &EnumSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_enum(en).expect("Unknown struct");
 
-        let after_block = llvm_context.context().append_basic_block(*func, "after");
+        let after_block = llvm_context.context().append_basic_block(func, "after");
         let cond_blocks = lowered
             .variants()
             .iter()
-            .map(|_| llvm_context.context().append_basic_block(*func, "cond"))
+            .map(|_| llvm_context.context().append_basic_block(func, "cond"))
             .collect::<Vec<_>>();
         let drop_blocks = lowered
             .variants()
             .iter()
-            .map(|_| llvm_context.context().append_basic_block(*func, "drop"))
+            .map(|_| llvm_context.context().append_basic_block(func, "drop"))
             .collect::<Vec<_>>();
         let tag = llvm_context
             .builder()
@@ -346,7 +346,7 @@ impl<'ctx> Codegen<'ctx> {
                             .build_struct_gep(
                                 variant.1,
                                 to_generate,
-                                (i + 2) as u32,
+                                u32::try_from(i + 2).unwrap(),
                                 "gep_field_drop",
                             )
                             .unwrap();
@@ -358,7 +358,7 @@ impl<'ctx> Codegen<'ctx> {
                             .build_struct_gep(
                                 variant.1,
                                 to_generate,
-                                (i + 2) as u32,
+                                u32::try_from(i + 2).unwrap(),
                                 "gep_field_drop",
                             )
                             .unwrap();

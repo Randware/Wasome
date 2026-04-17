@@ -16,7 +16,7 @@ pub enum OptLevel {
 
 impl OptLevel {
     /// Grabs the exact pipeline string for the LLVM New Pass Manager
-    pub const fn as_llvm_pipeline(&self) -> &'static str {
+    pub const fn as_llvm_pipeline(self) -> &'static str {
         match self {
             Self::O0 => "default<O0>",
             Self::O1 => "default<O1>",
@@ -39,12 +39,8 @@ impl From<OptLevel> for inkwell::OptimizationLevel {
         match val {
             OptLevel::O0 => Self::None,
             OptLevel::O1 => Self::Less,
-            OptLevel::O2 => Self::Default,
+            OptLevel::O2 | OptLevel::Os | OptLevel::Oz => Self::Default,
             OptLevel::O3 => Self::Aggressive,
-            // Os and Oz don't have their own OptLevel because they get treated they same
-            // by the `TargetMachine` creation
-            OptLevel::Os => Self::Default,
-            OptLevel::Oz => Self::Default,
         }
     }
 }

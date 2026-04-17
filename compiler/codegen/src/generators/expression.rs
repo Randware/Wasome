@@ -48,7 +48,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     }
 
     pub(crate) fn compile_var_access(
-        &mut self,
+        &self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &VariableSymbol<TypedAST>,
@@ -158,12 +158,13 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
-    pub(crate) fn compile_literal(
-        &mut self,
-        to_generate: &Literal,
-    ) -> Value<'ctx> {
+    pub(crate) fn compile_literal(&self, to_generate: &Literal) -> Value<'ctx> {
         match to_generate {
-            Literal::S32(val) => Value::Sint(self.context.i32_type().const_int(*val as u64, true)),
+            Literal::S32(val) =>
+            {
+                #[allow(clippy::cast_sign_loss)]
+                Value::Sint(self.context.i32_type().const_int(*val as u64, true))
+            }
             Literal::Bool(val) => {
                 Value::Bool(self.context.bool_type().const_int(u64::from(*val), false))
             }
@@ -766,8 +767,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             }
             DataType::Bool => Value::Bool(ret.into_int_value()),
             DataType::F32 | DataType::F64 => Value::Float(ret.into_float_value()),
-            DataType::Struct(_) => Value::Ptr(ret.into_pointer_value()),
-            DataType::Enum(_) => Value::Ptr(ret.into_pointer_value()),
+            DataType::Struct(_) | DataType::Enum(_) => Value::Ptr(ret.into_pointer_value()),
         }
     }
 
@@ -791,9 +791,15 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 .find(|param| &*param.0 == field)
                 .expect("Struct field is not provided");
             let val = self.compile_expression(llvm_context, vars, statement_context, &val.1);
+            #[allow(clippy::cast_possible_truncation)]
             let field = llvm_context
                 .builder()
-                .build_struct_gep(to_alloc.lowered(), alloc, i as u32 + 1, "field_init_gep")
+                .build_struct_gep(
+                    to_alloc.lowered(),
+                    alloc,
+                    i as u32 + 1,
+                    "field_init_gep",
+                )
                 .expect("Unknown struct field");
             llvm_context
                 .builder()
@@ -820,9 +826,15 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .unwrap();
         for (i, field) in to_generate.parameters().iter().enumerate() {
             let val = self.compile_expression(llvm_context, vars, statement_context, field);
+            #[allow(clippy::cast_possible_truncation)]
             let field = llvm_context
                 .builder()
-                .build_struct_gep(to_alloc, alloc, i as u32 + 2, "field_init_gep")
+                .build_struct_gep(
+                    to_alloc,
+                    alloc,
+                    i as u32 + 2,
+                    "field_init_gep",
+                )
                 .expect("Unknown enum field");
             llvm_context
                 .builder()
@@ -855,9 +867,8 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let of = self
             .compile_expression(llvm_context, vars, statement_context, to_generate.of())
             .into_prt();
-        let struct_type = match to_generate.of().data_type() {
-            DataType::Struct(st) => st,
-            _ => unreachable!(),
+        let DataType::Struct(struct_type) = to_generate.of().data_type() else {
+            unreachable!()
         };
         let tr = llvm_context.type_registry();
         let struct_type_lowered = tr.get_struct(&struct_type).expect("Unknown struct");
@@ -866,6 +877,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .iter()
             .position(|field| field == to_generate.field())
             .expect("Unknown field");
+        #[allow(clippy::cast_possible_truncation)]
         let field = llvm_context
             .builder()
             .build_struct_gep(
@@ -984,7 +996,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         result
     }
 
-    fn int_dt_to_llvm_dt(&mut self, cast: &DataType) -> IntType<'ctx> {
+    fn int_dt_to_llvm_dt(&self, cast: &DataType) -> IntType<'ctx> {
         use DataType as D;
         match cast {
             D::U8 | D::S8 => self.context.i8_type(),

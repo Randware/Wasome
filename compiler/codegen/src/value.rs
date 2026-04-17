@@ -26,8 +26,7 @@ impl<'a> Value<'a> {
 
     pub(crate) fn into_int(self) -> IntValue<'a> {
         match self {
-            Value::Uint(int) => int,
-            Value::Sint(int) => int,
+            Value::Uint(int) | Value::Sint(int) => int,
             _ => panic!("This is not an int"),
         }
     }

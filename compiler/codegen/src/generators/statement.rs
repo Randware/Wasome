@@ -51,7 +51,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             Statement::VoidFunctionCall(vc) => {
                 self.compile_void_call(llvm_context, vars, statement_context, vc);
             }
-            Statement::Break => self.compile_break(llvm_context, statement_context),
+            Statement::Break => Codegen::compile_break(llvm_context, statement_context),
         }
         for var in to_generate
             .symbols_defined_directly_in()
@@ -146,9 +146,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let prt = llvm_context
             .builder()
             .build_alloca(
-                llvm_context
-                    .lower_type(to_generate.variable().data_type())
-                    .expect("Unregistered type"),
+                llvm_context.lower_type(to_generate.variable().data_type()),
                 to_generate.variable().name(),
             )
             .unwrap();
@@ -216,16 +214,18 @@ impl<'ctx, 'fc> Codegen<'ctx> {
 
         let curr_block = statement_context.function_context().current_block();
         let true_block = self.context.append_basic_block(
-            *statement_context.function_context().current_function(),
+            statement_context.function_context().current_function(),
             "true",
         );
         let after_block = self.context.append_basic_block(
-            *statement_context.function_context().current_function(),
+            statement_context.function_context().current_function(),
             "after",
         );
-        let false_block = if to_generate.else_statement().is_none() { after_block } else {
+        let false_block = if to_generate.else_statement().is_none() {
+            after_block
+        } else {
             let false_block = self.context.append_basic_block(
-                *statement_context.function_context().current_function(),
+                statement_context.function_context().current_function(),
                 "false",
             );
             statement_context.set_current_block(llvm_context, false_block);
@@ -275,15 +275,15 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     ) {
         let curr_block = statement_context.function_context().current_block();
         let cond_block = self.context.append_basic_block(
-            *statement_context.function_context().current_function(),
+            statement_context.function_context().current_function(),
             "cond",
         );
         let loop_block = self.context.append_basic_block(
-            *statement_context.function_context().current_function(),
+            statement_context.function_context().current_function(),
             "loop",
         );
         let after_block = self.context.append_basic_block(
-            *statement_context.function_context().current_function(),
+            statement_context.function_context().current_function(),
             "after",
         );
 
@@ -417,9 +417,8 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     }
 
     pub(crate) fn compile_break(
-        &mut self,
         llvm_context: &LLVMContext<'ctx>,
-        statement_context: &mut StatementContext<'ctx, 'fc>,
+        statement_context: &StatementContext<'ctx, 'fc>,
     ) {
         llvm_context
             .builder()
@@ -495,9 +494,8 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 to_generate.struct_source(),
             )
             .into_prt();
-        let struct_type = match to_generate.struct_source().data_type() {
-            DataType::Struct(st) => st,
-            _ => unreachable!(),
+        let DataType::Struct(struct_type) = to_generate.struct_source().data_type() else {
+            unreachable!()
         };
         let tr = llvm_context.type_registry();
         let struct_type = tr.get_struct(&struct_type).expect("Unknown struct");
@@ -511,7 +509,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .build_struct_gep(
                 struct_type.lowered(),
                 of,
-                struct_field as u32 + 1,
+                u32::try_from(struct_field).unwrap() + 1,
                 "field_access_gep",
             )
             .expect("Unknown struct field");
@@ -585,11 +583,11 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .expect("Unknown enum variant");
 
         let match_block = self.context.append_basic_block(
-            *statement_context.function_context().current_function(),
+            statement_context.function_context().current_function(),
             "match",
         );
         let after_block = self.context.append_basic_block(
-            *statement_context.function_context().current_function(),
+            statement_context.function_context().current_function(),
             "after",
         );
 
@@ -627,25 +625,16 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         for (i, var) in to_generate.variables().iter().enumerate() {
             let prt = llvm_context
                 .builder()
-                .build_alloca(
-                    llvm_context
-                        .lower_type(var.data_type())
-                        .expect("Unregistered type"),
-                    var.name(),
-                )
+                .build_alloca(llvm_context.lower_type(var.data_type()), var.name())
                 .unwrap();
             vars.insert(var.clone(), prt);
             let val = llvm_context
                 .builder()
-                .build_struct_gep(variant, of, (i + 2) as u32, "enum_field_gep")
+                .build_struct_gep(variant, of, u32::try_from(i + 2).unwrap(), "enum_field_gep")
                 .expect("Unknown enum field");
             let val = llvm_context
                 .builder()
-                .build_load(
-                    llvm_context.lower_type(var.data_type()).unwrap(),
-                    val,
-                    "load_load",
-                )
+                .build_load(llvm_context.lower_type(var.data_type()), val, "load_load")
                 .unwrap();
 
             llvm_context.builder().build_store(prt, val).unwrap();

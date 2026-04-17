@@ -1,12 +1,10 @@
 mod context;
-mod errors;
 mod generators;
 mod global_registry;
 mod memory;
 mod symbols;
 mod types;
 mod value;
-
 
 use bon::bon;
 use inkwell::context::Context;

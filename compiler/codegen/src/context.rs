@@ -1,9 +1,6 @@
 use crate::global_registry::GlobalRegistry;
 use crate::symbols::SymbolRegistry;
-use crate::{
-    errors::CodegenError,
-    types::{CodegenTypes, OptLevel},
-};
+use crate::types::{CodegenTypes, OptLevel};
 use ast::data_type::DataType;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
@@ -92,7 +89,7 @@ impl<'ctx> LLVMContext<'ctx> {
         buffer.as_slice().to_vec()
     }
 
-    pub fn apply_passes(&mut self) {
+    pub fn apply_passes(&self) {
         let passes = PassBuilderOptions::create();
 
         // Explicitly lock down expensive passes at O0
@@ -107,28 +104,21 @@ impl<'ctx> LLVMContext<'ctx> {
             .expect("Could not run passes");
     }
 
-    pub fn lower_type(
-        &self,
-        data_type: &DataType,
-    ) -> Result<BasicTypeEnum<'ctx>, CodegenError<'ctx>> {
-        Ok(match data_type {
-            DataType::Char => self.context.i32_type().as_basic_type_enum(),
-            DataType::U8 => self.context.i8_type().as_basic_type_enum(),
-            DataType::S8 => self.context.i8_type().as_basic_type_enum(),
-            DataType::U16 => self.context.i16_type().as_basic_type_enum(),
-            DataType::S16 => self.context.i16_type().as_basic_type_enum(),
-            DataType::U32 => self.context.i32_type().as_basic_type_enum(),
-            DataType::S32 => self.context.i32_type().as_basic_type_enum(),
-            DataType::U64 => self.context.i64_type().as_basic_type_enum(),
-            DataType::S64 => self.context.i64_type().as_basic_type_enum(),
+    pub fn lower_type(&self, data_type: &DataType) -> BasicTypeEnum<'ctx> {
+        match data_type {
+            DataType::U8 | DataType::S8 => self.context.i8_type().as_basic_type_enum(),
+            DataType::U16 | DataType::S16 => self.context.i16_type().as_basic_type_enum(),
+            DataType::Char | DataType::U32 | DataType::S32 => {
+                self.context.i32_type().as_basic_type_enum()
+            }
+            DataType::U64 | DataType::S64 => self.context.i64_type().as_basic_type_enum(),
             DataType::Bool => self.context.bool_type().as_basic_type_enum(),
-            DataType::F32 => self.context.f32_type().as_basic_type_enum(),
-            DataType::F64 => self.context.f32_type().as_basic_type_enum(),
+            DataType::F32 | DataType::F64 => self.context.f32_type().as_basic_type_enum(),
             DataType::Struct(_) | DataType::Enum(_) => self
                 .context
                 .ptr_type(inkwell::AddressSpace::default())
                 .as_basic_type_enum(),
-        })
+        }
     }
 
     pub const fn context(&self) -> &'ctx Context {
@@ -169,15 +159,18 @@ pub struct FunctionContext<'ctx> {
 }
 
 impl<'ctx> FunctionContext<'ctx> {
-    pub const fn new(current_function: FunctionValue<'ctx>, current_block: BasicBlock<'ctx>) -> Self {
+    pub const fn new(
+        current_function: FunctionValue<'ctx>,
+        current_block: BasicBlock<'ctx>,
+    ) -> Self {
         Self {
             current_function,
             current_block,
         }
     }
 
-    pub const fn current_function(&self) -> &FunctionValue<'ctx> {
-        &self.current_function
+    pub const fn current_function(&self) -> FunctionValue<'ctx> {
+        self.current_function
     }
 
     pub const fn current_block(&self) -> BasicBlock<'ctx> {
