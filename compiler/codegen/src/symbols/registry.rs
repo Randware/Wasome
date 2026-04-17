@@ -1,12 +1,12 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::symbols::{EnumInformation, StructInformation};
-use ast::symbol::StructFieldSymbol;
 use ast::{
-    TypedAST,
     symbol::{EnumSymbol, FunctionSymbol, StructSymbol},
+    TypedAST,
 };
-use inkwell::{types::StructType, values::FunctionValue};
+use inkwell::values::FunctionValue;
+use crate::symbols::enum_information::EnumInformation;
+use crate::symbols::struct_information::StructInformation;
 
 pub struct SymbolRegistry<'ctx> {
     structs: HashMap<Rc<StructSymbol<TypedAST>>, StructInformation<'ctx>>,
