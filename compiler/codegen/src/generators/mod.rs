@@ -1,6 +1,5 @@
 mod expression;
 mod function;
-mod memory;
 mod statement;
 
 use crate::symbols::{EnumInformation, StructInformation};

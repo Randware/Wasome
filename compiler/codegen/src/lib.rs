@@ -4,7 +4,6 @@ mod generators;
 mod global_registry;
 mod memory;
 mod symbols;
-mod temp;
 mod types;
 mod value;
 
