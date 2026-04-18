@@ -980,24 +980,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 _ => (),
             }
         }
-        match to_generate
-            .function()
-            .return_type()
-            .expect("Void call as expression")
-        {
-            DataType::Char => BasicValueEnum::IntValue(ret.into_int_value()),
-            DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64 => {
-                BasicValueEnum::IntValue(ret.into_int_value())
-            }
-            DataType::S8 | DataType::S16 | DataType::S32 | DataType::S64 => {
-                BasicValueEnum::IntValue(ret.into_int_value())
-            }
-            DataType::Bool => BasicValueEnum::IntValue(ret.into_int_value()),
-            DataType::F32 | DataType::F64 => BasicValueEnum::FloatValue(ret.into_float_value()),
-            DataType::Struct(_) | DataType::Enum(_) => {
-                BasicValueEnum::PointerValue(ret.into_pointer_value())
-            }
-        }
+        ret
     }
 
     pub(crate) fn compile_new_struct(
