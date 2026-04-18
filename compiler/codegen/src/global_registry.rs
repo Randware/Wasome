@@ -10,7 +10,7 @@ pub struct GlobalRegistry<'ctx> {
     base_heap_allocated: StructType<'ctx>,
     stacksave: FunctionValue<'ctx>,
     stackrestore: FunctionValue<'ctx>,
-    drop: FunctionType<'ctx>
+    drop: FunctionType<'ctx>,
 }
 
 impl<'ctx> GlobalRegistry<'ctx> {
@@ -52,7 +52,7 @@ impl<'ctx> GlobalRegistry<'ctx> {
             base_heap_allocated,
             stacksave,
             stackrestore,
-            drop
+            drop,
         }
     }
 
@@ -72,7 +72,7 @@ impl<'ctx> GlobalRegistry<'ctx> {
         self.stackrestore
     }
 
-    pub fn drop(&self) -> FunctionType<'ctx> {
+    pub const fn drop(&self) -> FunctionType<'ctx> {
         self.drop
     }
 }

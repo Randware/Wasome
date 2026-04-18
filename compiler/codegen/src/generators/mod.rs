@@ -3,17 +3,17 @@ mod function;
 mod statement;
 
 use crate::symbols::{EnumInformation, StructInformation};
-use crate::{context::LLVMContext, Codegen};
+use crate::{Codegen, context::LLVMContext};
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::FunctionType;
+use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
-use ast::traversal::FunctionContainer;
-use ast::{TypedAST, AST};
+use ast::{AST, TypedAST};
 use inkwell::types::BasicType;
 use std::iter::once;
 
@@ -51,15 +51,23 @@ impl<'ctx> Codegen<'ctx> {
         self.impl_functions(llvm_context, &root);
     }
 
-    fn impl_functions(&mut self, llvm_context: &mut LLVMContext<'ctx>, root: &DirectoryTraversalHelper<TypedAST>) {
-        recursive_functions_of_dir(&root, |func| match func.inner().function_type() {
+    fn impl_functions(
+        &mut self,
+        llvm_context: &mut LLVMContext<'ctx>,
+        root: &DirectoryTraversalHelper<TypedAST>,
+    ) {
+        recursive_functions_of_dir(root, |func| match func.inner().function_type() {
             FunctionType::Regular(_) => self.compile_function(llvm_context, &func),
             FunctionType::External => (),
         });
     }
 
-    fn create_enum_drop_functions(&mut self, llvm_context: &mut LLVMContext<'ctx>, root: &DirectoryTraversalHelper<TypedAST>) {
-        recursive_enums_of_dir(&root, |st| {
+    fn create_enum_drop_functions(
+        &mut self,
+        llvm_context: &mut LLVMContext<'ctx>,
+        root: &DirectoryTraversalHelper<TypedAST>,
+    ) {
+        recursive_enums_of_dir(root, |st| {
             let symbol = st.inner().symbol();
             let tr = llvm_context.type_registry_mut();
             let lowered = tr.get_enum(symbol).expect("Unregistered enum");
@@ -79,8 +87,12 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
-    fn create_struct_drop_functions(&mut self, llvm_context: &mut LLVMContext<'ctx>, root: &DirectoryTraversalHelper<TypedAST>) {
-        recursive_structs_of_dir(&root, |st| {
+    fn create_struct_drop_functions(
+        &mut self,
+        llvm_context: &mut LLVMContext<'ctx>,
+        root: &DirectoryTraversalHelper<TypedAST>,
+    ) {
+        recursive_structs_of_dir(root, |st| {
             let predrop = st
                 .function_iterator()
                 .find(|func| {
@@ -118,8 +130,12 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
-    fn fill_enums(&mut self, llvm_context: &mut LLVMContext<'ctx>, root: &DirectoryTraversalHelper<TypedAST>) {
-        recursive_enums_of_dir(&root, |st| {
+    fn fill_enums(
+        &mut self,
+        llvm_context: &mut LLVMContext<'ctx>,
+        root: &DirectoryTraversalHelper<TypedAST>,
+    ) {
+        recursive_enums_of_dir(root, |st| {
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
             let lowered = tr.get_enum_mut(symbol).expect("Unregistered enum");
@@ -146,8 +162,12 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
-    fn fill_structs(&mut self, llvm_context: &mut LLVMContext, root: &DirectoryTraversalHelper<TypedAST>) {
-        recursive_structs_of_dir(&root, |st| {
+    fn fill_structs(
+        &mut self,
+        llvm_context: &mut LLVMContext,
+        root: &DirectoryTraversalHelper<TypedAST>,
+    ) {
+        recursive_structs_of_dir(root, |st| {
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
             let lowered = tr.get_struct_mut(symbol).expect("Unregistered struct");
@@ -167,9 +187,12 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
-    fn register_functions(llvm_context: &mut LLVMContext, root: &DirectoryTraversalHelper<TypedAST>) {
+    fn register_functions(
+        llvm_context: &mut LLVMContext,
+        root: &DirectoryTraversalHelper<TypedAST>,
+    ) {
         let module = llvm_context.module();
-        recursive_functions_of_dir(&root, |func| {
+        recursive_functions_of_dir(root, |func| {
             let symbol = func.inner().declaration_owned();
             let args = symbol
                 .params()
@@ -209,10 +232,14 @@ impl<'ctx> Codegen<'ctx> {
 
     fn register_enums(llvm_context: &mut LLVMContext, root: &DirectoryTraversalHelper<TypedAST>) {
         let module = llvm_context.module();
-        recursive_enums_of_dir(&root, |en| {
+        recursive_enums_of_dir(root, |en| {
             let symbol = en.inner().symbol_owned();
             let name = mangle(symbol.name(), symbol.id());
-            let drop = module.add_function(&format!("{name}-drop"), llvm_context.global_registry().drop(), None);
+            let drop = module.add_function(
+                &format!("{name}-drop"),
+                llvm_context.global_registry().drop(),
+                None,
+            );
             debug_assert!(
                 llvm_context
                     .type_registry_mut()
@@ -222,13 +249,21 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
-    fn register_structs(&mut self, llvm_context: &mut LLVMContext<'ctx>, root: &DirectoryTraversalHelper<TypedAST>) {
+    fn register_structs(
+        &mut self,
+        llvm_context: &mut LLVMContext<'ctx>,
+        root: &DirectoryTraversalHelper<TypedAST>,
+    ) {
         let module = llvm_context.module();
-        recursive_structs_of_dir(&root, |st| {
+        recursive_structs_of_dir(root, |st| {
             let symbol = st.inner().symbol_owned();
             let name = mangle(symbol.name(), symbol.id());
             let lowered = self.context.opaque_struct_type(&name);
-            let drop = module.add_function(&format!("{name}-drop"), llvm_context.global_registry().drop(), None);
+            let drop = module.add_function(
+                &format!("{name}-drop"),
+                llvm_context.global_registry().drop(),
+                None,
+            );
             debug_assert!(
                 llvm_context
                     .type_registry_mut()

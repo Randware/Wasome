@@ -1,7 +1,6 @@
 use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use crate::value::Value;
 use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{
@@ -10,7 +9,7 @@ use ast::expression::{
 };
 use ast::symbol::VariableSymbol;
 use inkwell::types::IntType;
-use inkwell::values::IntValue;
+use inkwell::values::{BasicValueEnum, IntValue};
 use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
 
 impl<'ctx, 'fc> Codegen<'ctx> {
@@ -20,12 +19,11 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         vars: &VariableTable<'ctx>,
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &Expression<TypedAST>,
-    ) -> Value<'ctx> {
+    ) -> BasicValueEnum<'ctx> {
         match to_generate {
             Expression::FunctionCall(call) => {
                 self.compile_call(llvm_context, vars, statement_context, call)
             }
-            // Method call is only supposed to exist in the untyped AST
             Expression::MethodCall(_) => unreachable!(),
             Expression::Variable(var) => self.compile_var_access(llvm_context, vars, var),
             Expression::Literal(lit) => self.compile_literal(lit),
@@ -52,90 +50,90 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         to_generate: &VariableSymbol<TypedAST>,
-    ) -> Value<'ctx> {
+    ) -> BasicValueEnum<'ctx> {
         let var = vars
             .lookup(to_generate)
             .expect("Undeclared variable in the typed AST")
             .pointer;
         match to_generate.data_type() {
-            DataType::Char => Value::Char(
+            DataType::Char => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i32_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::U8 => Value::Uint(
+            DataType::U8 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i8_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::S8 => Value::Sint(
+            DataType::S8 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i8_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::U16 => Value::Uint(
+            DataType::U16 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i16_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::S16 => Value::Sint(
+            DataType::S16 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i16_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::U32 => Value::Uint(
+            DataType::U32 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i32_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::S32 => Value::Sint(
+            DataType::S32 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i32_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::U64 => Value::Uint(
+            DataType::U64 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i64_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::S64 => Value::Sint(
+            DataType::S64 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i64_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::Bool => Value::Bool(
+            DataType::Bool => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.bool_type(), var, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::F32 => Value::Float(
+            DataType::F32 => BasicValueEnum::FloatValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.f32_type(), var, "var_load")
                     .unwrap()
                     .into_float_value(),
             ),
-            DataType::F64 => Value::Float(
+            DataType::F64 => BasicValueEnum::FloatValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.f64_type(), var, "var_load")
@@ -153,25 +151,27 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     .unwrap()
                     .into_pointer_value();
                 self.compile_inc_refcount(llvm_context, prt);
-                Value::Ptr(prt)
+                BasicValueEnum::PointerValue(prt)
             }
         }
     }
 
-    pub(crate) fn compile_literal(&self, to_generate: &Literal) -> Value<'ctx> {
+    pub(crate) fn compile_literal(&self, to_generate: &Literal) -> BasicValueEnum<'ctx> {
         match to_generate {
             Literal::S32(val) =>
             {
                 #[allow(clippy::cast_sign_loss)]
-                Value::Sint(self.context.i32_type().const_int(*val as u64, true))
+                BasicValueEnum::IntValue(self.context.i32_type().const_int(*val as u64, true))
             }
             Literal::Bool(val) => {
-                Value::Bool(self.context.bool_type().const_int(u64::from(*val), false))
+                BasicValueEnum::IntValue(self.context.bool_type().const_int(u64::from(*val), false))
             }
             Literal::Char(val) => {
-                Value::Char(self.context.i32_type().const_int(u64::from(*val), false))
+                BasicValueEnum::IntValue(self.context.i32_type().const_int(u64::from(*val), false))
             }
-            Literal::F64(val) => Value::Float(self.context.f64_type().const_float(*val)),
+            Literal::F64(val) => {
+                BasicValueEnum::FloatValue(self.context.f64_type().const_float(*val))
+            }
         }
     }
 
@@ -182,28 +182,34 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         statement_context: &mut StatementContext<'ctx, 'fc>,
 
         to_generate: &UnaryOp<TypedAST>,
-    ) -> Value<'ctx> {
+    ) -> BasicValueEnum<'ctx> {
         let inner =
             self.compile_expression(llvm_context, vars, statement_context, to_generate.input());
         match to_generate.op_type() {
             UnaryOpType::Negative => {
                 if to_generate.data_type().is_float() {
-                    Value::Float(
+                    BasicValueEnum::FloatValue(
                         llvm_context
                             .builder()
                             .build_float_mul(
-                                inner.into_float(),
+                                match inner {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
                                 self.context.f64_type().const_float(-1.0),
                                 "negative",
                             )
                             .unwrap(),
                     )
                 } else {
-                    Value::Sint(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_mul(
-                                inner.into_sint(),
+                                match inner {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 self.context.i64_type().const_all_ones(),
                                 "negative",
                             )
@@ -211,25 +217,45 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     )
                 }
             }
-            UnaryOpType::Not => Value::Bool(
+            UnaryOpType::Not => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
-                    .build_not(inner.into_bool(), "not")
+                    .build_not(
+                        match inner {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        "not",
+                    )
                     .unwrap(),
             ),
             UnaryOpType::Typecast(cast) => {
                 use DataType as D;
                 match (to_generate.input().data_type(), cast.target()) {
-                    (D::F32, D::F64) => Value::Float(
+                    (D::F32, D::F64) => BasicValueEnum::FloatValue(
                         llvm_context
                             .builder()
-                            .build_float_ext(inner.into_float(), self.context.f64_type(), "cast")
+                            .build_float_ext(
+                                match inner {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                self.context.f64_type(),
+                                "cast",
+                            )
                             .unwrap(),
                     ),
-                    (D::F64, D::F32) => Value::Float(
+                    (D::F64, D::F32) => BasicValueEnum::FloatValue(
                         llvm_context
                             .builder()
-                            .build_float_trunc(inner.into_float(), self.context.f32_type(), "cast")
+                            .build_float_trunc(
+                                match inner {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                self.context.f32_type(),
+                                "cast",
+                            )
                             .unwrap(),
                     ),
                     (D::S8, D::U8)
@@ -243,13 +269,20 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                         let target = self.int_dt_to_llvm_dt(cast.target());
                         let val = llvm_context
                             .builder()
-                            .build_bit_cast(inner.into_int(), target, "cast")
+                            .build_bit_cast(
+                                match inner {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                target,
+                                "cast",
+                            )
                             .unwrap()
                             .into_int_value();
                         if cast.target().is_sint() {
-                            Value::Sint(val)
+                            BasicValueEnum::IntValue(val)
                         } else {
-                            Value::Uint(val)
+                            BasicValueEnum::IntValue(val)
                         }
                     }
                     (D::S8 | D::U8, D::S16 | D::U16 | D::S32 | D::U32 | D::S64 | D::U64)
@@ -257,21 +290,31 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     | (D::S32 | D::U32, D::S64 | D::U64) => {
                         let target = self.int_dt_to_llvm_dt(cast.target());
                         if cast.target().is_sint() {
-                            Value::Sint(
+                            BasicValueEnum::IntValue(
                                 llvm_context
                                     .builder()
                                     .build_int_z_extend::<IntValue<'ctx>>(
-                                        inner.into_int(),
+                                        match inner {
+                                            BasicValueEnum::IntValue(i) => i,
+                                            _ => unreachable!(),
+                                        },
                                         target,
                                         "cast",
                                     )
                                     .unwrap(),
                             )
                         } else {
-                            Value::Uint(
+                            BasicValueEnum::IntValue(
                                 llvm_context
                                     .builder()
-                                    .build_int_s_extend(inner.into_int(), target, "cast")
+                                    .build_int_s_extend(
+                                        match inner {
+                                            BasicValueEnum::IntValue(i) => i,
+                                            _ => unreachable!(),
+                                        },
+                                        target,
+                                        "cast",
+                                    )
                                     .unwrap(),
                             )
                         }
@@ -282,12 +325,19 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                         let target = self.int_dt_to_llvm_dt(cast.target());
                         let trunc = llvm_context
                             .builder()
-                            .build_int_z_extend(inner.into_int(), target, "cast")
+                            .build_int_z_extend(
+                                match inner {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                target,
+                                "cast",
+                            )
                             .unwrap();
                         if cast.target().is_sint() {
-                            Value::Sint(trunc)
+                            BasicValueEnum::IntValue(trunc)
                         } else {
-                            Value::Uint(trunc)
+                            BasicValueEnum::IntValue(trunc)
                         }
                     }
                     _ => unreachable!(),
@@ -302,7 +352,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         vars: &VariableTable<'ctx>,
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &BinaryOp<TypedAST>,
-    ) -> Value<'ctx> {
+    ) -> BasicValueEnum<'ctx> {
         let lhs =
             self.compile_expression(llvm_context, vars, statement_context, to_generate.left());
         let rhs =
@@ -311,108 +361,216 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         match to_generate.op_type() {
             BinaryOpType::Addition => {
                 if dt.is_float() {
-                    Value::Float(
+                    BasicValueEnum::FloatValue(
                         llvm_context
                             .builder()
-                            .build_float_add(lhs.into_float(), rhs.into_float(), "add")
+                            .build_float_add(
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                "add",
+                            )
                             .unwrap(),
                     )
                 } else {
                     let val = llvm_context
                         .builder()
-                        .build_int_add(lhs.into_int(), rhs.into_int(), "add")
+                        .build_int_add(
+                            match lhs {
+                                BasicValueEnum::IntValue(i) => i,
+                                _ => unreachable!(),
+                            },
+                            match rhs {
+                                BasicValueEnum::IntValue(i) => i,
+                                _ => unreachable!(),
+                            },
+                            "add",
+                        )
                         .unwrap();
-                    if dt.is_sint() {
-                        Value::Sint(val)
-                    } else {
-                        Value::Uint(val)
-                    }
+                    BasicValueEnum::IntValue(val)
                 }
             }
             BinaryOpType::Subtraction => {
                 if dt.is_float() {
-                    Value::Float(
+                    BasicValueEnum::FloatValue(
                         llvm_context
                             .builder()
-                            .build_float_sub(lhs.into_float(), rhs.into_float(), "sub")
+                            .build_float_sub(
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                "sub",
+                            )
                             .unwrap(),
                     )
                 } else {
                     let val = llvm_context
                         .builder()
-                        .build_int_sub(lhs.into_int(), rhs.into_int(), "sub")
+                        .build_int_sub(
+                            match lhs {
+                                BasicValueEnum::IntValue(i) => i,
+                                _ => unreachable!(),
+                            },
+                            match rhs {
+                                BasicValueEnum::IntValue(i) => i,
+                                _ => unreachable!(),
+                            },
+                            "sub",
+                        )
                         .unwrap();
-                    if dt.is_sint() {
-                        Value::Sint(val)
-                    } else {
-                        Value::Uint(val)
-                    }
+                    BasicValueEnum::IntValue(val)
                 }
             }
             BinaryOpType::Multiplication => {
                 if dt.is_float() {
-                    Value::Float(
+                    BasicValueEnum::FloatValue(
                         llvm_context
                             .builder()
-                            .build_float_mul(lhs.into_float(), rhs.into_float(), "mul")
+                            .build_float_mul(
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                "mul",
+                            )
                             .unwrap(),
                     )
                 } else {
                     let val = llvm_context
                         .builder()
-                        .build_int_mul(lhs.into_int(), rhs.into_int(), "mul")
+                        .build_int_mul(
+                            match lhs {
+                                BasicValueEnum::IntValue(i) => i,
+                                _ => unreachable!(),
+                            },
+                            match rhs {
+                                BasicValueEnum::IntValue(i) => i,
+                                _ => unreachable!(),
+                            },
+                            "mul",
+                        )
                         .unwrap();
-                    if dt.is_sint() {
-                        Value::Sint(val)
-                    } else {
-                        Value::Uint(val)
-                    }
+                    BasicValueEnum::IntValue(val)
                 }
             }
             BinaryOpType::Division => {
                 if dt.is_float() {
-                    Value::Float(
+                    BasicValueEnum::FloatValue(
                         llvm_context
                             .builder()
-                            .build_float_div(lhs.into_float(), rhs.into_float(), "div")
+                            .build_float_div(
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                "div",
+                            )
                             .unwrap(),
                     )
                 } else if dt.is_sint() {
-                    Value::Sint(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
-                            .build_int_signed_div(lhs.into_int(), rhs.into_int(), "div")
+                            .build_int_signed_div(
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                "div",
+                            )
                             .unwrap(),
                     )
                 } else {
-                    Value::Uint(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
-                            .build_int_unsigned_div(lhs.into_int(), rhs.into_int(), "div")
+                            .build_int_unsigned_div(
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                "div",
+                            )
                             .unwrap(),
                     )
                 }
             }
             BinaryOpType::Modulo => {
                 if dt.is_float() {
-                    Value::Float(
+                    BasicValueEnum::FloatValue(
                         llvm_context
                             .builder()
-                            .build_float_rem(lhs.into_float(), rhs.into_float(), "mod")
+                            .build_float_rem(
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                "mod",
+                            )
                             .unwrap(),
                     )
                 } else if dt.is_sint() {
-                    Value::Sint(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
-                            .build_int_signed_rem(lhs.into_int(), rhs.into_int(), "mod")
+                            .build_int_signed_rem(
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                "mod",
+                            )
                             .unwrap(),
                     )
                 } else {
-                    Value::Uint(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
-                            .build_int_unsigned_rem(lhs.into_int(), rhs.into_int(), "mod")
+                            .build_int_unsigned_rem(
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                "mod",
+                            )
                             .unwrap(),
                     )
                 }
@@ -420,100 +578,173 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             BinaryOpType::LeftShift => {
                 let val = llvm_context
                     .builder()
-                    .build_left_shift(lhs.into_int(), rhs.into_int(), "lshift")
+                    .build_left_shift(
+                        match lhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        match rhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        "lshift",
+                    )
                     .unwrap();
-                if dt.is_sint() {
-                    Value::Sint(val)
-                } else {
-                    Value::Uint(val)
-                }
+                BasicValueEnum::IntValue(val)
             }
             BinaryOpType::RightShift => {
                 let val = llvm_context
                     .builder()
-                    .build_right_shift(lhs.into_int(), rhs.into_int(), dt.is_sint(), "rshift")
+                    .build_right_shift(
+                        match lhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        match rhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        dt.is_sint(),
+                        "rshift",
+                    )
                     .unwrap();
-                if dt.is_sint() {
-                    Value::Sint(val)
-                } else {
-                    Value::Uint(val)
-                }
+                BasicValueEnum::IntValue(val)
             }
             BinaryOpType::BitwiseOr => {
                 let val = llvm_context
                     .builder()
-                    .build_or(lhs.into_int(), rhs.into_int(), "bitor")
+                    .build_or(
+                        match lhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        match rhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        "bitor",
+                    )
                     .unwrap();
-                if dt.is_sint() {
-                    Value::Sint(val)
-                } else {
-                    Value::Uint(val)
-                }
+                BasicValueEnum::IntValue(val)
             }
             BinaryOpType::Or => {
                 let val = llvm_context
                     .builder()
-                    .build_or(lhs.into_int(), rhs.into_int(), "or")
+                    .build_or(
+                        match lhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        match rhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        "or",
+                    )
                     .unwrap();
-                Value::Bool(val)
+                BasicValueEnum::IntValue(val)
             }
             BinaryOpType::BitwiseAnd => {
                 let val = llvm_context
                     .builder()
-                    .build_and(lhs.into_int(), rhs.into_int(), "bitand")
+                    .build_and(
+                        match lhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        match rhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        "bitand",
+                    )
                     .unwrap();
-                if dt.is_sint() {
-                    Value::Sint(val)
-                } else {
-                    Value::Uint(val)
-                }
+                BasicValueEnum::IntValue(val)
             }
             BinaryOpType::And => {
                 let val = llvm_context
                     .builder()
-                    .build_and(lhs.into_int(), rhs.into_int(), "and")
+                    .build_and(
+                        match lhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        match rhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        "and",
+                    )
                     .unwrap();
-                Value::Bool(val)
+                BasicValueEnum::IntValue(val)
             }
             BinaryOpType::BitwiseXor => {
                 let val = llvm_context
                     .builder()
-                    .build_xor(lhs.into_int(), rhs.into_int(), "bitxor")
+                    .build_xor(
+                        match lhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        match rhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        "bitxor",
+                    )
                     .unwrap();
-                if dt.is_sint() {
-                    Value::Sint(val)
-                } else {
-                    Value::Uint(val)
-                }
+                BasicValueEnum::IntValue(val)
             }
             BinaryOpType::Xor => {
                 let val = llvm_context
                     .builder()
-                    .build_xor(lhs.into_int(), rhs.into_int(), "xor")
+                    .build_xor(
+                        match lhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        match rhs {
+                            BasicValueEnum::IntValue(i) => i,
+                            _ => unreachable!(),
+                        },
+                        "xor",
+                    )
                     .unwrap();
-                Value::Bool(val)
+                BasicValueEnum::IntValue(val)
             }
             BinaryOpType::Equals => {
                 if dt.is_float() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_float_compare(
                                 FloatPredicate::OEQ,
-                                lhs.into_float(),
-                                rhs.into_float(),
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
                                 "eq",
                             )
                             .unwrap(),
                     )
                 } else {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
                                 IntPredicate::EQ,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "eq",
                             )
                             .unwrap(),
@@ -522,25 +753,37 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             }
             BinaryOpType::NotEquals => {
                 if dt.is_float() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_float_compare(
                                 FloatPredicate::ONE,
-                                lhs.into_float(),
-                                rhs.into_float(),
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
                                 "neq",
                             )
                             .unwrap(),
                     )
                 } else {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
                                 IntPredicate::NE,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "neq",
                             )
                             .unwrap(),
@@ -549,37 +792,55 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             }
             BinaryOpType::Greater => {
                 if dt.is_float() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_float_compare(
                                 FloatPredicate::OGT,
-                                lhs.into_float(),
-                                rhs.into_float(),
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
                                 "gt",
                             )
                             .unwrap(),
                     )
                 } else if dt.is_sint() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
                                 IntPredicate::SGT,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "gt",
                             )
                             .unwrap(),
                     )
                 } else {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
                                 IntPredicate::UGT,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "gt",
                             )
                             .unwrap(),
@@ -588,37 +849,55 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             }
             BinaryOpType::GreaterEquals => {
                 if dt.is_float() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_float_compare(
                                 FloatPredicate::OGE,
-                                lhs.into_float(),
-                                rhs.into_float(),
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
                                 "ge",
                             )
                             .unwrap(),
                     )
                 } else if dt.is_sint() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
-                                IntPredicate::SGT,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                IntPredicate::SGE,
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "ge",
                             )
                             .unwrap(),
                     )
                 } else {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
-                                IntPredicate::UGT,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                IntPredicate::UGE,
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "ge",
                             )
                             .unwrap(),
@@ -627,37 +906,55 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             }
             BinaryOpType::Lesser => {
                 if dt.is_float() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_float_compare(
                                 FloatPredicate::OLT,
-                                lhs.into_float(),
-                                rhs.into_float(),
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
                                 "lt",
                             )
                             .unwrap(),
                     )
                 } else if dt.is_sint() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
                                 IntPredicate::SLT,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "lt",
                             )
                             .unwrap(),
                     )
                 } else {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
                                 IntPredicate::ULT,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "lt",
                             )
                             .unwrap(),
@@ -666,37 +963,55 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             }
             BinaryOpType::LesserEquals => {
                 if dt.is_float() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_float_compare(
                                 FloatPredicate::OLE,
-                                lhs.into_float(),
-                                rhs.into_float(),
+                                match lhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::FloatValue(f) => f,
+                                    _ => unreachable!(),
+                                },
                                 "le",
                             )
                             .unwrap(),
                     )
                 } else if dt.is_sint() {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
                                 IntPredicate::SLE,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "le",
                             )
                             .unwrap(),
                     )
                 } else {
-                    Value::Bool(
+                    BasicValueEnum::IntValue(
                         llvm_context
                             .builder()
                             .build_int_compare(
                                 IntPredicate::ULE,
-                                lhs.into_int(),
-                                rhs.into_int(),
+                                match lhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
+                                match rhs {
+                                    BasicValueEnum::IntValue(i) => i,
+                                    _ => unreachable!(),
+                                },
                                 "le",
                             )
                             .unwrap(),
@@ -712,7 +1027,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         vars: &VariableTable<'ctx>,
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &FunctionCall<TypedAST>,
-    ) -> Value<'ctx> {
+    ) -> BasicValueEnum<'ctx> {
         let func = llvm_context
             .type_registry()
             .get_function(to_generate.function())
@@ -720,10 +1035,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let args = to_generate
             .args()
             .iter()
-            .map(|arg| {
-                self.compile_expression(llvm_context, vars, statement_context, arg)
-                    .into_basic_value_enum()
-            })
+            .map(|arg| self.compile_expression(llvm_context, vars, statement_context, arg))
             .collect::<Vec<_>>();
         let ret = llvm_context
             .builder()
@@ -742,13 +1054,19 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     llvm_context,
                     statement_context.function_context().current_function(),
                     &st,
-                    arg.0.into_pointer_value(),
+                    match arg.0 {
+                        BasicValueEnum::PointerValue(p) => *p,
+                        _ => unreachable!(),
+                    },
                 ),
                 DataType::Enum(en) => self.compile_enum_dec_refcount(
                     llvm_context,
                     statement_context.function_context().current_function(),
                     &en,
-                    arg.0.into_pointer_value(),
+                    match arg.0 {
+                        BasicValueEnum::PointerValue(p) => *p,
+                        _ => unreachable!(),
+                    },
                 ),
                 _ => (),
             }
@@ -758,16 +1076,18 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .return_type()
             .expect("Void call as expression")
         {
-            DataType::Char => Value::Char(ret.into_int_value()),
+            DataType::Char => BasicValueEnum::IntValue(ret.into_int_value()),
             DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64 => {
-                Value::Uint(ret.into_int_value())
+                BasicValueEnum::IntValue(ret.into_int_value())
             }
             DataType::S8 | DataType::S16 | DataType::S32 | DataType::S64 => {
-                Value::Sint(ret.into_int_value())
+                BasicValueEnum::IntValue(ret.into_int_value())
             }
-            DataType::Bool => Value::Bool(ret.into_int_value()),
-            DataType::F32 | DataType::F64 => Value::Float(ret.into_float_value()),
-            DataType::Struct(_) | DataType::Enum(_) => Value::Ptr(ret.into_pointer_value()),
+            DataType::Bool => BasicValueEnum::IntValue(ret.into_int_value()),
+            DataType::F32 | DataType::F64 => BasicValueEnum::FloatValue(ret.into_float_value()),
+            DataType::Struct(_) | DataType::Enum(_) => {
+                BasicValueEnum::PointerValue(ret.into_pointer_value())
+            }
         }
     }
 
@@ -777,7 +1097,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         vars: &VariableTable<'ctx>,
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &NewStruct<TypedAST>,
-    ) -> Value<'ctx> {
+    ) -> BasicValueEnum<'ctx> {
         let tr = llvm_context.type_registry();
         let to_alloc = tr.get_struct(to_generate.symbol()).expect("Unknown struct");
         let alloc = llvm_context
@@ -794,20 +1114,12 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             #[allow(clippy::cast_possible_truncation)]
             let field = llvm_context
                 .builder()
-                .build_struct_gep(
-                    to_alloc.lowered(),
-                    alloc,
-                    i as u32 + 1,
-                    "field_init_gep",
-                )
+                .build_struct_gep(to_alloc.lowered(), alloc, i as u32 + 1, "field_init_gep")
                 .expect("Unknown struct field");
-            llvm_context
-                .builder()
-                .build_store(field, val.into_basic_value_enum())
-                .unwrap();
+            llvm_context.builder().build_store(field, val).unwrap();
         }
         self.compile_inc_refcount(llvm_context, alloc);
-        Value::Ptr(alloc)
+        BasicValueEnum::PointerValue(alloc)
     }
 
     pub(crate) fn compile_new_enum(
@@ -816,7 +1128,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         vars: &VariableTable<'ctx>,
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &NewEnum<TypedAST>,
-    ) -> Value<'ctx> {
+    ) -> BasicValueEnum<'ctx> {
         let tr = llvm_context.type_registry();
         let en = tr.get_enum(to_generate.to_create()).expect("Unknown enum");
         let to_alloc = en.lookup(to_generate.variant()).expect("Unknown variant");
@@ -829,17 +1141,9 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             #[allow(clippy::cast_possible_truncation)]
             let field = llvm_context
                 .builder()
-                .build_struct_gep(
-                    to_alloc,
-                    alloc,
-                    i as u32 + 2,
-                    "field_init_gep",
-                )
+                .build_struct_gep(to_alloc, alloc, i as u32 + 2, "field_init_gep")
                 .expect("Unknown enum field");
-            llvm_context
-                .builder()
-                .build_store(field, val.into_basic_value_enum())
-                .unwrap();
+            llvm_context.builder().build_store(field, val).unwrap();
         }
         let field_tag = en.index_of(to_generate.variant()).expect("Unknown variant");
         let tag = llvm_context
@@ -854,7 +1158,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             )
             .unwrap();
         self.compile_inc_refcount(llvm_context, alloc);
-        Value::Ptr(alloc)
+        BasicValueEnum::PointerValue(alloc)
     }
 
     pub(crate) fn compile_sfa(
@@ -863,10 +1167,16 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         vars: &VariableTable<'ctx>,
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &StructFieldAccess<TypedAST>,
-    ) -> Value<'ctx> {
-        let of = self
-            .compile_expression(llvm_context, vars, statement_context, to_generate.of())
-            .into_prt();
+    ) -> BasicValueEnum<'ctx> {
+        let of = match self.compile_expression(
+            llvm_context,
+            vars,
+            statement_context,
+            to_generate.of(),
+        ) {
+            BasicValueEnum::PointerValue(p) => p,
+            _ => unreachable!(),
+        };
         let DataType::Struct(struct_type) = to_generate.of().data_type() else {
             unreachable!()
         };
@@ -889,84 +1199,84 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .expect("Unknown struct field");
 
         let result = match to_generate.data_type() {
-            DataType::Char => Value::Char(
+            DataType::Char => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i32_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::U8 => Value::Uint(
+            DataType::U8 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i8_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::S8 => Value::Sint(
+            DataType::S8 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i8_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::U16 => Value::Uint(
+            DataType::U16 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i16_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::S16 => Value::Sint(
+            DataType::S16 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i16_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::U32 => Value::Uint(
+            DataType::U32 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i32_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::S32 => Value::Sint(
+            DataType::S32 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i32_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::U64 => Value::Uint(
+            DataType::U64 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i64_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::S64 => Value::Sint(
+            DataType::S64 => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.i64_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::Bool => Value::Bool(
+            DataType::Bool => BasicValueEnum::IntValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.bool_type(), field, "var_load")
                     .unwrap()
                     .into_int_value(),
             ),
-            DataType::F32 => Value::Float(
+            DataType::F32 => BasicValueEnum::FloatValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.f32_type(), field, "var_load")
                     .unwrap()
                     .into_float_value(),
             ),
-            DataType::F64 => Value::Float(
+            DataType::F64 => BasicValueEnum::FloatValue(
                 llvm_context
                     .builder()
                     .build_load(self.context.f64_type(), field, "var_load")
@@ -984,7 +1294,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     .unwrap()
                     .into_pointer_value();
                 self.compile_inc_refcount(llvm_context, prt);
-                Value::Ptr(prt)
+                BasicValueEnum::PointerValue(prt)
             }
         };
         self.compile_struct_dec_refcount(
