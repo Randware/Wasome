@@ -425,7 +425,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 .build_float_compare(
                     float_op,
                     lhs.into_float_value(),
-                    lhs.into_float_value(),
+                    rhs.into_float_value(),
                     "cmp",
                 )
                 .unwrap()
