@@ -80,7 +80,12 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let var = vars
             .lookup(to_generate.variable())
             .expect("Assign to undeclared variable");
-        self.compile_val_ref_drop(llvm_context, statement_context.function_context_mut(), to_generate.variable().data_type(), var.pointer);
+        self.compile_val_ref_drop(
+            llvm_context,
+            statement_context.function_context_mut(),
+            to_generate.variable().data_type(),
+            var.pointer,
+        );
         let val =
             self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
         llvm_context

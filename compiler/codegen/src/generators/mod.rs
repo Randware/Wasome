@@ -300,7 +300,12 @@ impl<'ctx> Codegen<'ctx> {
             )
             .unwrap();
         for arg in args.iter().zip(to_generate.args()) {
-            self.compile_val_drop(llvm_context, statement_context.function_context_mut(), &arg.1.data_type(), *arg.0);
+            self.compile_val_drop(
+                llvm_context,
+                statement_context.function_context_mut(),
+                &arg.1.data_type(),
+                *arg.0,
+            );
         }
         ret
     }
