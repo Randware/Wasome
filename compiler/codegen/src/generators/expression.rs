@@ -9,7 +9,7 @@ use ast::expression::{
 };
 use ast::symbol::VariableSymbol;
 use inkwell::types::IntType;
-use inkwell::values::{BasicValueEnum, IntValue};
+use inkwell::values::{BasicValueEnum, FloatValue, IntValue};
 use inkwell::{AddressSpace, FloatPredicate, IntPredicate};
 
 impl<'ctx, 'fc> Codegen<'ctx> {
@@ -57,7 +57,11 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .pointer;
         let val = llvm_context
             .builder()
-            .build_load(llvm_context.lower_type(&to_generate.data_type()), var, "var_load")
+            .build_load(
+                llvm_context.lower_type(&to_generate.data_type()),
+                var,
+                "var_load",
+            )
             .unwrap();
         if to_generate.data_type().is_prt() {
             self.compile_inc_refcount(llvm_context, val.into_pointer_value());
@@ -621,312 +625,96 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     .unwrap();
                 BasicValueEnum::IntValue(val)
             }
-            BinaryOpType::Equals => {
-                if dt.is_float() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_float_compare(
-                                FloatPredicate::OEQ,
-                                match lhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                "eq",
-                            )
-                            .unwrap(),
+            BinaryOpType::Equals => Self::compile_cmp(
+                llvm_context,
+                lhs,
+                rhs,
+                dt,
+                FloatPredicate::OEQ,
+                IntPredicate::EQ,
+                IntPredicate::EQ,
+            ),
+            BinaryOpType::NotEquals => Self::compile_cmp(
+                llvm_context,
+                lhs,
+                rhs,
+                dt,
+                FloatPredicate::ONE,
+                IntPredicate::NE,
+                IntPredicate::NE,
+            ),
+            BinaryOpType::Greater => Self::compile_cmp(
+                llvm_context,
+                lhs,
+                rhs,
+                dt,
+                FloatPredicate::OGT,
+                IntPredicate::SGT,
+                IntPredicate::UGT,
+            ),
+            BinaryOpType::GreaterEquals => Self::compile_cmp(
+                llvm_context,
+                lhs,
+                rhs,
+                dt,
+                FloatPredicate::OGE,
+                IntPredicate::SGE,
+                IntPredicate::UGE,
+            ),
+            BinaryOpType::Lesser => Self::compile_cmp(
+                llvm_context,
+                lhs,
+                rhs,
+                dt,
+                FloatPredicate::OLT,
+                IntPredicate::SLT,
+                IntPredicate::ULT,
+            ),
+            BinaryOpType::LesserEquals => Self::compile_cmp(
+                llvm_context,
+                lhs,
+                rhs,
+                dt,
+                FloatPredicate::OLE,
+                IntPredicate::SLE,
+                IntPredicate::ULE,
+            ),
+        }
+    }
+
+    fn compile_cmp(
+        llvm_context: &LLVMContext<'ctx>,
+        lhs: BasicValueEnum<'ctx>,
+        rhs: BasicValueEnum<'ctx>,
+        dt: DataType,
+        float_op: FloatPredicate,
+        unsigned_int_op: IntPredicate,
+        signed_int_op: IntPredicate,
+    ) -> BasicValueEnum<'ctx> {
+        if dt.is_float() {
+            BasicValueEnum::IntValue(
+                llvm_context
+                    .builder()
+                    .build_float_compare(
+                        float_op,
+                        lhs.into_float_value(),
+                        lhs.into_float_value(),
+                        "cmp",
                     )
-                } else {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::EQ,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "eq",
-                            )
-                            .unwrap(),
-                    )
-                }
-            }
-            BinaryOpType::NotEquals => {
-                if dt.is_float() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_float_compare(
-                                FloatPredicate::ONE,
-                                match lhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                "neq",
-                            )
-                            .unwrap(),
-                    )
-                } else {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::NE,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "neq",
-                            )
-                            .unwrap(),
-                    )
-                }
-            }
-            BinaryOpType::Greater => {
-                if dt.is_float() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_float_compare(
-                                FloatPredicate::OGT,
-                                match lhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                "gt",
-                            )
-                            .unwrap(),
-                    )
-                } else if dt.is_sint() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::SGT,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "gt",
-                            )
-                            .unwrap(),
-                    )
-                } else {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::UGT,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "gt",
-                            )
-                            .unwrap(),
-                    )
-                }
-            }
-            BinaryOpType::GreaterEquals => {
-                if dt.is_float() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_float_compare(
-                                FloatPredicate::OGE,
-                                match lhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                "ge",
-                            )
-                            .unwrap(),
-                    )
-                } else if dt.is_sint() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::SGE,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "ge",
-                            )
-                            .unwrap(),
-                    )
-                } else {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::UGE,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "ge",
-                            )
-                            .unwrap(),
-                    )
-                }
-            }
-            BinaryOpType::Lesser => {
-                if dt.is_float() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_float_compare(
-                                FloatPredicate::OLT,
-                                match lhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                "lt",
-                            )
-                            .unwrap(),
-                    )
-                } else if dt.is_sint() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::SLT,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "lt",
-                            )
-                            .unwrap(),
-                    )
-                } else {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::ULT,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "lt",
-                            )
-                            .unwrap(),
-                    )
-                }
-            }
-            BinaryOpType::LesserEquals => {
-                if dt.is_float() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_float_compare(
-                                FloatPredicate::OLE,
-                                match lhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::FloatValue(f) => f,
-                                    _ => unreachable!(),
-                                },
-                                "le",
-                            )
-                            .unwrap(),
-                    )
-                } else if dt.is_sint() {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::SLE,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "le",
-                            )
-                            .unwrap(),
-                    )
-                } else {
-                    BasicValueEnum::IntValue(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::ULE,
-                                match lhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                match rhs {
-                                    BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
-                                "le",
-                            )
-                            .unwrap(),
-                    )
-                }
-            }
+                    .unwrap(),
+            )
+        } else {
+            let op = if dt.is_sint() {
+                signed_int_op
+            } else {
+                unsigned_int_op
+            };
+            BasicValueEnum::IntValue(
+                llvm_context
+                    .builder()
+                    .build_int_compare(op, lhs.into_int_value(), rhs.into_int_value(), "cmp")
+                    .unwrap(),
+            )
         }
     }
 
@@ -1091,7 +879,11 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .expect("Unknown struct field");
         let val = llvm_context
             .builder()
-            .build_load(llvm_context.lower_type(&to_generate.data_type()), field, "var_load")
+            .build_load(
+                llvm_context.lower_type(&to_generate.data_type()),
+                field,
+                "var_load",
+            )
             .unwrap();
         if to_generate.data_type().is_prt() {
             self.compile_inc_refcount(llvm_context, val.into_pointer_value());
