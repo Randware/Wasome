@@ -55,105 +55,14 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .lookup(to_generate)
             .expect("Undeclared variable in the typed AST")
             .pointer;
-        match to_generate.data_type() {
-            DataType::Char => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i32_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::U8 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i8_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::S8 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i8_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::U16 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i16_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::S16 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i16_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::U32 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i32_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::S32 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i32_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::U64 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i64_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::S64 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i64_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::Bool => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.bool_type(), var, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::F32 => BasicValueEnum::FloatValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.f32_type(), var, "var_load")
-                    .unwrap()
-                    .into_float_value(),
-            ),
-            DataType::F64 => BasicValueEnum::FloatValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.f64_type(), var, "var_load")
-                    .unwrap()
-                    .into_float_value(),
-            ),
-            DataType::Struct(_) | DataType::Enum(_) => {
-                let prt = llvm_context
-                    .builder()
-                    .build_load(
-                        self.context.ptr_type(AddressSpace::default()),
-                        var,
-                        "var_load",
-                    )
-                    .unwrap()
-                    .into_pointer_value();
-                self.compile_inc_refcount(llvm_context, prt);
-                BasicValueEnum::PointerValue(prt)
-            }
+        let val = llvm_context
+            .builder()
+            .build_load(llvm_context.lower_type(&to_generate.data_type()), var, "var_load")
+            .unwrap();
+        if to_generate.data_type().is_prt() {
+            self.compile_inc_refcount(llvm_context, val.into_pointer_value());
         }
+        val
     }
 
     pub(crate) fn compile_literal(&self, to_generate: &Literal) -> BasicValueEnum<'ctx> {
@@ -1197,113 +1106,20 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 "field_access_gep",
             )
             .expect("Unknown struct field");
-
-        let result = match to_generate.data_type() {
-            DataType::Char => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i32_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::U8 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i8_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::S8 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i8_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::U16 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i16_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::S16 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i16_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::U32 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i32_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::S32 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i32_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::U64 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i64_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::S64 => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.i64_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::Bool => BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.bool_type(), field, "var_load")
-                    .unwrap()
-                    .into_int_value(),
-            ),
-            DataType::F32 => BasicValueEnum::FloatValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.f32_type(), field, "var_load")
-                    .unwrap()
-                    .into_float_value(),
-            ),
-            DataType::F64 => BasicValueEnum::FloatValue(
-                llvm_context
-                    .builder()
-                    .build_load(self.context.f64_type(), field, "var_load")
-                    .unwrap()
-                    .into_float_value(),
-            ),
-            DataType::Struct(_) | DataType::Enum(_) => {
-                let prt = llvm_context
-                    .builder()
-                    .build_load(
-                        self.context.ptr_type(AddressSpace::default()),
-                        field,
-                        "var_load",
-                    )
-                    .unwrap()
-                    .into_pointer_value();
-                self.compile_inc_refcount(llvm_context, prt);
-                BasicValueEnum::PointerValue(prt)
-            }
-        };
+        let val = llvm_context
+            .builder()
+            .build_load(llvm_context.lower_type(&to_generate.data_type()), field, "var_load")
+            .unwrap();
+        if to_generate.data_type().is_prt() {
+            self.compile_inc_refcount(llvm_context, val.into_pointer_value());
+        }
         self.compile_struct_dec_refcount(
             llvm_context,
             statement_context.function_context().current_function(),
             &struct_type,
             of,
         );
-        result
+        val
     }
 
     fn int_dt_to_llvm_dt(&self, cast: &DataType) -> IntType<'ctx> {
