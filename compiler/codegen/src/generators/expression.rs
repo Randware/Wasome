@@ -466,8 +466,26 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let tr = llvm_context.type_registry();
         let to_alloc = tr.get_struct(to_generate.symbol()).expect("Unknown struct");
-        let size = llvm_context.builder().build_int_truncate(to_alloc.lowered().size_of().expect("Should be sized"), self.context.i32_type(), "size_resize").unwrap();
-        let alloc = llvm_context.builder().build_call(llvm_context.global_registry().malloc(), &[size.into()], "alloc_struct").unwrap().try_as_basic_value().basic().unwrap().into_pointer_value();
+        let size = llvm_context
+            .builder()
+            .build_int_truncate(
+                to_alloc.lowered().size_of().expect("Should be sized"),
+                self.context.i32_type(),
+                "size_resize",
+            )
+            .unwrap();
+        let alloc = llvm_context
+            .builder()
+            .build_call(
+                llvm_context.global_registry().malloc(),
+                &[size.into()],
+                "alloc_struct",
+            )
+            .unwrap()
+            .try_as_basic_value()
+            .basic()
+            .unwrap()
+            .into_pointer_value();
         for (i, field) in to_alloc.fields().iter().enumerate() {
             let val = to_generate
                 .parameters()
@@ -482,7 +500,11 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 .expect("Unknown struct field");
             llvm_context.builder().build_store(field, val).unwrap();
         }
-        Self::write_refcount(llvm_context, alloc, self.context.i32_type().const_int(1, false));
+        Self::write_refcount(
+            llvm_context,
+            alloc,
+            self.context.i32_type().const_int(1, false),
+        );
         alloc.as_basic_value_enum()
     }
 
@@ -496,8 +518,26 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let tr = llvm_context.type_registry();
         let en = tr.get_enum(to_generate.to_create()).expect("Unknown enum");
         let to_alloc = en.lookup(to_generate.variant()).expect("Unknown variant");
-        let size = llvm_context.builder().build_int_truncate(to_alloc.size_of().expect("Should be sized"), self.context.i32_type(), "size_resize").unwrap();
-        let alloc = llvm_context.builder().build_call(llvm_context.global_registry().malloc(), &[size.into()], "alloc_enum").unwrap().try_as_basic_value().basic().unwrap().into_pointer_value();
+        let size = llvm_context
+            .builder()
+            .build_int_truncate(
+                to_alloc.size_of().expect("Should be sized"),
+                self.context.i32_type(),
+                "size_resize",
+            )
+            .unwrap();
+        let alloc = llvm_context
+            .builder()
+            .build_call(
+                llvm_context.global_registry().malloc(),
+                &[size.into()],
+                "alloc_enum",
+            )
+            .unwrap()
+            .try_as_basic_value()
+            .basic()
+            .unwrap()
+            .into_pointer_value();
         for (i, field) in to_generate.parameters().iter().enumerate() {
             let val = self.compile_expression(llvm_context, vars, statement_context, field);
             #[allow(clippy::cast_possible_truncation)]
@@ -519,7 +559,11 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 self.context.i32_type().const_int(field_tag as u64, false),
             )
             .unwrap();
-        Self::write_refcount(llvm_context, alloc, self.context.i32_type().const_int(1, false));
+        Self::write_refcount(
+            llvm_context,
+            alloc,
+            self.context.i32_type().const_int(1, false),
+        );
         alloc.as_basic_value_enum()
     }
 
