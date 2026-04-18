@@ -11,6 +11,8 @@ pub struct GlobalRegistry<'ctx> {
     stacksave: FunctionValue<'ctx>,
     stackrestore: FunctionValue<'ctx>,
     drop: FunctionType<'ctx>,
+    malloc: FunctionValue<'ctx>,
+    free: FunctionValue<'ctx>
 }
 
 impl<'ctx> GlobalRegistry<'ctx> {
@@ -46,6 +48,11 @@ impl<'ctx> GlobalRegistry<'ctx> {
                 .into()],
             false,
         );
+        
+        let malloc = ctx.ptr_type(AddressSpace::default()).fn_type(&[ctx.i32_type().into()], false);
+        let malloc = module.add_function("malloc", malloc, None);
+        let free = ctx.void_type().fn_type(&[ctx.i32_type().into(), ctx.i32_type().into()], false);
+        let free = module.add_function("free", free, None);
 
         Self {
             base_enum,
@@ -53,6 +60,8 @@ impl<'ctx> GlobalRegistry<'ctx> {
             stacksave,
             stackrestore,
             drop,
+            malloc,
+            free
         }
     }
 
@@ -74,5 +83,13 @@ impl<'ctx> GlobalRegistry<'ctx> {
 
     pub const fn drop(&self) -> FunctionType<'ctx> {
         self.drop
+    }
+
+    pub fn malloc(&self) -> FunctionValue<'ctx> {
+        self.malloc
+    }
+
+    pub fn free(&self) -> FunctionValue<'ctx> {
+        self.free
     }
 }

@@ -113,7 +113,8 @@ impl<'ctx> LLVMContext<'ctx> {
             }
             DataType::U64 | DataType::S64 => self.context.i64_type().as_basic_type_enum(),
             DataType::Bool => self.context.bool_type().as_basic_type_enum(),
-            DataType::F32 | DataType::F64 => self.context.f32_type().as_basic_type_enum(),
+            DataType::F32 => self.context.f32_type().as_basic_type_enum(),
+            DataType::F64 => self.context.f64_type().as_basic_type_enum(),
             DataType::Struct(_) | DataType::Enum(_) => self
                 .context
                 .ptr_type(inkwell::AddressSpace::default())

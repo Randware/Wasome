@@ -305,7 +305,9 @@ impl<'ctx> Codegen<'ctx> {
                 _ => (),
             }
         }
-        llvm_context.builder().build_free(to_generate).unwrap();
+        let size = llvm_context.builder().build_int_truncate(lowered.lowered().size_of().expect("Should be sized"), self.context.i32_type(), "size_resize").unwrap();
+        llvm_context.builder().build_call(llvm_context.global_registry().free(), &[to_generate.into(), size.into()], "drop_struct").unwrap();
+        llvm_context.builder().build_return(None).unwrap();
     }
 
     pub(crate) fn compile_enum_drop(
@@ -353,6 +355,7 @@ impl<'ctx> Codegen<'ctx> {
             .builder()
             .build_load(self.context.i32_type(), tag, "load_load")
             .unwrap();
+        llvm_context.builder().build_unconditional_branch(cond_blocks.first().copied().unwrap_or(after_block)).unwrap();
         for (i, (variant, (cond, drop))) in lowered
             .variants()
             .iter()
@@ -395,12 +398,14 @@ impl<'ctx> Codegen<'ctx> {
                     _ => (),
                 }
             }
+            let size = llvm_context.builder().build_int_truncate(variant.1.size_of().expect("Should be sized"), self.context.i32_type(), "size_resize").unwrap();
+            llvm_context.builder().build_call(llvm_context.global_registry().free(), &[to_generate.into(), size.into()], "drop_enum").unwrap();
             llvm_context
                 .builder()
                 .build_unconditional_branch(after_block)
                 .unwrap();
         }
         func.set_current_block(llvm_context.builder(), after_block);
-        llvm_context.builder().build_free(to_generate).unwrap();
+        llvm_context.builder().build_return(None).unwrap();
     }
 }
