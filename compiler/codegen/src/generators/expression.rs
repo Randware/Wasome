@@ -484,7 +484,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 .expect("Unknown struct field");
             llvm_context.builder().build_store(field, val).unwrap();
         }
-        self.compile_inc_refcount(llvm_context, alloc);
+        Self::write_refcount(llvm_context, alloc, self.context.i32_type().const_int(1, false));
         alloc.as_basic_value_enum()
     }
 
@@ -523,7 +523,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 self.context.i32_type().const_int(field_tag as u64, false),
             )
             .unwrap();
-        self.compile_inc_refcount(llvm_context, alloc);
+        Self::write_refcount(llvm_context, alloc, self.context.i32_type().const_int(1, false));
         alloc.as_basic_value_enum()
     }
 

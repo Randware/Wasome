@@ -28,7 +28,7 @@ impl<'ctx> Codegen<'ctx> {
             .into_int_value()
     }
 
-    fn write_refcount(
+    pub fn write_refcount(
         llvm_context: &LLVMContext<'ctx>,
         pointer: PointerValue<'ctx>,
         value: IntValue<'ctx>,
