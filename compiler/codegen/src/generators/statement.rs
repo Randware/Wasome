@@ -386,10 +386,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     ) {
         let call = self.compile_call(llvm_context, vars, statement_context, to_generate);
         debug_assert!(
-            call
-                .try_as_basic_value()
-                .basic()
-                .is_none(),
+            call.try_as_basic_value().basic().is_none(),
             "Non-void call as statement"
         );
     }

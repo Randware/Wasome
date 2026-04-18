@@ -1,8 +1,8 @@
-use crate::context::{FunctionContext, LLVMContext};
 use crate::Codegen;
+use crate::context::{FunctionContext, LLVMContext};
+use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::{EnumSymbol, StructSymbol};
-use ast::TypedAST;
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::{AddressSpace, IntPredicate};
 
