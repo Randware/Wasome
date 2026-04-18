@@ -300,21 +300,7 @@ impl<'ctx> Codegen<'ctx> {
             )
             .unwrap();
         for arg in args.iter().zip(to_generate.args()) {
-            match arg.1.data_type() {
-                DataType::Struct(st) => self.compile_struct_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context_mut(),
-                    &st,
-                    arg.0.into_pointer_value(),
-                ),
-                DataType::Enum(en) => self.compile_enum_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context_mut(),
-                    &en,
-                    arg.0.into_pointer_value(),
-                ),
-                _ => (),
-            }
+            self.compile_val_drop(llvm_context, statement_context.function_context_mut(), &arg.1.data_type(), *arg.0);
         }
         ret
     }

@@ -80,41 +80,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let var = vars
             .lookup(to_generate.variable())
             .expect("Assign to undeclared variable");
-        match to_generate.variable().data_type() {
-            DataType::Struct(st) => {
-                let to_drop = llvm_context
-                    .builder()
-                    .build_load(
-                        self.context.ptr_type(AddressSpace::default()),
-                        var.pointer,
-                        "drop_load",
-                    )
-                    .unwrap();
-                self.compile_struct_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context_mut(),
-                    st,
-                    to_drop.into_pointer_value(),
-                );
-            }
-            DataType::Enum(en) => {
-                let to_drop = llvm_context
-                    .builder()
-                    .build_load(
-                        self.context.ptr_type(AddressSpace::default()),
-                        var.pointer,
-                        "drop_load",
-                    )
-                    .unwrap();
-                self.compile_enum_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context_mut(),
-                    en,
-                    to_drop.into_pointer_value(),
-                );
-            }
-            _ => (),
-        }
+        self.compile_val_ref_drop(llvm_context, statement_context.function_context_mut(), to_generate.variable().data_type(), var.pointer);
         let val =
             self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
         llvm_context
