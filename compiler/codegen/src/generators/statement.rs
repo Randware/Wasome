@@ -245,17 +245,9 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         llvm_context
             .builder()
             .build_conditional_branch(
-                llvm_context
-                    .builder()
-                    .build_int_compare(
-                        IntPredicate::EQ,
-                        cond.into_int_value(),
-                        llvm_context.context().bool_type().const_zero(),
-                        "cond",
-                    )
-                    .unwrap(),
-                false_block,
+                cond.into_int_value(),
                 true_block,
+                false_block,
             )
             .unwrap();
         statement_context.set_current_block(llvm_context, after_block);
@@ -297,17 +289,9 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 llvm_context
                     .builder()
                     .build_conditional_branch(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::EQ,
-                                cond.into_int_value(),
-                                llvm_context.context().bool_type().const_zero(),
-                                "cond",
-                            )
-                            .unwrap(),
-                        after_block,
+                        cond.into_int_value(),
                         loop_block,
+                        after_block,
                     )
                     .unwrap();
             }
@@ -332,17 +316,9 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 llvm_context
                     .builder()
                     .build_conditional_branch(
-                        llvm_context
-                            .builder()
-                            .build_int_compare(
-                                IntPredicate::EQ,
-                                cond.into_int_value(),
-                                llvm_context.context().bool_type().const_zero(),
-                                "cond",
-                            )
-                            .unwrap(),
-                        after_block,
+                        cond.into_int_value(),
                         loop_block,
+                        after_block,
                     )
                     .unwrap();
             }
