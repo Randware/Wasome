@@ -577,11 +577,14 @@ fn analyze_if_enum_variant(
         *to_analyze.assignment_expression().position(),
     );
 
-    if typed_condition.data_type() != DataType::Bool {
-        return Err(SemanticError::ConditionNotBoolean {
-            span: *to_analyze.assignment_expression().position(),
-        });
-    }
+    match typed_condition.data_type() {
+        DataType::Enum(en) if en == condition_enum => (),
+        _ => {
+            return Err(SemanticError::ConditionNotBoolean {
+                span: *to_analyze.assignment_expression().position(),
+            });
+        }
+    };
 
     function_symbol_mapper.enter_scope();
     let inner_res1 = (|| -> Result<_, SemanticError> {

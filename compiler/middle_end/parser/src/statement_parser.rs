@@ -265,6 +265,11 @@ pub fn statement_parser<'src>()
             struct_field_assignment
                 .map(|str_assign| map(str_assign, Statement::StructFieldAssignment)),
             variable_declaration.map(|var_decl| map(var_decl, Statement::VariableDeclaration)),
+            if_enum_variant.map(|iev| {
+                map(iev, |inner| {
+                    Statement::ControlStructure(Box::new(ControlStructure::IfEnumVariant(inner)))
+                })
+            }),
             conditional.map(|cond| {
                 map(cond, |inner| {
                     Statement::ControlStructure(Box::new(ControlStructure::Conditional(inner)))
@@ -273,11 +278,6 @@ pub fn statement_parser<'src>()
             loop_statement.map(|lst| {
                 map(lst, |inner| {
                     Statement::ControlStructure(Box::new(ControlStructure::Loop(inner)))
-                })
-            }),
-            if_enum_variant.map(|iev| {
-                map(iev, |inner| {
-                    Statement::ControlStructure(Box::new(ControlStructure::IfEnumVariant(inner)))
                 })
             }),
             code_block.map(|code_block| map(code_block, Statement::Codeblock)),
