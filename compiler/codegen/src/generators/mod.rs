@@ -53,7 +53,7 @@ impl<'ctx> Codegen<'ctx> {
 
     fn impl_functions(
         &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        llvm_context: &LLVMContext<'ctx>,
         root: &DirectoryTraversalHelper<TypedAST>,
     ) {
         recursive_functions_of_dir(root, |func| match func.inner().function_type() {
@@ -63,8 +63,8 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     fn create_enum_drop_functions(
-        &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        &self,
+        llvm_context: &LLVMContext<'ctx>,
         root: &DirectoryTraversalHelper<TypedAST>,
     ) {
         recursive_enums_of_dir(root, |st| {
@@ -88,8 +88,8 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     fn create_struct_drop_functions(
-        &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        &self,
+        llvm_context: &LLVMContext<'ctx>,
         root: &DirectoryTraversalHelper<TypedAST>,
     ) {
         recursive_structs_of_dir(root, |st| {
@@ -131,8 +131,8 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     fn fill_enums(
-        &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        &self,
+        llvm_context: &LLVMContext<'ctx>,
         root: &DirectoryTraversalHelper<TypedAST>,
     ) {
         recursive_enums_of_dir(root, |st| {
@@ -162,11 +162,7 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
-    fn fill_structs(
-        &mut self,
-        llvm_context: &mut LLVMContext,
-        root: &DirectoryTraversalHelper<TypedAST>,
-    ) {
+    fn fill_structs(&self, llvm_context: &LLVMContext, root: &DirectoryTraversalHelper<TypedAST>) {
         recursive_structs_of_dir(root, |st| {
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
@@ -250,8 +246,8 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     fn register_structs(
-        &mut self,
-        llvm_context: &mut LLVMContext<'ctx>,
+        &self,
+        llvm_context: &LLVMContext<'ctx>,
         root: &DirectoryTraversalHelper<TypedAST>,
     ) {
         let module = llvm_context.module();
