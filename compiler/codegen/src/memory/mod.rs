@@ -53,7 +53,7 @@ impl<'ctx> Codegen<'ctx> {
                         "drop_load",
                     )
                     .unwrap();
-                self.compile_val_drop(llvm_context, func, dt, val)
+                self.compile_val_drop(llvm_context, func, dt, val);
             }
             _ => ()
         }
@@ -68,10 +68,10 @@ impl<'ctx> Codegen<'ctx> {
     ) {
         match dt {
             DataType::Struct(st) => {
-                self.compile_struct_dec_refcount(llvm_context, func, st, to_generate.into_pointer_value())
+                self.compile_struct_dec_refcount(llvm_context, func, st, to_generate.into_pointer_value());
             }
             DataType::Enum(en) => {
-                self.compile_enum_dec_refcount(llvm_context, func, en, to_generate.into_pointer_value())
+                self.compile_enum_dec_refcount(llvm_context, func, en, to_generate.into_pointer_value());
             }
             _ => ()
         }
@@ -257,8 +257,8 @@ impl<'ctx> Codegen<'ctx> {
 
         for (i, field) in lowered.fields().iter().enumerate() {
             match field.data_type() {
-                DataType::Struct(st) => {
-                    let field = llvm_context
+                DataType::Struct(_) | DataType::Enum(_) => {
+                    let field_ptr = llvm_context
                         .builder()
                         .build_struct_gep(
                             lowered.lowered(),
@@ -267,19 +267,7 @@ impl<'ctx> Codegen<'ctx> {
                             "gep_field_drop",
                         )
                         .unwrap();
-                    self.compile_struct_dec_refcount(llvm_context, func, st, field);
-                }
-                DataType::Enum(en) => {
-                    let field = llvm_context
-                        .builder()
-                        .build_struct_gep(
-                            lowered.lowered(),
-                            to_generate,
-                            u32::try_from(i + 1).unwrap(),
-                            "gep_field_drop",
-                        )
-                        .unwrap();
-                    self.compile_enum_dec_refcount(llvm_context, func, en, field);
+                    self.compile_val_ref_drop(llvm_context, func, field.data_type(), field_ptr);
                 }
                 _ => (),
             }
@@ -297,7 +285,7 @@ impl<'ctx> Codegen<'ctx> {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_enum(en).expect("Unknown struct");
         let current_function = func.current_function();
-        
+
         let after_block = llvm_context.context().append_basic_block(current_function, "after");
         let cond_blocks = lowered
             .variants()
@@ -329,7 +317,7 @@ impl<'ctx> Codegen<'ctx> {
             .enumerate()
         {
             let no_match = cond_blocks.get(i + 1).copied().unwrap_or(after_block);
-            llvm_context.builder().position_at_end(*cond);
+            func.set_current_block(llvm_context.builder(), *cond);
             llvm_context
                 .builder()
                 .build_conditional_branch(
@@ -346,10 +334,10 @@ impl<'ctx> Codegen<'ctx> {
                     no_match,
                 )
                 .unwrap();
-            llvm_context.builder().position_at_end(*drop);
-            for (i, field) in variant.0.fields().iter().enumerate() {
-                match field {
-                    DataType::Struct(st) => {
+            func.set_current_block(llvm_context.builder(), *drop);
+            for (i, dt) in variant.0.fields().iter().enumerate() {
+                match dt {
+                    DataType::Struct(_) | DataType::Enum(_) => {
                         let field = llvm_context
                             .builder()
                             .build_struct_gep(
@@ -359,19 +347,7 @@ impl<'ctx> Codegen<'ctx> {
                                 "gep_field_drop",
                             )
                             .unwrap();
-                        self.compile_struct_dec_refcount(llvm_context, func, st, field);
-                    }
-                    DataType::Enum(en) => {
-                        let field = llvm_context
-                            .builder()
-                            .build_struct_gep(
-                                variant.1,
-                                to_generate,
-                                u32::try_from(i + 2).unwrap(),
-                                "gep_field_drop",
-                            )
-                            .unwrap();
-                        self.compile_enum_dec_refcount(llvm_context, func, en, field);
+                        self.compile_val_ref_drop(llvm_context, func, dt, field);
                     }
                     _ => (),
                 }
@@ -381,7 +357,7 @@ impl<'ctx> Codegen<'ctx> {
                 .build_unconditional_branch(after_block)
                 .unwrap();
         }
-        llvm_context.builder().position_at_end(after_block);
+        func.set_current_block(llvm_context.builder(), after_block);
         llvm_context.builder().build_free(to_generate).unwrap();
     }
 }
