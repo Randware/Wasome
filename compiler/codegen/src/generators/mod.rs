@@ -2,6 +2,7 @@ mod expression;
 mod function;
 mod statement;
 
+use crate::context::FunctionContext;
 use crate::symbols::{EnumInformation, StructInformation};
 use crate::{Codegen, context::LLVMContext};
 use ast::id::Id;
@@ -16,7 +17,6 @@ use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::{AST, TypedAST};
 use inkwell::types::BasicType;
 use std::iter::once;
-use crate::context::FunctionContext;
 
 impl<'ctx> Codegen<'ctx> {
     pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Vec<u8> {

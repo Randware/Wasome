@@ -60,7 +60,12 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         {
             if let DirectlyAvailableSymbol::Variable(var) = var {
                 let ptr = vars.lookup(var).expect("Unknown variable");
-                self.compile_val_ref_drop(llvm_context, statement_context.function_context_mut(), var.data_type(), ptr.pointer);
+                self.compile_val_ref_drop(
+                    llvm_context,
+                    statement_context.function_context_mut(),
+                    var.data_type(),
+                    ptr.pointer,
+                );
             }
         }
     }
@@ -226,11 +231,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
 
         llvm_context
             .builder()
-            .build_conditional_branch(
-                cond.into_int_value(),
-                true_block,
-                false_block,
-            )
+            .build_conditional_branch(cond.into_int_value(), true_block, false_block)
             .unwrap();
         statement_context.set_current_block(llvm_context, after_block);
     }
@@ -270,11 +271,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 let cond = self.compile_expression(llvm_context, vars, statement_context, cond);
                 llvm_context
                     .builder()
-                    .build_conditional_branch(
-                        cond.into_int_value(),
-                        loop_block,
-                        after_block,
-                    )
+                    .build_conditional_branch(cond.into_int_value(), loop_block, after_block)
                     .unwrap();
             }
             LoopType::For {
@@ -297,11 +294,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 let cond = self.compile_expression(llvm_context, vars, statement_context, cond);
                 llvm_context
                     .builder()
-                    .build_conditional_branch(
-                        cond.into_int_value(),
-                        loop_block,
-                        after_block,
-                    )
+                    .build_conditional_branch(cond.into_int_value(), loop_block, after_block)
                     .unwrap();
             }
         }
@@ -468,7 +461,12 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .expect("Unknown struct field");
         let val =
             self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
-        self.compile_val_ref_drop(llvm_context, statement_context.function_context_mut(), to_generate.struct_field().data_type(), field);
+        self.compile_val_ref_drop(
+            llvm_context,
+            statement_context.function_context_mut(),
+            to_generate.struct_field().data_type(),
+            field,
+        );
         llvm_context.builder().build_store(field, val).unwrap();
     }
 
