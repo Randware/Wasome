@@ -2,9 +2,11 @@ mod expression;
 mod function;
 mod statement;
 
-use crate::context::FunctionContext;
-use crate::symbols::{EnumInformation, StructInformation};
+use crate::context::{FunctionContext, StatementContext};
+use crate::symbols::{EnumInformation, StructInformation, VariableTable};
 use crate::{Codegen, context::LLVMContext};
+use ast::data_type::{DataType, Typed};
+use ast::expression::FunctionCall;
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::FunctionType;
@@ -16,6 +18,7 @@ use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::{AST, TypedAST};
 use inkwell::types::BasicType;
+use inkwell::values::CallSiteValue;
 use std::iter::once;
 
 impl<'ctx> Codegen<'ctx> {
@@ -270,6 +273,50 @@ impl<'ctx> Codegen<'ctx> {
                     .is_none()
             );
         });
+    }
+
+    fn compile_call(
+        &mut self,
+        llvm_context: &LLVMContext<'ctx>,
+        vars: &VariableTable<'ctx>,
+        statement_context: &mut StatementContext<'ctx, '_>,
+        to_generate: &FunctionCall<TypedAST>,
+    ) -> CallSiteValue<'ctx> {
+        let func = llvm_context
+            .type_registry()
+            .get_function(to_generate.function())
+            .expect("Call to unknown function!");
+        let args = to_generate
+            .args()
+            .iter()
+            .map(|arg| self.compile_expression(llvm_context, vars, statement_context, arg))
+            .collect::<Vec<_>>();
+        let ret = llvm_context
+            .builder()
+            .build_call(
+                func,
+                &args.iter().copied().map(Into::into).collect::<Vec<_>>(),
+                "call",
+            )
+            .unwrap();
+        for arg in args.iter().zip(to_generate.args()) {
+            match arg.1.data_type() {
+                DataType::Struct(st) => self.compile_struct_dec_refcount(
+                    llvm_context,
+                    statement_context.function_context_mut(),
+                    &st,
+                    arg.0.into_pointer_value(),
+                ),
+                DataType::Enum(en) => self.compile_enum_dec_refcount(
+                    llvm_context,
+                    statement_context.function_context_mut(),
+                    &en,
+                    arg.0.into_pointer_value(),
+                ),
+                _ => (),
+            }
+        }
+        ret
     }
 }
 

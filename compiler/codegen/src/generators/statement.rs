@@ -384,45 +384,14 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &FunctionCall<TypedAST>,
     ) {
-        let func = llvm_context
-            .type_registry()
-            .get_function(to_generate.function())
-            .expect("Call to unknown function!");
-        let args = to_generate
-            .args()
-            .iter()
-            .map(|arg| {
-                self.compile_expression(llvm_context, vars, statement_context, arg)
-                    .into()
-            })
-            .collect::<Vec<_>>();
+        let call = self.compile_call(llvm_context, vars, statement_context, to_generate);
         debug_assert!(
-            llvm_context
-                .builder()
-                .build_call(func, &args, "call")
-                .unwrap()
+            call
                 .try_as_basic_value()
                 .basic()
                 .is_none(),
             "Non-void call as statement"
         );
-        for arg in args.iter().zip(to_generate.args()) {
-            match arg.1.data_type() {
-                DataType::Struct(st) => self.compile_struct_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context_mut(),
-                    &st,
-                    arg.0.into_pointer_value(),
-                ),
-                DataType::Enum(en) => self.compile_enum_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context_mut(),
-                    &en,
-                    arg.0.into_pointer_value(),
-                ),
-                _ => (),
-            }
-        }
     }
 
     pub(crate) fn compile_struct_field_assignment(

@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic, clippy::nursery)]
 mod context;
 mod generators;
 mod global_registry;

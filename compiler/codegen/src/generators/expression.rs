@@ -23,7 +23,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     ) -> BasicValueEnum<'ctx> {
         match to_generate {
             Expression::FunctionCall(call) => {
-                self.compile_call(llvm_context, vars, statement_context, call)
+                self.compile_nonvoid_call(llvm_context, vars, statement_context, call)
             }
             Expression::MethodCall(_) => unreachable!(),
             Expression::Variable(var) => self.compile_var_access(llvm_context, vars, var),
@@ -444,51 +444,17 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
-    pub(crate) fn compile_call(
+    pub(crate) fn compile_nonvoid_call(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
         vars: &VariableTable<'ctx>,
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &FunctionCall<TypedAST>,
     ) -> BasicValueEnum<'ctx> {
-        let func = llvm_context
-            .type_registry()
-            .get_function(to_generate.function())
-            .expect("Call to unknown function!");
-        let args = to_generate
-            .args()
-            .iter()
-            .map(|arg| self.compile_expression(llvm_context, vars, statement_context, arg))
-            .collect::<Vec<_>>();
-        let ret = llvm_context
-            .builder()
-            .build_call(
-                func,
-                &args.iter().copied().map(Into::into).collect::<Vec<_>>(),
-                "call",
-            )
-            .unwrap()
+        self.compile_call(llvm_context, vars, statement_context, to_generate)
             .try_as_basic_value()
             .basic()
-            .expect("Void call as expression");
-        for arg in args.iter().zip(to_generate.args()) {
-            match arg.1.data_type() {
-                DataType::Struct(st) => self.compile_struct_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context_mut(),
-                    &st,
-                    arg.0.into_pointer_value(),
-                ),
-                DataType::Enum(en) => self.compile_enum_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context_mut(),
-                    &en,
-                    arg.0.into_pointer_value(),
-                ),
-                _ => (),
-            }
-        }
-        ret
+            .expect("Void call as expression")
     }
 
     pub(crate) fn compile_new_struct(
