@@ -75,7 +75,7 @@ impl DataType {
             DataType::S64 |
             DataType::F64 |
             DataType::Struct(_) |
-            DataType::Enum(_) => 8
+            DataType::Enum(_) => 4
         }
     }
 }
