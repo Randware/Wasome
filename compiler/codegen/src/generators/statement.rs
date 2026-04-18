@@ -60,25 +60,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         {
             if let DirectlyAvailableSymbol::Variable(var) = var {
                 let ptr = vars.lookup(var).expect("Unknown variable");
-                match var.data_type() {
-                    DataType::Struct(st) => {
-                        self.compile_struct_dec_refcount(
-                            llvm_context,
-                            statement_context.function_context().current_function(),
-                            st,
-                            ptr.pointer,
-                        );
-                    }
-                    DataType::Enum(en) => {
-                        self.compile_enum_dec_refcount(
-                            llvm_context,
-                            statement_context.function_context().current_function(),
-                            en,
-                            ptr.pointer,
-                        );
-                    }
-                    _ => (),
-                }
+                self.compile_val_ref_drop(llvm_context, statement_context.function_context_mut(), var.data_type(), ptr.pointer);
             }
         }
     }
@@ -105,7 +87,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     .unwrap();
                 self.compile_struct_dec_refcount(
                     llvm_context,
-                    statement_context.function_context().current_function(),
+                    statement_context.function_context_mut(),
                     st,
                     to_drop.into_pointer_value(),
                 );
@@ -121,7 +103,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     .unwrap();
                 self.compile_enum_dec_refcount(
                     llvm_context,
-                    statement_context.function_context().current_function(),
+                    statement_context.function_context_mut(),
                     en,
                     to_drop.into_pointer_value(),
                 );
@@ -435,13 +417,13 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             match arg.1.data_type() {
                 DataType::Struct(st) => self.compile_struct_dec_refcount(
                     llvm_context,
-                    statement_context.function_context().current_function(),
+                    statement_context.function_context_mut(),
                     &st,
                     arg.0.into_pointer_value(),
                 ),
                 DataType::Enum(en) => self.compile_enum_dec_refcount(
                     llvm_context,
-                    statement_context.function_context().current_function(),
+                    statement_context.function_context_mut(),
                     &en,
                     arg.0.into_pointer_value(),
                 ),
@@ -484,43 +466,9 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 "field_access_gep",
             )
             .expect("Unknown struct field");
-        match to_generate.struct_field().data_type() {
-            DataType::Struct(st) => {
-                let to_drop = llvm_context
-                    .builder()
-                    .build_load(
-                        self.context.ptr_type(AddressSpace::default()),
-                        field,
-                        "drop_load",
-                    )
-                    .unwrap();
-                self.compile_struct_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context().current_function(),
-                    st,
-                    to_drop.into_pointer_value(),
-                );
-            }
-            DataType::Enum(en) => {
-                let to_drop = llvm_context
-                    .builder()
-                    .build_load(
-                        self.context.ptr_type(AddressSpace::default()),
-                        field,
-                        "drop_load",
-                    )
-                    .unwrap();
-                self.compile_enum_dec_refcount(
-                    llvm_context,
-                    statement_context.function_context().current_function(),
-                    en,
-                    to_drop.into_pointer_value(),
-                );
-            }
-            _ => (),
-        }
         let val =
             self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
+        self.compile_val_ref_drop(llvm_context, statement_context.function_context_mut(), to_generate.struct_field().data_type(), field);
         llvm_context.builder().build_store(field, val).unwrap();
     }
 
@@ -620,7 +568,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         statement_context.set_current_block(llvm_context, after_block);
         self.compile_enum_dec_refcount(
             llvm_context,
-            statement_context.function_context().current_function(),
+            statement_context.function_context_mut(),
             enum_type,
             of,
         );

@@ -64,9 +64,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 "var_load",
             )
             .unwrap();
-        if to_generate.data_type().is_prt() {
-            self.compile_inc_refcount(llvm_context, val.into_pointer_value());
-        }
+        self.compile_val_create(llvm_context, val);
         val
     }
 
@@ -477,13 +475,13 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             match arg.1.data_type() {
                 DataType::Struct(st) => self.compile_struct_dec_refcount(
                     llvm_context,
-                    statement_context.function_context().current_function(),
+                    statement_context.function_context_mut(),
                     &st,
                     arg.0.into_pointer_value(),
                 ),
                 DataType::Enum(en) => self.compile_enum_dec_refcount(
                     llvm_context,
-                    statement_context.function_context().current_function(),
+                    statement_context.function_context_mut(),
                     &en,
                     arg.0.into_pointer_value(),
                 ),
@@ -601,12 +599,10 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 "var_load",
             )
             .unwrap();
-        if to_generate.data_type().is_prt() {
-            self.compile_inc_refcount(llvm_context, val.into_pointer_value());
-        }
+        self.compile_val_create(llvm_context, val);
         self.compile_struct_dec_refcount(
             llvm_context,
-            statement_context.function_context().current_function(),
+            statement_context.function_context_mut(),
             &struct_type,
             of,
         );

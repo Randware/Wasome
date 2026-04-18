@@ -1,10 +1,10 @@
 use crate::Codegen;
-use crate::context::LLVMContext;
+use crate::context::{FunctionContext, LLVMContext};
 use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::{EnumSymbol, StructSymbol};
-use inkwell::IntPredicate;
-use inkwell::values::{BasicValue, FunctionValue, PointerValue};
+use inkwell::{AddressSpace, IntPredicate};
+use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue};
 
 impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_inc_refcount(
@@ -36,82 +36,89 @@ impl<'ctx> Codegen<'ctx> {
         llvm_context.builder().build_store(refc, inc).unwrap();
     }
 
+    pub(crate) fn compile_val_ref_drop(
+        &self,
+        llvm_context: &LLVMContext<'ctx>,
+        func: &mut FunctionContext<'ctx>,
+        dt: &DataType,
+        to_generate: PointerValue<'ctx>,
+    ) {
+        match dt {
+            DataType::Struct(_) | DataType::Enum(_) => {
+                let val = llvm_context
+                    .builder()
+                    .build_load(
+                        self.context.ptr_type(AddressSpace::default()),
+                        to_generate,
+                        "drop_load",
+                    )
+                    .unwrap();
+                self.compile_val_drop(llvm_context, func, dt, val)
+            }
+            _ => ()
+        }
+    }
+
+    pub(crate) fn compile_val_drop(
+        &self,
+        llvm_context: &LLVMContext<'ctx>,
+        func: &mut FunctionContext<'ctx>,
+        dt: &DataType,
+        to_generate: BasicValueEnum<'ctx>,
+    ) {
+        match dt {
+            DataType::Struct(st) => {
+                self.compile_struct_dec_refcount(llvm_context, func, st, to_generate.into_pointer_value())
+            }
+            DataType::Enum(en) => {
+                self.compile_enum_dec_refcount(llvm_context, func, en, to_generate.into_pointer_value())
+            }
+            _ => ()
+        }
+    }
+
+    pub(crate) fn compile_val_create(
+        &self,
+        llvm_context: &LLVMContext<'ctx>,
+        to_generate: BasicValueEnum<'ctx>,
+    ) {
+        if to_generate.is_pointer_value() {
+            self.compile_inc_refcount(llvm_context, to_generate.into_pointer_value());
+        }
+    }
+
     pub(crate) fn compile_struct_dec_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
-        func: FunctionValue<'ctx>,
+        func: &mut FunctionContext<'ctx>,
         struc: &StructSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_struct(struc).expect("Unknown struct");
-        let refc = llvm_context
-            .builder()
-            .build_struct_gep(
-                llvm_context.global_registry().base_heap_allocated(),
-                to_generate,
-                0,
-                "gep_refc_dec",
-            )
-            .unwrap();
-        let refc_val = llvm_context
-            .builder()
-            .build_load(self.context.i32_type(), refc, "load_refc_dec")
-            .unwrap();
-        let dec = llvm_context
-            .builder()
-            .build_int_sub(
-                refc_val.into_int_value(),
-                self.context.i32_type().const_int(1, false),
-                "dec_refc",
-            )
-            .unwrap();
-        llvm_context.builder().build_store(refc, dec).unwrap();
+        self.compile_dec_refcount(llvm_context, func, lowered.on_drop(), to_generate);
 
-        let drop_bb = llvm_context.context().append_basic_block(func, "drop");
-        let after_bb = llvm_context.context().append_basic_block(func, "after");
-
-        llvm_context
-            .builder()
-            .build_conditional_branch(
-                llvm_context
-                    .builder()
-                    .build_int_compare(
-                        IntPredicate::EQ,
-                        dec,
-                        llvm_context.context().i32_type().const_int(0, false),
-                        "cond",
-                    )
-                    .unwrap(),
-                drop_bb,
-                after_bb,
-            )
-            .unwrap();
-        llvm_context.builder().position_at_end(drop_bb);
-        llvm_context
-            .builder()
-            .build_call(
-                lowered.on_drop(),
-                &[to_generate.as_basic_value_enum().into()],
-                "drop_struct",
-            )
-            .unwrap();
-        llvm_context
-            .builder()
-            .build_unconditional_branch(after_bb)
-            .unwrap();
-        llvm_context.builder().position_at_end(after_bb);
     }
 
     pub(crate) fn compile_enum_dec_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
-        func: FunctionValue<'ctx>,
+        func: &mut FunctionContext<'ctx>,
         enu: &EnumSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_enum(enu).expect("Unknown enum");
+        self.compile_dec_refcount(llvm_context, func, lowered.on_drop(), to_generate);
+    }
+
+    pub(crate) fn compile_dec_refcount(
+        &self,
+        llvm_context: &LLVMContext<'ctx>,
+        func: &mut FunctionContext<'ctx>,
+        on_drop: FunctionValue<'ctx>,
+        to_generate: PointerValue<'ctx>,
+    ) {
         let refc = llvm_context
             .builder()
             .build_struct_gep(
@@ -135,8 +142,9 @@ impl<'ctx> Codegen<'ctx> {
             .unwrap();
         llvm_context.builder().build_store(refc, dec).unwrap();
 
-        let drop_bb = llvm_context.context().append_basic_block(func, "drop");
-        let after_bb = llvm_context.context().append_basic_block(func, "after");
+        let current_function = func.current_function();
+        let drop_bb = llvm_context.context().append_basic_block(current_function, "drop");
+        let after_bb = llvm_context.context().append_basic_block(current_function, "after");
 
         llvm_context
             .builder()
@@ -154,11 +162,11 @@ impl<'ctx> Codegen<'ctx> {
                 after_bb,
             )
             .unwrap();
-        llvm_context.builder().position_at_end(drop_bb);
+        func.set_current_block(llvm_context.builder(), drop_bb);
         llvm_context
             .builder()
             .build_call(
-                lowered.on_drop(),
+                on_drop,
                 &[to_generate.as_basic_value_enum().into()],
                 "drop_struct",
             )
@@ -167,13 +175,13 @@ impl<'ctx> Codegen<'ctx> {
             .builder()
             .build_unconditional_branch(after_bb)
             .unwrap();
-        llvm_context.builder().position_at_end(after_bb);
+        func.set_current_block(llvm_context.builder(), after_bb);
     }
 
     pub(crate) fn compile_struct_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
-        func: FunctionValue<'ctx>,
+        func: &mut FunctionContext<'ctx>,
         struc: &StructSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
@@ -182,7 +190,7 @@ impl<'ctx> Codegen<'ctx> {
 
         let after_block = llvm_context
             .context()
-            .append_basic_block(func, "after_block");
+            .append_basic_block(func.current_function(), "after_block");
 
         match lowered.predrop() {
             None => {
@@ -194,7 +202,7 @@ impl<'ctx> Codegen<'ctx> {
             Some(predrop) => {
                 let drop_abort_block = llvm_context
                     .context()
-                    .append_basic_block(func, "drop_abort_block");
+                    .append_basic_block(func.current_function(), "drop_abort_block");
 
                 // Set the refcount to 2
                 // This way, it can never be dropped again and can't cause infinite loops
@@ -239,13 +247,13 @@ impl<'ctx> Codegen<'ctx> {
                         drop_abort_block,
                     )
                     .unwrap();
-                llvm_context.builder().position_at_end(drop_abort_block);
+                func.set_current_block(llvm_context.builder(), drop_abort_block);
                 // Remove the ghost refcount
                 self.compile_struct_dec_refcount(llvm_context, func, struc, to_generate);
                 llvm_context.builder().build_return(None).unwrap();
             }
         }
-        llvm_context.builder().position_at_end(after_block);
+        func.set_current_block(llvm_context.builder(), after_block);
 
         for (i, field) in lowered.fields().iter().enumerate() {
             match field.data_type() {
@@ -282,23 +290,24 @@ impl<'ctx> Codegen<'ctx> {
     pub(crate) fn compile_enum_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
-        func: FunctionValue<'ctx>,
+        func: &mut FunctionContext<'ctx>,
         en: &EnumSymbol<TypedAST>,
         to_generate: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_enum(en).expect("Unknown struct");
-
-        let after_block = llvm_context.context().append_basic_block(func, "after");
+        let current_function = func.current_function();
+        
+        let after_block = llvm_context.context().append_basic_block(current_function, "after");
         let cond_blocks = lowered
             .variants()
             .iter()
-            .map(|_| llvm_context.context().append_basic_block(func, "cond"))
+            .map(|_| llvm_context.context().append_basic_block(current_function, "cond"))
             .collect::<Vec<_>>();
         let drop_blocks = lowered
             .variants()
             .iter()
-            .map(|_| llvm_context.context().append_basic_block(func, "drop"))
+            .map(|_| llvm_context.context().append_basic_block(current_function, "drop"))
             .collect::<Vec<_>>();
         let tag = llvm_context
             .builder()

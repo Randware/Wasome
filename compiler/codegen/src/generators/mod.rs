@@ -16,6 +16,7 @@ use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::{AST, TypedAST};
 use inkwell::types::BasicType;
 use std::iter::once;
+use crate::context::FunctionContext;
 
 impl<'ctx> Codegen<'ctx> {
     pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Vec<u8> {
@@ -74,11 +75,12 @@ impl<'ctx> Codegen<'ctx> {
             let func = lowered.on_drop();
             drop(tr);
             let main_bb = self.context.append_basic_block(func, "main");
+            let mut fc = FunctionContext::new(func, main_bb);
             llvm_context.builder().position_at_end(main_bb);
 
             self.compile_enum_drop(
                 llvm_context,
-                func,
+                &mut fc,
                 symbol,
                 func.get_first_param()
                     .expect("Drop function takes no parameters")
@@ -117,11 +119,12 @@ impl<'ctx> Codegen<'ctx> {
             let func = lowered.on_drop();
             drop(tr);
             let main_bb = self.context.append_basic_block(func, "main");
+            let mut fc = FunctionContext::new(func, main_bb);
             llvm_context.builder().position_at_end(main_bb);
 
             self.compile_struct_drop(
                 llvm_context,
-                func,
+                &mut fc,
                 symbol,
                 func.get_first_param()
                     .expect("Drop function takes no parameters")

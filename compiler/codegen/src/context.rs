@@ -207,6 +207,10 @@ impl<'ctx, 'fc> StatementContext<'ctx, 'fc> {
         self.function_context
     }
 
+    pub const fn function_context_mut(&mut self) -> &mut FunctionContext<'ctx> {
+        self.function_context
+    }
+
     pub fn set_current_block(&mut self, llvm_context: &LLVMContext<'ctx>, block: BasicBlock<'ctx>) {
         self.function_context
             .set_current_block(llvm_context.builder(), block);
