@@ -75,17 +75,26 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             Literal::S32(val) =>
             {
                 #[allow(clippy::cast_sign_loss)]
-                BasicValueEnum::IntValue(self.context.i32_type().const_int(*val as u64, true))
+                self.context
+                    .i32_type()
+                    .const_int(*val as u64, true)
+                    .as_basic_value_enum()
             }
-            Literal::Bool(val) => {
-                BasicValueEnum::IntValue(self.context.bool_type().const_int(u64::from(*val), false))
-            }
-            Literal::Char(val) => {
-                BasicValueEnum::IntValue(self.context.i32_type().const_int(u64::from(*val), false))
-            }
-            Literal::F64(val) => {
-                BasicValueEnum::FloatValue(self.context.f64_type().const_float(*val))
-            }
+            Literal::Bool(val) => self
+                .context
+                .bool_type()
+                .const_int(u64::from(*val), false)
+                .as_basic_value_enum(),
+            Literal::Char(val) => self
+                .context
+                .i32_type()
+                .const_int(u64::from(*val), false)
+                .as_basic_value_enum(),
+            Literal::F64(val) => self
+                .context
+                .f64_type()
+                .const_float(*val)
+                .as_basic_value_enum(),
         }
     }
 
@@ -104,19 +113,13 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 if to_generate.data_type().is_float() {
                     llvm_context
                         .builder()
-                        .build_float_neg(
-                            inner.into_float_value(),
-                            "negative",
-                        )
+                        .build_float_neg(inner.into_float_value(), "negative")
                         .unwrap()
                         .as_basic_value_enum()
                 } else {
                     llvm_context
                         .builder()
-                        .build_int_neg(
-                            inner.into_int_value(),
-                            "negative",
-                        )
+                        .build_int_neg(inner.into_int_value(), "negative")
                         .unwrap()
                         .as_basic_value_enum()
                 }
@@ -356,7 +359,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             "int_binop",
         )
         .unwrap();
-        BasicValueEnum::IntValue(val)
+        val.as_basic_value_enum()
     }
 
     fn compile_arithmetic_binop(
@@ -384,30 +387,28 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         ) -> Result<IntValue<'ctx>, BuilderError>,
     ) -> BasicValueEnum<'ctx> {
         if dt.is_float() {
-            BasicValueEnum::FloatValue(
-                float_op(
-                    llvm_context.builder(),
-                    lhs.into_float_value(),
-                    rhs.into_float_value(),
-                    "float_binop",
-                )
-                .unwrap(),
+            float_op(
+                llvm_context.builder(),
+                lhs.into_float_value(),
+                rhs.into_float_value(),
+                "float_binop",
             )
+            .unwrap()
+            .as_basic_value_enum()
         } else {
             let op: &dyn Fn(_, _, _, _) -> _ = if dt.is_sint() {
                 &signed_op
             } else {
                 &unsigned_op
             };
-            BasicValueEnum::IntValue(
-                op(
-                    llvm_context.builder(),
-                    lhs.into_int_value(),
-                    rhs.into_int_value(),
-                    "int_binop",
-                )
-                .unwrap(),
+            op(
+                llvm_context.builder(),
+                lhs.into_int_value(),
+                rhs.into_int_value(),
+                "int_binop",
             )
+            .unwrap()
+            .as_basic_value_enum()
         }
     }
 
@@ -421,29 +422,27 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         signed_int_op: IntPredicate,
     ) -> BasicValueEnum<'ctx> {
         if dt.is_float() {
-            BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_float_compare(
-                        float_op,
-                        lhs.into_float_value(),
-                        lhs.into_float_value(),
-                        "cmp",
-                    )
-                    .unwrap(),
-            )
+            llvm_context
+                .builder()
+                .build_float_compare(
+                    float_op,
+                    lhs.into_float_value(),
+                    lhs.into_float_value(),
+                    "cmp",
+                )
+                .unwrap()
+                .as_basic_value_enum()
         } else {
             let op = if dt.is_sint() {
                 signed_int_op
             } else {
                 unsigned_int_op
             };
-            BasicValueEnum::IntValue(
-                llvm_context
-                    .builder()
-                    .build_int_compare(op, lhs.into_int_value(), rhs.into_int_value(), "cmp")
-                    .unwrap(),
-            )
+            llvm_context
+                .builder()
+                .build_int_compare(op, lhs.into_int_value(), rhs.into_int_value(), "cmp")
+                .unwrap()
+                .as_basic_value_enum()
         }
     }
 
@@ -480,19 +479,13 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     llvm_context,
                     statement_context.function_context().current_function(),
                     &st,
-                    match arg.0 {
-                        BasicValueEnum::PointerValue(p) => *p,
-                        _ => unreachable!(),
-                    },
+                    arg.0.into_pointer_value(),
                 ),
                 DataType::Enum(en) => self.compile_enum_dec_refcount(
                     llvm_context,
                     statement_context.function_context().current_function(),
                     &en,
-                    match arg.0 {
-                        BasicValueEnum::PointerValue(p) => *p,
-                        _ => unreachable!(),
-                    },
+                    arg.0.into_pointer_value(),
                 ),
                 _ => (),
             }
@@ -528,7 +521,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             llvm_context.builder().build_store(field, val).unwrap();
         }
         self.compile_inc_refcount(llvm_context, alloc);
-        BasicValueEnum::PointerValue(alloc)
+        alloc.as_basic_value_enum()
     }
 
     pub(crate) fn compile_new_enum(
@@ -567,7 +560,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             )
             .unwrap();
         self.compile_inc_refcount(llvm_context, alloc);
-        BasicValueEnum::PointerValue(alloc)
+        alloc.as_basic_value_enum()
     }
 
     pub(crate) fn compile_sfa(
@@ -577,15 +570,9 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &StructFieldAccess<TypedAST>,
     ) -> BasicValueEnum<'ctx> {
-        let of = match self.compile_expression(
-            llvm_context,
-            vars,
-            statement_context,
-            to_generate.of(),
-        ) {
-            BasicValueEnum::PointerValue(p) => p,
-            _ => unreachable!(),
-        };
+        let of = self
+            .compile_expression(llvm_context, vars, statement_context, to_generate.of())
+            .into_pointer_value();
         let DataType::Struct(struct_type) = to_generate.of().data_type() else {
             unreachable!()
         };

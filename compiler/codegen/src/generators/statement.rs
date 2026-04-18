@@ -249,10 +249,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     .builder()
                     .build_int_compare(
                         IntPredicate::EQ,
-                        match cond {
-                            inkwell::values::BasicValueEnum::IntValue(i) => i,
-                            _ => unreachable!(),
-                        },
+                        cond.into_int_value(),
                         llvm_context.context().bool_type().const_zero(),
                         "cond",
                     )
@@ -304,10 +301,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                             .builder()
                             .build_int_compare(
                                 IntPredicate::EQ,
-                                match cond {
-                                    inkwell::values::BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
+                                cond.into_int_value(),
                                 llvm_context.context().bool_type().const_zero(),
                                 "cond",
                             )
@@ -342,10 +336,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                             .builder()
                             .build_int_compare(
                                 IntPredicate::EQ,
-                                match cond {
-                                    inkwell::values::BasicValueEnum::IntValue(i) => i,
-                                    _ => unreachable!(),
-                                },
+                                cond.into_int_value(),
                                 llvm_context.context().bool_type().const_zero(),
                                 "cond",
                             )
@@ -490,15 +481,14 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         statement_context: &mut StatementContext<'ctx, 'fc>,
         to_generate: &StructFieldAssignment<TypedAST>,
     ) {
-        let of = match self.compile_expression(
-            llvm_context,
-            vars,
-            statement_context,
-            to_generate.struct_source(),
-        ) {
-            inkwell::values::BasicValueEnum::PointerValue(p) => p,
-            _ => unreachable!(),
-        };
+        let of = self
+            .compile_expression(
+                llvm_context,
+                vars,
+                statement_context,
+                to_generate.struct_source(),
+            )
+            .into_pointer_value();
         let DataType::Struct(struct_type) = to_generate.struct_source().data_type() else {
             unreachable!()
         };
@@ -566,15 +556,14 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         statement: &StatementTraversalHelper<TypedAST>,
         to_generate: &IfEnumVariant<TypedAST>,
     ) {
-        let of = match self.compile_expression(
-            llvm_context,
-            vars,
-            statement_context,
-            to_generate.assignment_expression(),
-        ) {
-            inkwell::values::BasicValueEnum::PointerValue(p) => p,
-            _ => unreachable!(),
-        };
+        let of = self
+            .compile_expression(
+                llvm_context,
+                vars,
+                statement_context,
+                to_generate.assignment_expression(),
+            )
+            .into_pointer_value();
         let enum_type = to_generate.condition_enum();
         let tr = llvm_context.type_registry();
         let enum_type_lowered = tr.get_enum(enum_type).expect("Unregistered enum");
