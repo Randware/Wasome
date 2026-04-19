@@ -1,6 +1,6 @@
 use crate::global_registry::GlobalRegistry;
 use crate::symbols::SymbolRegistry;
-use crate::types::{CodegenTypes, OptLevel};
+use crate::types::OptLevel;
 use ast::data_type::DataType;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
@@ -22,8 +22,7 @@ use std::io::Write;
 ///
 /// * **LLVM resources** - The [`Context`], [`Builder`], [`Module`], and [`TargetMachine`] for
 ///   all IR operations and target-specific code emission.
-/// * **Type system** - Cached [`CodegenTypes`] for fast LLVM type access and the [`lower_type`]
-///   method for converting AST [`DataType`] values to LLVM types.
+/// * **Type system** - The [`lower_type`] method for converting AST [`DataType`] values to LLVM types.
 /// * **Symbol registry** - A [`RefCell<SymbolRegistry>`] that maps AST symbols to their LLVM
 ///   representations, accessed via [`type_registry`] and [`type_registry_mut`].
 /// * **Global registry** - Shared LLVM types and function declarations via [`GlobalRegistry`].
@@ -49,8 +48,6 @@ pub struct LLVMContext<'ctx> {
     machine: TargetMachine,
     /// The symbol registry, wrapped in a [`RefCell`] for interior mutability.
     registry: RefCell<SymbolRegistry<'ctx>>,
-    /// Cached LLVM type instances for common Rust data types.
-    types: CodegenTypes<'ctx>,
     /// The optimization level for the LLVM pass pipeline.
     opt_level: OptLevel,
     /// Shared LLVM types and function declarations.
@@ -64,8 +61,7 @@ impl<'ctx> LLVMContext<'ctx> {
     /// 1. Creates an LLVM [`Builder`] for instruction emission
     /// 2. Initializes the WebAssembly target
     /// 3. Creates a [`TargetMachine`] configured for wasm32-unknown-unknown
-    /// 4. Builds the [`CodegenTypes`] type cache from the target data layout
-    /// 5. Creates the LLVM [`Module`] named `"wasome"`
+    /// 4. Creates the LLVM [`Module`] named `"wasome"`
     /// 6. Creates the [`GlobalRegistry`] with shared types and function declarations
     /// 7. Sets the module's target triple and data layout to match the target machine
     ///
@@ -90,10 +86,6 @@ impl<'ctx> LLVMContext<'ctx> {
                 CodeModel::Default,
             )
             .unwrap();
-        let layout = machine.get_target_data().get_data_layout();
-
-        let types = CodegenTypes::new(context, &layout);
-
         let module = context.create_module("wasome");
 
         let global_registry = GlobalRegistry::new(context, &module);
@@ -106,7 +98,6 @@ impl<'ctx> LLVMContext<'ctx> {
             module,
             machine,
             registry: RefCell::new(SymbolRegistry::new()),
-            types,
             opt_level,
             global_registry,
         }
@@ -253,11 +244,6 @@ impl<'ctx> LLVMContext<'ctx> {
     /// Used for registering new types and functions during the compilation phases.
     pub fn type_registry_mut(&self) -> RefMut<'_, SymbolRegistry<'ctx>> {
         self.registry.borrow_mut()
-    }
-
-    /// Returns a reference to the cached [`CodegenTypes`].
-    pub const fn types(&self) -> &CodegenTypes<'ctx> {
-        &self.types
     }
 
     /// Returns a reference to the [`GlobalRegistry`] with shared types and declarations.

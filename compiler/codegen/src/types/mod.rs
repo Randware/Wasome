@@ -1,83 +1,85 @@
-use inkwell::types::FloatType;
-use inkwell::{
-    context::Context,
-    data_layout::DataLayout,
-    targets::TargetData,
-    types::{IntType, VoidType},
-};
-
-mod opt_level;
-pub use opt_level::OptLevel;
-
-/// Cached LLVM type instances for common Rust data types.
+/// Optimization level for LLVM pass pipeline execution.
 ///
-/// Pre-allocated during initialization to avoid repeated lookups during code generation.
-/// The [`usize`] type is determined dynamically based on the target data layout (pointer-sized integer).
+/// Maps to LLVM's New Pass Manager optimization pipelines. Each variant corresponds
+/// to a different trade-off between compile time and generated code performance.
 ///
-/// This struct is stored in [`LLVMContext`](crate::context::LLVMContext) and provides fast access
-/// to commonly used LLVM types throughout the compilation pipeline.
-pub struct CodegenTypes<'ctx> {
-    /// The void type, used for functions that return no value.
-    pub void: VoidType<'ctx>,
-    /// The pointer-sized integer type, determined by the target data layout.
-    pub usize: IntType<'ctx>,
-    /// The 64-bit unsigned integer type.
-    pub u64: IntType<'ctx>,
-    /// The 64-bit signed integer type.
-    pub i64: IntType<'ctx>,
-    /// The 64-bit floating-point type (double).
-    pub f64: FloatType<'ctx>,
-    /// The 32-bit unsigned integer type.
-    pub u32: IntType<'ctx>,
-    /// The 32-bit signed integer type.
-    pub i32: IntType<'ctx>,
-    /// The 32-bit floating-point type (float).
-    pub f32: FloatType<'ctx>,
-    /// The 16-bit unsigned integer type.
-    pub u16: IntType<'ctx>,
-    /// The 16-bit signed integer type.
-    pub i16: IntType<'ctx>,
-    /// The 8-bit unsigned integer type.
-    pub u8: IntType<'ctx>,
-    /// The 8-bit signed integer type.
-    pub i8: IntType<'ctx>,
-    /// The boolean type (1-bit integer).
-    pub bool: IntType<'ctx>,
-    /// The character type (32-bit integer, storing Unicode code points).
-    pub char: IntType<'ctx>,
+/// The optimization level is configured during LLVM context creation
+/// and determines which passes are applied via the LLVM pass pipeline.
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum OptLevel {
+    /// `-O0`: No optimization. Lowest compile time, best for debugging.
+    ///
+    /// Disables expensive passes like loop vectorization, unrolling, and interleaving.
+    /// The generated code preserves the original structure of the source for maximum debuggability.
+    O0,
+    /// `-O1`: Basic optimizations. Good for speeding up test runs.
+    ///
+    /// Applies a modest set of optimizations that improve performance without significantly
+    /// increasing compile time.
+    O1,
+    /// `-O2`: Standard release. Fast execution, reasonable compile time.
+    ///
+    /// The default optimization level for production builds. Applies a comprehensive set of
+    /// optimizations that provide strong runtime performance.
+    O2,
+    /// `-O3`: Max speed. Aggressive inlining and loop unrolling. Can bloat binary size.
+    ///
+    /// Applies the most aggressive optimization passes, including function inlining,
+    /// loop unrolling, and vectorization. May increase binary size significantly.
+    O3,
+    /// `-Os`: Optimize for size. Like O2, but restricts code bloat.
+    ///
+    /// Similar to O2 but with constraints to minimize generated code size.
+    Os,
+    /// `-Oz`: Minimum size at all costs. Disables unrolling.
+    ///
+    /// The most aggressive size optimization. Disables loop unrolling and other
+    /// transformations that favor code size over execution speed.
+    Oz,
 }
 
-impl<'ctx> CodegenTypes<'ctx> {
-    /// Creates a new `CodegenTypes` from the given LLVM context and target data layout.
+impl OptLevel {
+    /// Returns the LLVM New Pass Manager pipeline string for this optimization level.
     ///
-    /// The pointer-sized integer type (`usize`) is determined dynamically from the target
-    /// data layout using [`Context::ptr_sized_int_type`]. All other types are obtained
-    /// directly from the LLVM context.
+    /// The returned string is used to configure the optimization pipeline
+    /// via the LLVM pass builder.
     ///
-    /// # Arguments
+    /// # Returns
     ///
-    /// * `context` - The LLVM [`Context`] to obtain types from
-    /// * `layout` - The target data layout, used to determine the pointer-sized integer type
-    pub fn new(context: &'ctx Context, layout: &DataLayout) -> Self {
-        let target_data = TargetData::create(layout.as_str().to_str().unwrap());
-
-        let usize_type = context.ptr_sized_int_type(&target_data, None);
-
-        Self {
-            void: context.void_type(),
-            i32: context.i32_type(),
-            f32: context.f32_type(),
-            u16: context.i16_type(),
-            i16: context.i16_type(),
-            bool: context.bool_type(),
-            i8: context.i8_type(),
-            usize: usize_type,
-            u64: context.i64_type(),
-            i64: context.i64_type(),
-            f64: context.f64_type(),
-            u32: context.i32_type(),
-            u8: context.i8_type(),
-            char: context.i32_type(),
+    /// A static string in the format `"default::<level>"` that identifies the
+    /// optimization pipeline to run. For example, `"default<O2>"` for O2 optimization.
+    pub const fn as_llvm_pipeline(self) -> &'static str {
+        match self {
+            Self::O0 => "default<O0>",
+            Self::O1 => "default<O1>",
+            Self::O2 => "default<O2>",
+            Self::O3 => "default<O3>",
+            Self::Os => "default<Os>",
+            Self::Oz => "default<Oz>",
         }
     }
 }
+
+impl From<OptLevel> for &'static str {
+    /// Converts an [`OptLevel`] to its LLVM pipeline string representation.
+    ///
+    /// This is a convenience alias for [`OptLevel::as_llvm_pipeline`].
+    fn from(opt: OptLevel) -> Self {
+        opt.as_llvm_pipeline()
+    }
+}
+
+impl From<OptLevel> for inkwell::OptimizationLevel {
+    /// Converts an [`OptLevel`] to the corresponding [`inkwell::OptimizationLevel`].
+    ///
+    /// This mapping is used to configure the target machine's optimization level.
+    fn from(val: OptLevel) -> Self {
+        match val {
+            OptLevel::O0 => Self::None,
+            OptLevel::O1 => Self::Less,
+            OptLevel::O2 | OptLevel::Os | OptLevel::Oz => Self::Default,
+            OptLevel::O3 => Self::Aggressive,
+        }
+    }
+}
+
