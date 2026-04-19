@@ -169,6 +169,7 @@ name = "driver"
 version = "0.1.0"
 dependencies = [
  "ast",
+ "codegen",
  "error",
  "io",
  "ordered_hash_map",

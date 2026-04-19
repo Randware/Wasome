@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum OptLevel {
     // -O0: No optimization. Fastest compile, best for debugging
     O0,

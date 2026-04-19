@@ -6,7 +6,7 @@ mod memory;
 mod symbols;
 mod types;
 
-use crate::types::OptLevel;
+pub use types::OptLevel;
 use ast::TypedAST;
 use ast::symbol::FunctionSymbol;
 use bon::bon;

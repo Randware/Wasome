@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
+use codegen::OptLevel;
 
 pub trait LoadInformation: Debug {
     /// The name of the program
@@ -245,20 +246,4 @@ impl Project {
     pub fn path(&self) -> &Path {
         &self.path
     }
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum OptLevel {
-    // -O0: No optimization. Fastest compile, best for debugging
-    O0,
-    // -O1: Basic optimizations. Good for speeding up test runs
-    O1,
-    // -O2: Standard release. Fast execution, reasonable compile time
-    O2,
-    // -O3: Max speed. Aggressive inlining/unrolling. Can bloat binary
-    O3,
-    // -Os: Optimize for size. Like O2, but restricts code bloat
-    Os,
-    // -Oz: Minimum size at all costs. Disables unrolling
-    Oz,
 }
