@@ -4,19 +4,19 @@ mod statement;
 
 use crate::context::{FunctionContext, StatementContext};
 use crate::symbols::{EnumInformation, StructInformation, VariableTable};
-use crate::{context::LLVMContext, Codegen};
+use crate::{Codegen, context::LLVMContext};
 use ast::data_type::Typed;
 use ast::expression::FunctionCall;
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::FunctionType;
+use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
-use ast::traversal::FunctionContainer;
-use ast::{TypedAST, AST};
+use ast::{AST, TypedAST};
 use inkwell::types::BasicType;
 use inkwell::values::CallSiteValue;
 use std::iter::once;
@@ -46,7 +46,7 @@ impl<'ctx> Codegen<'ctx> {
 
         self.fill_enums(llvm_context, &root);
 
-        Self::register_functions(llvm_context, &root);
+        self.register_functions(llvm_context, &root);
 
         self.create_struct_drop_functions(llvm_context, &root);
 
@@ -190,6 +190,7 @@ impl<'ctx> Codegen<'ctx> {
     }
 
     fn register_functions(
+        &self,
         llvm_context: &mut LLVMContext,
         root: &DirectoryTraversalHelper<TypedAST>,
     ) {
@@ -205,27 +206,31 @@ impl<'ctx> Codegen<'ctx> {
                 || llvm_context.context().void_type().fn_type(&args, false),
                 |ret| llvm_context.lower_type(ret).fn_type(&args, false),
             );
-            let name = match func.inner().function_type() {
-                FunctionType::Regular(_) => mangle(symbol.name(), symbol.id()),
-                FunctionType::External => {
-                    let sizes = symbol
-                        .params()
-                        .iter()
-                        .map(|param| param.data_type().size_bytes())
-                        .map(|param| param.to_string())
-                        .collect::<Vec<_>>()
-                        .join("_");
-                    if sizes.is_empty() {
-                        symbol.name().to_string()
-                    } else {
-                        format!("{}_{}", symbol.name(), sizes)
+            let name = if symbol == self.main_function {
+                "_start".to_string()
+            } else {
+                match func.inner().function_type() {
+                    FunctionType::Regular(_) => mangle(symbol.name(), symbol.id()),
+                    FunctionType::External => {
+                        let sizes = symbol
+                            .params()
+                            .iter()
+                            .map(|param| param.data_type().size_bytes())
+                            .map(|param| param.to_string())
+                            .collect::<Vec<_>>()
+                            .join("_");
+                        if sizes.is_empty() {
+                            symbol.name().to_string()
+                        } else {
+                            format!("{}_{}", symbol.name(), sizes)
+                        }
                     }
                 }
             };
             let lowered = match module.get_function(&name) {
                 None => module.add_function(&name, lowered_type, None),
                 // We can only get here if it's an external function
-                Some(func) => func
+                Some(func) => func,
             };
             debug_assert!(
                 llvm_context

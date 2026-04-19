@@ -6,30 +6,54 @@ mod memory;
 mod symbols;
 mod types;
 
+use crate::types::OptLevel;
+use ast::TypedAST;
+use ast::symbol::FunctionSymbol;
 use bon::bon;
 use inkwell::context::Context;
-
-use crate::types::OptLevel;
+use std::rc::Rc;
 
 pub struct Codegen<'ctx> {
     context: &'ctx Context,
     opt_level: OptLevel,
+    main_function: Rc<FunctionSymbol<TypedAST>>,
 }
 
 #[bon]
 impl<'ctx> Codegen<'ctx> {
     #[builder]
-    pub const fn new(
+    pub fn new(
         context: &'ctx Context,
         #[builder(default = OptLevel::O0)] opt_level: OptLevel,
-    ) -> Self {
-        Self { context, opt_level }
+        /// Must return void and take no arguments
+        /// Must exist in the AST
+        /// May not be external
+        main_function: Rc<FunctionSymbol<TypedAST>>,
+    ) -> Result<Self, CodegenCreationError> {
+        if main_function.return_type().is_some() {
+            return Err(CodegenCreationError::MainFunctionNonVoidReturn);
+        }
+        if !main_function.params().is_empty() {
+            return Err(CodegenCreationError::MainFunctionTakesArguments);
+        }
+        Ok(Self {
+            context,
+            opt_level,
+            main_function,
+        })
     }
+}
+
+#[derive(Debug)]
+pub enum CodegenCreationError {
+    MainFunctionNonVoidReturn,
+    MainFunctionTakesArguments,
 }
 
 #[cfg(test)]
 mod tests {
     use crate::Codegen;
+    use crate::types::OptLevel;
     use driver::pipeline::Pipeline;
     use driver::program_information::{ProgramInformation, Project};
     use driver::typed_ast_pipeline;
@@ -41,7 +65,6 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::TempDir;
-    use crate::types::OptLevel;
 
     const FIBONACCI: &str =
         include_str!("../../driver/tests/test_programs/single_file/fibonacci.waso");
@@ -79,8 +102,21 @@ mod tests {
 
         let tap = typed_ast_pipeline();
         let tast = tap.process((&prog_info, &mut sm)).unwrap().0;
+        let main = tast
+            .subdirectory_by_name("fibonacci")
+            .unwrap()
+            .file_by_name("main")
+            .unwrap()
+            .function_by_identifier(("main", &[]))
+            .unwrap()
+            .declaration_owned();
         let context = Context::create();
-        let mut codegen = Codegen::builder().context(&context).opt_level(OptLevel::O0).build();
+        let mut codegen = Codegen::builder()
+            .context(&context)
+            .opt_level(OptLevel::O0)
+            .main_function(main)
+            .build()
+            .unwrap();
         let code = codegen.compile(&tast);
         let mut file = File::create("../code.wasm").unwrap();
         file.write_all(&code).unwrap();
