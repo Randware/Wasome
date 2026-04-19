@@ -1,19 +1,34 @@
-use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use ast::TypedAST;
+use crate::Codegen;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
     StructFieldAccess, Typecast, UnaryOp, UnaryOpType,
 };
 use ast::symbol::VariableSymbol;
+use ast::TypedAST;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::types::{IntType, StructType};
 use inkwell::values::{BasicValue, BasicValueEnum, FloatValue, IntValue, PointerValue};
 use inkwell::{FloatPredicate, IntPredicate};
 
 impl<'ctx, 'fc> Codegen<'ctx> {
+    /// Compiles an expression to LLVM IR, dispatching to the appropriate handler based on expression type.
+    ///
+    /// This is the central expression compilation dispatcher. It matches on the expression
+    /// variant and delegates to the corresponding handler method.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The expression to compile
+    ///
+    /// # Returns
+    ///
+    /// The compiled LLVM [`BasicValueEnum`] representing the expression's value.
     pub(crate) fn compile_expression(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -46,6 +61,20 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compiles a variable access expression by loading the value from its alloca pointer.
+    ///
+    /// The variable's value is loaded from its stack slot and the reference count is
+    /// incremented for struct/enum types via [`compile_val_create`](Codegen::compile_val_create).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lowering and IR operations
+    /// * `vars` - The [`VariableTable`] containing the variable's alloca pointer
+    /// * `to_generate` - The variable symbol to load
+    ///
+    /// # Returns
+    ///
+    /// The loaded LLVM [`BasicValueEnum`].
     pub(crate) fn compile_var_access(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -68,6 +97,15 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         val
     }
 
+    /// Compiles a literal value (S32, Bool, Char, F64) to its LLVM constant representation.
+    ///
+    /// # Arguments
+    ///
+    /// * `to_generate` - The literal expression to compile
+    ///
+    /// # Returns
+    ///
+    /// The LLVM [`BasicValueEnum`] representing the literal constant.
     pub(crate) fn compile_literal(&self, to_generate: &Literal) -> BasicValueEnum<'ctx> {
         match to_generate {
             Literal::S32(val) =>
@@ -96,6 +134,23 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compiles a unary operation (negation, logical not, or typecast).
+    ///
+    /// Dispatches to the appropriate LLVM instruction based on the operation type:
+    /// * `Negative` - Float negation or integer negation
+    /// * `Not` - Bitwise XOR with 1 (logical not for booleans)
+    /// * `Typecast` - Delegates to [`compile_typecast`](Self::compile_typecast)
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The unary operation to compile
+    ///
+    /// # Returns
+    ///
+    /// The LLVM [`BasicValueEnum`] representing the result.
     pub(crate) fn compile_unary_op(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -138,6 +193,26 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compiles a typecast expression, handling float widening/narrowing and integer
+    /// sign changes, extension, truncation, and bit casts.
+    ///
+    /// Supported casts:
+    /// * `F64` → `F32`: Float truncation
+    /// * `F32` → `F64`: Float extension
+    /// * Signed ↔ Unsigned (same width): Bit cast
+    /// * Smaller → Larger integer: Sign or zero extension
+    /// * Larger → Smaller integer: Truncation
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for IR operations
+    /// * `target` - The target [`DataType`] of the cast
+    /// * `to_cast` - The LLVM [`BasicValueEnum`] to cast
+    /// * `cast` - The typecast expression containing the source type
+    ///
+    /// # Returns
+    ///
+    /// The casted LLVM [`BasicValueEnum`].
     fn compile_typecast(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -205,6 +280,26 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compiles a binary operation, dispatching to arithmetic, shift, bitwise, or comparison
+    /// handlers based on the operation type.
+    ///
+    /// Supported operations:
+    /// * Arithmetic: `Addition`, `Subtraction`, `Multiplication`, `Division`, `Modulo`
+    /// * Shift: `LeftShift`, `RightShift` (arithmetic for signed, logical for unsigned)
+    /// * Bitwise: `BitwiseOr`, `BitwiseAnd`, `BitwiseXor`
+    /// * Logical: `Or`, `And`, `Xor`
+    /// * Comparison: `Equals`, `NotEquals`, `Greater`, `GreaterEquals`, `Lesser`, `LesserEquals`
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The binary operation to compile
+    ///
+    /// # Returns
+    ///
+    /// The LLVM [`BasicValueEnum`] representing the result.
     // This can't really be meaningfully split up any further
     #[allow(clippy::too_many_lines)]
     pub(crate) fn compile_binary_op(
@@ -339,6 +434,14 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Helper for integer-only binary operations (shifts, bitwise ops).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] providing the [`Builder`]
+    /// * `lhs` - The left-hand side LLVM value
+    /// * `rhs` - The right-hand side LLVM value
+    /// * `op` - The operation function to apply
     fn compile_int_binop(
         llvm_context: &LLVMContext<'ctx>,
         lhs: BasicValueEnum<'ctx>,
@@ -360,6 +463,20 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         val.as_basic_value_enum()
     }
 
+    /// Helper for arithmetic binary operations (add, sub, mul, div, rem) with float and integer support.
+    ///
+    /// Dispatches to the appropriate operation based on whether the data type is a float.
+    /// For integers, selects between signed and unsigned operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] providing the [`Builder`]
+    /// * `dt` - The [`DataType`] determining float vs integer and signed vs unsigned
+    /// * `lhs` - The left-hand side LLVM value
+    /// * `rhs` - The right-hand side LLVM value
+    /// * `float_op` - The float operation function
+    /// * `unsigned_op` - The unsigned integer operation function
+    /// * `signed_op` - The signed integer operation function
     fn compile_arithmetic_binop(
         llvm_context: &LLVMContext<'ctx>,
         dt: &DataType,
@@ -410,6 +527,17 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compares two values using the appropriate LLVM comparison instruction for floats or integers.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] providing the [`Builder`]
+    /// * `lhs` - The left-hand side LLVM value
+    /// * `rhs` - The right-hand side LLVM value
+    /// * `dt` - The [`DataType`] determining float vs integer and signed vs unsigned
+    /// * `float_op` - The float comparison predicate
+    /// * `unsigned_int_op` - The unsigned integer comparison predicate
+    /// * `signed_int_op` - The signed integer comparison predicate
     fn compile_cmp(
         llvm_context: &LLVMContext<'ctx>,
         lhs: BasicValueEnum<'ctx>,
@@ -444,6 +572,21 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compiles a non-void function call expression, returning the call result as a [`BasicValueEnum`].
+    ///
+    /// Delegates to [`compile_call`](Codegen::compile_call) and extracts
+    /// the result as a basic value. Panics if the called function returns void.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The function call expression to compile
+    ///
+    /// # Panics
+    ///
+    /// If the called function returns void.
     pub(crate) fn compile_nonvoid_call(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -457,6 +600,26 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .expect("Void call as expression")
     }
 
+    /// Compiles a struct instantiation (`new` expression), allocating memory on the heap and
+    /// initializing fields with the provided argument values.
+    ///
+    /// For each field:
+    /// 1. Compiles the argument expression
+    /// 2. Computes the struct field pointer via `struct.gep`
+    /// 3. Stores the compiled value into the field
+    ///
+    /// The struct's refcount is initialized to 1 by [`allocate`](Self::allocate).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The struct instantiation expression
+    ///
+    /// # Returns
+    ///
+    /// The LLVM [`BasicValueEnum`] pointer to the allocated struct.
     pub(crate) fn compile_new_struct(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -484,6 +647,27 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         alloc.as_basic_value_enum()
     }
 
+    /// Compiles an enum variant construction (`new` expression), allocating memory on the heap,
+    /// setting the discriminant tag, and initializing variant fields.
+    ///
+    /// For each variant field:
+    /// 1. Compiles the argument expression
+    /// 2. Computes the struct field pointer via `struct.gep` (offset by 2 for discriminant and size)
+    /// 3. Stores the compiled value into the field
+    ///
+    /// After field initialization, sets the discriminant tag (index 1) to the variant's index.
+    /// The enum's refcount is initialized to 1 by [`allocate`](Self::allocate).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The enum variant construction expression
+    ///
+    /// # Returns
+    ///
+    /// The LLVM [`BasicValueEnum`] pointer to the allocated enum variant.
     pub(crate) fn compile_new_enum(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -519,6 +703,28 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         alloc.as_basic_value_enum()
     }
 
+    /// Compiles a struct field access expression, loading the field value and managing
+    /// reference counts (increment on load, decrement on struct drop).
+    ///
+    /// The operation:
+    /// 1. Compiles the struct expression to get a pointer
+    /// 2. Increments the refcount (via `compile_val_create`)
+    /// 3. Loads the field value
+    /// 4. Decrements the original struct's refcount (via `compile_struct_dec_refcount`)
+    ///
+    /// This implements the copy-on-read semantics where accessing a field creates a new
+    /// reference to the field's value while releasing the reference to the parent struct.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The struct field access expression
+    ///
+    /// # Returns
+    ///
+    /// The loaded LLVM [`BasicValueEnum`] for the field value.
     pub(crate) fn compile_sfa(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -567,6 +773,19 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         val
     }
 
+    /// Converts a data type to its corresponding LLVM integer type for typecast operations.
+    ///
+    /// # Arguments
+    ///
+    /// * `cast` - The [`DataType`] to convert
+    ///
+    /// # Returns
+    ///
+    /// The corresponding LLVM [`IntType`].
+    ///
+    /// # Panics
+    ///
+    /// If the data type is not a valid integer type (i.e., not U8, S8, U16, S16, U32, S32, U64, or S64).
     fn int_dt_to_llvm_dt(&self, cast: &DataType) -> IntType<'ctx> {
         use DataType as D;
         match cast {
@@ -578,6 +797,19 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Allocates memory on the heap for a struct type using `malloc` and initializes the refcount to 1.
+    /// 
+    /// All other fields are left uninitialized
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type size queries and IR operations
+    /// * `struct_type` - The LLVM [`StructType`] whose size is used for allocation
+    /// * `name` - The name for the size truncation instruction
+    ///
+    /// # Returns
+    ///
+    /// A [`PointerValue`] to the allocated memory with refcount initialized to 1.
     fn allocate(
         &self,
         llvm_context: &LLVMContext<'ctx>,

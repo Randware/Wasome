@@ -1,7 +1,6 @@
-use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use ast::TypedAST;
+use crate::Codegen;
 use ast::data_type::{DataType, Typed};
 use ast::expression::FunctionCall;
 use ast::statement::{
@@ -10,11 +9,34 @@ use ast::statement::{
 };
 use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
+use ast::TypedAST;
 use inkwell::values::BasicValue;
-use inkwell::{AddressSpace, IntPredicate};
+use inkwell::IntPredicate;
 use std::ops::Deref;
 
 impl<'ctx, 'fc> Codegen<'ctx> {
+    /// Compiles a statement by dispatching to the appropriate handler based on statement type.
+    ///
+    /// After generating code, drops all variables defined directly in the statement to manage
+    /// reference counts for heap-allocated values.
+    ///
+    /// Supported statement types:
+    /// * `VariableAssignment` - Delegates to [`compile_variable_assignment`](Self::compile_variable_assignment)
+    /// * `StructFieldAssignment` - Delegates to [`compile_struct_field_assignment`](Self::compile_struct_field_assignment)
+    /// * `VariableDeclaration` - Delegates to [`compile_variable_declaration`](Self::compile_variable_declaration)
+    /// * `Expression` - Compiles the expression as a statement while discarding its result
+    /// * `Return` - Delegates to [`compile_return`](Self::compile_return)
+    /// * `ControlStructure` - Delegates to [`compile_control_structure`](Self::compile_control_structure)
+    /// * `Codeblock` - Delegates to [`compile_codeblock`](Self::compile_codeblock)
+    /// * `VoidFunctionCall` - Delegates to [`compile_void_call`](Self::compile_void_call)
+    /// * `Break` - Delegates to [`compile_break`](Self::compile_break)
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `vars` - The mutable [`VariableTable`] for variable registration and lookups
+    /// * `to_generate` - The statement to compile
     pub(crate) fn compile_statement(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -70,6 +92,17 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compiles a variable assignment, dropping the old value and storing the new one.
+    ///
+    /// For struct/enum types, the old value's reference count is decremented (and the drop
+    /// function is called if it reaches zero). The new value is then compiled and stored.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] containing the variable's alloca pointer
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The variable assignment to compile
     pub(crate) fn compile_variable_assignment(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -94,6 +127,15 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .unwrap();
     }
 
+    /// Compiles a variable declaration, creating an alloca slot, inserting into the variable table,
+    /// and storing the initialized value.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The mutable [`VariableTable`] for registering the new variable
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The variable declaration to compile
     pub(crate) fn compile_variable_declaration(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -114,6 +156,17 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         llvm_context.builder().build_store(prt, val).unwrap();
     }
 
+    /// Compiles a return statement, optionally compiling the return value expression.
+    ///
+    /// For void functions, emits a `return` with no value. For non-void functions,
+    /// compiles the return expression and emits a `return` with the result.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The return statement to compile
     pub(crate) fn compile_return(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -130,6 +183,15 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .unwrap();
     }
 
+    /// Dispatches to the appropriate control structure handler (conditional, enum variant match, or loop).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `vars` - The mutable [`VariableTable`] for variable registration
+    /// * `statement` - The statement traversal helper for child access
+    /// * `to_generate` - The control structure to compile
     pub(crate) fn compile_control_structure(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -151,6 +213,30 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compiles an if/else conditional, generating true, false, and after blocks with
+    /// conditional branching based on the compiled condition expression.
+    ///
+    /// Control flow structure:
+    /// ```text
+    ///     curr_block
+    ///        |
+    ///        v
+    ///     [cond branch] --> true_block --> after_block
+    ///        |
+    ///        v
+    ///     false_block (optional)
+    ///        |
+    ///        v
+    ///     after_block
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `vars` - The mutable [`VariableTable`] for variable registration
+    /// * `statement` - The statement traversal helper for child access
+    /// * `to_generate` - The conditional to compile
     pub(crate) fn compile_conditional(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -207,6 +293,43 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         statement_context.set_current_block(llvm_context, after_block);
     }
 
+    /// Compiles a loop (infinite, while, or for), using stack save/restore to prevent excessive
+    /// memory use for long loops.
+    ///
+    /// Control flow structure:
+    /// ```text
+    ///     curr_block
+    ///        |
+    ///        v
+    ///     cond_block
+    ///        |
+    ///        +-- infinite: uncond branch to loop_block
+    ///        |
+    ///        +-- while/for: [cond branch] --> loop_block / after_block
+    ///        |
+    ///        v
+    ///     loop_block
+    ///        |
+    ///        +-- for: compile after_each statement
+    ///        |
+    ///        v
+    ///     [stacksave]
+    ///        |
+    ///     body statement
+    ///        |
+    ///     [stackrestore]
+    ///        |
+    ///        v
+    ///     [uncond branch to cond_block]
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `vars` - The mutable [`VariableTable`] for variable registration
+    /// * `statement` - The statement traversal helper for child access
+    /// * `to_generate` - The loop to compile
     pub(crate) fn compile_loop(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -320,6 +443,14 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         statement_context.set_current_block(llvm_context, after_block);
     }
 
+    /// Compiles a code block by iterating over all child statements in order.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `vars` - The mutable [`VariableTable`] for variable registration
+    /// * `to_generate` - The statement traversal helper for child access
     pub(crate) fn compile_codeblock(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -334,6 +465,19 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         }
     }
 
+    /// Compiles a break statement by branching to the last breakable block.
+    ///
+    /// The breakable block is set by [`compile_loop`](Self::compile_loop) via
+    /// [`StatementContext::with_last_breakable_block`](StatementContext::with_last_breakable_block).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for the [`Builder`]
+    /// * `statement_context` - The [`StatementContext`] containing the breakable block
+    ///
+    /// # Panics
+    ///
+    /// If called outside a loop context (no breakable block set).
     pub(crate) fn compile_break(
         llvm_context: &LLVMContext<'ctx>,
         statement_context: &StatementContext<'ctx, 'fc>,
@@ -348,6 +492,17 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .unwrap();
     }
 
+    /// Compiles a void function call as a statement.
+    ///
+    /// Delegates to [`compile_call`](Codegen::compile_call) and asserts
+    /// that the result is void.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The function call expression to compile
     pub(crate) fn compile_void_call(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -362,6 +517,18 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         );
     }
 
+    /// Compiles a struct field assignment, dropping the old field value and storing the new one.
+    ///
+    /// For struct/enum field types, the old field value's reference count is decremented
+    /// (and the drop function is called if it reaches zero). The new value is then
+    /// stored into the field.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `vars` - The [`VariableTable`] for variable lookups
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `to_generate` - The struct field assignment to compile
     pub(crate) fn compile_struct_field_assignment(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -407,6 +574,36 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         llvm_context.builder().build_store(field, val).unwrap();
     }
 
+    /// Compiles an if-enum-variant pattern match, loading the discriminant tag and branching
+    /// to the matching variant's code block. Creates alloca slots for each variant field.
+    ///
+    /// Control flow structure:
+    /// ```text
+    ///     [load enum pointer]
+    ///        |
+    ///        v
+    ///     [load discriminant tag]
+    ///        |
+    ///        v
+    ///     [tag == expected?] --> yes --> match_block
+    ///        |                            |
+    ///        | (no)                       | [create alloca for each field]
+    ///        v                            | [load each field value]
+    ///     after_block                      | [store into alloca]
+    ///        ^                            | [compile body statement]
+    ///        |____________________________|
+    ///        |
+    ///        v
+    ///     [decrement enum refcount]
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `statement_context` - The [`StatementContext`] for block management
+    /// * `vars` - The mutable [`VariableTable`] for registering variant field variables
+    /// * `statement` - The statement traversal helper for child access
+    /// * `to_generate` - The enum variant match to compile
     pub(crate) fn compile_if_enum_variant(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,

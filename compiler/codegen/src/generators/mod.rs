@@ -4,32 +4,61 @@ mod statement;
 
 use crate::context::{FunctionContext, StatementContext};
 use crate::symbols::{EnumInformation, StructInformation, VariableTable};
-use crate::{Codegen, context::LLVMContext};
+use crate::{context::LLVMContext, Codegen};
 use ast::data_type::Typed;
 use ast::expression::FunctionCall;
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::FunctionType;
-use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
-use ast::{AST, TypedAST};
+use ast::traversal::FunctionContainer;
+use ast::{TypedAST, AST};
 use inkwell::types::BasicType;
 use inkwell::values::CallSiteValue;
 use std::iter::once;
 
 impl<'ctx> Codegen<'ctx> {
+    /// Compiles the given typed AST into WebAssembly object code.
+    ///
+    /// This is the main entry point for the compilation pipeline. It orchestrates the
+    /// following phases:
+    ///
+    /// 1. **Initialization** - Creates an LLVM context with the target configuration
+    /// 2. **Registration** - Registers all structs, enums, and functions with the symbol registry
+    /// 3. **Filling** - Fills struct and enum layouts with complete LLVM type definitions
+    /// 4. **Drop generation** - Generates drop functions for structs and enums
+    /// 5. **Implementation** - Compiles the body of each function
+    /// 6. **Optimization** - Applies LLVM optimization passes and emits object code
+    ///
+    /// # Arguments
+    ///
+    /// * `to_compile` - The typed AST to compile
+    ///
+    /// # Returns
+    ///
+    /// A vector containing the compiled WebAssembly object code bytes.
     pub fn compile(&mut self, to_compile: &AST<TypedAST>) -> Vec<u8> {
         let mut llvm_context = LLVMContext::new(self.context, self.opt_level);
         self.compile_internal(&mut llvm_context, to_compile);
         llvm_context.get_object()
     }
 
-    // Despite all the unwraps and expects, this never panics as the typed AST disallows all of
-    // those problems
+    /// Performs the internal compilation steps: registering types, filling struct/enum layouts,
+    /// registering functions, creating drop functions, and implementing function bodies.
+    ///
+    /// This method executes the compilation pipeline in the following order:
+    /// 1. Register all struct declarations
+    /// 2. Register all enum declarations
+    /// 3. Fill struct layouts with complete field information
+    /// 4. Fill enum layouts with variant types
+    /// 5. Register all function declarations
+    /// 6. Generate struct drop function bodies
+    /// 7. Generate enum drop function bodies
+    /// 8. Compile function bodies
     #[allow(clippy::missing_panics_doc)]
     pub fn compile_internal(
         &mut self,
@@ -55,6 +84,15 @@ impl<'ctx> Codegen<'ctx> {
         self.impl_functions(llvm_context, &root);
     }
 
+    /// Iterates over all functions in the AST and compiles their bodies.
+    ///
+    /// Traverses the entire directory tree including functions inside structs.
+    /// Only generates code for regular functions; external functions are skipped.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for type lookups and IR operations
+    /// * `root` - The directory tree traversal helper containing all functions
     fn impl_functions(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -66,6 +104,18 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
+    /// Generates the drop function body for each enum by iterating over all enum declarations.
+    ///
+    /// For each enum:
+    /// 1. Retrieves the enum's drop function from the symbol registry
+    /// 2. Creates a main basic block
+    /// 3. Creates a FunctionContext and positions the builder
+    /// 4. Calls the enum drop compilation logic to generate the drop logic
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for type lookups and IR operations
+    /// * `root` - The directory tree traversal helper containing all enums
     fn create_enum_drop_functions(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -92,6 +142,19 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
+    /// Generates the drop function body for each struct, including optional predrop handling.
+    ///
+    /// For each struct:
+    /// 1. Searches for an optional `predrop` function (takes 1 parameter, returns void)
+    /// 2. If found, registers it in the symbol registry and stores it in [`StructInformation`]
+    /// 3. Creates a main basic block for the drop function
+    /// 4. Creates a FunctionContext and positions the builder
+    /// 5. Calls the struct drop compilation logic to generate the drop logic
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for type lookups and IR operations
+    /// * `root` - The directory tree traversal helper containing all structs
     fn create_struct_drop_functions(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -136,6 +199,20 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
+    /// Fills each enum's [`EnumInformation`] with lowered LLVM struct types for each variant.
+    ///
+    /// For each enum variant, creates an LLVM struct with the following layout:
+    /// - Index 0: reference count (u32)
+    /// - Index 1: discriminant tag (u32)
+    /// - Index 2+: lowered field types
+    ///
+    /// The variant types are stored in the [`EnumInformation`] for later lookup during
+    /// pattern matching and drop function generation.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for type lowering and LLVM operations
+    /// * `root` - The directory tree traversal helper containing all enums
     fn fill_enums(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -168,6 +245,19 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
+    /// Fills each struct's [`StructInformation`] with its lowered LLVM struct type and field symbols.
+    ///
+    /// For each struct, creates the complete LLVM struct type with the following layout:
+    /// - Index 0: reference count (u32)
+    /// - Index 1+: lowered field types
+    ///
+    /// The struct's LLVM type body is updated via [`StructType::set_body`], and field symbols
+    /// are stored in the [`StructInformation`] for later field access and drop logic.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for type lowering and LLVM operations
+    /// * `root` - The directory tree traversal helper containing all structs
     fn fill_structs(&self, llvm_context: &LLVMContext, root: &DirectoryTraversalHelper<TypedAST>) {
         recursive_structs_of_dir(root, |st| {
             let symbol = st.inner().symbol();
@@ -189,6 +279,22 @@ impl<'ctx> Codegen<'ctx> {
         });
     }
 
+    /// Registers all function declarations in the AST with the module and symbol registry.
+    ///
+    /// For each function:
+    /// 1. Lowers the parameter and return types to LLVM types
+    /// 2. Determines the function name:
+    ///    - Main function: `_start`
+    ///    - Regular functions: mangled name (`{name}-{id}`)
+    ///    - External functions: `{name}_{param_sizes}` (e.g., `external_4_8`)
+    ///         - No params: just `{name}`
+    /// 3. Creates or retrieves the LLVM [`FunctionValue`] in the module
+    /// 4. Registers the mapping in the [`SymbolRegistry`]
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for type lowering and module access
+    /// * `root` - The directory tree traversal helper containing all functions
     fn register_functions(
         &self,
         llvm_context: &mut LLVMContext,
@@ -232,15 +338,25 @@ impl<'ctx> Codegen<'ctx> {
                 // We can only get here if it's an external function
                 Some(func) => func,
             };
-            debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_function(symbol, lowered)
-                    .is_none()
-            );
+            debug_assert!(llvm_context
+                .type_registry_mut()
+                .register_function(symbol, lowered)
+                .is_none());
         });
     }
 
+    /// Registers all enum declarations with the module and symbol registry.
+    ///
+    /// For each enum:
+    /// 1. Creates a mangled name (`{name}-{id}`)
+    /// 2. Creates a drop function (`{mangled name}-drop`) with the signature from [`GlobalRegistry::drop`]
+    ///     - No implementation is produced here
+    /// 3. Registers the enum in the [`SymbolRegistry`] with a new [`EnumInformation`]
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for module and type access
+    /// * `root` - The directory tree traversal helper containing all enums
     fn register_enums(llvm_context: &mut LLVMContext, root: &DirectoryTraversalHelper<TypedAST>) {
         let module = llvm_context.module();
         recursive_enums_of_dir(root, |en| {
@@ -251,15 +367,29 @@ impl<'ctx> Codegen<'ctx> {
                 llvm_context.global_registry().drop(),
                 None,
             );
-            debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_enum(symbol, EnumInformation::new(drop))
-                    .is_none()
-            );
+            debug_assert!(llvm_context
+                .type_registry_mut()
+                .register_enum(symbol, EnumInformation::new(drop))
+                .is_none());
         });
     }
 
+    /// Registers all struct declarations with the module and symbol registry.
+    ///
+    /// For each struct:
+    /// 1. Creates a mangled name (`{name}-{id}`)
+    /// 2. Creates an opaque LLVM [`StructType`] with the mangled name
+    /// 3. Creates a drop function (`{mangled name}-drop`) with the signature from [`GlobalRegistry::drop`]
+    ///     - No implementation is produced here
+    /// 4. Registers the struct in the [`SymbolRegistry`] with a new [`StructInformation`]
+    ///
+    /// The struct type is opaque at this stage and will be filled with the complete layout
+    /// during the [`fill_structs`](Self::fill_structs) phase.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for module and type access
+    /// * `root` - The directory tree traversal helper containing all structs
     fn register_structs(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -275,15 +405,33 @@ impl<'ctx> Codegen<'ctx> {
                 llvm_context.global_registry().drop(),
                 None,
             );
-            debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_struct(symbol, StructInformation::new(lowered, drop))
-                    .is_none()
-            );
+            debug_assert!(llvm_context
+                .type_registry_mut()
+                .register_struct(symbol, StructInformation::new(lowered, drop))
+                .is_none());
         });
     }
 
+    /// Compiles a function call expression, generating the call instruction and dropping
+    /// argument values after the call.
+    ///
+    /// For each argument:
+    /// 1. Compiles the argument expression to get its LLVM value
+    /// 2. After the call, drops the argument value to manage reference counts
+    ///
+    /// This is used by both [`compile_nonvoid_call`](Codegen::compile_nonvoid_call)
+    /// and [`compile_void_call`](Codegen::compile_void_call).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for type lookups and IR operations
+    /// * `vars` - The VariableTable for variable lookups
+    /// * `statement_context` - The StatementContext for block management
+    /// * `to_generate` - The function call expression to compile
+    ///
+    /// # Returns
+    ///
+    /// The LLVM CallSiteValue for the generated call instruction.
     fn compile_call(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
@@ -320,10 +468,17 @@ impl<'ctx> Codegen<'ctx> {
     }
 }
 
+/// Mangles a symbol name with its unique ID for LLVM linkage.
+///
+/// Produces names in the format `{name}-{id}` to ensure uniqueness in the LLVM module.
 fn mangle(name: &str, id: &Id) -> String {
     format!("{}-{}", name, id.as_unique_string())
 }
 
+/// Recursively iterates over all functions in the directory tree, including those inside structs.
+///
+/// Traverses all files and subdirectories, yielding each function (including methods
+/// defined inside structs) to the callback.
 fn recursive_functions_of_dir<'b>(
     dir: &DirectoryTraversalHelper<'_, 'b, TypedAST>,
     mut callback: impl for<'a> FnMut(FunctionTraversalHelper<'a, 'b, TypedAST>),
@@ -335,6 +490,9 @@ fn recursive_functions_of_dir<'b>(
     });
 }
 
+/// Recursively iterates over all enum declarations in the directory tree.
+///
+/// Traverses all files and subdirectories, yielding each enum declaration to the callback.
 fn recursive_enums_of_dir(
     dir: &DirectoryTraversalHelper<TypedAST>,
     mut callback: impl FnMut(EnumTraversalHelper<TypedAST>),
@@ -344,6 +502,9 @@ fn recursive_enums_of_dir(
     });
 }
 
+/// Recursively iterates over all struct declarations in the directory tree.
+///
+/// Traverses all files and subdirectories, yielding each struct declaration to the callback.
 fn recursive_structs_of_dir(
     dir: &DirectoryTraversalHelper<TypedAST>,
     mut callback: impl FnMut(StructTraversalHelper<TypedAST>),
@@ -353,6 +514,10 @@ fn recursive_structs_of_dir(
     });
 }
 
+/// Recursively iterates over all files in the directory tree.
+///
+/// First recursively processes all subdirectories, then processes all files in the
+/// current directory. This ensures a consistent traversal order.
 fn recursive_files_of_dir<'b, Callback: FnMut(FileTraversalHelper<'_, 'b, TypedAST>)>(
     dir: &DirectoryTraversalHelper<'_, 'b, TypedAST>,
     callback: &mut Callback,

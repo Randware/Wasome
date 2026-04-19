@@ -1,12 +1,25 @@
-use crate::Codegen;
 use crate::context::{FunctionContext, LLVMContext};
-use ast::TypedAST;
+use crate::Codegen;
 use ast::data_type::DataType;
 use ast::symbol::{EnumSymbol, StructSymbol};
+use ast::TypedAST;
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::{AddressSpace, IntPredicate};
 
 impl<'ctx> Codegen<'ctx> {
+    /// Reads the reference count from the first field of a heap-allocated value.
+    ///
+    /// The refcount is stored at index 0 of the base heap-allocated struct layout
+    /// (defined in [`GlobalRegistry`](crate::global_registry::GlobalRegistry)).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `pointer` - The pointer to the heap-allocated value
+    ///
+    /// # Returns
+    ///
+    /// The current reference count as an LLVM IntValue.
     fn read_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -28,6 +41,13 @@ impl<'ctx> Codegen<'ctx> {
             .into_int_value()
     }
 
+    /// Writes a value to the reference count field of a heap-allocated value.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `pointer` - The pointer to the heap-allocated value
+    /// * `value` - The new reference count value
     pub fn write_refcount(
         llvm_context: &LLVMContext<'ctx>,
         pointer: PointerValue<'ctx>,
@@ -45,6 +65,13 @@ impl<'ctx> Codegen<'ctx> {
         llvm_context.builder().build_store(refc, value).unwrap();
     }
 
+    /// Increments the reference count of a heap-allocated value by the given amount.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `pointer` - The pointer to the heap-allocated value
+    /// * `amount` - The amount to increment by
     fn compile_add_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -63,6 +90,17 @@ impl<'ctx> Codegen<'ctx> {
         Self::write_refcount(llvm_context, pointer, result);
     }
 
+    /// Decrements the reference count of a heap-allocated value by the given amount.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `pointer` - The pointer to the heap-allocated value
+    /// * `amount` - The amount to decrement by
+    ///
+    /// # Returns
+    ///
+    /// The new reference count value as an LLVM [`IntValue`].
     fn compile_sub_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -82,6 +120,14 @@ impl<'ctx> Codegen<'ctx> {
         result
     }
 
+    /// Increments the reference count of a heap-allocated value by 1.
+    ///
+    /// Called when a pointer value is copied (e.g., on load from alloca or struct field access).
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `to_generate` - The pointer to the heap-allocated value
     pub(crate) fn compile_inc_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -90,6 +136,18 @@ impl<'ctx> Codegen<'ctx> {
         self.compile_add_refcount(llvm_context, to_generate, 1);
     }
 
+    /// Drops a reference-counted value by loading the pointer and delegating to `compile_val_drop`.
+    ///
+    /// For struct and enum types, loads the pointer from the alloca slot and then calls
+    /// [`compile_val_drop`](Self::compile_val_drop) to decrement the refcount and potentially
+    /// call the drop function. For non-struct/enum types, this is a no-op.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `func` - The mutable [`FunctionContext`] for block management
+    /// * `dt` - The [`DataType`] of the value
+    /// * `to_generate` - The pointer to the heap-allocated value
     pub(crate) fn compile_val_ref_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -113,6 +171,15 @@ impl<'ctx> Codegen<'ctx> {
         }
     }
 
+    /// Decrements the reference count for a struct or enum value, calling the drop function
+    /// if the count reaches zero.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `func` - The mutable [`FunctionContext`] for block management
+    /// * `dt` - The [`DataType`] of the value (must be Struct or Enum)
+    /// * `to_generate` - The LLVM [`BasicValueEnum`] representing the value
     pub(crate) fn compile_val_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -141,6 +208,14 @@ impl<'ctx> Codegen<'ctx> {
         }
     }
 
+    /// Increments the reference count when a pointer value is copied (e.g., on load from alloca).
+    ///
+    /// Only applies to pointer values (struct and enum types). Non-pointer values are no-ops.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `to_generate` - The LLVM [`BasicValueEnum`] to increment
     pub(crate) fn compile_val_create(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -151,6 +226,14 @@ impl<'ctx> Codegen<'ctx> {
         }
     }
 
+    /// Decrements the reference count for a struct, calling its drop function when the count reaches zero.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `func` - The mutable [`FunctionContext`] for block management
+    /// * `struc` - The struct symbol
+    /// * `to_generate` - The pointer to the heap-allocated struct
     pub(crate) fn compile_struct_dec_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -163,6 +246,14 @@ impl<'ctx> Codegen<'ctx> {
         self.compile_dec_refcount(llvm_context, func, lowered.on_drop(), to_generate);
     }
 
+    /// Decrements the reference count for an enum, calling its drop function when the count reaches zero.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `func` - The mutable [`FunctionContext`] for block management
+    /// * `enu` - The enum symbol
+    /// * `to_generate` - The pointer to the heap-allocated enum
     pub(crate) fn compile_enum_dec_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -175,6 +266,26 @@ impl<'ctx> Codegen<'ctx> {
         self.compile_dec_refcount(llvm_context, func, lowered.on_drop(), to_generate);
     }
 
+    /// Decrements the reference count and conditionally calls the drop function if it reaches zero.
+    ///
+    /// Generates a conditional branch:
+    /// ```text
+    ///     [decrement refcount]
+    ///        |
+    ///        v
+    ///     [refcount == 0?] --> yes --> drop_bb --> [call drop function] --> [uncond branch]
+    ///        |                                                            |
+    ///        | (no)                                                       |
+    ///        v                                                            v
+    ///     after_bb <-----------------------------------------------------
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `func` - The mutable [`FunctionContext`] for block management
+    /// * `on_drop` - The drop function [`FunctionValue`] to call
+    /// * `to_generate` - The pointer to the heap-allocated value
     pub(crate) fn compile_dec_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -224,6 +335,25 @@ impl<'ctx> Codegen<'ctx> {
         func.set_current_block(llvm_context.builder(), after_bb);
     }
 
+    /// Generates the drop function body for a struct.
+    ///
+    /// The drop process:
+    /// 1. If a `predrop` function exists:
+    ///    a. Sets refcount to 2 (ghost refcount to prevent infinite loops)
+    ///    b. Calls the predrop function
+    ///    c. If refcount is not 1 (the predrop function revived the struct), returns early
+    ///    d. Otherwise, decrements refcount and continues
+    /// 2. For each struct field that is a struct or enum:
+    ///    a. Gets the field pointer
+    ///    b. Calls `compile_val_ref_drop` to recursively drop it
+    /// 3. Frees the allocated memory using `free`
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `func` - The mutable [`FunctionContext`] for block management
+    /// * `struc` - The struct symbol
+    /// * `to_generate` - The pointer to the heap-allocated struct
     pub(crate) fn compile_struct_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -324,6 +454,23 @@ impl<'ctx> Codegen<'ctx> {
         llvm_context.builder().build_return(None).unwrap();
     }
 
+    /// Generates the drop function body for an enum.
+    ///
+    /// The drop process:
+    /// 1. Reads the discriminant tag from the enum's base struct layout
+    /// 2. Creates condition blocks and drop blocks for each variant
+    /// 3. Chains conditional branches: checks if tag matches each variant in order
+    /// 4. For the matching variant:
+    ///    a. Recursively drops any struct or enum fields within the variant
+    ///    b. Frees the variant's memory using `free`
+    /// 5. Returns after all drop blocks
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The LLVM context for IR operations
+    /// * `func` - The mutable [`FunctionContext`] for block management
+    /// * `en` - The enum symbol
+    /// * `to_generate` - The pointer to the heap-allocated enum
     pub(crate) fn compile_enum_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,

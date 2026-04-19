@@ -1,10 +1,28 @@
-use crate::Codegen;
 use crate::context::{FunctionContext, LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use ast::TypedAST;
+use crate::Codegen;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
+use ast::TypedAST;
 
 impl<'ctx> Codegen<'ctx> {
+    /// Compiles a function body, creating alloca slots for parameters and generating
+    /// code for the statement root. Emits a return instruction for non-void functions.
+    ///
+    /// The compilation process:
+    /// 1. Retrieves the LLVM [`FunctionValue`] from the symbol registry
+    /// 2. Creates a main basic block and [`FunctionContext`]
+    /// 3. For each function parameter:
+    ///    - Creates an `alloca` slot
+    ///    - Stores the parameter value into the slot
+    ///    - Registers the variable in the [`VariableTable`]
+    /// 4. Compiles the function body statement
+    /// 5. Emits a `return` instruction for non-void functions
+    ///     - This is to ensure that all functions return
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] for type lookups and IR operations
+    /// * `to_generate` - The function traversal helper containing the function declaration and body
     pub(crate) fn compile_function(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,
