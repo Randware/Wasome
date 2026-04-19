@@ -109,7 +109,7 @@ impl<'ctx> Codegen<'ctx> {
     /// For each enum:
     /// 1. Retrieves the enum's drop function from the symbol registry
     /// 2. Creates a main basic block
-    /// 3. Creates a FunctionContext and positions the builder
+    /// 3. Creates a `FunctionContext` and positions the builder
     /// 4. Calls the enum drop compilation logic to generate the drop logic
     ///
     /// # Arguments
@@ -148,7 +148,7 @@ impl<'ctx> Codegen<'ctx> {
     /// 1. Searches for an optional `predrop` function (takes 1 parameter, returns void)
     /// 2. If found, registers it in the symbol registry and stores it in [`StructInformation`]
     /// 3. Creates a main basic block for the drop function
-    /// 4. Creates a FunctionContext and positions the builder
+    /// 4. Creates a `FunctionContext` and positions the builder
     /// 5. Calls the struct drop compilation logic to generate the drop logic
     ///
     /// # Arguments
@@ -333,11 +333,9 @@ impl<'ctx> Codegen<'ctx> {
                     }
                 }
             };
-            let lowered = match module.get_function(&name) {
-                None => module.add_function(&name, lowered_type, None),
+            let lowered = module.get_function(&name).unwrap_or_else(||
                 // We can only get here if it's an external function
-                Some(func) => func,
-            };
+                module.add_function(&name, lowered_type, None));
             debug_assert!(llvm_context
                 .type_registry_mut()
                 .register_function(symbol, lowered)
@@ -425,13 +423,13 @@ impl<'ctx> Codegen<'ctx> {
     /// # Arguments
     ///
     /// * `llvm_context` - The LLVM context for type lookups and IR operations
-    /// * `vars` - The VariableTable for variable lookups
-    /// * `statement_context` - The StatementContext for block management
+    /// * `vars` - The `VariableTable` for variable lookups
+    /// * `statement_context` - The `StatementContext` for block management
     /// * `to_generate` - The function call expression to compile
     ///
     /// # Returns
     ///
-    /// The LLVM CallSiteValue for the generated call instruction.
+    /// The LLVM `CallSiteValue` for the generated call instruction.
     fn compile_call(
         &mut self,
         llvm_context: &LLVMContext<'ctx>,

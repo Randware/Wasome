@@ -145,11 +145,11 @@ impl<'ctx> GlobalRegistry<'ctx> {
         self.drop
     }
 
-    pub fn malloc(&self) -> FunctionValue<'ctx> {
+    pub const fn malloc(&self) -> FunctionValue<'ctx> {
         self.malloc
     }
 
-    pub fn free(&self) -> FunctionValue<'ctx> {
+    pub const fn free(&self) -> FunctionValue<'ctx> {
         self.free
     }
 }

@@ -48,6 +48,7 @@ impl OptLevel {
     ///
     /// A static string in the format `"default::<level>"` that identifies the
     /// optimization pipeline to run. For example, `"default<O2>"` for O2 optimization.
+    #[must_use] 
     pub const fn as_llvm_pipeline(self) -> &'static str {
         match self {
             Self::O0 => "default<O0>",

@@ -19,7 +19,7 @@ impl<'ctx> Codegen<'ctx> {
     ///
     /// # Returns
     ///
-    /// The current reference count as an LLVM IntValue.
+    /// The current reference count as an LLVM `IntValue`.
     fn read_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
@@ -53,6 +53,7 @@ impl<'ctx> Codegen<'ctx> {
         pointer: PointerValue<'ctx>,
         value: IntValue<'ctx>,
     ) {
+        #[expect(clippy::missing_panics_doc, reason = "infallible")]
         let refc = llvm_context
             .builder()
             .build_struct_gep(
@@ -62,6 +63,7 @@ impl<'ctx> Codegen<'ctx> {
                 "gep_refc",
             )
             .unwrap();
+        #[expect(clippy::missing_panics_doc, reason = "infallible")]
         llvm_context.builder().build_store(refc, value).unwrap();
     }
 
@@ -435,7 +437,7 @@ impl<'ctx> Codegen<'ctx> {
                 _ => (),
             }
         }
-        let size = llvm_context
+        self.dealloc(llvm_context, to_generate, lowered.lowered().size_of().expect("Should be sized"));let size = llvm_context
             .builder()
             .build_int_truncate(
                 lowered.lowered().size_of().expect("Should be sized"),
@@ -562,22 +564,7 @@ impl<'ctx> Codegen<'ctx> {
                     _ => (),
                 }
             }
-            let size = llvm_context
-                .builder()
-                .build_int_truncate(
-                    variant.1.size_of().expect("Should be sized"),
-                    self.context.i32_type(),
-                    "size_resize",
-                )
-                .unwrap();
-            llvm_context
-                .builder()
-                .build_call(
-                    llvm_context.global_registry().free(),
-                    &[to_generate.into(), size.into()],
-                    "drop_enum",
-                )
-                .unwrap();
+            self.dealloc(llvm_context, to_generate, variant.1.size_of().expect("Should be sized"));
             llvm_context
                 .builder()
                 .build_unconditional_branch(after_block)
@@ -585,5 +572,24 @@ impl<'ctx> Codegen<'ctx> {
         }
         func.set_current_block(llvm_context.builder(), after_block);
         llvm_context.builder().build_return(None).unwrap();
+    }
+
+    fn dealloc(&self, llvm_context: &LLVMContext, to_generate: PointerValue, size: IntValue) {
+        let size = llvm_context
+            .builder()
+            .build_int_truncate(
+                size,
+                self.context.i32_type(),
+                "size_resize",
+            )
+            .unwrap();
+        llvm_context
+            .builder()
+            .build_call(
+                llvm_context.global_registry().free(),
+                &[to_generate.into(), size.into()],
+                "drop",
+            )
+            .unwrap();
     }
 }
