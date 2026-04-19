@@ -1,5 +1,5 @@
-use ast::symbol::EnumVariantSymbol;
 use ast::TypedAST;
+use ast::symbol::EnumVariantSymbol;
 use inkwell::types::StructType;
 use inkwell::values::FunctionValue;
 use std::rc::Rc;

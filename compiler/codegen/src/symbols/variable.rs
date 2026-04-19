@@ -1,5 +1,5 @@
-use ast::symbol::VariableSymbol;
 use ast::TypedAST;
+use ast::symbol::VariableSymbol;
 use inkwell::values::PointerValue;
 use std::collections::HashMap;
 use std::rc::Rc;

@@ -4,19 +4,19 @@ mod statement;
 
 use crate::context::{FunctionContext, StatementContext};
 use crate::symbols::{EnumInformation, StructInformation, VariableTable};
-use crate::{context::LLVMContext, Codegen};
+use crate::{Codegen, context::LLVMContext};
 use ast::data_type::Typed;
 use ast::expression::FunctionCall;
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::FunctionType;
+use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
-use ast::traversal::FunctionContainer;
-use ast::{TypedAST, AST};
+use ast::{AST, TypedAST};
 use inkwell::types::BasicType;
 use inkwell::values::CallSiteValue;
 use std::iter::once;
@@ -336,10 +336,12 @@ impl<'ctx> Codegen<'ctx> {
             let lowered = module.get_function(&name).unwrap_or_else(||
                 // We can only get here if it's an external function
                 module.add_function(&name, lowered_type, None));
-            debug_assert!(llvm_context
-                .type_registry_mut()
-                .register_function(symbol, lowered)
-                .is_none());
+            debug_assert!(
+                llvm_context
+                    .type_registry_mut()
+                    .register_function(symbol, lowered)
+                    .is_none()
+            );
         });
     }
 
@@ -365,10 +367,12 @@ impl<'ctx> Codegen<'ctx> {
                 llvm_context.global_registry().drop(),
                 None,
             );
-            debug_assert!(llvm_context
-                .type_registry_mut()
-                .register_enum(symbol, EnumInformation::new(drop))
-                .is_none());
+            debug_assert!(
+                llvm_context
+                    .type_registry_mut()
+                    .register_enum(symbol, EnumInformation::new(drop))
+                    .is_none()
+            );
         });
     }
 
@@ -403,10 +407,12 @@ impl<'ctx> Codegen<'ctx> {
                 llvm_context.global_registry().drop(),
                 None,
             );
-            debug_assert!(llvm_context
-                .type_registry_mut()
-                .register_struct(symbol, StructInformation::new(lowered, drop))
-                .is_none());
+            debug_assert!(
+                llvm_context
+                    .type_registry_mut()
+                    .register_struct(symbol, StructInformation::new(lowered, drop))
+                    .is_none()
+            );
         });
     }
 

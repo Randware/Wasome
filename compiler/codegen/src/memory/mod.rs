@@ -1,8 +1,8 @@
-use crate::context::{FunctionContext, LLVMContext};
 use crate::Codegen;
+use crate::context::{FunctionContext, LLVMContext};
+use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::{EnumSymbol, StructSymbol};
-use ast::TypedAST;
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::{AddressSpace, IntPredicate};
 
@@ -437,7 +437,12 @@ impl<'ctx> Codegen<'ctx> {
                 _ => (),
             }
         }
-        self.dealloc(llvm_context, to_generate, lowered.lowered().size_of().expect("Should be sized"));let size = llvm_context
+        self.dealloc(
+            llvm_context,
+            to_generate,
+            lowered.lowered().size_of().expect("Should be sized"),
+        );
+        let size = llvm_context
             .builder()
             .build_int_truncate(
                 lowered.lowered().size_of().expect("Should be sized"),
@@ -564,7 +569,11 @@ impl<'ctx> Codegen<'ctx> {
                     _ => (),
                 }
             }
-            self.dealloc(llvm_context, to_generate, variant.1.size_of().expect("Should be sized"));
+            self.dealloc(
+                llvm_context,
+                to_generate,
+                variant.1.size_of().expect("Should be sized"),
+            );
             llvm_context
                 .builder()
                 .build_unconditional_branch(after_block)
@@ -577,11 +586,7 @@ impl<'ctx> Codegen<'ctx> {
     fn dealloc(&self, llvm_context: &LLVMContext, to_generate: PointerValue, size: IntValue) {
         let size = llvm_context
             .builder()
-            .build_int_truncate(
-                size,
-                self.context.i32_type(),
-                "size_resize",
-            )
+            .build_int_truncate(size, self.context.i32_type(), "size_resize")
             .unwrap();
         llvm_context
             .builder()

@@ -1,5 +1,5 @@
-use ast::symbol::StructFieldSymbol;
 use ast::TypedAST;
+use ast::symbol::StructFieldSymbol;
 use inkwell::types::StructType;
 use inkwell::values::FunctionValue;
 use std::rc::Rc;

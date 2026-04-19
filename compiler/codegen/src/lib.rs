@@ -6,8 +6,8 @@ mod memory;
 mod symbols;
 mod types;
 
-use ast::symbol::FunctionSymbol;
 use ast::TypedAST;
+use ast::symbol::FunctionSymbol;
 use bon::bon;
 use inkwell::context::Context;
 use std::rc::Rc;

@@ -1,6 +1,7 @@
+use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use crate::Codegen;
+use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
 use ast::expression::FunctionCall;
 use ast::statement::{
@@ -9,9 +10,8 @@ use ast::statement::{
 };
 use ast::symbol::DirectlyAvailableSymbol;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use ast::TypedAST;
-use inkwell::values::BasicValue;
 use inkwell::IntPredicate;
+use inkwell::values::BasicValue;
 use std::ops::Deref;
 
 impl<'ctx, 'fc> Codegen<'ctx> {

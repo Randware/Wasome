@@ -1,9 +1,9 @@
+use inkwell::AddressSpace;
 use inkwell::context::Context;
 use inkwell::intrinsics::Intrinsic;
 use inkwell::module::Module;
 use inkwell::types::{BasicType, FunctionType, StructType};
 use inkwell::values::FunctionValue;
-use inkwell::AddressSpace;
 
 /// Holds shared LLVM types and function declarations used across all code generation.
 ///

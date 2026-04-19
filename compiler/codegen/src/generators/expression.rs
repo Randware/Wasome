@@ -1,13 +1,13 @@
+use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use crate::Codegen;
+use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
     StructFieldAccess, Typecast, UnaryOp, UnaryOpType,
 };
 use ast::symbol::VariableSymbol;
-use ast::TypedAST;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::types::{IntType, StructType};
 use inkwell::values::{BasicValue, BasicValueEnum, FloatValue, IntValue, PointerValue};
@@ -798,7 +798,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     }
 
     /// Allocates memory on the heap for a struct type using `malloc` and initializes the refcount to 1.
-    /// 
+    ///
     /// All other fields are left uninitialized
     ///
     /// # Arguments
