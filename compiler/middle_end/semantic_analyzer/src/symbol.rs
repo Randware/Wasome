@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use crate::error_sa::SemanticError;
 use crate::mics_sa::{
     analyze_data_type, analyze_struct_usage_from_typed_type_parameters,
@@ -213,7 +214,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
         = &'a StructTraversalHelper<'a, 'b, UntypedAST>
     where
         'b: 'a;
-    type SubAnalyzables<'a> = SingleSyntaxElementMap<'a, AnalyzableMethod>;
+    type SubAnalyzables<'a> = RefCell<SingleSyntaxElementMap<'a, AnalyzableMethod>>;
 
     fn load_untyped_symbol<'b>(from: &Self::ASTReference<'_, 'b>) -> Rc<Self::Symbol<UntypedAST>> {
         from.inner().symbol_owned()
@@ -246,7 +247,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
         context.ast_reference.function_iterator().for_each(|func| {
             methods.insert_untyped_element((context.ast_reference, func));
         });
-        methods
+        RefCell::new(methods)
     }
 }
 
