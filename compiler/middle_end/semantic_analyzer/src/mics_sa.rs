@@ -11,6 +11,7 @@ use ast::symbol::{
 use ast::traversal::HasSymbols;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
+use ast::visibility::Visibility;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 
@@ -412,4 +413,39 @@ pub(crate) fn analyze_method_call(
             span,
         }
     })
+}
+
+/// Checks if a struct field with the given visibility can be accessed from the current context.
+///
+/// Private fields are only accessible from methods within the same struct.
+/// Public fields are always accessible.
+///
+/// # Parameters
+/// * `field_name` - The name of the field being accessed
+/// * `field_visibility` - The visibility of the field
+/// * `containing_struct` - The struct that contains the field
+/// * `context` - The syntax context used to determine the current containing struct
+/// * `span` - The span for error reporting
+///
+/// # Returns
+/// * `Ok(())` if the field access is allowed
+/// * `Err(SemanticError::PrivateFieldAccess)` if a private field is accessed from outside its struct
+pub(crate) fn check_struct_field_visibility(
+    field_name: &str,
+    field_visibility: Visibility,
+    containing_struct: &StructSymbol<UntypedAST>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    span: source::types::Span,
+) -> Result<(), SemanticError> {
+    if field_visibility == Visibility::Private {
+        let current_containing_struct = context.ast_reference.root_helper().containing_struct();
+        if current_containing_struct.as_ref().map(|rc| rc.as_ref()) != Some(containing_struct) {
+            return Err(SemanticError::PrivateFieldAccess {
+                field: field_name.to_string(),
+                struct_name: containing_struct.name().to_string(),
+                span,
+            });
+        }
+    }
+    Ok(())
 }

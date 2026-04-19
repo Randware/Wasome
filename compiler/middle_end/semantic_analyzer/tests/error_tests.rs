@@ -184,4 +184,39 @@ mod tests {
         let code = "fn add(s32 a, s32 b) -> s32 {\n    -> a + b\n}\n\nfn main() {\n    add(5)\n}\n";
         print_diagnostic_for_code(code);
     }
+
+    const STRUCT_FIELD_DATA: &str =
+        include_str!("private_struct_field_outside_struct/lib/data.waso");
+    const STRUCT_FIELD_MAIN: &str =
+        include_str!("private_struct_field_outside_struct/app/main.waso");
+
+    #[test]
+    #[ignore = "Manual visual inspection of the struct field visibility check"]
+    fn test_struct_field_visibility_check() {
+        let dir = setup_temp_project(&[
+            ("struct_field/lib/data.waso", STRUCT_FIELD_DATA),
+            ("struct_field/app/main.waso", STRUCT_FIELD_MAIN),
+        ]);
+        let root = dir.path().to_path_buf().join("struct_field");
+        let main_file = PathBuf::from("main.waso");
+
+        let prog_info = ConcreteLoadBinaryProgramInformation::new(
+            ConcreteLoadInformation::new(
+                "struct_field".to_string(),
+                root.clone(),
+                vec![
+                    Project::new("app".to_string(), PathBuf::from("app")),
+                    Project::new("lib".to_string(), PathBuf::from("lib")),
+                ]),
+            ConcreteBinaryProgramInformation::new(
+                "app".to_string(),
+                main_file)
+        ).unwrap();
+
+        let mut sm = SourceMap::<WasomeLoader>::with_default(root);
+        let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+            .expect("Failed to generate AST");
+        let err = analyze(ast).unwrap_err();
+        err.print_snippets(&sm).unwrap()
+    }
 }

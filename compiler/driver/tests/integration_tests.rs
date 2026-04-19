@@ -2,7 +2,7 @@ use ast::symbol::SymbolWithTypeParameter;
 use driver::parser_driver::generate_untyped_ast;
 use driver::program_information::{
     ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation,
-    ConcreteLoadInformation, ProgramInformation, Project,
+    ConcreteLoadInformation, Project,
 };
 use driver::source_collector::collect_program;
 use driver::syntax_check;

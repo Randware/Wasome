@@ -16,6 +16,7 @@ use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
+use ast::visibility::Visibility;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
@@ -118,7 +119,7 @@ impl<'a> SyntaxElementMap<'a> {
         &'b self,
         symbol: &StructSymbol<UntypedAST>,
         type_parameters: &[TypedTypeParameter],
-    ) -> Option<Ref<'b, Vec<Rc<StructFieldSymbol<TypedAST>>>>> {
+    ) -> Option<Ref<'b, Vec<(Rc<StructFieldSymbol<TypedAST>>, Visibility)>>> {
         self.structs.get_pre_implementation(symbol, type_parameters)
     }
 
@@ -186,7 +187,7 @@ impl<'a> SyntaxElementMap<'a> {
 pub(crate) type StructImplementation<'a> = (
     (
         Rc<StructSymbol<TypedAST>>,
-        Vec<Rc<StructFieldSymbol<TypedAST>>>,
+        Vec<(Rc<StructFieldSymbol<TypedAST>>, Visibility)>,
     ),
     SingleSyntaxElementMap<'a, AnalyzableMethod>,
 );

@@ -17,6 +17,7 @@ use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
+use ast::visibility::Visibility;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
 use std::rc::Rc;
 
@@ -207,7 +208,7 @@ impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableEnum {
 pub(crate) struct AnalyzableStruct;
 impl AnalyzableSyntaxElementWithTypeParameter for AnalyzableStruct {
     type Symbol<Type: ASTType> = StructSymbol<Type>;
-    type PreImplementation = Vec<Rc<StructFieldSymbol<TypedAST>>>;
+    type PreImplementation = Vec<(Rc<StructFieldSymbol<TypedAST>>, Visibility)>;
     type Implementation = (Rc<Self::Symbol<TypedAST>>, Self::PreImplementation);
     type ASTReference<'a, 'b>
         = &'a StructTraversalHelper<'a, 'b, UntypedAST>
@@ -440,21 +441,24 @@ fn convert_struct_symbol(
 
 fn convert_struct_pre_implementation(
     context: &SyntaxContext<&StructTraversalHelper<UntypedAST>>,
-) -> Result<Vec<Rc<StructFieldSymbol<TypedAST>>>, SemanticError> {
+) -> Result<Vec<(Rc<StructFieldSymbol<TypedAST>>, Visibility)>, SemanticError> {
     let untyped = context.ast_reference.inner().fields();
 
     untyped
         .iter()
         .map(|field_node| {
             let span = *field_node.position();
-            let variant = field_node.inner();
+            let field_symbol = field_node.inner();
 
-            let dt = analyze_data_type(variant.data_type(), context, span)?;
+            let dt = analyze_data_type(field_symbol.data_type(), context, span)?;
 
-            Ok(Rc::new(StructFieldSymbol::<TypedAST>::new(
-                variant.name().to_owned(),
-                dt,
-            )))
+            Ok((
+                Rc::new(StructFieldSymbol::<TypedAST>::new(
+                    field_symbol.name().to_owned(),
+                    dt,
+                )),
+                field_node.visibility(),
+            ))
         })
         .collect()
 }
