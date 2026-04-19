@@ -1,13 +1,13 @@
-use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use ast::TypedAST;
+use crate::Codegen;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
     StructFieldAccess, Typecast, UnaryOp, UnaryOpType,
 };
 use ast::symbol::VariableSymbol;
+use ast::TypedAST;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::types::{IntType, StructType};
 use inkwell::values::{BasicValue, BasicValueEnum, FloatValue, IntValue, PointerValue};
@@ -342,32 +342,44 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 Builder::build_int_mul,
                 Builder::build_int_mul,
             ),
-            BinaryOpType::Division => Self::compile_arithmetic_binop(
+            BinaryOpType::Division => {
+                Self::compile_int_zero_check(llvm_context, statement_context, rhs, &dt);
+                Self::compile_arithmetic_binop(
+                    llvm_context,
+                    &dt,
+                    lhs,
+                    rhs,
+                    Builder::build_float_div,
+                    Builder::build_int_unsigned_div,
+                    Builder::build_int_signed_div,
+                )
+            }
+            BinaryOpType::Modulo => {
+                Self::compile_int_zero_check(llvm_context, statement_context, rhs, &dt);
+                Self::compile_arithmetic_binop(
+                    llvm_context,
+                    &dt,
+                    lhs,
+                    rhs,
+                    Builder::build_float_rem,
+                    Builder::build_int_unsigned_rem,
+                    Builder::build_int_signed_rem,
+                )
+            }
+            BinaryOpType::LeftShift => self.compile_shift(
                 llvm_context,
-                &dt,
+                statement_context,
                 lhs,
                 rhs,
-                Builder::build_float_div,
-                Builder::build_int_unsigned_div,
-                Builder::build_int_signed_div,
+                |builder, lhs, rhs, name| builder.build_left_shift(lhs, rhs, name),
             ),
-            BinaryOpType::Modulo => Self::compile_arithmetic_binop(
+            BinaryOpType::RightShift => self.compile_shift(
                 llvm_context,
-                &dt,
+                statement_context,
                 lhs,
                 rhs,
-                Builder::build_float_rem,
-                Builder::build_int_unsigned_rem,
-                Builder::build_int_signed_rem,
+                |builder, lhs, rhs, name| builder.build_right_shift(lhs, rhs, dt.is_sint(), name),
             ),
-            BinaryOpType::LeftShift => {
-                Self::compile_int_binop(llvm_context, lhs, rhs, Builder::build_left_shift)
-            }
-            BinaryOpType::RightShift => {
-                Self::compile_int_binop(llvm_context, lhs, rhs, |builder, lhs, rhs, name| {
-                    builder.build_right_shift(lhs, rhs, dt.is_sint(), name)
-                })
-            }
             BinaryOpType::BitwiseOr | BinaryOpType::Or => {
                 Self::compile_int_binop(llvm_context, lhs, rhs, Builder::build_or)
             }
@@ -432,6 +444,95 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 IntPredicate::ULE,
             ),
         }
+    }
+
+    /// Helper for operations with non-zero requirements for ints.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] providing the [`Builder`]
+    /// * `statement_context` - The [`StatementContext`] for accessing the current function
+    /// * `to_check` - The value to check
+    /// * `dt` - The data type of the value to check
+    fn compile_int_zero_check(llvm_context: &LLVMContext<'ctx>, statement_context: &mut StatementContext<'ctx, '_>, to_check: BasicValueEnum<'ctx>, dt: &DataType) {
+        if !dt.is_float() {
+            let rhs_int = to_check.into_int_value();
+            let zero = rhs_int.get_type().const_int(0, false);
+            let is_zero = llvm_context
+                .builder()
+                .build_int_compare(IntPredicate::EQ, rhs_int, zero, "is_zero")
+                .unwrap();
+            let then_block = llvm_context.context().append_basic_block(
+                statement_context.function_context().current_function(),
+                "zero",
+            );
+            let continue_block = llvm_context.context().append_basic_block(
+                statement_context.function_context().current_function(),
+                "continue",
+            );
+            llvm_context
+                .builder()
+                .build_conditional_branch(is_zero, then_block, continue_block)
+                .unwrap();
+            statement_context.set_current_block(llvm_context, then_block);
+            llvm_context
+                .builder()
+                .build_call(llvm_context.global_registry().panic(), &[], "panic")
+                .unwrap();
+            statement_context.set_current_block(llvm_context, continue_block);
+        }
+    }
+
+    /// Helper for shift operations with bit width validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `llvm_context` - The [`LLVMContext`] providing the [`Builder`]
+    /// * `statement_context` - The [`StatementContext`] for accessing the current function
+    /// * `lhs` - The left-hand side LLVM value
+    /// * `rhs` - The right-hand side LLVM value (shift amount)
+    /// * `op` - The shift operation function to apply
+    fn compile_shift(
+        &mut self,
+        llvm_context: &LLVMContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, 'fc>,
+        lhs: BasicValueEnum<'ctx>,
+        rhs: BasicValueEnum<'ctx>,
+        op: impl FnOnce(
+            &Builder<'ctx>,
+            IntValue<'ctx>,
+            IntValue<'ctx>,
+            &str,
+        ) -> Result<IntValue<'ctx>, BuilderError>,
+    ) -> BasicValueEnum<'ctx> {
+        let lhs_int = lhs.into_int_value();
+        let rhs_int = rhs.into_int_value();
+        let bit_width = lhs_int.get_type().get_bit_width();
+        let bit_width_val = rhs_int.get_type().const_int(bit_width as u64, false);
+        let is_invalid = llvm_context
+            .builder()
+            .build_int_compare(IntPredicate::UGE, rhs_int, bit_width_val, "shift_overflow")
+            .unwrap();
+        let then_block = llvm_context.context().append_basic_block(
+            statement_context.function_context().current_function(),
+            "shift_overflow",
+        );
+        let continue_block = llvm_context.context().append_basic_block(
+            statement_context.function_context().current_function(),
+            "shift_continue",
+        );
+        llvm_context
+            .builder()
+            .build_conditional_branch(is_invalid, then_block, continue_block)
+            .unwrap();
+        statement_context.set_current_block(llvm_context, then_block);
+        llvm_context
+            .builder()
+            .build_call(llvm_context.global_registry().panic(), &[], "panic")
+            .unwrap();
+        statement_context.set_current_block(llvm_context, continue_block);
+        let val = op(llvm_context.builder(), lhs_int, rhs_int, "shift").unwrap();
+        val.as_basic_value_enum()
     }
 
     /// Helper for integer-only binary operations (shifts, bitwise ops).

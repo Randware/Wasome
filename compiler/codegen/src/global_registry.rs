@@ -1,9 +1,9 @@
-use inkwell::AddressSpace;
 use inkwell::context::Context;
 use inkwell::intrinsics::Intrinsic;
 use inkwell::module::Module;
 use inkwell::types::{BasicType, FunctionType, StructType};
 use inkwell::values::FunctionValue;
+use inkwell::AddressSpace;
 
 /// Holds shared LLVM types and function declarations used across all code generation.
 ///
@@ -55,6 +55,10 @@ pub struct GlobalRegistry<'ctx> {
     /// Frees the specified heap allocation. The size parameter is passed for WASM compatibility.
     /// Used by drop functions to deallocate memory.
     free: FunctionValue<'ctx>,
+    /// The panic handler
+    ///
+    /// Called when a panic occurs
+    panic: FunctionValue<'ctx>,
 }
 
 impl<'ctx> GlobalRegistry<'ctx> {
@@ -113,6 +117,8 @@ impl<'ctx> GlobalRegistry<'ctx> {
             .void_type()
             .fn_type(&[ctx.i32_type().into(), ctx.i32_type().into()], false);
         let free = module.add_function("free", free, None);
+        let panic = ctx.void_type().fn_type(&[], false);
+        let panic = module.add_function("panic", panic, None);
 
         Self {
             base_enum,
@@ -122,6 +128,7 @@ impl<'ctx> GlobalRegistry<'ctx> {
             drop,
             malloc,
             free,
+            panic,
         }
     }
 
@@ -151,5 +158,9 @@ impl<'ctx> GlobalRegistry<'ctx> {
 
     pub const fn free(&self) -> FunctionValue<'ctx> {
         self.free
+    }
+
+    pub const fn panic(&self) -> FunctionValue<'ctx> {
+        self.panic
     }
 }

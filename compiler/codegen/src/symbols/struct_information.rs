@@ -19,7 +19,7 @@ pub struct StructInformation<'ctx> {
     ///
     /// Populated during the fill phase. Each field corresponds to a lowered type at
     /// index `i + 1` in the LLVM struct (index 0 is the refcount field).
-    variants: Vec<Rc<StructFieldSymbol<TypedAST>>>,
+    fields: Vec<Rc<StructFieldSymbol<TypedAST>>>,
     /// The lowered LLVM [`StructType`] for this struct.
     ///
     /// Initially created as opaque, then filled with the complete field layout including
@@ -50,7 +50,7 @@ impl<'ctx> StructInformation<'ctx> {
     /// * `on_drop` - The `drop` function [`FunctionValue`] for this struct type
     pub const fn new(lowered: StructType<'ctx>, on_drop: FunctionValue<'ctx>) -> Self {
         Self {
-            variants: Vec::new(),
+            fields: Vec::new(),
             lowered,
             on_drop,
             predrop: None,
@@ -67,7 +67,7 @@ impl<'ctx> StructInformation<'ctx> {
     /// Each field's position in the vector corresponds to its index in the LLVM struct
     /// layout (offset by 1 for the refcount field at index 0).
     pub fn fields(&self) -> &[Rc<StructFieldSymbol<TypedAST>>] {
-        &self.variants
+        &self.fields
     }
 
     /// Adds a field symbol to the struct during the fill phase.
@@ -76,7 +76,7 @@ impl<'ctx> StructInformation<'ctx> {
     ///
     /// * `field` - The struct field symbol to add
     pub fn add_field(&mut self, field: Rc<StructFieldSymbol<TypedAST>>) {
-        self.variants.push(field);
+        self.fields.push(field);
     }
 
     /// Returns the drop function for this struct.
