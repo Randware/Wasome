@@ -366,14 +366,14 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     Builder::build_int_signed_rem,
                 )
             }
-            BinaryOpType::LeftShift => self.compile_shift(
+            BinaryOpType::LeftShift => Self::compile_shift(
                 llvm_context,
                 statement_context,
                 lhs,
                 rhs,
-                |builder, lhs, rhs, name| builder.build_left_shift(lhs, rhs, name),
+                Builder::build_left_shift,
             ),
-            BinaryOpType::RightShift => self.compile_shift(
+            BinaryOpType::RightShift => Self::compile_shift(
                 llvm_context,
                 statement_context,
                 lhs,
@@ -493,7 +493,6 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     /// * `rhs` - The right-hand side LLVM value (shift amount)
     /// * `op` - The shift operation function to apply
     fn compile_shift(
-        &mut self,
         llvm_context: &LLVMContext<'ctx>,
         statement_context: &mut StatementContext<'ctx, 'fc>,
         lhs: BasicValueEnum<'ctx>,
@@ -508,7 +507,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let lhs_int = lhs.into_int_value();
         let rhs_int = rhs.into_int_value();
         let bit_width = lhs_int.get_type().get_bit_width();
-        let bit_width_val = rhs_int.get_type().const_int(bit_width as u64, false);
+        let bit_width_val = rhs_int.get_type().const_int(u64::from(bit_width), false);
         let is_invalid = llvm_context
             .builder()
             .build_int_compare(IntPredicate::UGE, rhs_int, bit_width_val, "shift_overflow")
