@@ -1,13 +1,13 @@
+use crate::Codegen;
 use crate::context::{LLVMContext, StatementContext};
 use crate::symbols::VariableTable;
-use crate::Codegen;
+use ast::TypedAST;
 use ast::data_type::{DataType, Typed};
 use ast::expression::{
     BinaryOp, BinaryOpType, Expression, FunctionCall, Literal, NewEnum, NewStruct,
     StructFieldAccess, Typecast, UnaryOp, UnaryOpType,
 };
 use ast::symbol::VariableSymbol;
-use ast::TypedAST;
 use inkwell::builder::{Builder, BuilderError};
 use inkwell::types::{IntType, StructType};
 use inkwell::values::{BasicValue, BasicValueEnum, FloatValue, IntValue, PointerValue};
@@ -454,7 +454,12 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     /// * `statement_context` - The [`StatementContext`] for accessing the current function
     /// * `to_check` - The value to check
     /// * `dt` - The data type of the value to check
-    fn compile_int_zero_check(llvm_context: &LLVMContext<'ctx>, statement_context: &mut StatementContext<'ctx, '_>, to_check: BasicValueEnum<'ctx>, dt: &DataType) {
+    fn compile_int_zero_check(
+        llvm_context: &LLVMContext<'ctx>,
+        statement_context: &mut StatementContext<'ctx, '_>,
+        to_check: BasicValueEnum<'ctx>,
+        dt: &DataType,
+    ) {
         if !dt.is_float() {
             let rhs_int = to_check.into_int_value();
             let zero = rhs_int.get_type().const_int(0, false);
