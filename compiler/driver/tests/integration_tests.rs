@@ -1,6 +1,10 @@
 use ast::symbol::SymbolWithTypeParameter;
 use driver::parser_driver::generate_untyped_ast;
-use driver::program_information::{ProgramInformation, Project};
+use driver::program_information::{
+    ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation,
+    ConcreteLoadInformation, Project,
+};
+use driver::source_collector::collect_program;
 use driver::syntax_check;
 use io::WasomeLoader;
 use source::SourceMap;
@@ -21,7 +25,8 @@ const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/m
 const MULTI_PROJECT_LIB_OPS: &str =
     include_str!("test_programs/multi-project/min/lib/math/ops.waso");
 
-const EMPTY_IMPORT_MAIN: &str = include_str!("test_programs/multi-project/empty_import/app/main.waso");
+const EMPTY_IMPORT_MAIN: &str =
+    include_str!("test_programs/multi-project/empty_import/app/main.waso");
 
 const CIRCULAR_A: &str = include_str!("test_programs/single_project/circular/a/a.waso");
 const CIRCULAR_B: &str = include_str!("test_programs/single_project/circular/b/b.waso");
@@ -49,18 +54,20 @@ fn test_simple_program() {
     let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "simple".to_string(),
-        root.clone(),
-        vec![Project::new("simple".to_string(), PathBuf::from("simple"))],
-        "simple".to_string(),
-        main_file,
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
+            "simple".to_string(),
+            root.clone(),
+            vec![Project::new("simple".to_string(), PathBuf::from("simple"))],
+        ),
+        ConcreteBinaryProgramInformation::new("simple".to_string(), main_file),
     )
     .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("simple").unwrap();
     assert_eq!(root_node.name(), "simple");
@@ -85,21 +92,23 @@ fn test_multi_module_program() {
     let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "multi_module".to_string(),
-        root.clone(),
-        vec![Project::new(
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
             "multi_module".to_string(),
-            PathBuf::from("multi_module"),
-        )],
-        "multi_module".to_string(),
-        main_file,
+            root.clone(),
+            vec![Project::new(
+                "multi_module".to_string(),
+                PathBuf::from("multi_module"),
+            )],
+        ),
+        ConcreteBinaryProgramInformation::new("multi_module".to_string(), main_file),
     )
     .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("multi_module").unwrap();
 
@@ -139,21 +148,23 @@ fn test_multi_project_program() {
     let root = dir.path().to_path_buf().join("multi_project");
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "multi_project".to_string(),
-        root.clone(),
-        vec![
-            Project::new("app".to_string(), PathBuf::from("app")),
-            Project::new("lib".to_string(), PathBuf::from("lib")),
-        ],
-        "app".to_string(),
-        main_file,
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
+            "multi_project".to_string(),
+            root.clone(),
+            vec![
+                Project::new("app".to_string(), PathBuf::from("app")),
+                Project::new("lib".to_string(), PathBuf::from("lib")),
+            ],
+        ),
+        ConcreteBinaryProgramInformation::new("app".to_string(), main_file),
     )
     .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref();
 
@@ -191,25 +202,26 @@ fn test_empty_import_program() {
     fs::create_dir_all(root.join("empty_import/lib")).unwrap();
     fs::write(path, EMPTY_IMPORT_MAIN).unwrap();
 
-
     let root = dir.path().to_path_buf().join("empty_import");
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "empty_import".to_string(),
-        root.clone(),
-        vec![
-            Project::new("app".to_string(), PathBuf::from("app")),
-            Project::new("lib".to_string(), PathBuf::from("lib")),
-        ],
-        "app".to_string(),
-        main_file,
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
+            "empty_import".to_string(),
+            root.clone(),
+            vec![
+                Project::new("app".to_string(), PathBuf::from("app")),
+                Project::new("lib".to_string(), PathBuf::from("lib")),
+            ],
+        ),
+        ConcreteBinaryProgramInformation::new("app".to_string(), main_file),
     )
-        .unwrap();
+    .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref();
 
@@ -224,7 +236,6 @@ fn test_empty_import_program() {
     root_node
         .subdirectory_by_name("lib")
         .expect("lib dir not found");
-
 }
 
 #[test]
@@ -236,21 +247,23 @@ fn test_circular_imports() {
     let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("a/a.waso");
 
-    let prog_info = ProgramInformation::new(
-        "circular".to_string(),
-        root.clone(),
-        vec![Project::new(
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
             "circular".to_string(),
-            PathBuf::from("circular"),
-        )],
-        "circular".to_string(),
-        main_file,
+            root.clone(),
+            vec![Project::new(
+                "circular".to_string(),
+                PathBuf::from("circular"),
+            )],
+        ),
+        ConcreteBinaryProgramInformation::new("circular".to_string(), main_file),
     )
     .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
-    let ast = generate_untyped_ast(&prog_info, &mut sm).expect("Failed to generate AST");
+    let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+        .expect("Failed to generate AST");
 
     let root_node = ast.deref().subdirectory_by_name("circular").unwrap();
 
@@ -286,12 +299,13 @@ fn test_syntax_check_simple() {
     let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "simple".to_string(),
-        root.clone(),
-        vec![Project::new("simple".to_string(), PathBuf::from("simple"))],
-        "simple".to_string(),
-        main_file,
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
+            "simple".to_string(),
+            root.clone(),
+            vec![Project::new("simple".to_string(), PathBuf::from("simple"))],
+        ),
+        ConcreteBinaryProgramInformation::new("simple".to_string(), main_file),
     )
     .unwrap();
 
@@ -310,15 +324,16 @@ fn test_syntax_check_multi_module() {
     let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "multi_module".to_string(),
-        root.clone(),
-        vec![Project::new(
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
             "multi_module".to_string(),
-            PathBuf::from("multi_module"),
-        )],
-        "multi_module".to_string(),
-        main_file,
+            root.clone(),
+            vec![Project::new(
+                "multi_module".to_string(),
+                PathBuf::from("multi_module"),
+            )],
+        ),
+        ConcreteBinaryProgramInformation::new("multi_module".to_string(), main_file),
     )
     .unwrap();
 
@@ -336,15 +351,16 @@ fn test_syntax_check_multi_project() {
     let root = dir.path().to_path_buf().join("multi_project");
     let main_file = PathBuf::from("main.waso");
 
-    let prog_info = ProgramInformation::new(
-        "multi_project".to_string(),
-        root.clone(),
-        vec![
-            Project::new("app".to_string(), PathBuf::from("app")),
-            Project::new("lib".to_string(), PathBuf::from("lib")),
-        ],
-        "app".to_string(),
-        main_file,
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
+            "multi_project".to_string(),
+            root.clone(),
+            vec![
+                Project::new("app".to_string(), PathBuf::from("app")),
+                Project::new("lib".to_string(), PathBuf::from("lib")),
+            ],
+        ),
+        ConcreteBinaryProgramInformation::new("app".to_string(), main_file),
     )
     .unwrap();
 
@@ -362,15 +378,16 @@ fn test_syntax_check_circular() {
     let root = dir.path().to_path_buf();
     let main_file = PathBuf::from("a/a.waso");
 
-    let prog_info = ProgramInformation::new(
-        "circular".to_string(),
-        root.clone(),
-        vec![Project::new(
+    let prog_info = ConcreteLoadBinaryProgramInformation::new(
+        ConcreteLoadInformation::new(
             "circular".to_string(),
-            PathBuf::from("circular"),
-        )],
-        "circular".to_string(),
-        main_file,
+            root.clone(),
+            vec![Project::new(
+                "circular".to_string(),
+                PathBuf::from("circular"),
+            )],
+        ),
+        ConcreteBinaryProgramInformation::new("circular".to_string(), main_file),
     )
     .unwrap();
 

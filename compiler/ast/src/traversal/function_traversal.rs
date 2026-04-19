@@ -2,8 +2,10 @@ use crate::symbol::{
     DirectlyAvailableSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable, VariableSymbol,
 };
 use crate::top_level::Function;
-use crate::traversal::statement_traversal::StatementTraversalHelper;
 use crate::traversal::{FunctionScope, HasSymbols};
+use crate::traversal::statement_traversal::{
+    StatementTraversalHelper, StatementTraversalHelperCreationError,
+};
 use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -51,8 +53,12 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
 
     /// Gets a [`StatementTraversalHelper`] for the top level statement in this function
     /// This is the intended way to traverse a function
-    #[must_use]
-    pub fn ref_to_implementation(&self) -> StatementTraversalHelper<'_, 'b, Type> {
+    /// # Errors
+    ///
+    /// If `self` is attached to an external function
+    pub fn ref_to_implementation(
+        &self,
+    ) -> Result<StatementTraversalHelper<'_, 'b, Type>, StatementTraversalHelperCreationError> {
         StatementTraversalHelper::new_root(self)
     }
 

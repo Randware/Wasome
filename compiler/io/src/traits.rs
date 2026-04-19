@@ -70,6 +70,9 @@ pub trait DirectoryLoader {
     ///
     /// There is no filtering (e.g.: hidden files) and symlinks are resolved.
     ///
+    /// The resulting files are unique. 
+    ///     - Therefore, duplicates are impossible
+    
     /// # Arguments
     ///
     /// * `path` - The absolute or canonical path to the directory.
@@ -87,6 +90,9 @@ pub trait DirectoryLoader {
     ///
     /// There is no filtering (e.g.: hidden directories) and symlinks are resolved.
     ///
+    /// The resulting subdirs are unique.
+    ///     - Therefore, duplicates are impossible
+    /// 
     /// # Arguments
     ///
     /// * `path` - The absolute or canonical path to the directory.
