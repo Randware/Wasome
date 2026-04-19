@@ -4,19 +4,19 @@ mod statement;
 
 use crate::context::{FunctionContext, StatementContext};
 use crate::symbols::{EnumInformation, StructInformation, VariableTable};
-use crate::{Codegen, context::LLVMContext};
-use ast::data_type::{DataType, Typed};
+use crate::{context::LLVMContext, Codegen};
+use ast::data_type::Typed;
 use ast::expression::FunctionCall;
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
 use ast::top_level::FunctionType;
-use ast::traversal::FunctionContainer;
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
-use ast::{AST, TypedAST};
+use ast::traversal::FunctionContainer;
+use ast::{TypedAST, AST};
 use inkwell::types::BasicType;
 use inkwell::values::CallSiteValue;
 use std::iter::once;
@@ -222,7 +222,11 @@ impl<'ctx> Codegen<'ctx> {
                     }
                 }
             };
-            let lowered = module.add_function(&name, lowered_type, None);
+            let lowered = match module.get_function(&name) {
+                None => module.add_function(&name, lowered_type, None),
+                // We can only get here if it's an external function
+                Some(func) => func
+            };
             debug_assert!(
                 llvm_context
                     .type_registry_mut()

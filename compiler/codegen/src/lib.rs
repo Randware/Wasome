@@ -41,6 +41,7 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::TempDir;
+    use crate::types::OptLevel;
 
     const FIBONACCI: &str =
         include_str!("../../driver/tests/test_programs/single_file/fibonacci.waso");
@@ -79,7 +80,7 @@ mod tests {
         let tap = typed_ast_pipeline();
         let tast = tap.process((&prog_info, &mut sm)).unwrap().0;
         let context = Context::create();
-        let mut codegen = Codegen::builder().context(&context).build();
+        let mut codegen = Codegen::builder().context(&context).opt_level(OptLevel::O0).build();
         let code = codegen.compile(&tast);
         let mut file = File::create("../code.wasm").unwrap();
         file.write_all(&code).unwrap();

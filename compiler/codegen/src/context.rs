@@ -81,6 +81,7 @@ impl<'ctx> LLVMContext<'ctx> {
     }
 
     pub fn get_object(&self) -> Vec<u8> {
+        self.apply_passes();
         self.print_ir().unwrap();
         let buffer = self
             .machine()
