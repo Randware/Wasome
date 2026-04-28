@@ -210,8 +210,16 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[cfg(debug_assertions)]
     fn test_bytepos_sub_overflow() {
         // Rust's default u32 behavior panics in debug on overflow
+        let _ = BytePos(0) - 1;
+    }
+
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn test_bytepos_sub_overflow() {
+        // Rust's default u32 behavior does NOT panics in release on overflow
         let _ = BytePos(0) - 1;
     }
 
