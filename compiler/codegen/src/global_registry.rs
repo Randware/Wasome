@@ -20,7 +20,7 @@ use inkwell::values::FunctionValue;
 /// * **Drop function type** - The function type signature for all `drop` functions, which
 ///   take a single pointer and recursively deallocate heap-allocated values.
 pub struct GlobalRegistry<'ctx> {
-    /// The base struct type for all enums: `(i32 discriminant, i32 size)`.
+    /// The base struct type for all enums: `(i32 refcount, i32 discriminant)`.
     ///
     /// This struct layout serves as the template for the discriminant and size fields
     /// that are prepended to every enum variant allocation.
