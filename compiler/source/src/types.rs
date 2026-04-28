@@ -209,10 +209,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_bytepos_sub_overflow() {
-        // Rust's default u32 behavior panics in debug on overflow
-        let _ = BytePos(0) - 1;
+        let result = std::panic::catch_unwind(|| {
+            let _ = BytePos(0) - 1;
+        });
+        assert_eq!(
+            result.is_err(),
+            cfg!(debug_assertions),
+            "BytePos(0) - 1 should panic in debug builds and not panic in release builds"
+        );
     }
 
     #[test]
