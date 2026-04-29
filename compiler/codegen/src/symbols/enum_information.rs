@@ -69,11 +69,7 @@ impl<'ctx> EnumInformation<'ctx> {
     /// * `Some(StructType)` - The lowered LLVM struct type for the variant
     /// * `None` - The variant is not registered
     pub fn lookup(&self, key: &EnumVariantSymbol<TypedAST>) -> Option<StructType<'ctx>> {
-        self.variants
-            .iter()
-            .find(|to_check| &*to_check.0 == key)
-            .map(|variant| &variant.1)
-            .copied()
+        self.variants.get(self.index_of(key)?).map(|v| v.1)
     }
 
     /// Returns the index of a variant by symbol.
