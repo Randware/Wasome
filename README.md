@@ -28,9 +28,8 @@
 <div align="center">
 <p>
 Wasome is a programming language built from scratch to compile to WebAssembly.<br/>
-A clean, expressive syntax paired with a strong type system that catches your mistakes before they become problems.<br/><br/>
-Whether you're targeting the browser, a server, or the edge,<br/>
-you write Wasome, compile to Wasm, and it <strong>just works</strong>.
+Whether you're targeting the browser, a server, or the edge,br/>
+Write Wasome, compile to Wasm, and it <strong>just works</strong>.
 </p>
 </div>
 
