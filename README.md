@@ -108,36 +108,36 @@ fn main() {
 
 ## ✦ Features
 
-<table border="0" cellpadding="8" cellspacing="0">
+<table border="0" cellpadding="12" cellspacing="0" width="100%">
 <tr>
-<td width="10%" align="center">⚡</td>
-<td width="25%"><a href="https://webassembly.org/"><b>WebAssembly Native</b></a></td>
-<td width="65%">Compiles directly to Wasm<br/>with no runtime overhead.</td>
+<td width="8%" align="center">⚡</td>
+<td width="22%"><a href="https://webassembly.org/"><b>WebAssembly Native</b></a></td>
+<td width="70%">Compiles directly to Wasm with no runtime overhead.</td>
 </tr>
 <tr>
-<td width="10%" align="center">🛡️</td>
-<td width="25%"><a href="https://wasome.dev/docs#datatypes"><b>Type-Safe</b></a></td>
-<td width="65%">Strong static typing catches errors<br/>before your code reaches runtime.</td>
+<td width="8%" align="center">🛡️</td>
+<td width="22%"><a href="https://wasome.dev/docs#datatypes"><b>Type-Safe</b></a></td>
+<td width="70%">Strong static typing catches errors before your code reaches runtime.</td>
 </tr>
 <tr>
-<td width="10%" align="center">🧱</td>
-<td width="25%"><a href="https://wasome.dev/docs#structs"><b>Structs & Enums</b></a></td>
-<td width="65%">Custom data models with methods<br/>and expressive patterns.</td>
+<td width="8%" align="center">🧱</td>
+<td width="22%"><a href="https://wasome.dev/docs#structs"><b>Structs & Enums</b></a></td>
+<td width="70%">Custom data models with methods and expressive patterns.</td>
 </tr>
 <tr>
-<td width="10%" align="center">🔀</td>
-<td width="25%"><b>Generics</b></td>
-<td width="65%">Reusable abstractions across functions,<br/>structs, and enums.</td>
+<td width="8%" align="center">🔀</td>
+<td width="22%"><b>Generics</b></td>
+<td width="70%">Reusable abstractions across functions, structs, and enums.</td>
 </tr>
 <tr>
-<td width="10%" align="center">📦</td>
-<td width="25%"><b>Modules & Imports</b></td>
-<td width="65%">Organize code cleanly across files<br/>and projects.</td>
+<td width="8%" align="center">📦</td>
+<td width="22%"><b>Modules & Imports</b></td>
+<td width="70%">Organize code cleanly across files and projects.</td>
 </tr>
 <tr>
-<td width="10%" align="center">✨</td>
-<td width="25%"><b>Built-in Formatter</b></td>
-<td width="65%">Consistent style, automatically,<br/>with zero configuration.</td>
+<td width="8%" align="center">✨</td>
+<td width="22%"><b>Built-in Formatter</b></td>
+<td width="70%">Consistent style, automatically, with zero configuration.</td>
 </tr>
 </table>
 
@@ -148,21 +148,21 @@ Everything you need to learn, experiment, and build with Wasome lives at [wasome
 
 <br/>
 
-<table border="0" cellpadding="8" cellspacing="0">
+<table border="0" cellpadding="12" cellspacing="0" width="100%">
 <tr>
-<td width="10%" align="center">📚</td>
-<td width="25%"><a href="https://wasome.dev/docs"><b>Documentation</b></a></td>
-<td width="65%">Guides, references, and the full language spec.<br/>From zero to your first project.</td>
+<td width="8%" align="center">📚</td>
+<td width="22%"><a href="https://wasome.dev/docs"><b>Documentation</b></a></td>
+<td width="70%">Guides, references, and the full language spec. From zero to your first project.</td>
 </tr>
 <tr>
-<td width="10%" align="center">🌟</td>
-<td width="25%"><a href="https://wasome.dev/tour"><b>Language Tour</b></a></td>
-<td width="65%">An interactive language walkthrough,<br/>guided by <b>Bit</b>, your star companion.</td>
+<td width="8%" align="center">🌟</td>
+<td width="22%"><a href="https://wasome.dev/tour"><b>Language Tour</b></a></td>
+<td width="70%">An interactive language walkthrough, guided by <b>Bit</b>, your star companion.</td>
 </tr>
 <tr>
-<td width="10%" align="center">🧪</td>
-<td width="25%"><a href="https://wasome.dev/playground"><b>Playground</b></a></td>
-<td width="65%">Write and run Wasome in your browser.<br/>No install needed; mini IDE included.</td>
+<td width="8%" align="center">🧪</td>
+<td width="22%"><a href="https://wasome.dev/playground"><b>Playground</b></a></td>
+<td width="70%">Write and run Wasome in your browser. No install needed; mini IDE included.</td>
 </tr>
 </table>
 
@@ -174,21 +174,21 @@ The `docs/examples/` directory has a growing collection of real programs, organi
 
 <br/>
 
-<table border="0" cellpadding="8" cellspacing="0">
+<table border="0" cellpadding="12" cellspacing="0" width="100%">
 <tr>
-<td width="10%" align="center">📄</td>
-<td width="25%"><a href="docs/examples/single_file"><b>Single File</b></a></td>
-<td width="65%">Standalone <code>.waso</code> programs for loops,<br/>structs, enums, generics, and operators.</td>
+<td width="8%" align="center">📄</td>
+<td width="22%"><a href="docs/examples/single_file"><b>Single File</b></a></td>
+<td width="70%">Standalone <code>.waso</code> programs for loops, structs, enums, generics, and operators.</td>
 </tr>
 <tr>
-<td width="10%" align="center">📁</td>
-<td width="25%"><a href="docs/examples/single_project"><b>Single Project</b></a></td>
-<td width="65%">Multi-file projects with module imports;<br/>see how Wasome scales beyond one file.</td>
+<td width="8%" align="center">📁</td>
+<td width="22%"><a href="docs/examples/single_project"><b>Single Project</b></a></td>
+<td width="70%">Multi-file projects with module imports; see how Wasome scales beyond one file.</td>
 </tr>
 <tr>
-<td width="10%" align="center">🗂️</td>
-<td width="25%"><a href="docs/examples/multi-project"><b>Multi-Project</b></a></td>
-<td width="65%">Workspace-style projects with modules<br/>for real-world architecture.</td>
+<td width="8%" align="center">🗂️</td>
+<td width="22%"><a href="docs/examples/multi-project"><b>Multi-Project</b></a></td>
+<td width="70%">Workspace-style projects with modules for real-world architecture.</td>
 </tr>
 </table>
 
