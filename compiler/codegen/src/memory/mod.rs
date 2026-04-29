@@ -129,13 +129,13 @@ impl<'ctx> Codegen<'ctx> {
     /// # Arguments
     ///
     /// * `llvm_context` - The LLVM context for IR operations
-    /// * `to_generate` - The pointer to the heap-allocated value
+    /// * `to_inc` - The pointer to the heap-allocated value
     pub(crate) fn compile_inc_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
-        to_generate: PointerValue<'ctx>,
+        to_inc: PointerValue<'ctx>,
     ) {
-        self.compile_add_refcount(llvm_context, to_generate, 1);
+        self.compile_add_refcount(llvm_context, to_inc, 1);
     }
 
     /// Drops a reference-counted value by loading the pointer and delegating to `compile_val_drop`.
@@ -149,13 +149,13 @@ impl<'ctx> Codegen<'ctx> {
     /// * `llvm_context` - The LLVM context for IR operations
     /// * `func` - The mutable [`FunctionContext`] for block management
     /// * `dt` - The [`DataType`] of the value
-    /// * `to_generate` - The pointer to the heap-allocated value
+    /// * `to_drop` - The pointer to the heap-allocated value
     pub(crate) fn compile_val_ref_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
         func: &mut FunctionContext<'ctx>,
         dt: &DataType,
-        to_generate: PointerValue<'ctx>,
+        to_drop: PointerValue<'ctx>,
     ) {
         match dt {
             DataType::Struct(_) | DataType::Enum(_) => {
@@ -163,7 +163,7 @@ impl<'ctx> Codegen<'ctx> {
                     .builder()
                     .build_load(
                         self.context.ptr_type(AddressSpace::default()),
-                        to_generate,
+                        to_drop,
                         "drop_load",
                     )
                     .unwrap();
@@ -181,13 +181,13 @@ impl<'ctx> Codegen<'ctx> {
     /// * `llvm_context` - The LLVM context for IR operations
     /// * `func` - The mutable [`FunctionContext`] for block management
     /// * `dt` - The [`DataType`] of the value (must be Struct or Enum)
-    /// * `to_generate` - The LLVM [`BasicValueEnum`] representing the value
+    /// * `to_drop` - The LLVM [`BasicValueEnum`] representing the value
     pub(crate) fn compile_val_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
         func: &mut FunctionContext<'ctx>,
         dt: &DataType,
-        to_generate: BasicValueEnum<'ctx>,
+        to_drop: BasicValueEnum<'ctx>,
     ) {
         match dt {
             DataType::Struct(st) => {
@@ -195,7 +195,7 @@ impl<'ctx> Codegen<'ctx> {
                     llvm_context,
                     func,
                     st,
-                    to_generate.into_pointer_value(),
+                    to_drop.into_pointer_value(),
                 );
             }
             DataType::Enum(en) => {
@@ -203,7 +203,7 @@ impl<'ctx> Codegen<'ctx> {
                     llvm_context,
                     func,
                     en,
-                    to_generate.into_pointer_value(),
+                    to_drop.into_pointer_value(),
                 );
             }
             _ => (),
@@ -217,14 +217,14 @@ impl<'ctx> Codegen<'ctx> {
     /// # Arguments
     ///
     /// * `llvm_context` - The LLVM context for IR operations
-    /// * `to_generate` - The LLVM [`BasicValueEnum`] to increment
+    /// * `to_create` - The LLVM [`BasicValueEnum`] to increment
     pub(crate) fn compile_val_create(
         &self,
         llvm_context: &LLVMContext<'ctx>,
-        to_generate: BasicValueEnum<'ctx>,
+        to_create: BasicValueEnum<'ctx>,
     ) {
-        if to_generate.is_pointer_value() {
-            self.compile_inc_refcount(llvm_context, to_generate.into_pointer_value());
+        if to_create.is_pointer_value() {
+            self.compile_inc_refcount(llvm_context, to_create.into_pointer_value());
         }
     }
 
@@ -235,17 +235,17 @@ impl<'ctx> Codegen<'ctx> {
     /// * `llvm_context` - The LLVM context for IR operations
     /// * `func` - The mutable [`FunctionContext`] for block management
     /// * `struc` - The struct symbol
-    /// * `to_generate` - The pointer to the heap-allocated struct
+    /// * `to_dec_ref` - The pointer to the heap-allocated struct
     pub(crate) fn compile_struct_dec_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
         func: &mut FunctionContext<'ctx>,
         struc: &StructSymbol<TypedAST>,
-        to_generate: PointerValue<'ctx>,
+        to_dec_ref: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_struct(struc).expect("Unknown struct");
-        self.compile_dec_refcount(llvm_context, func, lowered.on_drop(), to_generate);
+        self.compile_dec_refcount(llvm_context, func, lowered.on_drop(), to_dec_ref);
     }
 
     /// Decrements the reference count for an enum, calling its drop function when the count reaches zero.
@@ -255,17 +255,17 @@ impl<'ctx> Codegen<'ctx> {
     /// * `llvm_context` - The LLVM context for IR operations
     /// * `func` - The mutable [`FunctionContext`] for block management
     /// * `enu` - The enum symbol
-    /// * `to_generate` - The pointer to the heap-allocated enum
+    /// * `to_dec_ref` - The pointer to the heap-allocated enum
     pub(crate) fn compile_enum_dec_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
         func: &mut FunctionContext<'ctx>,
         enu: &EnumSymbol<TypedAST>,
-        to_generate: PointerValue<'ctx>,
+        to_dec_ref: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_enum(enu).expect("Unknown enum");
-        self.compile_dec_refcount(llvm_context, func, lowered.on_drop(), to_generate);
+        self.compile_dec_refcount(llvm_context, func, lowered.on_drop(), to_dec_ref);
     }
 
     /// Decrements the reference count and conditionally calls the drop function if it reaches zero.
@@ -287,15 +287,15 @@ impl<'ctx> Codegen<'ctx> {
     /// * `llvm_context` - The LLVM context for IR operations
     /// * `func` - The mutable [`FunctionContext`] for block management
     /// * `on_drop` - The drop function [`FunctionValue`] to call
-    /// * `to_generate` - The pointer to the heap-allocated value
+    /// * `to_dec_ref` - The pointer to the heap-allocated value
     pub(crate) fn compile_dec_refcount(
         &self,
         llvm_context: &LLVMContext<'ctx>,
         func: &mut FunctionContext<'ctx>,
         on_drop: FunctionValue<'ctx>,
-        to_generate: PointerValue<'ctx>,
+        to_dec_ref: PointerValue<'ctx>,
     ) {
-        let dec = self.compile_sub_refcount(llvm_context, to_generate, 1);
+        let dec = self.compile_sub_refcount(llvm_context, to_dec_ref, 1);
 
         let current_function = func.current_function();
         let drop_bb = llvm_context
@@ -326,7 +326,7 @@ impl<'ctx> Codegen<'ctx> {
             .builder()
             .build_call(
                 on_drop,
-                &[to_generate.as_basic_value_enum().into()],
+                &[to_dec_ref.as_basic_value_enum().into()],
                 "drop_struct",
             )
             .unwrap();
@@ -355,13 +355,13 @@ impl<'ctx> Codegen<'ctx> {
     /// * `llvm_context` - The LLVM context for IR operations
     /// * `func` - The mutable [`FunctionContext`] for block management
     /// * `struc` - The struct symbol
-    /// * `to_generate` - The pointer to the heap-allocated struct
+    /// * `to_drop` - The pointer to the heap-allocated struct
     pub(crate) fn compile_struct_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
         func: &mut FunctionContext<'ctx>,
         struc: &StructSymbol<TypedAST>,
-        to_generate: PointerValue<'ctx>,
+        to_drop: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_struct(struc).expect("Unknown struct");
@@ -384,17 +384,17 @@ impl<'ctx> Codegen<'ctx> {
 
                 // Set the refcount to 2
                 // This way, it can never be dropped again and can't cause infinite loops
-                self.compile_add_refcount(llvm_context, to_generate, 2);
+                self.compile_add_refcount(llvm_context, to_drop, 2);
                 llvm_context
                     .builder()
                     .build_call(
                         predrop,
-                        &[to_generate.as_basic_value_enum().into()],
+                        &[to_drop.as_basic_value_enum().into()],
                         "predrop",
                     )
                     .unwrap();
 
-                let refc_val = self.read_refcount(llvm_context, to_generate);
+                let refc_val = self.read_refcount(llvm_context, to_drop);
 
                 llvm_context
                     .builder()
@@ -414,7 +414,7 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap();
                 func.set_current_block(llvm_context.builder(), drop_abort_block);
                 // Remove the ghost refcount
-                self.compile_struct_dec_refcount(llvm_context, func, struc, to_generate);
+                  self.compile_struct_dec_refcount(llvm_context, func, struc, to_drop);
                 llvm_context.builder().build_return(None).unwrap();
             }
         }
@@ -427,7 +427,7 @@ impl<'ctx> Codegen<'ctx> {
                         .builder()
                         .build_struct_gep(
                             lowered.lowered(),
-                            to_generate,
+                            to_drop,
                             u32::try_from(i + 1).unwrap(),
                             "gep_field_drop",
                         )
@@ -439,7 +439,7 @@ impl<'ctx> Codegen<'ctx> {
         }
         self.dealloc(
             llvm_context,
-            to_generate,
+            to_drop,
             lowered.lowered().size_of().expect("Should be sized"),
         );
         let size = llvm_context
@@ -454,7 +454,7 @@ impl<'ctx> Codegen<'ctx> {
             .builder()
             .build_call(
                 llvm_context.global_registry().free(),
-                &[to_generate.into(), size.into()],
+                &[to_drop.into(), size.into()],
                 "drop_struct",
             )
             .unwrap();
@@ -477,13 +477,13 @@ impl<'ctx> Codegen<'ctx> {
     /// * `llvm_context` - The LLVM context for IR operations
     /// * `func` - The mutable [`FunctionContext`] for block management
     /// * `en` - The enum symbol
-    /// * `to_generate` - The pointer to the heap-allocated enum
+    /// * `to_drop` - The pointer to the heap-allocated enum
     pub(crate) fn compile_enum_drop(
         &self,
         llvm_context: &LLVMContext<'ctx>,
         func: &mut FunctionContext<'ctx>,
         en: &EnumSymbol<TypedAST>,
-        to_generate: PointerValue<'ctx>,
+        to_drop: PointerValue<'ctx>,
     ) {
         let tr = llvm_context.type_registry();
         let lowered = tr.get_enum(en).expect("Unknown struct");
@@ -514,7 +514,7 @@ impl<'ctx> Codegen<'ctx> {
             .builder()
             .build_struct_gep(
                 llvm_context.global_registry().base_enum(),
-                to_generate,
+                to_drop,
                 1,
                 "tag_gep",
             )
@@ -559,7 +559,7 @@ impl<'ctx> Codegen<'ctx> {
                             .builder()
                             .build_struct_gep(
                                 variant.1,
-                                to_generate,
+                                to_drop,
                                 u32::try_from(i + 2).unwrap(),
                                 "gep_field_drop",
                             )
@@ -571,7 +571,7 @@ impl<'ctx> Codegen<'ctx> {
             }
             self.dealloc(
                 llvm_context,
-                to_generate,
+                to_drop,
                 variant.1.size_of().expect("Should be sized"),
             );
             llvm_context
@@ -583,7 +583,7 @@ impl<'ctx> Codegen<'ctx> {
         llvm_context.builder().build_return(None).unwrap();
     }
 
-    fn dealloc(&self, llvm_context: &LLVMContext, to_generate: PointerValue, size: IntValue) {
+    fn dealloc(&self, llvm_context: &LLVMContext, to_dealloc: PointerValue, size: IntValue) {
         let size = llvm_context
             .builder()
             .build_int_truncate(size, self.context.i32_type(), "size_resize")
@@ -592,7 +592,7 @@ impl<'ctx> Codegen<'ctx> {
             .builder()
             .build_call(
                 llvm_context.global_registry().free(),
-                &[to_generate.into(), size.into()],
+                &[to_dealloc.into(), size.into()],
                 "drop",
             )
             .unwrap();
