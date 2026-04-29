@@ -205,7 +205,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     /// # Arguments
     ///
     /// * `llvm_context` - The [`LLVMContext`] for IR operations
-    /// * `target` - The target [`DataType`] of the cast
+    /// * `src_dt` - The source [`DataType`] of the cast
     /// * `to_cast` - The LLVM [`BasicValueEnum`] to cast
     /// * `cast` - The typecast expression containing the source type
     ///
@@ -215,12 +215,12 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     fn compile_typecast(
         &self,
         llvm_context: &LLVMContext<'ctx>,
-        target: &DataType,
+        src_dt: &DataType,
         to_cast: BasicValueEnum<'ctx>,
         cast: &Typecast<TypedAST>,
     ) -> BasicValueEnum<'ctx> {
         use DataType as D;
-        match (target, cast.target()) {
+        match (src_dt, cast.target()) {
             (D::F32, D::F64) => llvm_context
                 .builder()
                 .build_float_ext(to_cast.into_float_value(), self.context.f64_type(), "cast")
