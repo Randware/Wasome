@@ -218,29 +218,6 @@ waso --version
 
 <br/>
 
-## ✦ Platform Support
-
-Tested and verified across a wide range of platforms and architectures:
-
-<br/>
-
-<div align="center">
-
-[![Linux](https://img.shields.io/badge/Linux-EAB308?style=for-the-badge&logo=linux&logoColor=000000)](https://wasome.dev)
-[![macOS](https://img.shields.io/badge/macOS-111111?style=for-the-badge&logo=apple&logoColor=EAB308)](https://wasome.dev)
-[![Windows](https://img.shields.io/badge/Windows-111111?style=for-the-badge&logo=windows11&logoColor=EAB308)](https://wasome.dev)
-[![FreeBSD](https://img.shields.io/badge/FreeBSD-111111?style=for-the-badge&logo=freebsd&logoColor=EAB308)](https://wasome.dev)
-[![ARM aarch64](https://img.shields.io/badge/ARM%20aarch64-111111?style=for-the-badge&logo=arm&logoColor=EAB308)](https://wasome.dev)
-[![ARMv7](https://img.shields.io/badge/ARMv7-111111?style=for-the-badge&logo=arm&logoColor=EAB308)](https://wasome.dev)
-
-</div>
-
-<br/>
-
-<div align="center"><i>If it runs code, chances are Wasome runs on it.</i></div>
-
-<br/>
-
 ## ✦ License
 
 This project is dual-licensed under your choice of:
