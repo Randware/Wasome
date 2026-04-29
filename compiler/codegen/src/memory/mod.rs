@@ -442,22 +442,7 @@ impl<'ctx> Codegen<'ctx> {
             to_drop,
             lowered.lowered().size_of().expect("Should be sized"),
         );
-        let size = llvm_context
-            .builder()
-            .build_int_truncate(
-                lowered.lowered().size_of().expect("Should be sized"),
-                self.context.i32_type(),
-                "size_resize",
-            )
-            .unwrap();
-        llvm_context
-            .builder()
-            .build_call(
-                llvm_context.global_registry().free(),
-                &[to_drop.into(), size.into()],
-                "drop_struct",
-            )
-            .unwrap();
+        self.dealloc(llvm_context, to_drop, lowered.lowered().size_of().expect("Should be sized"));
         llvm_context.builder().build_return(None).unwrap();
     }
 
