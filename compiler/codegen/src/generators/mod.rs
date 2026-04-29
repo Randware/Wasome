@@ -303,14 +303,14 @@ impl<'ctx> Codegen<'ctx> {
         let module = llvm_context.module();
         recursive_functions_of_dir(root, |func| {
             let symbol = func.inner().declaration_owned();
-            let args = symbol
+            let params = symbol
                 .params()
                 .iter()
                 .map(|arg| llvm_context.lower_type(arg.data_type()).into())
                 .collect::<Vec<_>>();
             let lowered_type = symbol.return_type().map_or_else(
-                || llvm_context.context().void_type().fn_type(&args, false),
-                |ret| llvm_context.lower_type(ret).fn_type(&args, false),
+                || llvm_context.context().void_type().fn_type(&params, false),
+                |ret| llvm_context.lower_type(ret).fn_type(&params, false),
             );
             let name = if symbol == self.main_function {
                 "_start".to_string()
