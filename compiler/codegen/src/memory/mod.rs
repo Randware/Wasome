@@ -1,8 +1,8 @@
-use crate::context::{FunctionContext, LLVMContext};
 use crate::Codegen;
+use crate::context::{FunctionContext, LLVMContext};
+use ast::TypedAST;
 use ast::data_type::DataType;
 use ast::symbol::{EnumSymbol, StructSymbol};
-use ast::TypedAST;
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::{AddressSpace, IntPredicate};
 
@@ -387,11 +387,7 @@ impl<'ctx> Codegen<'ctx> {
                 self.compile_add_refcount(llvm_context, to_drop, 2);
                 llvm_context
                     .builder()
-                    .build_call(
-                        predrop,
-                        &[to_drop.as_basic_value_enum().into()],
-                        "predrop",
-                    )
+                    .build_call(predrop, &[to_drop.as_basic_value_enum().into()], "predrop")
                     .unwrap();
 
                 let refc_val = self.read_refcount(llvm_context, to_drop);
@@ -414,7 +410,7 @@ impl<'ctx> Codegen<'ctx> {
                     .unwrap();
                 func.set_current_block(llvm_context.builder(), drop_abort_block);
                 // Remove the ghost refcount
-                  self.compile_struct_dec_refcount(llvm_context, func, struc, to_drop);
+                self.compile_struct_dec_refcount(llvm_context, func, struc, to_drop);
                 llvm_context.builder().build_return(None).unwrap();
             }
         }
@@ -442,7 +438,11 @@ impl<'ctx> Codegen<'ctx> {
             to_drop,
             lowered.lowered().size_of().expect("Should be sized"),
         );
-        self.dealloc(llvm_context, to_drop, lowered.lowered().size_of().expect("Should be sized"));
+        self.dealloc(
+            llvm_context,
+            to_drop,
+            lowered.lowered().size_of().expect("Should be sized"),
+        );
         llvm_context.builder().build_return(None).unwrap();
     }
 
@@ -481,13 +481,16 @@ impl<'ctx> Codegen<'ctx> {
             .variants()
             .iter()
             .map(|_| {
-                (llvm_context
-                    .context()
-                    .append_basic_block(current_function, "cond"),
-                 llvm_context
-                     .context()
-                     .append_basic_block(current_function, "drop"))
-            }).unzip();
+                (
+                    llvm_context
+                        .context()
+                        .append_basic_block(current_function, "cond"),
+                    llvm_context
+                        .context()
+                        .append_basic_block(current_function, "drop"),
+                )
+            })
+            .unzip();
         let tag = llvm_context
             .builder()
             .build_struct_gep(

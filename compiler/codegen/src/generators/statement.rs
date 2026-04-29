@@ -121,10 +121,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             to_generate.variable().data_type(),
             var,
         );
-        llvm_context
-            .builder()
-            .build_store(var, val)
-            .unwrap();
+        llvm_context.builder().build_store(var, val).unwrap();
     }
 
     /// Compiles a variable declaration, creating an alloca slot, inserting into the variable table,
