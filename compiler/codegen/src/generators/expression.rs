@@ -83,8 +83,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let var = vars
             .lookup(to_generate)
-            .expect("Undeclared variable in the typed AST")
-            .pointer;
+            .expect("Undeclared variable in the typed AST");
         let val = llvm_context
             .builder()
             .build_load(

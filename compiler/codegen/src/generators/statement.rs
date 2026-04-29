@@ -86,7 +86,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                     llvm_context,
                     statement_context.function_context_mut(),
                     var.data_type(),
-                    ptr.pointer,
+                    ptr,
                 );
             }
         }
@@ -117,13 +117,13 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             llvm_context,
             statement_context.function_context_mut(),
             to_generate.variable().data_type(),
-            var.pointer,
+            var,
         );
         let val =
             self.compile_expression(llvm_context, vars, statement_context, to_generate.value());
         llvm_context
             .builder()
-            .build_store(var.pointer, val)
+            .build_store(var, val)
             .unwrap();
     }
 

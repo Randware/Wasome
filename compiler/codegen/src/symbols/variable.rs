@@ -4,19 +4,6 @@ use inkwell::values::PointerValue;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// Holds the LLVM pointer value for a local variable within a function scope.
-///
-/// Each local variable (including function parameters) is allocated via `alloca` during
-/// function prologue code generation. This struct stores the resulting [`PointerValue`]
-/// that points to the variable's stack slot.
-pub struct VariableInfo<'ctx> {
-    /// The LLVM [`PointerValue`] pointing to the variable's `alloca`-allocated stack slot.
-    ///
-    /// Values are loaded from and stored to this pointer using [`Builder`](inkwell::builder::Builder)
-    /// operations during expression and statement code generation.
-    pub pointer: PointerValue<'ctx>,
-}
-
 /// Maps variable symbols to their corresponding LLVM alloca pointers.
 ///
 /// The [`VariableTable`] is used to track locally declared variables and function parameters
@@ -30,7 +17,7 @@ pub struct VariableTable<'ctx> {
     ///
     /// Uses `Rc<VariableSymbol<TypedAST>>` as the key to allow efficient sharing across
     /// the AST traversal and code generation pipeline.
-    vars: HashMap<Rc<VariableSymbol<TypedAST>>, VariableInfo<'ctx>>,
+    vars: HashMap<Rc<VariableSymbol<TypedAST>>, PointerValue<'ctx>>,
 }
 
 impl<'ctx> VariableTable<'ctx> {
@@ -51,7 +38,7 @@ impl<'ctx> VariableTable<'ctx> {
     /// * `var` - The variable symbol to register
     /// * `ptr` - The LLVM [`PointerValue`] pointing to the variable's `alloca`-allocated slot
     pub fn insert(&mut self, var: Rc<VariableSymbol<TypedAST>>, ptr: PointerValue<'ctx>) {
-        self.vars.insert(var, VariableInfo { pointer: ptr });
+        self.vars.insert(var, ptr);
     }
 
     /// Looks up a variable symbol and returns its [`VariableInfo`] if present.
@@ -64,7 +51,7 @@ impl<'ctx> VariableTable<'ctx> {
     ///
     /// * `Some(&VariableInfo)` - The variable info containing the LLVM pointer
     /// * `None` - The variable is not registered in this table
-    pub fn lookup(&self, id: &VariableSymbol<TypedAST>) -> Option<&VariableInfo<'ctx>> {
-        self.vars.get(id)
+    pub fn lookup(&self, id: &VariableSymbol<TypedAST>) -> Option<PointerValue<'ctx>> {
+        self.vars.get(id).copied()
     }
 }
