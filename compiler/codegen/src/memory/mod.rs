@@ -1,8 +1,8 @@
-use crate::Codegen;
 use crate::context::{FunctionContext, LLVMContext};
-use ast::TypedAST;
+use crate::Codegen;
 use ast::data_type::DataType;
 use ast::symbol::{EnumSymbol, StructSymbol};
+use ast::TypedAST;
 use inkwell::values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue};
 use inkwell::{AddressSpace, IntPredicate};
 
@@ -492,24 +492,17 @@ impl<'ctx> Codegen<'ctx> {
         let after_block = llvm_context
             .context()
             .append_basic_block(current_function, "after");
-        let cond_blocks = lowered
+        let (cond_blocks, drop_blocks): (Vec<_>, Vec<_>) = lowered
             .variants()
             .iter()
             .map(|_| {
-                llvm_context
+                (llvm_context
                     .context()
-                    .append_basic_block(current_function, "cond")
-            })
-            .collect::<Vec<_>>();
-        let drop_blocks = lowered
-            .variants()
-            .iter()
-            .map(|_| {
-                llvm_context
-                    .context()
-                    .append_basic_block(current_function, "drop")
-            })
-            .collect::<Vec<_>>();
+                    .append_basic_block(current_function, "cond"),
+                 llvm_context
+                     .context()
+                     .append_basic_block(current_function, "drop"))
+            }).unzip();
         let tag = llvm_context
             .builder()
             .build_struct_gep(
