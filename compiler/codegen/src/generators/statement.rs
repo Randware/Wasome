@@ -76,8 +76,11 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             Statement::Break => Codegen::compile_break(llvm_context, statement_context),
         }
         for var in to_generate
+            // All symbols by direct child statements
             .symbols_defined_directly_in()
             .into_iter()
+            // Also all symbols by the statement itself that are not available to following statements
+            // This only applies to IfEnumVariants
             .chain(to_generate.inner().get_direct_child_only_symbols())
         {
             // We return a DirectlyAvailableSymbol from symbols_defined_directly_in and get_direct_child_only_symbols
