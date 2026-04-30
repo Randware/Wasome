@@ -36,18 +36,18 @@ impl<'ctx> Codegen<'ctx> {
         let mut function_context = FunctionContext::new(func, main_bb);
         llvm_context.builder().position_at_end(main_bb);
         let mut vars = VariableTable::new();
-        for (i, param) in func.get_param_iter().enumerate() {
-            let param_var = to_generate.inner().declaration().params()[i].clone();
-            let name = param_var.name();
-            param.set_name(name);
+        for (i, param_llvm_value) in func.get_param_iter().enumerate() {
+            let param_ast = to_generate.inner().declaration().params()[i].clone();
+            let name = param_ast.name();
+            param_llvm_value.set_name(name);
             let var = llvm_context
                 .builder()
-                .build_alloca(llvm_context.lower_type(param_var.data_type()), name)
+                .build_alloca(llvm_context.lower_type(param_ast.data_type()), name)
                 .unwrap();
 
-            llvm_context.builder().build_store(var, param).unwrap();
+            llvm_context.builder().build_store(var, param_llvm_value).unwrap();
 
-            vars.insert(param_var, var);
+            vars.insert(param_ast, var);
         }
 
         let root = to_generate
