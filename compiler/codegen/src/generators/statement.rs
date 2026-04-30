@@ -80,6 +80,9 @@ impl<'ctx, 'fc> Codegen<'ctx> {
             .into_iter()
             .chain(to_generate.inner().get_direct_child_only_symbols())
         {
+            // We return a DirectlyAvailableSymbol from symbols_defined_directly_in and get_direct_child_only_symbols
+            // despite only variables being returned
+            // This is to make it more future-proof
             if let DirectlyAvailableSymbol::Variable(var) = var {
                 let ptr = vars.lookup(var).expect("Unknown variable");
                 self.compile_val_ref_drop(
