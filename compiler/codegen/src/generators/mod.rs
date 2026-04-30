@@ -145,7 +145,7 @@ impl<'ctx> Codegen<'ctx> {
     /// Generates the drop function body for each struct, including optional predrop handling.
     ///
     /// For each struct:
-    /// 1. Searches for an optional `predrop` function (takes 1 parameter, returns void)
+    /// 1. Searches for an optional `predrop` function (takes 1 parameter, no type parameters, returns void)
     /// 2. If found, registers it in the symbol registry and stores it in [`StructInformation`]
     /// 3. Creates a main basic block for the drop function
     /// 4. Creates a `FunctionContext` and positions the builder
@@ -333,8 +333,11 @@ impl<'ctx> Codegen<'ctx> {
                     }
                 }
             };
+            // If we have an external function, one with its name might already exist
+            // as the mangling for them does not always produce unique names
+            // In this case, we just take the already existing signature as we never implement them
+            // and won't get conflicts there
             let lowered = module.get_function(&name).unwrap_or_else(||
-                // We can only get here if it's an external function
                 module.add_function(&name, lowered_type, None));
             debug_assert!(
                 llvm_context
