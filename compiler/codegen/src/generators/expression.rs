@@ -510,11 +510,14 @@ impl<'ctx, 'fc> Codegen<'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let lhs_int = lhs.into_int_value();
         let rhs_int = rhs.into_int_value();
-        let bit_width = lhs_int.get_type().get_bit_width();
-        let bit_width_val = rhs_int.get_type().const_int(u64::from(bit_width), false);
+        // We check if the length of the data type of lhs in bits is greater than rhs
+        let lhs_bit_width = lhs_int.get_type().get_bit_width();
+        // Get a llvm value of the bit length
+        // The data type should be the one of rhs as we compare rhs with it
+        let lhs_bit_width_val = rhs_int.get_type().const_int(u64::from(lhs_bit_width), false);
         let is_invalid = llvm_context
             .builder()
-            .build_int_compare(IntPredicate::UGE, rhs_int, bit_width_val, "shift_overflow")
+            .build_int_compare(IntPredicate::UGE, rhs_int, lhs_bit_width_val, "shift_overflow")
             .unwrap();
         let then_block = llvm_context.context().append_basic_block(
             statement_context.function_context().current_function(),
