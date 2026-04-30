@@ -124,8 +124,8 @@ impl<'ctx> Codegen<'ctx> {
         recursive_enums_of_dir(root, |st| {
             let symbol = st.inner().symbol();
             let tr = llvm_context.type_registry_mut();
-            let lowered = tr.get_enum(symbol).expect("Unregistered enum");
-            let func = lowered.on_drop();
+            let enum_information = tr.get_enum(symbol).expect("Unregistered enum");
+            let func = enum_information.on_drop();
             drop(tr);
             let main_bb = self.context.append_basic_block(func, "main");
             let mut fc = FunctionContext::new(func, main_bb);
@@ -178,11 +178,11 @@ impl<'ctx> Codegen<'ctx> {
                 });
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
-            let lowered = tr.get_struct_mut(symbol).expect("Unregistered struct");
+            let struct_information = tr.get_struct_mut(symbol).expect("Unregistered struct");
             if let Some(predrop) = predrop {
-                lowered.set_predrop(predrop);
+                struct_information.set_predrop(predrop);
             }
-            let func = lowered.on_drop();
+            let func = struct_information.on_drop();
             drop(tr);
             let main_bb = self.context.append_basic_block(func, "main");
             let mut fc = FunctionContext::new(func, main_bb);
@@ -221,7 +221,7 @@ impl<'ctx> Codegen<'ctx> {
         recursive_enums_of_dir(root, |st| {
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
-            let lowered = tr.get_enum_mut(symbol).expect("Unregistered enum");
+            let enum_information = tr.get_enum_mut(symbol).expect("Unregistered enum");
             let variants = st.inner().variants();
             let base_enum = &[
                 self.context.i32_type().as_basic_type_enum(),
@@ -240,7 +240,7 @@ impl<'ctx> Codegen<'ctx> {
                     )
                     .collect::<Vec<_>>();
                 let variant_lowered = self.context.struct_type(&fields_lowered, false);
-                lowered.insert(variant.inner_owned(), variant_lowered);
+                enum_information.insert(variant.inner_owned(), variant_lowered);
             }
         });
     }
@@ -262,7 +262,7 @@ impl<'ctx> Codegen<'ctx> {
         recursive_structs_of_dir(root, |st| {
             let symbol = st.inner().symbol();
             let mut tr = llvm_context.type_registry_mut();
-            let lowered = tr.get_struct_mut(symbol).expect("Unregistered struct");
+            let struct_information = tr.get_struct_mut(symbol).expect("Unregistered struct");
             let fields = st.inner().fields();
             let ref_count_field = self.context.i32_type().as_basic_type_enum();
             let fields_lowered = once(ref_count_field)
@@ -272,9 +272,9 @@ impl<'ctx> Codegen<'ctx> {
                         .map(|field| llvm_context.lower_type(field.inner().data_type())),
                 )
                 .collect::<Vec<_>>();
-            lowered.lowered().set_body(&fields_lowered, false);
+            struct_information.lowered().set_body(&fields_lowered, false);
             for field in fields {
-                lowered.add_field(field.inner_owned());
+                struct_information.add_field(field.inner_owned());
             }
         });
     }
