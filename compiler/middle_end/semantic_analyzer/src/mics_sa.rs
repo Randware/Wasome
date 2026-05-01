@@ -346,24 +346,6 @@ pub(crate) fn analyze_method_call(
 ) -> Result<FunctionCall<TypedAST>, SemanticError> {
     let struct_expr = analyze_expression(to_analyze.struct_source(), context, mapper)?;
 
-    let untyped_function_symbol = symbol_by_name(
-        &to_analyze.function().0,
-        context.ast_reference.symbols_available_at(),
-    )
-    .ok_or_else(|| SemanticError::UnknownSymbol {
-        name: to_analyze.function().0.clone(),
-        span,
-    })?;
-
-    let function_symbol = if let DirectlyAvailableSymbol::Function(func) = untyped_function_symbol {
-        func
-    } else {
-        return Err(SemanticError::InvalidUsage {
-            message: format!("'{}' is not a function", to_analyze.function().0),
-            span,
-        });
-    };
-
     let struct_symbol = if let DataType::Struct(st) = struct_expr.data_type() {
         st
     } else {
@@ -372,7 +354,6 @@ pub(crate) fn analyze_method_call(
             span: *to_analyze.struct_source().position(),
         });
     };
-
     let untyped_struct_symbol = context
         .global_elements
         .untyped_struct_symbol_from_typed(&struct_symbol)
@@ -380,6 +361,14 @@ pub(crate) fn analyze_method_call(
             message: "Could not find untyped struct symbol".to_string(),
             span,
         })?;
+    let methods = context.global_elements.methods(&untyped_struct_symbol, struct_symbol.type_parameters()).expect("We have a typed symbol but didn't translate it");
+
+
+    let function_symbol = methods.into_iter().find(|method| method.name() == to_analyze.function().0)
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.function().0.clone(),
+        span,
+    })?;
 
     let typed_type_parameters = analyze_type_parameters_providing(
         function_symbol.type_parameters(),
@@ -391,7 +380,7 @@ pub(crate) fn analyze_method_call(
     let typed_function_symbol = context.global_elements.get_typed_method_symbol(
         &untyped_struct_symbol,
         struct_symbol.type_parameters(),
-        Rc::new(function_symbol.clone()),
+        function_symbol.clone(),
         &typed_type_parameters,
         span,
     )?;

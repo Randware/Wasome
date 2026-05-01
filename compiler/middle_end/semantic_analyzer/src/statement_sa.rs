@@ -501,7 +501,7 @@ fn analyze_loop(
         let body_index = if matches!(to_analyze.loop_type(), LoopType::For { .. }) {
             1
         } else {
-            to_analyze.loop_type().len() - 1
+            to_analyze.loop_type().len()
         };
 
         let sth = context.ast_reference.get_child(body_index).unwrap();
@@ -578,11 +578,14 @@ fn analyze_if_enum_variant(
         *to_analyze.assignment_expression().position(),
     );
 
-    if typed_condition.data_type() != DataType::Bool {
-        return Err(SemanticError::ConditionNotBoolean {
-            span: *to_analyze.assignment_expression().position(),
-        });
-    }
+    match typed_condition.data_type() {
+        DataType::Enum(en) if en == condition_enum => (),
+        _ => {
+            return Err(SemanticError::ConditionNotBoolean {
+                span: *to_analyze.assignment_expression().position(),
+            });
+        }
+    };
 
     function_symbol_mapper.enter_scope();
     let inner_res1 = (|| -> Result<_, SemanticError> {
