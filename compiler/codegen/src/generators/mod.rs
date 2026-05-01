@@ -165,8 +165,10 @@ impl<'ctx> Codegen<'ctx> {
                 .function_iterator()
                 .find(|func| {
                     let symbol = func.inner().declaration();
-                    symbol.name() == "predrop"
+                    symbol.name() == "drop"
                         && symbol.type_parameters().is_empty()
+                        // This must always be a pointer
+                        // As methods have an implicit one
                         && symbol.params().len() == 1
                         && symbol.return_type().is_none()
                 })

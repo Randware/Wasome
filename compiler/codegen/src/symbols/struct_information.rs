@@ -35,6 +35,12 @@ pub struct StructInformation<'ctx> {
     /// Called before the main drop logic with a ghost refcount of 2 to prevent infinite
     /// loops when dealing with self-referential structures. Only present if the struct
     /// defines a `predrop` function. Should this revive the struct, the drop is aborted
+    ///
+    /// A method that has the following properties:
+    /// 1. Is named `drop`
+    /// 2. Has no parameters
+    /// 3. Has one argument (always a pointer as methods have an implicit one)
+    /// 4. Returns void
     predrop: Option<FunctionValue<'ctx>>,
 }
 
