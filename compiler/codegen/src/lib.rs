@@ -6,13 +6,18 @@ mod memory;
 mod symbols;
 mod types;
 
-use ast::TypedAST;
+use ast::{TypedAST, AST};
 use ast::symbol::FunctionSymbol;
 use bon::bon;
 use inkwell::context::Context;
 use std::rc::Rc;
 pub use types::OptLevel;
 
+pub fn codegen(opt_level: OptLevel, main_function: Rc<FunctionSymbol<TypedAST>>, to_generate: AST<TypedAST>) -> Result<Vec<u8>, CodegenCreationError> {
+    let context = Context::create();
+    let mut codegen = Codegen::builder().opt_level(opt_level).main_function(main_function).context(&context).build()?;
+    Ok(codegen.compile(&to_generate))
+}
 /// Top-level code generator that orchestrates compilation of a typed AST to WebAssembly object code.
 ///
 /// The [`Codegen`] struct is the entry point for the compilation pipeline. It holds the
