@@ -1,17 +1,19 @@
-use std::rc::Rc;
 use crate::error::DriverError;
 use crate::parser_driver::generate_untyped_ast;
 use crate::pipeline::{Pipeline, from_func, from_infallible_func};
-use crate::program_information::{FullProgramInformation, LoadBinaryProgramInformation, LoadInformation};
+use crate::program_information::{
+    FullProgramInformation, LoadBinaryProgramInformation, LoadInformation,
+};
 use crate::source_collector::{CollectionError, collect_program};
 use crate::source_element::WasomeProgram;
 use ::error::diagnostic::Diagnostic;
-use ast::{AST, TypedAST, UntypedAST};
 use ast::symbol::FunctionSymbol;
-use codegen::{codegen, CodegenCreationError};
+use ast::{AST, TypedAST, UntypedAST};
+use codegen::{CodegenCreationError, codegen};
 use io::FullIO;
 use semantic_analyzer::analyze;
 use source::SourceMap;
+use std::rc::Rc;
 
 pub mod error;
 pub mod parser_driver;
@@ -27,8 +29,6 @@ const MAIN_FUNCTION_TAKES_ARGUMENTS_MSG: &str = "The main function must not take
 
 const MAIN_FUNCTION_NONVOID_RETURN_CODE: &str = "E4003";
 const MAIN_FUNCTION_NONVOID_RETURN_MSG: &str = "The main function must return void";
-
-
 
 /// Like [`syntax_check_pipeline`], but the pipeline is used immediately
 ///
@@ -55,24 +55,37 @@ pub fn syntax_check_pipeline<IO: FullIO, T: LoadBinaryProgramInformation>()
 }
 
 pub fn compile_pipeline<IO: FullIO, T: FullProgramInformation>()
-    -> impl for<'a> Pipeline<(&'a T, &'a mut SourceMap<IO>), Diagnostic, Output = Vec<u8>> {
-    let from: for<'a> fn((AST<TypedAST>, &mut SourceMap<IO>, &'a T)) -> Result<Vec<u8>, Diagnostic> = |(tast, _sm, prog_info)| {
-        let main_func =
-            extract_main_func(&tast, &prog_info)
-        .ok_or_else(|| Diagnostic::builder().code(MAIN_FUNCTION_NOT_FOUND_CODE).message(MAIN_FUNCTION_NOT_FOUND_MSG).build())?;
+-> impl for<'a> Pipeline<(&'a T, &'a mut SourceMap<IO>), Diagnostic, Output = Vec<u8>> {
+    let from: for<'a> fn(
+        (AST<TypedAST>, &mut SourceMap<IO>, &'a T),
+    ) -> _ = |(tast, _sm, prog_info)| {
+        let main_func = extract_main_func(&tast, &prog_info).ok_or_else(|| {
+            Diagnostic::builder()
+                .code(MAIN_FUNCTION_NOT_FOUND_CODE)
+                .message(MAIN_FUNCTION_NOT_FOUND_MSG)
+                .build()
+        })?;
         let compiled = codegen(prog_info.opt_level(), main_func, tast);
 
         compiled.map_err(|err| {
             match err {
-                CodegenCreationError::MainFunctionNonVoidReturn => Diagnostic::builder().code(MAIN_FUNCTION_NONVOID_RETURN_CODE).message(MAIN_FUNCTION_NONVOID_RETURN_MSG),
-                CodegenCreationError::MainFunctionTakesArguments => Diagnostic::builder().code(MAIN_FUNCTION_TAKES_ARGUMENTS_CODE).message(MAIN_FUNCTION_TAKES_ARGUMENTS_MSG)
-            }.build()
+                CodegenCreationError::MainFunctionNonVoidReturn => Diagnostic::builder()
+                    .code(MAIN_FUNCTION_NONVOID_RETURN_CODE)
+                    .message(MAIN_FUNCTION_NONVOID_RETURN_MSG),
+                CodegenCreationError::MainFunctionTakesArguments => Diagnostic::builder()
+                    .code(MAIN_FUNCTION_TAKES_ARGUMENTS_CODE)
+                    .message(MAIN_FUNCTION_TAKES_ARGUMENTS_MSG),
+            }
+            .build()
         })
     };
     typed_ast_pipeline().then(from_func(from))
 }
 
-fn extract_main_func<T: FullProgramInformation>(tast: &AST<TypedAST>, prog_info: &&T) -> Option<Rc<FunctionSymbol<TypedAST>>> {
+fn extract_main_func<T: FullProgramInformation>(
+    tast: &AST<TypedAST>,
+    prog_info: &&T,
+) -> Option<Rc<FunctionSymbol<TypedAST>>> {
     let main_project = tast.subdirectory_by_name(prog_info.main_project())?;
     let mut curr_dir = main_project;
     let main_path_len = prog_info.path().iter().count();
@@ -82,8 +95,10 @@ fn extract_main_func<T: FullProgramInformation>(tast: &AST<TypedAST>, prog_info:
         }
         curr_dir = curr_dir.subdirectory_by_name(&path_elem.to_string_lossy())?;
     }
-    let main_file = curr_dir.file_by_name(&prog_info.path().iter().last()?.to_string_lossy())?;
-    main_file.function_by_identifier(("main", &[])).map(|func| func.declaration_owned())
+    let main_file = curr_dir.file_by_name(&prog_info.path().iter().next_back()?.to_string_lossy())?;
+    main_file
+        .function_by_identifier(("main", &[]))
+        .map(|func| func.declaration_owned())
 }
 
 #[must_use]
@@ -98,8 +113,7 @@ pub(crate) fn load_parse_pipeline<IO: FullIO, T: LoadInformation>() -> impl for<
 }
 
 #[must_use]
-pub fn typed_ast_pipeline<IO: FullIO, T: LoadBinaryProgramInformation>()
--> impl for<'a> Pipeline<
+pub fn typed_ast_pipeline<IO: FullIO, T: LoadBinaryProgramInformation>() -> impl for<'a> Pipeline<
     (&'a T, &'a mut SourceMap<IO>),
     Diagnostic,
     Output = (AST<TypedAST>, &'a mut SourceMap<IO>, &'a T),
@@ -118,9 +132,11 @@ pub fn load_pipeline<IO: FullIO, T: LoadInformation>() -> impl for<'a> Pipeline<
     let from: for<'a> fn((&'a _, &'a mut _)) -> Result<(_, &'a mut _, &'a _), Diagnostic> =
         |(program_info, load_from)| {
             let program = collect_program(program_info, load_from);
-            program.map(|wp| (wp, load_from, program_info)).map_err(|err| match err {
-                CollectionError::Io(err) => DriverError::Io { source: err }.into(),
-            })
+            program
+                .map(|wp| (wp, load_from, program_info))
+                .map_err(|err| match err {
+                    CollectionError::Io(err) => DriverError::Io { source: err }.into(),
+                })
         };
     from_func(from)
 }
