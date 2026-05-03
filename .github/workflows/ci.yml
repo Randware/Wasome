@@ -35,20 +35,11 @@ jobs:
       - name: Install LLVM 21 (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          # Use gh CLI to get the exact download URL — avoids fragile hardcoded filenames
-          $url = gh release view llvm-21.1.1 `
-            --repo vovkos/llvm-package-windows `
-            --json assets `
-            --jq '.assets[] | select(.name | test("windows-amd64-msvcrt-release\\.7z")) | .browserDownloadUrl'
-          Write-Host "Downloading LLVM from: $url"
           $archive = "$env:TEMP\llvm.7z"
-          curl.exe -L --output $archive $url
+          curl.exe -L --output $archive "https://github.com/vovkos/llvm-package-windows/releases/download/llvm-21.1.1/llvm-21.1.1-windows-amd64-msvc17-msvcrt.7z"
           7z x $archive -o"C:\llvm" -y
           $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
-          Write-Host "LLVM extracted to: $llvmDir"
           echo "LLVM_SYS_211_PREFIX=$llvmDir" >> $env:GITHUB_ENV
           echo "$llvmDir\bin" >> $env:GITHUB_PATH
       - name: Install LLVM 21 (macOS)
