@@ -20,7 +20,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      # --- RUST TOOLCHAIN SETUP ---
+      - name: Setup Rust (Ubuntu & macOS)
+        if: matrix.os != 'windows-latest'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust (Windows GNU)
+        if: matrix.os == 'windows-latest'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-x86_64-pc-windows-gnu
+          targets: x86_64-pc-windows-gnu
 
       # --- UBUNTU LLVM ---
       - name: Install LLVM 21 (Ubuntu)
@@ -43,19 +53,20 @@ jobs:
           echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
 
       # --- WINDOWS LLVM ---
-      - name: Install LLVM 21 (Windows)
+      - name: Setup MSYS2 and Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
-        uses: KyleMayes/install-llvm-action@v2
+        uses: msys2/setup-msys2@v2
         with:
-          version: "21"
-          directory: "C:/llvm"
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-llvm mingw-w64-x86_64-llvm-tools mingw-w64-x86_64-clang
 
       - name: Export LLVM Prefix & Path (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
-          echo "LLVM_SYS_211_PREFIX=C:/llvm" >> $GITHUB_ENV
-          echo "C:/llvm/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_211_PREFIX=C:/msys64/mingw64" >> $GITHUB_ENV
+          echo "C:/msys64/mingw64/bin" >> $GITHUB_PATH
 
       # --- TESTING ---
       - uses: Swatinem/rust-cache@v2
