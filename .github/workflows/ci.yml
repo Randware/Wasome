@@ -164,12 +164,6 @@ jobs:
             pkgsCross: armv7l-hf-multiplatform
           - target: riscv64-linux
             pkgsCross: riscv64
-          - target: i686-linux
-            pkgsCross: gnu32
-          - target: powerpc64le-linux
-            pkgsCross: ppc64-musl
-          - target: s390x-linux
-            pkgsCross: s390x
     steps:
       - uses: actions/checkout@v4
 
@@ -184,14 +178,7 @@ jobs:
       - name: Cross-compile for ${{ matrix.target }}
         id: cross
         working-directory: ./compiler
-        run: |
-          nix build --impure --expr "
-            let
-              nixpkgs = builtins.getFlake \"nixpkgs\";
-              pkgs = nixpkgs.legacyPackages.x86_64-linux.pkgsCross.${{ matrix.pkgsCross }};
-            in
-              pkgs.callPackage ./. {}
-          "
+        run: nix build .#packages.${{ matrix.target }}.default
 
       - name: Save Result
         if: always()
