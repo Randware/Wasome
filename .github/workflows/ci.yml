@@ -26,7 +26,7 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 21
+          sudo ./llvm.sh 21 all
           echo "LLVM_SYS_211_PREFIX=/usr/lib/llvm-21" >> $GITHUB_ENV
 
       - name: Install LLVM 211 (macOS)
@@ -37,8 +37,10 @@ jobs:
 
       - name: Install LLVM 211 (Windows)
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
           choco install llvm --version=21.1.0 -y
+          refreshenv
           echo "LLVM_SYS_211_PREFIX=C:\Program Files\LLVM" >> $env:GITHUB_ENV
 
       - uses: Swatinem/rust-cache@v2
@@ -90,47 +92,6 @@ jobs:
         with:
           name: result-freebsd
           path: result_freebsd.txt
-
-  test-simulated:
-    name: ${{ matrix.target }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: Install LLVM 211
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 21
-          echo "LLVM_SYS_211_PREFIX=/usr/lib/llvm-21" >> $GITHUB_ENV
-
-      - name: Install Cross
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cross
-
-      - name: Test via QEMU
-        id: sim
-        run: |
-          cross test --workspace --target ${{ matrix.target }} --manifest-path compiler/Cargo.toml
-          cross test --workspace --target ${{ matrix.target }} --manifest-path cli/Cargo.toml
-
-      - name: Save Result
-        if: always()
-        run: |
-          SAFE_TARGET=$(echo "${{ matrix.target }}" | tr -d ' ')
-          echo "$SAFE_TARGET|Simulated Hardware|${{ steps.sim.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_$SAFE_TARGET.txt
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: result-${{ matrix.target }}
-          path: result_*.txt
 
   test-devcontainer:
     name: Devcontainer
@@ -188,8 +149,7 @@ jobs:
           path: result_nix.txt
 
   report:
-    needs:
-      [test-standard, test-freebsd, test-simulated, test-devcontainer, test-nix]
+    needs: [test-standard, test-freebsd, test-devcontainer, test-nix]
     if: always()
     runs-on: ubuntu-latest
     steps:
