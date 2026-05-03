@@ -13,16 +13,19 @@
       pkgs = import nixpkgs {
         inherit system overlays;
       };
+      # auto-updating latest stable rust w/ lsp support
       rustToolchain = pkgs.rust-bin.stable.latest.default.override {
         extensions = [ "rust-src" "rust-analyzer" ];
       };
-      # llvm 21
+      # llvm 21 — host (x86_64) build, llvm-config is executable on the runner
       llvmPkg = pkgs.llvmPackages_21;
 
-      # Build the compiler package for a given cross pkgs set
+      # Build the compiler for a given pkgs set (native or cross).
+      # The key insight for cross builds: nativeBuildInputs run on the HOST,
+      # so we always use the host pkgs' llvm-config. buildInputs are for the
+      # TARGET, so we use crossPkgs there.
       makePackage = crossPkgs:
         let
-          crossRust = crossPkgs.rust-bin.stable.latest.default;
           crossLlvm = crossPkgs.llvmPackages_21;
         in
         crossPkgs.rustPlatform.buildRustPackage {
@@ -31,12 +34,14 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
 
-          nativeBuildInputs = with crossPkgs; [
+          # These run on x86_64 host — use host LLVM so llvm-config is executable
+          nativeBuildInputs = with pkgs; [
             pkg-config
             cmake
-            llvmPackages_21.llvm
+            llvmPkg.llvm  # host llvm-config, can actually run on x86_64
           ];
 
+          # These are linked into the target binary — use target arch libs
           buildInputs = with crossPkgs; [
             zlib
             zstd
@@ -47,11 +52,15 @@
             llvmPackages_21.libllvm
           ];
 
-          LLVM_SYS_211_PREFIX = "${crossLlvm.libllvm.dev}";
-          LIBCLANG_PATH = "${crossLlvm.libclang.lib}/lib";
+          # Point llvm-sys to the HOST llvm-config so it can run during build
+          LLVM_SYS_211_PREFIX = "${llvmPkg.libllvm.dev}";
+          LIBCLANG_PATH = "${llvmPkg.libclang.lib}/lib";
+
+          # Also add target LLVM libs to the linker search path
+          NIX_LDFLAGS = "-L${crossLlvm.libllvm}/lib";
         };
 
-      # Cross pkgs for each target
+      # Cross pkgs sets — localSystem is always x86_64-linux (the runner)
       crossTargets = {
         "aarch64-linux" = import nixpkgs {
           localSystem = system;
