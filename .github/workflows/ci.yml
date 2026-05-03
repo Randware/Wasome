@@ -20,12 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # --- RUST TOOLCHAIN SETUP ---
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          # Force Windows to use GNU toolchain to perfectly match MSYS2 LLVM libs
-          toolchain: ${{ matrix.os == 'windows-latest' && 'stable-x86_64-pc-windows-gnu' || 'stable' }}
+        # This will default to the standard MSVC toolchain on Windows, which perfectly matches the C3Lang binaries.
 
       # --- UBUNTU LLVM ---
       - name: Install LLVM 21 (Ubuntu)
@@ -47,40 +44,39 @@ jobs:
           brew link --force --overwrite llvm@21
           echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
 
-      # --- WINDOWS LLVM (MSYS2) ---
-      - name: Setup MSYS2 and Install LLVM (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          # Crucial: llvm-tools contains the elusive llvm-config.exe
-          install: mingw-w64-x86_64-llvm mingw-w64-x86_64-llvm-tools
-
-      - name: Export LLVM Prefix & Path (Windows)
+      # --- WINDOWS LLVM (THE ULTIMATE FIX) ---
+      - name: Download Full Pre-compiled LLVM 21 (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # Use native Windows paths pointing into the MSYS2 installation
-          echo "LLVM_SYS_211_PREFIX=C:\msys64\mingw64" >> $env:GITHUB_ENV
-          echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
+          Write-Host "Fetching unstripped LLVM 21 from c3lang/win-llvm..."
+          $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/c3lang/win-llvm/releases"
 
-      # --- WINDOWS X-RAY DIAGNOSTICS ---
-      - name: 🚨 AGGRESSIVE DIAGNOSTICS (Windows) 🚨
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          Write-Host "=== 1. VERIFYING LLVM-CONFIG ==="
-          if (Test-Path "C:\msys64\mingw64\bin\llvm-config.exe") {
-              Write-Host "✅ llvm-config.exe EXISTS."
-              Write-Host "--- Executing --version ---"
-              & "C:\msys64\mingw64\bin\llvm-config.exe" --version
-              Write-Host "--- Executing --libdir ---"
-              & "C:\msys64\mingw64\bin\llvm-config.exe" --libdir
-          } else {
-              Write-Host "❌ llvm-config.exe IS MISSING FROM C:\msys64\mingw64\bin!"
-              Get-ChildItem "C:\msys64\mingw64\bin" | Select-Object Name
+          # Find the most recent LLVM 21.x release
+          $rel21 = $releases | Where-Object { $_.tag_name -match "21\." } | Select-Object -First 1
+          if (-not $rel21) { throw "Could not find LLVM 21 release!" }
+
+          # Find the 64-bit release 7z file
+          $asset = $rel21.assets | Where-Object { $_.name -match "x86_64" -and $_.name -match "release\.7z" }
+          if (-not $asset) { throw "Could not find asset!" }
+
+          Write-Host "Downloading $($asset.browser_download_url)..."
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "llvm.7z"
+
+          Write-Host "Extracting..."
+          7z x llvm.7z -oC:\llvm_full | Out-Null
+
+          $extractedDir = Get-ChildItem -Path C:\llvm_full | Select-Object -First 1
+          Write-Host "Extracted to: $($extractedDir.FullName)"
+
+          # Double check the executable exists just to be safe
+          if (-not (Test-Path "$($extractedDir.FullName)\bin\llvm-config.exe")) {
+              throw "llvm-config.exe is STILL missing! Aborting."
           }
+
+          Write-Host "Setting Environment Variables for llvm-sys..."
+          echo "LLVM_SYS_211_PREFIX=$($extractedDir.FullName)" >> $env:GITHUB_ENV
+          echo "$($extractedDir.FullName)\bin" >> $env:GITHUB_PATH
 
       # --- TESTING ---
       - uses: Swatinem/rust-cache@v2
