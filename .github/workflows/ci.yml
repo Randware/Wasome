@@ -64,9 +64,26 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
+          # 1. Dynamically hunt down the real MSYS2 llvm-config.exe
+          $realLlvmConfig = (Get-Command llvm-config.exe -ErrorAction SilentlyContinue).Source
+
+          if (-not $realLlvmConfig) {
+              Write-Host "Fallback: Searching D:\a for llvm-config.exe..."
+              $realLlvmConfig = (Get-ChildItem -Path D:\a -Filter "llvm-config.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          }
+
+          if (-not $realLlvmConfig -or -not (Test-Path $realLlvmConfig)) {
+              throw "❌ CRITICAL: Cannot find the real llvm-config.exe anywhere on the runner!"
+          }
+
+          Write-Host "✅ Real llvm-config found at: $realLlvmConfig"
+          $realBinDir = Split-Path $realLlvmConfig -Parent
+          $escapedPath = $realLlvmConfig -replace '\\', '\\\\'
+
+          # 2. Create our fake LLVM directory
           New-Item -ItemType Directory -Force -Path C:\fake-llvm\bin
 
-          # Writing the Rust wrapper file line-by-line to avoid YAML/PowerShell syntax formatting clashes
+          # 3. Write the Trojan Horse wrapper
           "use std::env;" > wrapper.rs
           "use std::process::Command;" >> wrapper.rs
           "fn main() {" >> wrapper.rs
@@ -74,18 +91,17 @@ jobs:
           "    if args.len() > 1 && args[1] == `"--version`" {" >> wrapper.rs
           "        println!(`"21.1.0`");" >> wrapper.rs
           "    } else {" >> wrapper.rs
-          "        let status = Command::new(`"C:\\msys64\\mingw64\\bin\\llvm-config.exe`").args(&args[1..]).status().unwrap();" >> wrapper.rs
+          "        let status = Command::new(`"$escapedPath`").args(&args[1..]).status().expect(`"Failed to run real llvm-config`");" >> wrapper.rs
           "        std::process::exit(status.code().unwrap_or(1));" >> wrapper.rs
           "    }" >> wrapper.rs
           "}" >> wrapper.rs
 
-          # Compile our Trojan Horse
+          # 4. Compile it
           rustc wrapper.rs -o C:\fake-llvm\bin\llvm-config.exe
 
-          # Force llvm-sys to look at our wrapper
+          # 5. Tell GitHub Actions about our dynamic paths
           echo "LLVM_SYS_211_PREFIX=C:\fake-llvm" >> $env:GITHUB_ENV
-          # Inject MSYS2 bins into the PATH so the 'cc' crate can find GCC
-          echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
+          echo "$realBinDir" >> $env:GITHUB_PATH
 
       # --- TESTING ---
       - uses: Swatinem/rust-cache@v2
