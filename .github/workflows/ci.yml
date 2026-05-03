@@ -37,8 +37,11 @@ jobs:
         shell: pwsh
         run: |
           $archive = "$env:TEMP\llvm.7z"
-          curl.exe -L --output $archive "https://github.com/vovkos/llvm-package-windows/releases/download/llvm-21.1.1/llvm-21.1.1-windows-amd64-msvc17-msvcrt.7z"
+
+          curl.exe -L --output $archive "https://github.com/c3lang/win-llvm/releases/download/llvm_21_1_8/llvm-21.1.8-windows-amd64-msvc17-msvcrt.7z"
+
           7z x $archive -o"C:\llvm" -y
+
           $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
           echo "LLVM_SYS_211_PREFIX=$llvmDir" >> $env:GITHUB_ENV
           echo "$llvmDir\bin" >> $env:GITHUB_PATH
