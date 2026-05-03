@@ -16,24 +16,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
-      # --- RUST TOOLCHAIN SETUP ---
-      - name: Setup Rust (Unix)
-        if: matrix.os != 'windows-latest'
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          # Force Windows to use the UCRT GNU toolchain so it perfectly matches MSYS2
-          toolchain: stable-x86_64-pc-windows-gnullvm
-          targets: x86_64-pc-windows-gnullvm
-
-      # --- UBUNTU LLVM ---
       - name: Install LLVM 21 (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         uses: KyleMayes/install-llvm-action@v2
@@ -45,7 +32,6 @@ jobs:
         shell: bash
         run: echo "LLVM_SYS_211_PREFIX=$LLVM_PATH" >> $GITHUB_ENV
 
-      # --- MACOS LLVM ---
       - name: Install LLVM 21 (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -53,49 +39,6 @@ jobs:
           brew link --force --overwrite llvm@21
           echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
 
-      # --- WINDOWS LLVM (THE TROJAN HORSE + UCRT FIX) ---
-      - name: Setup MSYS2 and Dependencies (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            mingw-w64-ucrt-x86_64-llvm
-            mingw-w64-ucrt-x86_64-llvm-tools
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-libffi
-
-      - name: Compile Fake llvm-config Wrapper (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path C:\fake-llvm\bin
-
-          "use std::env;" > wrapper.rs
-          "use std::process::Command;" >> wrapper.rs
-          "fn main() {" >> wrapper.rs
-          "    let args: Vec<String> = env::args().collect();" >> wrapper.rs
-          "    if args.len() > 1 && args[1] == `"--version`" {" >> wrapper.rs
-          "        println!(`"21.1.0`");" >> wrapper.rs
-          "    } else {" >> wrapper.rs
-          "        let status = Command::new(`"C:\\msys64\\ucrt64\\bin\\llvm-config.exe`").args(&args[1..]).status().unwrap();" >> wrapper.rs
-          "        std::process::exit(status.code().unwrap_or(1));" >> wrapper.rs
-          "    }" >> wrapper.rs
-          "}" >> wrapper.rs
-
-          rustc wrapper.rs -o C:\fake-llvm\bin\llvm-config.exe
-
-          # Tell llvm-sys to use the Trojan Horse
-          echo "LLVM_SYS_211_PREFIX=C:\fake-llvm" >> $env:GITHUB_ENV
-          # Provide the MSYS2 UCRT bin path so 'cc' can find GCC and dynamic DLLs
-          echo "C:\msys64\ucrt64\bin" >> $env:GITHUB_PATH
-          # FORCE llvm-sys to explicitly link libffi to fix the "ffi_prep_cif" error
-          echo "LLVM_SYS_211_FFI_WORKAROUND=1" >> $env:GITHUB_ENV
-          # Brute force the linker to ignore the "multiple definition of pthread_once" C++ runtime clash
-          echo "RUSTFLAGS=-C link-args=-Wl,--allow-multiple-definition" >> $env:GITHUB_ENV
-
-      # --- TESTING ---
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -201,8 +144,48 @@ jobs:
           name: result-nix
           path: result_nix.txt
 
+  test-nix-cross:
+    name: Nix Cross (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-linux
+            pkgsCross: aarch64-multiplatform
+          - target: armv7l-linux
+            pkgsCross: armv7l-hf-multiplatform
+          - target: riscv64-linux
+            pkgsCross: riscv64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Cache Nix Store
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Cross-compile for ${{ matrix.target }}
+        id: cross
+        working-directory: ./compiler
+        run: nix build .#packages.${{ matrix.target }}.default
+
+      - name: Save Result
+        if: always()
+        run: echo "${{ matrix.target }}|Nix Cross-Compile|${{ steps.cross.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_nix_cross_${{ matrix.target }}.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-nix-cross-${{ matrix.target }}
+          path: result_nix_cross_*.txt
+
   report:
-    needs: [test-standard, test-freebsd, test-devcontainer, test-nix]
+    needs:
+      [test-standard, test-freebsd, test-devcontainer, test-nix, test-nix-cross]
     if: always()
     runs-on: ubuntu-latest
     steps:
