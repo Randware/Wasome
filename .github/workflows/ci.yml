@@ -72,27 +72,27 @@ jobs:
           echo "Scraping MSYS2 archive for LLVM 21..."
           HTML=$(curl -s "$REPO_URL")
 
-          # Match the exact LLVM 21 archives
+          # Match ALL 3 exact LLVM 21 archives so pacman's dependency resolver shuts up
           LLVM_PKG=$(echo "$HTML" | grep -oE 'mingw-w64-x86_64-llvm-21\.[0-9\.\-]+-any\.pkg\.tar\.zst' | tail -1)
           TOOLS_PKG=$(echo "$HTML" | grep -oE 'mingw-w64-x86_64-llvm-tools-21\.[0-9\.\-]+-any\.pkg\.tar\.zst' | tail -1)
+          LIBS_PKG=$(echo "$HTML" | grep -oE 'mingw-w64-x86_64-llvm-libs-21\.[0-9\.\-]+-any\.pkg\.tar\.zst' | tail -1)
 
-          if [ -z "$LLVM_PKG" ]; then
-            echo "❌ Failed to find LLVM 21 base package!"
+          if [ -z "$LLVM_PKG" ] || [ -z "$TOOLS_PKG" ] || [ -z "$LIBS_PKG" ]; then
+            echo "❌ Failed to find all LLVM 21 packages!"
             exit 1
           fi
 
           echo "Downloading $LLVM_PKG..."
           curl -O "${REPO_URL}${LLVM_PKG}"
 
-          if [ -n "$TOOLS_PKG" ]; then
-            echo "Downloading $TOOLS_PKG..."
-            curl -O "${REPO_URL}${TOOLS_PKG}"
-            echo "Installing via pacman..."
-            pacman -U --noconfirm "$LLVM_PKG" "$TOOLS_PKG"
-          else
-            echo "Installing via pacman..."
-            pacman -U --noconfirm "$LLVM_PKG"
-          fi
+          echo "Downloading $TOOLS_PKG..."
+          curl -O "${REPO_URL}${TOOLS_PKG}"
+
+          echo "Downloading $LIBS_PKG..."
+          curl -O "${REPO_URL}${LIBS_PKG}"
+
+          echo "Installing via pacman..."
+          pacman -U --noconfirm "$LLVM_PKG" "$TOOLS_PKG" "$LIBS_PKG"
 
           if [ ! -f "/mingw64/bin/llvm-config.exe" ]; then
               echo "❌ llvm-config.exe is STILL missing!"
