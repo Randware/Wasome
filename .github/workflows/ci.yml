@@ -32,19 +32,21 @@ jobs:
         shell: bash
         run: echo "LLVM_SYS_211_PREFIX=$LLVM_PATH" >> $GITHUB_ENV
 
+      - name: Install lld (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y lld
+
       - name: Install LLVM 21 (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $archive = "$env:TEMP\llvm.7z"
-
           curl.exe -L --output $archive "https://github.com/c3lang/win-llvm/releases/download/llvm_21_1_8/llvm-21.1.8-windows-amd64-msvc17-msvcrt.7z"
-
           7z x $archive -o"C:\llvm" -y
-
           $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
           echo "LLVM_SYS_211_PREFIX=$llvmDir" >> $env:GITHUB_ENV
           echo "$llvmDir\bin" >> $env:GITHUB_PATH
+
       - name: Install LLVM 21 (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -61,6 +63,8 @@ jobs:
       - name: Run Tests
         id: test
         shell: bash
+        env:
+          RUSTFLAGS: ${{ matrix.os == 'ubuntu-latest' && '-C link-arg=-fuse-ld=lld' || '' }}
         run: |
           cargo test --workspace --manifest-path compiler/Cargo.toml
           cargo test --workspace --manifest-path cli/Cargo.toml
