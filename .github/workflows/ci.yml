@@ -170,10 +170,12 @@ jobs:
       - name: Cache Nix Store
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
-      - name: Run Nix Flake Check
+      - name: Run Nix Flake Check and Tests
         id: nix
         working-directory: ./compiler
-        run: nix flake check
+        run: |
+          nix flake check
+          nix develop --command cargo test --workspace
 
       - name: Save Result
         if: always()
