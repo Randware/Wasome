@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -31,6 +31,17 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: echo "LLVM_SYS_211_PREFIX=$LLVM_PATH" >> $GITHUB_ENV
+
+      - name: Install LLVM 21 (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $url = "https://github.com/vovkos/llvm-package-windows/releases/download/llvm-21.1.1/llvm-21.1.1-windows-amd64-msvcrt-release.7z"
+          $archive = "$env:TEMP\llvm.7z"
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          7z x $archive -o"C:\llvm" -y
+          echo "LLVM_SYS_211_PREFIX=C:\llvm\llvm-21.1.1-windows-amd64-msvcrt-release" >> $env:GITHUB_ENV
+          echo "C:\llvm\llvm-21.1.1-windows-amd64-msvcrt-release\bin" >> $env:GITHUB_PATH
 
       - name: Install LLVM 21 (macOS)
         if: matrix.os == 'macos-latest'
