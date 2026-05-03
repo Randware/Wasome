@@ -39,9 +39,12 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          choco install llvm --version=21.1.0 -y
-          refreshenv
+          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.0/LLVM-21.1.0-win64.exe"
+          $installer = "$env:TEMP\llvm-installer.exe"
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          Start-Process -FilePath $installer -ArgumentList "/S" -Wait
           echo "LLVM_SYS_211_PREFIX=C:\Program Files\LLVM" >> $env:GITHUB_ENV
+          echo "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -148,8 +151,61 @@ jobs:
           name: result-nix
           path: result_nix.txt
 
+  test-nix-cross:
+    name: Nix Cross (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-linux
+            pkgsCross: aarch64-multiplatform
+          - target: armv7l-linux
+            pkgsCross: armv7l-hf-multiplatform
+          - target: riscv64-linux
+            pkgsCross: riscv64
+          - target: i686-linux
+            pkgsCross: gnu32
+          - target: powerpc64le-linux
+            pkgsCross: ppc64-musl
+          - target: s390x-linux
+            pkgsCross: s390x
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Cache Nix Store
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Cross-compile for ${{ matrix.target }}
+        id: cross
+        working-directory: ./compiler
+        run: |
+          nix build --impure --expr "
+            let
+              nixpkgs = builtins.getFlake \"nixpkgs\";
+              pkgs = nixpkgs.legacyPackages.x86_64-linux.pkgsCross.${{ matrix.pkgsCross }};
+            in
+              pkgs.callPackage ./. {}
+          "
+
+      - name: Save Result
+        if: always()
+        run: echo "${{ matrix.target }}|Nix Cross-Compile|${{ steps.cross.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_nix_cross_${{ matrix.target }}.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-nix-cross-${{ matrix.target }}
+          path: result_nix_cross_*.txt
+
   report:
-    needs: [test-standard, test-freebsd, test-devcontainer, test-nix]
+    needs:
+      [test-standard, test-freebsd, test-devcontainer, test-nix, test-nix-cross]
     if: always()
     runs-on: ubuntu-latest
     steps:
