@@ -38,19 +38,28 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           brew install llvm@21
+          # Force overwrite the pre-installed LLVM 18 links
+          brew link --force --overwrite llvm@21
           echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
 
       # --- WINDOWS LLVM ---
-      - name: Install LLVM 21 (Windows)
+      # We use MSYS2 UCRT64 because it is the only reliable way to get `llvm-config.exe`
+      # on Windows without compiling LLVM from source for 2 hours (I hate windows 💔)
+      - name: Setup MSYS2 and Install LLVM 21 (Windows)
         if: matrix.os == 'windows-latest'
-        uses: KyleMayes/install-llvm-action@v2
+        uses: msys2/setup-msys2@v2
         with:
-          version: "21"
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-llvm
 
-      - name: Export LLVM Prefix (Windows)
+      - name: Export LLVM Prefix & Path (Windows)
         if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: echo "LLVM_SYS_211_PREFIX=$env:LLVM_PATH" >> $env:GITHUB_ENV
+        shell: bash
+        run: |
+          echo "LLVM_SYS_211_PREFIX=C:/msys64/ucrt64" >> $GITHUB_ENV
+          # Add to PATH so tests can dynamically load the LLVM DLLs at runtime if needed
+          echo "C:/msys64/ucrt64/bin" >> $GITHUB_PATH
 
       # --- TESTING ---
       - uses: Swatinem/rust-cache@v2
