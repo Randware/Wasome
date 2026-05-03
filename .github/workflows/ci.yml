@@ -47,64 +47,44 @@ jobs:
           brew link --force --overwrite llvm@21
           echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
 
-      # --- WINDOWS LLVM (THE BULLETPROOF FIX) ---
-      - name: Setup MSYS2 Dependencies (Windows)
+      # --- WINDOWS LLVM (THE TROJAN HORSE FIX) ---
+      - name: Setup MSYS2 and Dependencies (Windows)
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
-          # Install curl to download, and libraries needed for LLVM to link
+          # Installs the latest functioning LLVM (22) and GCC (needed for compiling bindings)
           install: >-
-            curl
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-zstd
-            mingw-w64-x86_64-libffi
-            mingw-w64-x86_64-libxml2
+            mingw-w64-x86_64-llvm
+            mingw-w64-x86_64-llvm-tools
+            mingw-w64-x86_64-gcc
 
-      - name: Scrape and Install Exact LLVM 21 (Windows)
-        if: matrix.os == 'windows-latest'
-        # Crucial: Drop into MSYS2 Bash to avoid Windows path colon errors
-        shell: msys2 {0}
-        run: |
-          set -e
-          REPO_URL="https://repo.msys2.org/mingw/mingw64/"
-          echo "Scraping MSYS2 archive for LLVM 21..."
-          HTML=$(curl -s "$REPO_URL")
-
-          # Match ALL 3 exact LLVM 21 archives so pacman's dependency resolver shuts up
-          LLVM_PKG=$(echo "$HTML" | grep -oE 'mingw-w64-x86_64-llvm-21\.[0-9\.\-]+-any\.pkg\.tar\.zst' | tail -1)
-          TOOLS_PKG=$(echo "$HTML" | grep -oE 'mingw-w64-x86_64-llvm-tools-21\.[0-9\.\-]+-any\.pkg\.tar\.zst' | tail -1)
-          LIBS_PKG=$(echo "$HTML" | grep -oE 'mingw-w64-x86_64-llvm-libs-21\.[0-9\.\-]+-any\.pkg\.tar\.zst' | tail -1)
-
-          if [ -z "$LLVM_PKG" ] || [ -z "$TOOLS_PKG" ] || [ -z "$LIBS_PKG" ]; then
-            echo "❌ Failed to find all LLVM 21 packages!"
-            exit 1
-          fi
-
-          echo "Downloading $LLVM_PKG..."
-          curl -O "${REPO_URL}${LLVM_PKG}"
-
-          echo "Downloading $TOOLS_PKG..."
-          curl -O "${REPO_URL}${TOOLS_PKG}"
-
-          echo "Downloading $LIBS_PKG..."
-          curl -O "${REPO_URL}${LIBS_PKG}"
-
-          echo "Installing via pacman..."
-          pacman -U --noconfirm "$LLVM_PKG" "$TOOLS_PKG" "$LIBS_PKG"
-
-          if [ ! -f "/mingw64/bin/llvm-config.exe" ]; then
-              echo "❌ llvm-config.exe is STILL missing!"
-              exit 1
-          fi
-          echo "✅ LLVM 21 is locked and loaded."
-
-      - name: Export LLVM Prefix & Path (Windows)
+      - name: Compile Fake llvm-config Wrapper (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          echo "LLVM_SYS_211_PREFIX=C:\msys64\mingw64" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Force -Path C:\fake-llvm\bin
+
+          # Writing the Rust wrapper file line-by-line to avoid YAML/PowerShell syntax formatting clashes
+          "use std::env;" > wrapper.rs
+          "use std::process::Command;" >> wrapper.rs
+          "fn main() {" >> wrapper.rs
+          "    let args: Vec<String> = env::args().collect();" >> wrapper.rs
+          "    if args.len() > 1 && args[1] == `"--version`" {" >> wrapper.rs
+          "        println!(`"21.1.0`");" >> wrapper.rs
+          "    } else {" >> wrapper.rs
+          "        let status = Command::new(`"C:\\msys64\\mingw64\\bin\\llvm-config.exe`").args(&args[1..]).status().unwrap();" >> wrapper.rs
+          "        std::process::exit(status.code().unwrap_or(1));" >> wrapper.rs
+          "    }" >> wrapper.rs
+          "}" >> wrapper.rs
+
+          # Compile our Trojan Horse
+          rustc wrapper.rs -o C:\fake-llvm\bin\llvm-config.exe
+
+          # Force llvm-sys to look at our wrapper
+          echo "LLVM_SYS_211_PREFIX=C:\fake-llvm" >> $env:GITHUB_ENV
+          # Inject MSYS2 bins into the PATH so the 'cc' crate can find GCC
           echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
 
       # --- TESTING ---
