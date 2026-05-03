@@ -47,15 +47,16 @@ jobs:
           brew link --force --overwrite llvm@21
           echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
 
-      # --- WINDOWS LLVM (THE SURGICAL FIX) ---
+      # --- WINDOWS LLVM (THE BULLETPROOF FIX) ---
       - name: Setup MSYS2 Dependencies (Windows)
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
-          # Install the dependencies required by LLVM for linking
+          # Install curl to download, and libraries needed for LLVM to link
           install: >-
+            curl
             mingw-w64-x86_64-zlib
             mingw-w64-x86_64-zstd
             mingw-w64-x86_64-libffi
@@ -63,40 +64,46 @@ jobs:
 
       - name: Scrape and Install Exact LLVM 21 (Windows)
         if: matrix.os == 'windows-latest'
+        # Crucial: Drop into MSYS2 Bash to avoid Windows path colon errors
+        shell: msys2 {0}
+        run: |
+          set -e
+          REPO_URL="https://repo.msys2.org/mingw/mingw64/"
+          echo "Scraping MSYS2 archive for LLVM 21..."
+          HTML=$(curl -s "$REPO_URL")
+
+          # Match the exact LLVM 21 archives
+          LLVM_PKG=$(echo "$HTML" | grep -oE 'mingw-w64-x86_64-llvm-21\.[0-9\.\-]+-any\.pkg\.tar\.zst' | tail -1)
+          TOOLS_PKG=$(echo "$HTML" | grep -oE 'mingw-w64-x86_64-llvm-tools-21\.[0-9\.\-]+-any\.pkg\.tar\.zst' | tail -1)
+
+          if [ -z "$LLVM_PKG" ]; then
+            echo "❌ Failed to find LLVM 21 base package!"
+            exit 1
+          fi
+
+          echo "Downloading $LLVM_PKG..."
+          curl -O "${REPO_URL}${LLVM_PKG}"
+
+          if [ -n "$TOOLS_PKG" ]; then
+            echo "Downloading $TOOLS_PKG..."
+            curl -O "${REPO_URL}${TOOLS_PKG}"
+            echo "Installing via pacman..."
+            pacman -U --noconfirm "$LLVM_PKG" "$TOOLS_PKG"
+          else
+            echo "Installing via pacman..."
+            pacman -U --noconfirm "$LLVM_PKG"
+          fi
+
+          if [ ! -f "/mingw64/bin/llvm-config.exe" ]; then
+              echo "❌ llvm-config.exe is STILL missing!"
+              exit 1
+          fi
+          echo "✅ LLVM 21 is locked and loaded."
+
+      - name: Export LLVM Prefix & Path (Windows)
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $repoUrl = "https://repo.msys2.org/mingw/mingw64/"
-          Write-Host "Scraping MSYS2 archive for LLVM 21..."
-          $html = (Invoke-WebRequest -Uri $repoUrl).Content
-
-          # Match the exact LLVM 21 archive
-          $llvmPattern = 'href="(mingw-w64-x86_64-llvm-21\.[0-9\.\-]+-any\.pkg\.tar\.zst)"'
-          $llvmMatches = [regex]::Matches($html, $llvmPattern)
-          if ($llvmMatches.Count -eq 0) { throw "LLVM 21 base package not found in archive!" }
-          $llvmPkg = $llvmMatches[$llvmMatches.Count - 1].Groups[1].Value
-
-          Write-Host "Downloading $llvmPkg..."
-          Invoke-WebRequest -Uri "$repoUrl$llvmPkg" -OutFile "llvm.tar.zst"
-          Write-Host "Extracting LLVM..."
-          C:\msys64\usr\bin\tar.exe -I C:\msys64\usr\bin\zstd.exe -xf llvm.tar.zst -C C:\msys64
-
-          # Check if MSYS2 split the tools into a separate package for version 21
-          $toolsPattern = 'href="(mingw-w64-x86_64-llvm-tools-21\.[0-9\.\-]+-any\.pkg\.tar\.zst)"'
-          $toolsMatches = [regex]::Matches($html, $toolsPattern)
-          if ($toolsMatches.Count -gt 0) {
-              $toolsPkg = $toolsMatches[$toolsMatches.Count - 1].Groups[1].Value
-              Write-Host "Downloading $toolsPkg..."
-              Invoke-WebRequest -Uri "$repoUrl$toolsPkg" -OutFile "llvm-tools.tar.zst"
-              Write-Host "Extracting LLVM Tools..."
-              C:\msys64\usr\bin\tar.exe -I C:\msys64\usr\bin\zstd.exe -xf llvm-tools.tar.zst -C C:\msys64
-          }
-
-          if (-not (Test-Path "C:\msys64\mingw64\bin\llvm-config.exe")) {
-              throw "❌ llvm-config.exe STILL missing after extraction!"
-          }
-          Write-Host "✅ LLVM 21 is locked and loaded."
-
           echo "LLVM_SYS_211_PREFIX=C:\msys64\mingw64" >> $env:GITHUB_ENV
           echo "C:\msys64\mingw64\bin" >> $env:GITHUB_PATH
 
