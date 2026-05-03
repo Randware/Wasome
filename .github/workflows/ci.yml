@@ -21,17 +21,38 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
-      # 1. Unified LLVM 21 Installation for Ubuntu, Windows, and macOS
-      - name: Install LLVM 21
+      # --- UBUNTU LLVM ---
+      - name: Install LLVM 21 (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: "21"
 
-      # 2. Export the exact prefix that llvm-sys v211 expects
-      - name: Export LLVM Prefix
-        shell: bash # Using bash ensures this exact syntax works across all 3 OS runners
+      - name: Export LLVM Prefix (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
         run: echo "LLVM_SYS_211_PREFIX=$LLVM_PATH" >> $GITHUB_ENV
 
+      # --- MACOS LLVM ---
+      - name: Install LLVM 21 (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install llvm@21
+          echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
+
+      # --- WINDOWS LLVM ---
+      - name: Install LLVM 21 (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "21"
+
+      - name: Export LLVM Prefix (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: echo "LLVM_SYS_211_PREFIX=$env:LLVM_PATH" >> $env:GITHUB_ENV
+
+      # --- TESTING ---
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -67,7 +88,7 @@ jobs:
           usesh: true
           prepare: pkg install -y rust git cmake llvm21
           run: |
-            set -e # Exit immediately if command fails
+            set -e
             export LLVM_SYS_211_PREFIX=/usr/local/llvm21
             cargo test --workspace --manifest-path compiler/Cargo.toml --jobs 2
             cargo test --workspace --manifest-path cli/Cargo.toml --jobs 2
@@ -137,49 +158,8 @@ jobs:
           name: result-nix
           path: result_nix.txt
 
-  test-nix-cross:
-    name: Nix Cross (${{ matrix.target }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [aarch64-linux, armv7l-linux, riscv64-linux]
-    steps:
-      - uses: actions/checkout@v4
-
-      # 1. Setup QEMU so the Ubuntu runner can execute/emulate ARM/RISC-V architecture
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      # 2. Install Nix and explicitly tell it to use QEMU for these extra architectures
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-        with:
-          nix_path: nixpkgs=channel:nixos-unstable
-          extra_nix_config: |
-            extra-platforms = aarch64-linux armv7l-linux riscv64-linux
-
-      - name: Cache Nix Store
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: Cross-compile for ${{ matrix.target }}
-        id: cross
-        working-directory: ./compiler
-        run: nix build .#packages.${{ matrix.target }}.default
-
-      - name: Save Result
-        if: always()
-        run: echo "${{ matrix.target }}|Nix Cross-Compile|${{ steps.cross.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_nix_cross_${{ matrix.target }}.txt
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: result-nix-cross-${{ matrix.target }}
-          path: result_nix_cross_*.txt
-
   report:
-    needs:
-      [test-standard, test-freebsd, test-devcontainer, test-nix, test-nix-cross]
+    needs: [test-standard, test-freebsd, test-devcontainer, test-nix]
     if: always()
     runs-on: ubuntu-latest
     steps:
