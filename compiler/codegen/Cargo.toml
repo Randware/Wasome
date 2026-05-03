@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-inkwell = { version = "0.8", features = ["llvm21-1"] }
+inkwell = { version = "0.8", features = ["llvm21-1", "target-webassembly"] }
 thiserror = "2"
 # TODO: Change to workspace dependencie!
 # (crate also gets used by error handling -> error handling is not merged yet)
