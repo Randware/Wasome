@@ -29,7 +29,6 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: dtolnay/rust-toolchain@stable
         with:
-          # Force Windows to use the GNU ABI to match MSYS2 LLVM
           toolchain: stable-x86_64-pc-windows-gnu
           targets: x86_64-pc-windows-gnu
 
@@ -54,11 +53,10 @@ jobs:
           echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
 
       # --- WINDOWS LLVM ---
-      - name: Setup MSYS2 and Install LLVM 21 (Windows)
+      - name: Setup MSYS2 and Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
         with:
-          # Use MINGW64 to perfectly match the stable-x86_64-pc-windows-gnu Rust toolchain
           msystem: MINGW64
           update: true
           install: mingw-w64-x86_64-llvm
@@ -70,6 +68,30 @@ jobs:
           echo "LLVM_SYS_211_PREFIX=C:/msys64/mingw64" >> $GITHUB_ENV
           echo "C:/msys64/mingw64/bin" >> $GITHUB_PATH
 
+      # --- AGGRESSIVE DEBUGGING STEP ---
+      - name: Debug LLVM Installation
+        shell: bash
+        run: |
+          echo "=== Environment Variables ==="
+          echo "LLVM_SYS_211_PREFIX = $LLVM_SYS_211_PREFIX"
+          echo ""
+          echo "=== Checking LLVM Binaries Directory ==="
+          ls -la "$LLVM_SYS_211_PREFIX/bin" | grep llvm-config || echo "llvm-config not found in directory listing!"
+          echo ""
+          echo "=== Executing llvm-config ==="
+          if command -v "$LLVM_SYS_211_PREFIX/bin/llvm-config" >/dev/null 2>&1; then
+            echo "Found llvm-config! Outputting version:"
+            "$LLVM_SYS_211_PREFIX/bin/llvm-config" --version
+            echo "Outputting libdir:"
+            "$LLVM_SYS_211_PREFIX/bin/llvm-config" --libdir
+          else
+            echo "❌ ERROR: llvm-config is NOT executable or missing at $LLVM_SYS_211_PREFIX/bin/llvm-config"
+          fi
+          echo ""
+          echo "=== Checking Rust Toolchain ==="
+          rustc --version
+          rustup show
+
       # --- TESTING ---
       - uses: Swatinem/rust-cache@v2
         with:
@@ -80,9 +102,10 @@ jobs:
       - name: Run Tests
         id: test
         shell: bash
+        # Added -vv to force Cargo to print the build.rs logs from llvm-sys
         run: |
-          cargo test --workspace --manifest-path compiler/Cargo.toml
-          cargo test --workspace --manifest-path cli/Cargo.toml
+          cargo test --workspace --manifest-path compiler/Cargo.toml -vv
+          cargo test --workspace --manifest-path cli/Cargo.toml -vv
 
       - name: Save Result
         if: always()
