@@ -28,22 +28,21 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /opt/llvm21
-          key: llvm-21-ubuntu
+          key: llvm-21-ubuntu-prebuilt
 
       - name: Install LLVM 21 (Ubuntu)
         if: matrix.os == 'ubuntu-latest' && steps.cache-llvm-ubuntu.outputs.cache-hit != 'true'
-        uses: KyleMayes/install-llvm-action@v2
-        with:
-          version: "21"
-          directory: /opt/llvm21
+        run: |
+          wget -qO /tmp/llvm.tar.xz \
+            "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/clang+llvm-21.1.8-x86_64-linux-gnu-ubuntu-22.04.tar.xz"
+          mkdir -p /opt/llvm21
+          tar -xf /tmp/llvm.tar.xz -C /opt/llvm21 --strip-components=1
 
       - name: Export LLVM Prefix (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
-        run: echo "LLVM_SYS_211_PREFIX=/opt/llvm21" >> $GITHUB_ENV
-
-      - name: Install lld (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get install -y lld
+        run: |
+          echo "LLVM_SYS_211_PREFIX=/opt/llvm21" >> $GITHUB_ENV
+          echo "RUSTFLAGS=-C linker=/opt/llvm21/bin/clang -C link-arg=-fuse-ld=/opt/llvm21/bin/lld" >> $GITHUB_ENV
 
       # ── Windows ───────────────────────────────────────────────────────────
       - name: Cache LLVM 21 (Windows)
@@ -103,8 +102,6 @@ jobs:
       - name: Run Tests
         id: test
         shell: bash
-        env:
-          RUSTFLAGS: ${{ matrix.os == 'ubuntu-latest' && '-C link-arg=-fuse-ld=lld' || '' }}
         run: |
           cargo test --workspace --manifest-path compiler/Cargo.toml
           cargo test --workspace --manifest-path cli/Cargo.toml
