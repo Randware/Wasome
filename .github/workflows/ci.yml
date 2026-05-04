@@ -34,7 +34,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && steps.cache-llvm-ubuntu.outputs.cache-hit != 'true'
         run: |
           wget -qO /tmp/llvm.tar.xz \
-            "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/clang+llvm-21.1.8-x86_64-linux-gnu-ubuntu-22.04.tar.xz"
+            "https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-Linux-X64.tar.xz"
           mkdir -p /opt/llvm21
           tar -xf /tmp/llvm.tar.xz -C /opt/llvm21 --strip-components=1
 
@@ -75,19 +75,19 @@ jobs:
         id: cache-llvm-macos
         uses: actions/cache@v4
         with:
-          path: /opt/homebrew/opt/llvm@21
-          key: llvm-21-macos
+          path: /opt/homebrew/Cellar/llvm@21
+          key: llvm-21-macos-cellar
 
       - name: Install LLVM 21 (macOS)
         if: matrix.os == 'macos-latest' && steps.cache-llvm-macos.outputs.cache-hit != 'true'
-        run: |
-          brew install llvm@21
+        run: brew install llvm@21
 
       - name: Export LLVM Prefix (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          echo "LLVM_SYS_211_PREFIX=/opt/homebrew/opt/llvm@21" >> $GITHUB_ENV
-          echo "/opt/homebrew/opt/llvm@21/bin" >> $GITHUB_PATH
+          LLVM_DIR=$(ls -d /opt/homebrew/Cellar/llvm@21/*)
+          echo "LLVM_SYS_211_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
+          echo "$LLVM_DIR/bin" >> $GITHUB_PATH
 
       # ── Shared ────────────────────────────────────────────────────────────
       - name: Install sccache
