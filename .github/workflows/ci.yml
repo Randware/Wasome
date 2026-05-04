@@ -91,12 +91,14 @@ jobs:
           echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
 
       # ── Shared ────────────────────────────────────────────────────────────
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            compiler
-            cli
-          key: ${{ matrix.os }}-llvm21
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Configure sccache
+        shell: bash
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
 
       - name: Run Tests
         id: test
