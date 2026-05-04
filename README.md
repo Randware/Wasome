@@ -144,6 +144,8 @@ fn main() {
 </tr>
 </table>
 
+<br/>
+
 
 ## ✦ Explore Wasome
 
