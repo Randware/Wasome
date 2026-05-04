@@ -86,8 +86,8 @@ jobs:
       - name: Export LLVM Prefix (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          brew link --force --overwrite llvm@21
-          echo "LLVM_SYS_211_PREFIX=$(brew --prefix llvm@21)" >> $GITHUB_ENV
+          echo "LLVM_SYS_211_PREFIX=/opt/homebrew/opt/llvm@21" >> $GITHUB_ENV
+          echo "/opt/homebrew/opt/llvm@21/bin" >> $GITHUB_PATH
 
       # ── Shared ────────────────────────────────────────────────────────────
       - name: Install sccache
