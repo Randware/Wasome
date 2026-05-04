@@ -118,10 +118,10 @@ jobs:
         run: |
           set -x
           echo "::group::compiler tests"
-          time cargo test --workspace --manifest-path compiler/Cargo.toml --timings
+          time cargo test --workspace --manifest-path compiler/Cargo.toml --timings -- --test-threads=8
           echo "::endgroup::"
           echo "::group::cli tests"
-          time cargo test --workspace --manifest-path cli/Cargo.toml --timings
+          time cargo test --workspace --manifest-path cli/Cargo.toml --timings -- --test-threads=8
           echo "::endgroup::"
 
       - name: Debug sccache stats (after)
