@@ -38,11 +38,15 @@ jobs:
           mkdir -p /opt/llvm21
           tar -xf /tmp/llvm.tar.xz -C /opt/llvm21 --strip-components=1
 
+      - name: Install lld (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y lld
+
       - name: Export LLVM Prefix (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
           echo "LLVM_SYS_211_PREFIX=/opt/llvm21" >> $GITHUB_ENV
-          echo "RUSTFLAGS=-C link-arg=-fuse-ld=mold" >> $GITHUB_ENV
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
 
       # ── Windows ───────────────────────────────────────────────────────────
       - name: Cache LLVM 21 (Windows)
