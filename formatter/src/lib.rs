@@ -1,44 +1,15 @@
-//! Wasome Code Formatter
-//!
-//! A token-preserving code formatter for the Wasome language.
-//! Enforces a universal style with no configuration options.
-//!
-//! # Usage
-//!
-//! ```rust
-//! use formatter::format_source;
-//!
-//! let formatted = format_source("fn main(){s32 x<-10}");
-//! ```
-
-mod constants;
+mod classify;
+mod config;
 mod formatter;
-mod indent;
-pub mod reorder;
-pub mod spacing;
 
-pub use reorder::{ItemCategory, categorize_keyword};
-pub use spacing::requires_space;
+use formatter::Formatter;
 
-use formatter::format_tokens;
-use lexer::{Token, lex};
-use reorder::{parse_top_level_items, reorder_items};
+// Public formatter entrypoint.
+pub fn format(source: String) -> String {
+    let tokens: Vec<_> = lexer::lex(&source).filter_map(|r| r.ok()).collect();
 
-/// Formats Wasome source code and returns the formatted string.
-#[must_use]
-pub fn format_source(input: &str) -> String {
-    let tokens: Vec<Token> = lex(input).filter_map(Result::ok).collect();
-
-    if tokens.is_empty() {
-        return String::new();
-    }
-
-    // Parse and reorder top-level items
-    let items = parse_top_level_items(tokens);
-    let reordered = reorder_items(items);
-
-    // Flatten back to tokens
-    let tokens: Vec<Token> = reordered.into_iter().flat_map(|item| item.tokens).collect();
-
-    format_tokens(&tokens)
+    Formatter::new().format(&tokens)
 }
+
+#[cfg(test)]
+mod tests;
