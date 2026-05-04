@@ -42,7 +42,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           echo "LLVM_SYS_211_PREFIX=/opt/llvm21" >> $GITHUB_ENV
-          echo "RUSTFLAGS=-C linker=/opt/llvm21/bin/clang -C link-arg=-fuse-ld=/opt/llvm21/bin/lld" >> $GITHUB_ENV
+          echo "RUSTFLAGS=-C linker=/opt/llvm21/bin/clang -C link-arg=-fuse-ld=/opt/llvm21/bin/ld.lld" >> $GITHUB_ENV
 
       # ── Windows ───────────────────────────────────────────────────────────
       - name: Cache LLVM 21 (Windows)
