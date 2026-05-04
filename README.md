@@ -187,7 +187,7 @@ The `docs/examples/` directory has a growing collection of real programs, organi
 </tr>
 <tr>
 <td width="8%" align="center">📁</td>
-<td width="22%"><a href="docs/examples/single_project"><b>Single Project</b></a></td>
+<td width="22%"><a href="docs/examples/single_project"><b>Single-Project</b></a></td>
 <td width="70%">Multi-file projects with module imports; see how Wasome scales beyond one file.</td>
 </tr>
 <tr>
