@@ -103,39 +103,12 @@ jobs:
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
 
-      - name: Debug sccache stats (before)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sccache --show-stats
-          echo "LLVM_SYS_211_PREFIX=$LLVM_SYS_211_PREFIX"
-          echo "RUSTFLAGS=$RUSTFLAGS"
-          ls -la /opt/llvm21/bin/ | head -20
-          which cc && cc --version
-
       - name: Run Tests
         id: test
         shell: bash
         run: |
-          set -x
-          echo "::group::compiler tests"
-          time cargo test --workspace --manifest-path compiler/Cargo.toml --timings -- --test-threads=8
-          echo "::endgroup::"
-          echo "::group::cli tests"
-          time cargo test --workspace --manifest-path cli/Cargo.toml --timings -- --test-threads=8
-          echo "::endgroup::"
-
-      - name: Debug sccache stats (after)
-        if: always() && matrix.os == 'ubuntu-latest'
-        run: sccache --show-stats
-
-      - name: Upload cargo timings
-        if: always() && matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: cargo-timings-ubuntu
-          path: |
-            compiler/target/cargo-timings/
-            cli/target/cargo-timings/
+          cargo test --workspace --manifest-path compiler/Cargo.toml --release -- --test-threads=8
+          cargo test --workspace --manifest-path cli/Cargo.toml --release -- --test-threads=8
 
       - name: Save Result
         if: always()
