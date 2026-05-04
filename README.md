@@ -31,6 +31,8 @@ Wasome is a programming language built from scratch to compile to WebAssembly.<b
 Whether you're targeting the browser, a server, or the edge,<br/>
 Write Wasome, compile to Wasm, and it <strong>just works</strong>.
 </p>
+
+<strong>Work in Progress</strong>
 </div>
 
 <br/>
@@ -236,7 +238,7 @@ This project is dual-licensed under your choice of:
 
 <div align="center">
 
-<sub>Built with love and Rust &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
+<sub>Built with ❤️ and Rust &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
 
 <br/><br/>
 
