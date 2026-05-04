@@ -1,5 +1,7 @@
 <div align="center">
 
+<h3>Work in Progress</h3>
+
 <img src=".github/assets/Wasome_Yellow.png" width="148" alt="Wasome" />
 
 <br/><br/>
@@ -32,7 +34,6 @@ Whether you're targeting the browser, a server, or the edge,<br/>
 Write Wasome, compile to Wasm, and it <strong>just works</strong>.
 </p>
 
-<strong>Work in Progress</strong>
 </div>
 
 <br/>
