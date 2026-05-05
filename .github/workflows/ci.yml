@@ -109,7 +109,7 @@ jobs:
         id: test
         shell: bash
         run: |
-          CARGO_LOG=debug cargo test --workspace --manifest-path compiler/Cargo.toml --release -- --test-threads=8
+          CARGO_LOG=trace cargo test --workspace --manifest-path compiler/Cargo.toml --release -- --test-threads=8
           cargo test --workspace --manifest-path cli/Cargo.toml --release -- --test-threads=8
 
       - name: Save Result
