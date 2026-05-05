@@ -48,6 +48,7 @@ jobs:
           echo "LLVM_SYS_211_PREFIX=/opt/llvm21" >> $GITHUB_ENV
           echo "RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
           free
+          df
 
       # ── Windows ───────────────────────────────────────────────────────────
       - name: Cache LLVM 21 (Windows)
@@ -93,7 +94,6 @@ jobs:
           LLVM_DIR=$(ls -d /opt/homebrew/Cellar/llvm@21/*)
           echo "LLVM_SYS_211_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
           echo "$LLVM_DIR/bin" >> $GITHUB_PATH
-          free
 
       # ── Shared ────────────────────────────────────────────────────────────
       - name: Install sccache
