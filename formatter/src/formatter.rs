@@ -65,10 +65,9 @@ impl Formatter {
         let curr = tokens[index].kind.clone();
 
         if matches!(curr, TokenType::StatementSeparator) {
-            if self.paren_depth > 0
-                && matches!(self.prev_non_separator(tokens, index), Some(TokenType::OpenParen))
-                && matches!(self.next_non_separator(tokens, index), Some(TokenType::CloseParen))
-            {
+            // Inside parens, always collapse newlines.
+            if self.paren_depth > 0 && !self.paren_wrap_mode {
+                self.prev_kind = Some(TokenType::StatementSeparator);
                 return;
             }
             if !self.just_opened_scope && !self.suppress_newlines {
@@ -455,17 +454,6 @@ impl Formatter {
         } else {
             Some(next)
         }
-    }
-
-    fn prev_non_separator<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
-        if index == 0 {
-            return None;
-        }
-        tokens[..index]
-            .iter()
-            .rev()
-            .map(|t| &t.kind)
-            .find(|k| !matches!(k, TokenType::StatementSeparator))
     }
 
     // Rough size estimate for bracket group content.
