@@ -734,3 +734,25 @@ fn fibonacci(u8 n) -> u64 {
 }",
     );
 }
+
+#[test]
+fn parens_empty_with_newlines() {
+    assert_fmt(
+        "fn main(\n\n\n) {\n}",
+        "\
+fn main() {
+}",
+    );
+}
+
+#[test]
+fn inline_comment_moved_to_own_line() {
+    assert_fmt(
+        "fn main(){s32 x<-1//note\n->x}",
+        "\
+fn main() {
+    s32 x <- 1 //note
+    -> x
+}",
+    );
+}

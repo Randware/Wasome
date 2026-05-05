@@ -65,6 +65,12 @@ impl Formatter {
         let curr = tokens[index].kind.clone();
 
         if matches!(curr, TokenType::StatementSeparator) {
+            if self.paren_depth > 0
+                && matches!(self.prev_non_separator(tokens, index), Some(TokenType::OpenParen))
+                && matches!(self.next_non_separator(tokens, index), Some(TokenType::CloseParen))
+            {
+                return;
+            }
             if !self.just_opened_scope && !self.suppress_newlines {
                 if self.at_line_start
                     && matches!(
@@ -102,6 +108,7 @@ impl Formatter {
             }
             TokenType::ArgumentSeparator => self.handle_argument_separator(tokens, index),
             TokenType::Subtraction => self.handle_subtraction(),
+            TokenType::Comment(_) => self.handle_comment(&curr),
             other => {
                 if self.space_before(other) {
                     self.emit_space();
@@ -275,6 +282,8 @@ impl Formatter {
 
                 if let Some(TokenType::Else) = self.next_non_separator(tokens, index) {
                     self.suppress_newlines = true;
+                } else if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
+                    self.suppress_newlines = true;
                 } else if self.indent_level == 0 {
                     self.ensure_newline();
                     self.pending_empty_lines = self.pending_empty_lines.max(1);
@@ -370,6 +379,14 @@ impl Formatter {
         }
     }
 
+    fn handle_comment(&mut self, curr: &TokenType) {
+        if !self.at_line_start {
+            self.emit_space();
+        }
+        let text = curr.as_text();
+        self.emit_token(&text);
+    }
+
     fn update_scope_context(&mut self, curr: &TokenType) {
         match curr {
             TokenType::Struct => self.next_scope = ScopeKind::StructDef,
@@ -426,6 +443,27 @@ impl Formatter {
     fn next_non_separator<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
         tokens[index + 1..]
             .iter()
+            .map(|t| &t.kind)
+            .find(|k| !matches!(k, TokenType::StatementSeparator))
+    }
+
+    // Next token only if it is immediately adjacent (same line, no newline between).
+    fn next_immediate<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
+        let next = tokens.get(index + 1).map(|t| &t.kind)?;
+        if matches!(next, TokenType::StatementSeparator) {
+            None
+        } else {
+            Some(next)
+        }
+    }
+
+    fn prev_non_separator<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
+        if index == 0 {
+            return None;
+        }
+        tokens[..index]
+            .iter()
+            .rev()
             .map(|t| &t.kind)
             .find(|k| !matches!(k, TokenType::StatementSeparator))
     }
