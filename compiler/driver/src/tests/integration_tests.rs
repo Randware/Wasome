@@ -14,22 +14,22 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 // --- Test Program Contents ---
 
-const SIMPLE_MAIN: &str = include_str!("test_programs/single_project/min/main.waso");
+const SIMPLE_MAIN: &str = include_str!("tests/test_programs/single_project/min/main.waso");
 
-const MULTI_MODULE_MAIN: &str = include_str!("test_programs/single_project/simple/main.waso");
-const MULTI_MODULE_MATH: &str = include_str!("test_programs/single_project/simple/utils/math.waso");
+const MULTI_MODULE_MAIN: &str = include_str!("tests/test_programs/single_project/simple/main.waso");
+const MULTI_MODULE_MATH: &str = include_str!("tests/test_programs/single_project/simple/utils/math.waso");
 const MULTI_MODULE_STRING: &str =
-    include_str!("test_programs/single_project/simple/utils/string.waso");
+    include_str!("tests/test_programs/single_project/simple/utils/string.waso");
 
-const MULTI_PROJECT_APP_MAIN: &str = include_str!("test_programs/multi-project/min/app/main.waso");
+const MULTI_PROJECT_APP_MAIN: &str = include_str!("tests/test_programs/multi-project/min/app/main.waso");
 const MULTI_PROJECT_LIB_OPS: &str =
-    include_str!("test_programs/multi-project/min/lib/math/ops.waso");
+    include_str!("tests/test_programs/multi-project/min/lib/math/ops.waso");
 
 const EMPTY_IMPORT_MAIN: &str =
-    include_str!("test_programs/multi-project/empty_import/app/main.waso");
+    include_str!("tests/test_programs/multi-project/empty_import/app/main.waso");
 
-const CIRCULAR_A: &str = include_str!("test_programs/single_project/circular/a/a.waso");
-const CIRCULAR_B: &str = include_str!("test_programs/single_project/circular/b/b.waso");
+const CIRCULAR_A: &str = include_str!("tests/test_programs/single_project/circular/a/a.waso");
+const CIRCULAR_B: &str = include_str!("tests/test_programs/single_project/circular/b/b.waso");
 
 // --- Helper Functions ---
 

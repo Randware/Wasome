@@ -109,7 +109,7 @@ jobs:
         id: test
         shell: bash
         run: |
-          cargo test --workspace --manifest-path compiler/Cargo.toml --release -- --test-threads=8
+          CARGO_LOG=debug cargo test --workspace --manifest-path compiler/Cargo.toml --release -- --test-threads=8
           cargo test --workspace --manifest-path cli/Cargo.toml --release -- --test-threads=8
 
       - name: Save Result
@@ -193,6 +193,8 @@ jobs:
         run: |
           nix flake check
           nix develop --command cargo test --workspace
+          free
+          df
 
       - name: Save Result
         if: always()

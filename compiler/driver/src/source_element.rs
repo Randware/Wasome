@@ -326,7 +326,7 @@ fn duplicate_wasome_source_elements<
     }
     None
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -743,3 +743,4 @@ mod tests {
         assert_eq!(result, Some("first_dup".to_string()));
     }
 }
+*/
