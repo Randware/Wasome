@@ -109,7 +109,7 @@ jobs:
         id: test
         shell: bash
         run: |
-          CARGO_LOG=trace  /usr/bin/cargo test --color=always --profile test --no-fail-fast --manifest-path compiler/driver/Cargo.toml
+          CARGO_LOG=trace cargo test --color=always --profile test --no-fail-fast --manifest-path compiler/driver/Cargo.toml
 
       - name: Save Result
         if: always()
