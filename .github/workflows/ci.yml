@@ -26,7 +26,8 @@ jobs:
       - name: Install dependencies (Fedora)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          dnf install -y rust cargo clang lld llvm21-devel cmake git
+          dnf install -y rust cargo clang lld llvm21-devel cmake git \
+            libffi-devel zlib-devel libxml2-devel
 
       - name: Export LLVM Prefix (Fedora)
         if: matrix.os == 'ubuntu-latest'
