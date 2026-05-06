@@ -81,6 +81,10 @@ const GENERICS_MULTI_FILE_MAIN: &'static str =
 const EMPTY: &'static str = include_str!("test_programs/single_file/empty.waso");
 const EXTERN_FUNCTION: &'static str =
     include_str!("test_programs/single_file/extern_function.waso");
+const SUBDIR_IMPORT_MAIN: &'static str =
+    include_str!("test_programs/single_project/subdir_import/main.waso");
+const SUBDIR_IMPORT_MATH: &'static str =
+    include_str!("test_programs/single_project/subdir_import/math/main.waso");
 
 #[test]
 fn test_parse_generics() {
@@ -2506,6 +2510,81 @@ fn test_parse_extern_function() {
             FunctionType::External,
             Visibility::Public,
         ))],
+        Vec::new(),
+        Vec::new(),
+    );
+
+    assert!(parsed.semantic_eq(&expected));
+}
+
+fn setup_multifile_source_map(files: &[(&str, &str)]) -> (SourceMap, FileID) {
+    let dir = tempfile::tempdir().unwrap();
+    for (path, content) in files {
+        let full_path = dir.path().join(path);
+        if let Some(parent) = full_path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        let mut file = File::create(&full_path).unwrap();
+        write!(file, "{}", content).unwrap();
+    }
+
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
+    let id = sm.load_file("main.waso").expect("Failed to load main.waso");
+    (sm, id)
+}
+
+#[test]
+fn test_parse_subdir_import() {
+    let files = &[
+        ("main.waso", SUBDIR_IMPORT_MAIN),
+        ("math/main.waso", SUBDIR_IMPORT_MATH),
+    ];
+    let (sm, id) = setup_multifile_source_map(files);
+    let to_parse = FileInformation::new(id, "main", &sm).unwrap();
+    let parsed = parse(&to_parse).expect("Parsing failed");
+
+    let import = wrap(Import::new(
+        ImportRoot::CurrentModule,
+        vec!["math".to_string()],
+        Rc::new(ModuleUsageNameSymbol::new("math".to_string())),
+    ));
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+        Vec::new(),
+    ));
+
+    let result_symbol = Rc::new(VariableSymbol::new(
+        "result".to_string(),
+        UntypedDataType::new("s32".to_string(), Vec::new()),
+    ));
+    let result_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        result_symbol,
+        wrap(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+            ("math.add".to_string(), Vec::new()),
+            vec![
+                wrap(Expression::Literal("10".to_string())),
+                wrap(Expression::Literal("20".to_string())),
+            ],
+        ))),
+    )));
+
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
+            result_decl,
+        ])))),
+        Visibility::Private,
+    ));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        vec![import],
+        vec![main_func],
         Vec::new(),
         Vec::new(),
     );

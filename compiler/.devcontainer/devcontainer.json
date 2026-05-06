@@ -5,6 +5,7 @@
     "dockerfile": "Dockerfile",
     "context": ".."
   },
+  "runArgs": ["--name", "wasome-devcontainer"],
 
   "remoteUser": "root"
 }

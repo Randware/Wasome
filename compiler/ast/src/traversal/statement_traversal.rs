@@ -1,8 +1,8 @@
 use crate::statement::Statement;
 use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
 use crate::top_level::FunctionType;
-use crate::traversal::HasSymbols;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
+use crate::traversal::HasSymbols;
 use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
 use std::ops::Index;

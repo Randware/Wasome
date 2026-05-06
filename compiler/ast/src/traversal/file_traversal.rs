@@ -8,10 +8,11 @@ use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::enum_traversal::EnumTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::struct_traversal::StructTraversalHelper;
-use crate::traversal::{FunctionContainer, HasSymbols};
+use crate::traversal::{FunctionContainer, MaybeHasStructSymbol, HasSymbols};
 use crate::{ASTNode, ASTType};
 use source::types::FileID;
 use std::iter;
+use std::rc::Rc;
 
 /// This struct helps with traversing files
 /// It keeps a reference to a file and its parent (directory).
@@ -197,6 +198,12 @@ impl<'b, Type: ASTType> HasSymbols<'b, Type> for FileTraversalHelper<'_, 'b, Typ
 
     fn symbols_trait_object(&self) -> Box<dyn SymbolTable<'b, Type> + '_> {
         Box::new(self.symbols())
+    }
+}
+
+impl<Type: ASTType> MaybeHasStructSymbol<Type> for FileTraversalHelper<'_, '_, Type> {
+    fn maybe_struct_symbol(&self) -> Option<Rc<StructSymbol<Type>>> {
+        None
     }
 }
 

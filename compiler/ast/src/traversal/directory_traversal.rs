@@ -2,7 +2,7 @@ use crate::directory::Directory;
 use crate::symbol::DirectlyAvailableSymbol;
 use crate::top_level::{Import, ImportRoot};
 use crate::traversal::file_traversal::FileTraversalHelper;
-use crate::{AST, ASTNode, ASTType};
+use crate::{ASTNode, ASTType, AST};
 use std::path::PathBuf;
 
 ///  This struct helps with traversing directories
@@ -85,7 +85,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     /// Gets an iterator over all subdirectories
     pub fn subdirectories_iterator<'c>(
         &'c self,
-    ) -> impl Iterator<Item = DirectoryTraversalHelper<'c, 'b, Type>> + 'c {
+    ) -> impl Iterator<Item = DirectoryTraversalHelper<'c, 'b, Type>> + 'c + use<'c, 'b, Type> {
         self.inner
             .subdirectories_iterator()
             .map(move |subdirectory| DirectoryTraversalHelper::new_child(subdirectory, self))
@@ -119,7 +119,7 @@ impl<'a, 'b, Type: ASTType> DirectoryTraversalHelper<'a, 'b, Type> {
     /// Gets an iterator over all files
     pub fn files_iterator<'c>(
         &'c self,
-    ) -> impl Iterator<Item = FileTraversalHelper<'c, 'b, Type>> + 'c {
+    ) -> impl Iterator<Item = FileTraversalHelper<'c, 'b, Type>> + 'c + use<'c, 'b, Type> {
         self.inner
             .files_iterator()
             .map(|file| FileTraversalHelper::new(file, self))

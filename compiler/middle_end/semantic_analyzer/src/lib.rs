@@ -12,7 +12,8 @@ use crate::symbol::global_system_collector::{TraversalHelpers, collect_global_sy
 use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::{AST, TypedAST, UntypedAST};
-use error::diagnostic::Diagnostic; // Diagnostic importiert
+use error::diagnostic::Diagnostic;
+// Diagnostic importiert
 use std::ops::Deref;
 
 /// Analyzes the untyped AST and returns a fully typed AST or a Diagnostic.
@@ -20,8 +21,8 @@ pub fn analyze(to_analyze: AST<UntypedAST>) -> Result<AST<TypedAST>, Diagnostic>
     let to_alloc_in = TraversalHelpers::new();
     let root = DirectoryTraversalHelper::new_from_ast(&to_analyze);
 
-    let mut global_symbols = collect_global_symbols(&root, &to_alloc_in)
-        .map_err(|e| e.to_diagnostic())?;
+    let mut global_symbols =
+        collect_global_symbols(&root, &to_alloc_in).map_err(|e| e.to_diagnostic())?;
 
     global_symbols.fill().map_err(|e| e.to_diagnostic())?;
 
@@ -63,5 +64,5 @@ pub(crate) fn symbol_by_name<'a>(
     from.find(|symbol| {
         symbol.0.as_ref().map(|mun| mun.name()) == prefix_name && symbol.1.name() == name
     })
-        .map(|symbol| symbol.1)
+    .map(|symbol| symbol.1)
 }
