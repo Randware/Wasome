@@ -1,6 +1,6 @@
+use codegen::OptLevel;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use codegen::OptLevel;
 
 pub trait LoadInformation: Debug {
     /// The name of the program
