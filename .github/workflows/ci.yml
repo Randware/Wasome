@@ -11,13 +11,21 @@ permissions:
 
 jobs:
   test-standard:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.name || matrix.os }}
     runs-on: ${{ matrix.os }}
+    # We run inside a Fedora container on the Ubuntu runner.
+    # When running on native ubuntu the testing times took up to 30 minutes.
+    # I could not find why this is the case, but I guess it builts LLVM from scratch, even though we are downloading precompiled bins,
+    # and linkin it correctly. I tried to solve this issue for way too long and i just switched distro
+    # Idk why but when using a fedora container ontop of ubuntu it magically works. So I just leave it that way...
     container: ${{ matrix.os == 'ubuntu-latest' && 'fedora:latest' || '' }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            name: fedora-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -99,7 +107,7 @@ jobs:
 
       - name: Save Result
         if: always()
-        run: echo "${{ matrix.os }}|Standard OS|${{ steps.test.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_${{ matrix.os }}.txt
+        run: echo "${{ matrix.name || matrix.os }}|Standard OS|${{ steps.test.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_${{ matrix.os }}.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
