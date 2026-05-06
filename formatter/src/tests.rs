@@ -619,12 +619,13 @@ struct S {
 
 #[test]
 fn strip_blank_lines_between_struct_fields() {
-    // Strip field gaps, keep method gap.
+    // Keep a single blank line between fields.
     assert_fmt(
         "struct Point {\n\n    s32 x\n\n    s32 y\n\n    pub fn get_x() -> s32 {\n        -> self.x\n    }\n}",
         "\
 struct Point {
     s32 x
+
     s32 y
 
     pub fn get_x() -> s32 {
@@ -756,3 +757,372 @@ fn main() {
 }",
     );
 }
+
+// User-provided formatting examples.
+
+#[test]
+fn user_example_enum_weekday() {
+    assert_fmt(
+        "    enum     Weekday{\n   Monday Tuesday\n               Wednesday\n                          Thursday\n Friday   Saturday\n    Sunday}\n\nfn main  (   ){\n    Weekday \n    weekday \n    <- \n    Weekday::Saturday\n    \n    \n    \n    \n\t\t\t\t\t\t}",
+        "\
+enum Weekday {
+    Monday
+    Tuesday
+    Wednesday
+    Thursday
+    Friday
+    Saturday
+    Sunday
+}
+
+fn main() {
+    Weekday weekday <- Weekday::Saturday
+}",
+    );
+}
+
+#[test]
+fn user_example_is_even() {
+    assert_fmt(
+        "   fn is_even       (s32 n) -> bool {\n          if \n          (   n \n          % 2 ==     0) \n          \n          {\n\t\t\t\t\t\t\t\t-> true\n    \n    }-> false\n}",
+        "\
+fn is_even(s32 n) -> bool {
+    if (n % 2 == 0) {
+        -> true
+    }
+    -> false
+}",
+    );
+}
+
+#[test]
+fn user_example_struct_point() {
+    assert_fmt(
+        "\nstruct\t Point{\n   s32 x\n   \n   \n   \t\t\ts32 y}\n\n   fn main  (){\n   \n   \n   \n    Point point \n    <- new Point \n    { \n    x <- 10, \n    y <- 20 \n    \n    }\n\n    s32 \t\told_x_coordinate \n    \n    \n    <- point.x\n    \n    \t\tpoint.x \n    \t\t\n    \t\t\n    \t\t\n    \t\t\n    \t\t<- 15\n}",
+        "\
+struct Point {
+    s32 x
+
+    s32 y
+}
+
+fn main() {
+    Point point <- new Point {
+        x <- 10,
+        y <- 20
+    }
+
+    s32 old_x_coordinate <- point.x
+
+    point.x <- 15
+}",
+    );
+}
+
+#[test]
+fn user_example_max_with_comments() {
+    assert_fmt(
+        "fn max(s32 a, s32 b) -> s32 {//incline comments are allowed\n    if (a > b) {\n    //this comment is perfectly fine\n        -> a\n    } else {\n    \n    \n    \n    //since the surrounding empty line are more than 1, they need to be reduced to only one\n    \n    \n    \n        -> b\n    }\n}",
+        "\
+fn max(s32 a, s32 b) -> s32 { //incline comments are allowed
+    if (a > b) {
+        //this comment is perfectly fine
+        -> a
+    } else {
+        //since the surrounding empty line are more than 1, they need to be reduced to only one
+
+        -> b
+    }
+}",
+    );
+}
+
+#[test]
+fn import_string_with_alias() {
+    assert_fmt("import \"./utils\" as u", "import \"./utils\" as u");
+}
+
+#[test]
+fn fn_return_type_on_same_line() {
+    // `-> T` must stay on the same line as the closing paren of the parameters.
+    assert_fmt(
+        "fn sum_n(s32 n)\n-> s32 {\n    s32 sum <- 0\n    ->\n    sum\n}",
+        "\
+fn sum_n(s32 n) -> s32 {
+    s32 sum <- 0
+    -> sum
+}",
+    );
+}
+
+// New collapse rules.
+
+#[test]
+fn struct_name_on_same_line() {
+    // `struct` keyword and name must stay on the same line.
+    assert_fmt(
+        "struct \nWrapper {\n    s32 x\n}",
+        "\
+struct Wrapper {
+    s32 x
+}",
+    );
+}
+
+#[test]
+fn enum_name_on_same_line() {
+    // `enum` keyword and name must stay on the same line.
+    assert_fmt(
+        "enum \nColor {\n    Red\n}",
+        "\
+enum Color {
+    Red
+}",
+    );
+}
+
+#[test]
+fn fn_name_on_same_line() {
+    // `fn` keyword and function name must stay on the same line.
+    assert_fmt(
+        "fn\nget_item() -> s32 {\n    -> 1\n}",
+        "\
+fn get_item() -> s32 {
+    -> 1
+}",
+    );
+}
+
+#[test]
+fn generic_params_no_newline_inside() {
+    // Newlines inside `[…]` generic parameter lists must be suppressed.
+    assert_fmt(
+        "struct Wrapper[\n    T\n] {\n    T item\n}",
+        "\
+struct Wrapper[T] {
+    T item
+}",
+    );
+}
+
+#[test]
+fn generic_close_bracket_joins_open_paren() {
+    // `]` must connect directly to `(` — no space or newline between.
+    assert_fmt(
+        "fn update[U]\n(U extra) -> T {\n    -> extra\n}",
+        "\
+fn update[U](U extra) -> T {
+    -> extra
+}",
+    );
+}
+
+#[test]
+fn generic_type_var_declaration_same_line() {
+    // `Wrapper[s32]` and the variable name must stay on the same line.
+    assert_fmt(
+        "fn main() {\n    Wrapper[\n    s32\n    ]\n    w <- new Wrapper[s32] { item <- 42 }\n}",
+        "\
+fn main() {
+    Wrapper[s32] w <- new Wrapper[s32] { item <- 42 }
+}",
+    );
+}
+
+#[test]
+fn user_example_generic_struct_and_fn() {
+    // Full user-provided messy input for generic struct with methods.
+    assert_fmt(
+        "struct \nWrapper [  T]   \n{\n          T item\n\n    fn\n    get_item\n    () \n    -> \n    T \n    {-> self.item}\n\n\n\n            fn         update   [   U   ]   (   U       extra   )\n\n            ->        \n\n\n                T \n\n                {\n        U             temp <- extra\n        -> \n        self.item\n    \n\n}\n}\n\n\n\nfn     main( ){\n    Wrapper[   s32  ]\n\n    w   <-\n\n    new\n  Wrapper   [s32   ] \n\n  {       item\n  <-\n  42}\n    s32       val \n    <- \n\n    w.get_item()\n    \n\n\n\n\n\n\n\n    s32 old <- w.update[bool](true)\n\n\n\n\n\n\n}",
+        "\
+struct Wrapper[T] {
+    T item
+
+    fn get_item() -> T {
+        -> self.item
+    }
+
+    fn update[U](U extra) -> T {
+        U temp <- extra
+        -> self.item
+    }
+}
+
+fn main() {
+    Wrapper[s32] w <- new Wrapper[s32] {
+        item <- 42
+    }
+    s32 val <- w.get_item()
+
+    s32 old <- w.update[bool](true)
+}",
+    );
+}
+
+#[test]
+fn pub_extern_fn_messy() {
+    // `pub`, `extern`, and `fn` split across lines must join onto one line.
+    assert_fmt(
+        "pub\n\n\nextern \n\n\n                fn test   (   )->\n\n\n                u64",
+        "pub extern fn test() -> u64",
+    );
+}
+
+#[test]
+fn pub_fn_split_across_lines() {
+    assert_fmt(
+        "pub\nfn run() -> bool {\n    -> true\n}",
+        "\
+pub fn run() -> bool {
+    -> true
+}",
+    );
+}
+
+#[test]
+fn extern_fn_split_across_lines() {
+    assert_fmt(
+        "extern\nfn print_msg(String msg)",
+        "extern fn print_msg(String msg)",
+    );
+}
+
+#[test]
+fn no_space_after_open_paren_when_content_on_next_line() {
+    // A newline immediately after `(` must not produce a space before the
+    // first argument — `loop ( n > 0)` is wrong, `loop (n > 0)` is correct.
+    assert_fmt(
+        "loop(\n    n\n    > 0\n) {\n    n <- n - 1\n}",
+        "\
+loop (n > 0) {
+    n <- n - 1
+}",
+    );
+}
+
+#[test]
+fn as_cast_chain_split_across_lines() {
+    // All tokens in an `as` cast chain must collapse onto one line.
+    assert_fmt(
+        "s32 x <- 1 as\n\nu32\nas\nu16\nas u8",
+        "s32 x <- 1 as u32 as u16 as u8",
+    );
+}
+
+#[test]
+fn no_blank_line_between_close_brace_and_return() {
+    // No blank line between `}` and a following `-> value`.
+    assert_fmt(
+        "fn f() -> s32 {\n    loop (true) {\n        -> 1\n    }\n\n\n\n    -> 0\n}",
+        "\
+fn f() -> s32 {
+    loop (true) {
+        -> 1
+    }
+    -> 0
+}",
+    );
+}
+
+#[test]
+fn messy_fibonacci_full_v2() {
+    // Full user-provided messy fibonacci input from the bug report.
+    assert_fmt(
+        "fn \n      fibonacci(    u8    n   )\n      ->u64{\n          u64 curr<-1as u32 as u64\n    u64 prev <- 0 as u32 as u64\n        loop(    \n        n\n        \n        > 0\n        \n         ){\n        u64 \n\n        temp<-curr\n        curr<-    \n        curr+prev\n          prev <- temp\n    n<-n-1as\n\n    u32\n    as\n  u16    \n      as u8}\n    \n\n\n    ->curr\n}",
+        "\
+fn fibonacci(u8 n) -> u64 {
+    u64 curr <- 1 as u32 as u64
+    u64 prev <- 0 as u32 as u64
+    loop (n > 0) {
+        u64 temp <- curr
+        curr <- curr + prev
+        prev <- temp
+        n <- n - 1 as u32 as u16 as u8
+    }
+    -> curr
+}",
+    );
+}
+
+// New regression tests for this session.
+
+#[test]
+fn identifier_followed_by_generic_bracket() {
+    // `Box\n[T]` must collapse to `Box[T]`.
+    assert_fmt(
+        "struct Box\n[T] {\n    T value\n}",
+        "\
+struct Box[T] {
+    T value
+}",
+    );
+}
+
+#[test]
+fn generic_close_bracket_joins_path_separator() {
+    // `Option[T]\n::None` must collapse to `Option[T]::None`.
+    assert_fmt(
+        "Option[T]\n::None",
+        "Option[T]::None",
+    );
+}
+
+#[test]
+fn enum_single_blank_line_between_variants_stripped() {
+    // A single blank line between enum variants must be stripped (spec: 0 blanks).
+    assert_fmt(
+        "enum Option[T] {\n    Some(T)\n\n    None\n}",
+        "\
+enum Option[T] {
+    Some(T)
+    None
+}",
+    );
+}
+
+#[test]
+fn struct_init_inline_preserved() {
+    // User wrote struct init inline (no newlines inside `{}`) — keep it inline.
+    assert_fmt(
+        "Point p <- new Point { x <- 1, y <- 2 }",
+        "Point p <- new Point { x <- 1, y <- 2 }",
+    );
+}
+
+#[test]
+fn struct_init_expanded_preserved() {
+    // User wrote struct init expanded (newlines inside `{}`) — keep it expanded.
+    assert_fmt(
+        "Point p <- new Point {\n    x <- 1,\n    y <- 2\n}",
+        "\
+Point p <- new Point {
+    x <- 1,
+    y <- 2
+}",
+    );
+}
+
+#[test]
+fn nested_generic_type_full_example() {
+    // Full user-reported messy input with nested generics, path separator, and struct init.
+    assert_fmt(
+        "struct \n    Box\n    [\n    T\n    ]\n    {\n          T value\n\n\n\n}\n\n    enum         Option[T]{\n    Some   (T  )\n    \n    None\n          \n\n\n\n\n\n\n          }\n\nfn    main  ()     {\n  Box [ Option [ s32 ] ]  nested  <-  new  Box [ Option [ s32 ] ]   { value <- Option [ s32 ] :: Some ( 10 ) }\n    Option\n    [\n    Box\n    [\n    f64\n    ]\n    ]\n    opt_box\n    <- \n    Option\n    [\n    Box\n    [f64\n    ]\n    ]\n    ::\n    Some\n    (\n    new\n    Box\n    [\n    f64\n    ] \n    {\n    value\n    <-\n    5.5 }\n    )\n}",
+        "\
+struct Box[T] {
+    T value
+}
+
+enum Option[T] {
+    Some(T)
+    None
+}
+
+fn main() {
+    Box[Option[s32]] nested <- new Box[Option[s32]] { value <- Option[s32]::Some(10) }
+    Option[Box[f64]] opt_box <- Option[Box[f64]]::Some(new Box[f64] {
+        value <- 5.5
+    })
+}",
+    );
+}
+

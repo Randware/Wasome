@@ -21,6 +21,8 @@ pub(crate) struct Formatter {
     just_opened_scope: bool,
     suppress_newlines: bool,
     prev_kind: Option<TokenType>,
+    prev_non_separator_kind: Option<TokenType>,
+    prev_prev_non_separator_kind: Option<TokenType>,
     prev_was_unary_minus: bool,
     scope_stack: Vec<ScopeKind>,
     next_scope: ScopeKind,
@@ -30,6 +32,8 @@ pub(crate) struct Formatter {
     paren_wrap_depth: usize,
     // True once we emitted a real token.
     has_content: bool,
+    // Skip the next CloseScope because it was already emitted inline.
+    skip_next_close_scope: bool,
 }
 
 impl Formatter {
@@ -43,6 +47,8 @@ impl Formatter {
             just_opened_scope: false,
             suppress_newlines: false,
             prev_kind: None,
+            prev_non_separator_kind: None,
+            prev_prev_non_separator_kind: None,
             prev_was_unary_minus: false,
             scope_stack: Vec::new(),
             next_scope: ScopeKind::Block,
@@ -51,6 +57,7 @@ impl Formatter {
             paren_wrap_mode: false,
             paren_wrap_depth: 0,
             has_content: false,
+            skip_next_close_scope: false,
         }
     }
 
@@ -65,18 +72,30 @@ impl Formatter {
         let curr = tokens[index].kind.clone();
 
         if matches!(curr, TokenType::StatementSeparator) {
-            // Inside parens, always collapse newlines.
+            // Inside parens or generic brackets, always collapse newlines.
+            // Don't update prev_kind in either case — keep it as the last real
+            // token so space_before() stays correct (e.g. no space after `(`).
             if self.paren_depth > 0 && !self.paren_wrap_mode {
-                self.prev_kind = Some(TokenType::StatementSeparator);
                 return;
             }
-            if !self.just_opened_scope && !self.suppress_newlines {
-                if self.at_line_start
-                    && matches!(
-                        self.current_scope(),
-                        Some(ScopeKind::StructDef) | Some(ScopeKind::EnumDef)
-                    )
+            if self.generic_depth > 0 {
+                return;
+            }
+            if self.just_opened_scope {
+                // Consume the first newline after `{` without creating a blank line.
+                if self.at_line_start {
+                    self.just_opened_scope = false;
+                    return;
+                }
+                if matches!(self.current_scope(), Some(ScopeKind::StructDef | ScopeKind::EnumDef))
                 {
+                    self.just_opened_scope = false;
+                    return;
+                }
+                self.just_opened_scope = false;
+            }
+            if !self.suppress_newlines {
+                if self.should_collapse_separator(tokens, index) {
                     return;
                 }
                 self.emit_newline();
@@ -89,7 +108,11 @@ impl Formatter {
         self.suppress_newlines = false;
 
         if matches!(self.current_scope(), Some(ScopeKind::StructDef)) {
+            self.ensure_newline_before_struct_field(&curr, tokens, index);
             self.ensure_blank_line_before_method(&curr, tokens, index);
+        }
+        if matches!(self.current_scope(), Some(ScopeKind::EnumDef)) {
+            self.ensure_newline_before_enum_variant(&curr);
         }
 
         match &curr {
@@ -119,6 +142,10 @@ impl Formatter {
 
         self.update_scope_context(&curr);
         self.prev_kind = Some(curr.clone());
+        if !matches!(curr, TokenType::StatementSeparator) {
+            self.prev_prev_non_separator_kind = self.prev_non_separator_kind.clone();
+            self.prev_non_separator_kind = Some(curr.clone());
+        }
         if !matches!(curr, TokenType::Subtraction) {
             self.prev_was_unary_minus = false;
         }
@@ -259,6 +286,10 @@ impl Formatter {
     }
 
     fn handle_close_scope(&mut self, tokens: &[Token], index: usize) {
+        if self.skip_next_close_scope {
+            self.skip_next_close_scope = false;
+            return;
+        }
         let scope = self.scope_stack.pop();
         match scope.as_ref() {
             Some(ScopeKind::StructInit) => {
@@ -283,6 +314,13 @@ impl Formatter {
                     self.suppress_newlines = true;
                 } else if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
                     self.suppress_newlines = true;
+                } else if matches!(self.next_non_separator(tokens, index), Some(TokenType::Return)) {
+                    // `-> value` follows `}` — put it on the next line with no
+                    // blank lines between. suppress_newlines eats all the
+                    // separators between `}` and `->` after ensure_newline()
+                    // has already placed us at the start of a fresh line.
+                    self.ensure_newline();
+                    self.suppress_newlines = true;
                 } else if self.indent_level == 0 {
                     self.ensure_newline();
                     self.pending_empty_lines = self.pending_empty_lines.max(1);
@@ -296,8 +334,14 @@ impl Formatter {
         self.next_scope = ScopeKind::Block;
 
         if scope_kind == ScopeKind::StructInit {
-            let content_len = self.measure_group_content(tokens, index);
-            if self.current_line_len + content_len + 4 <= MAX_LINE_LENGTH {
+            // Pull the `{` back onto the previous line if it was separated by newlines.
+            if self.at_line_start {
+                self.pull_back_to_previous_line();
+            }
+            // Preserve the user's choice: if the original input had no newlines
+            // inside the `{…}`, keep the struct init inline.  If there were
+            // newlines, use the expanded (indented) format.
+            if !self.has_separators_in_group(tokens, index) {
                 self.emit_space();
                 self.emit_token("{");
                 self.scope_stack.push(ScopeKind::StructInit);
@@ -316,9 +360,29 @@ impl Formatter {
             self.pull_back_to_previous_line();
         }
         self.emit_space();
+
+        // Empty block: emit `{}` inline only for struct init or loop header.
+        if matches!(self.next_non_separator(tokens, index), Some(TokenType::CloseScope)) {
+            if self.current_scope_allows_empty_inline(tokens, index) {
+                self.emit_token("{");
+                self.emit_token("}");
+                self.skip_next_close_scope = true;
+                // Top-level empty items still need a blank line after.
+                if self.indent_level == 0 {
+                    self.ensure_newline();
+                    self.pending_empty_lines = self.pending_empty_lines.max(1);
+                }
+                return;
+            }
+        }
+
         self.emit_token("{");
         self.indent_level += 1;
         self.scope_stack.push(scope_kind);
+        if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
+            self.just_opened_scope = true;
+            return;
+        }
         self.ensure_newline();
         self.just_opened_scope = true;
     }
@@ -355,6 +419,9 @@ impl Formatter {
 
         if self.should_force_newline_after_comma() {
             self.ensure_newline();
+            // Suppress any separator tokens the input may have after the comma
+            // so they don't produce spurious blank lines inside StructInitExpanded.
+            self.suppress_newlines = true;
         } else if self.paren_wrap_mode && self.paren_depth == self.paren_wrap_depth {
             let next_len = self.measure_next_chunk(tokens, index + 1);
             if self.current_line_len + 1 + next_len > MAX_LINE_LENGTH {
@@ -380,10 +447,259 @@ impl Formatter {
 
     fn handle_comment(&mut self, curr: &TokenType) {
         if !self.at_line_start {
-            self.emit_space();
+            let has_space = self
+                .output
+                .chars()
+                .last()
+                .is_some_and(|c| c == ' ');
+            if !has_space {
+                self.emit_space();
+            }
         }
         let text = curr.as_text();
         self.emit_token(&text);
+    }
+
+    fn should_collapse_separator(&mut self, tokens: &[Token], index: usize) -> bool {
+        let prev = self.prev_non_separator_kind.as_ref();
+        let next = self.next_non_separator(tokens, index);
+        if self.at_line_start {
+            // Skip leading blank lines entirely.
+            if !self.has_content {
+                return true;
+            }
+            // Skip blank lines immediately after `{` or before `}`.
+            if matches!(self.prev_kind, Some(TokenType::OpenScope))
+                || matches!(prev, Some(TokenType::OpenScope))
+            {
+                return true;
+            }
+            if matches!(next, Some(TokenType::CloseScope)) {
+                return true;
+            }
+        }
+
+        // Join if/loop/function keyword with its paren to avoid line breaks.
+        if matches!(prev, Some(TokenType::If | TokenType::Loop | TokenType::Function))
+            && matches!(next, Some(TokenType::OpenParen))
+        {
+            return true;
+        }
+
+        // Join fn/struct/enum keyword with the following name.
+        if matches!(
+            prev,
+            Some(TokenType::Function | TokenType::Struct | TokenType::Enum)
+        ) && matches!(next, Some(TokenType::Identifier(_)))
+        {
+            return true;
+        }
+
+        // Join modifier keywords: `pub` always precedes another keyword or
+        // identifier on the same logical line (pub extern, pub fn, pub struct…).
+        if matches!(prev, Some(TokenType::Public)) {
+            return true;
+        }
+
+        // Join `extern` to the `fn` that follows it.
+        if matches!(prev, Some(TokenType::Extern))
+            && matches!(next, Some(TokenType::Function))
+        {
+            return true;
+        }
+
+        // Join `]` directly to `(` — generic param list followed by fn param list.
+        if matches!(prev, Some(TokenType::CloseGeneric))
+            && matches!(next, Some(TokenType::OpenParen))
+        {
+            return true;
+        }
+
+        // Join `]` to a following identifier — e.g. `Wrapper[s32] w`.
+        if matches!(prev, Some(TokenType::CloseGeneric))
+            && matches!(next, Some(TokenType::Identifier(_)))
+        {
+            return true;
+        }
+
+        // Join `]` to a following `::` — e.g. `Option[T]::Some`.
+        if matches!(prev, Some(TokenType::CloseGeneric))
+            && matches!(next, Some(TokenType::PathSeparator))
+        {
+            return true;
+        }
+
+        // Join identifier directly to its generic bracket — e.g. `Box[T]`, `Option[Box[f64]]`.
+        if matches!(prev, Some(TokenType::Identifier(_)))
+            && matches!(next, Some(TokenType::OpenGeneric))
+        {
+            return true;
+        }
+
+        // Join declarations split across lines.
+        if matches!(prev, Some(p) if classify::is_datatype(p))
+            && matches!(next, Some(TokenType::Identifier(_)))
+        {
+            return true;
+        }
+
+        // Join assignment pieces split across lines.
+        if matches!(prev, Some(TokenType::Identifier(_))) && matches!(next, Some(TokenType::Assign))
+        {
+            return true;
+        }
+        if matches!(prev, Some(TokenType::Assign)) {
+            return true;
+        }
+
+        // Join return value across lines.
+        if matches!(prev, Some(TokenType::Return)) && !matches!(next, Some(TokenType::CloseScope))
+        {
+            return true;
+        }
+
+        // Keep `) -> T` on the same line as the function signature.
+        if matches!(prev, Some(TokenType::CloseParen)) && matches!(next, Some(TokenType::Return)) {
+            return true;
+        }
+
+        // Keep `as` cast chains together: collapse before and after `as`.
+        if matches!(prev, Some(TokenType::As)) {
+            return true;
+        }
+        if matches!(next, Some(TokenType::As)) {
+            return true;
+        }
+
+        // Join new expressions or calls split across lines.
+        if matches!(prev, Some(TokenType::New | TokenType::Dot | TokenType::PathSeparator)) {
+            return true;
+        }
+        if matches!(prev, Some(TokenType::Identifier(_))) && matches!(next, Some(TokenType::OpenParen))
+        {
+            return true;
+        }
+        if matches!(prev, Some(TokenType::Identifier(_)))
+            && matches!(self.prev_prev_non_separator_kind, Some(TokenType::New))
+            && matches!(next, Some(TokenType::OpenScope))
+        {
+            return true;
+        }
+
+        false
+    }
+
+    fn is_struct_field_start(curr: &TokenType) -> bool {
+        classify::is_datatype(curr)
+    }
+
+    fn ensure_newline_before_struct_field(
+        &mut self,
+        curr: &TokenType,
+        tokens: &[Token],
+        index: usize,
+    ) {
+        // Never fire inside a generic bracket list `[…]` or paren list `(…)`.
+        if self.generic_depth > 0 || self.paren_depth > 0 {
+            return;
+        }
+        if !Self::is_struct_field_start(curr) {
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::OpenScope)) {
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::StatementSeparator)) {
+            if self.pending_empty_lines > 0 {
+                return;
+            }
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::Comment(_))) {
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::StatementSeparator)) {
+            if self.pending_empty_lines > 0 {
+                return;
+            }
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::OpenScope)) {
+            return;
+        }
+        if matches!(self.next_non_separator(tokens, index), Some(TokenType::OpenParen)) {
+            return;
+        }
+        if matches!(self.prev_non_separator_kind, Some(TokenType::Return)) {
+            return;
+        }
+        if matches!(self.prev_non_separator_kind, Some(TokenType::Identifier(_))) {
+            if matches!(
+                self.prev_prev_non_separator_kind.as_ref(),
+                Some(prev_prev) if classify::is_datatype(prev_prev)
+            ) || matches!(self.prev_prev_non_separator_kind, Some(TokenType::CloseGeneric))
+            {
+                if !self.at_line_start {
+                    self.ensure_newline();
+                }
+                return;
+            }
+        }
+        if !self.at_line_start {
+            self.ensure_newline();
+        }
+    }
+
+    fn ensure_newline_before_enum_variant(&mut self, curr: &TokenType) {
+        // Never fire inside generic brackets or parens.
+        if self.generic_depth > 0 || self.paren_depth > 0 {
+            return;
+        }
+        if !matches!(curr, TokenType::Identifier(_)) {
+            return;
+        }
+        // Enum variants are never separated by blank lines — always discard any
+        // accumulated blank lines before emitting the next variant.
+        self.pending_empty_lines = 0;
+        if matches!(self.prev_kind, Some(TokenType::OpenScope)) {
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::StatementSeparator)) {
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::Comment(_))) {
+            return;
+        }
+        if !self.at_line_start {
+            self.ensure_newline();
+        }
+    }
+
+    fn current_scope_allows_empty_inline(&self, tokens: &[Token], index: usize) -> bool {
+        if matches!(self.current_scope(), Some(ScopeKind::StructInit)) {
+            return true;
+        }
+        if matches!(
+            self.prev_kind,
+            Some(TokenType::Loop | TokenType::If | TokenType::Else | TokenType::Function)
+        ) {
+            return false;
+        }
+        // Allow inline empty blocks only when not at top-level items.
+        if self.indent_level > 0 {
+            return true;
+        }
+        if matches!(
+            self.prev_kind,
+            Some(TokenType::Struct | TokenType::Enum | TokenType::Function)
+        ) {
+            return false;
+        }
+        // If next is a close scope and we're inside parentheses, do not inline.
+        if self.paren_depth > 0 && matches!(self.next_non_separator(tokens, index), None) {
+            return false;
+        }
+        false
     }
 
     fn update_scope_context(&mut self, curr: &TokenType) {
@@ -405,6 +721,10 @@ impl Formatter {
         tokens: &[Token],
         index: usize,
     ) {
+        // Never fire inside generic brackets or parens.
+        if self.generic_depth > 0 || self.paren_depth > 0 {
+            return;
+        }
         let is_method_start = match curr {
             TokenType::Function => true,
             TokenType::Public => self
@@ -416,6 +736,14 @@ impl Formatter {
             return;
         }
         if matches!(self.prev_kind, Some(TokenType::OpenScope)) {
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::StatementSeparator)) {
+            if self.pending_empty_lines > 0 {
+                return;
+            }
+        }
+        if matches!(self.prev_kind, Some(TokenType::Comment(_))) {
             return;
         }
         if self.at_line_start && self.pending_empty_lines == 0 {
@@ -456,21 +784,20 @@ impl Formatter {
         }
     }
 
-    // Rough size estimate for bracket group content.
-    fn measure_group_content(&self, tokens: &[Token], open_index: usize) -> usize {
+    // Returns true if any StatementSeparator token appears inside the bracket
+    // group that starts at `open_index` (scanning only at the outermost depth).
+    fn has_separators_in_group(&self, tokens: &[Token], open_index: usize) -> bool {
         let open = &tokens[open_index].kind;
         let is_close = |k: &TokenType| match open {
-            TokenType::OpenParen => matches!(k, TokenType::CloseParen),
             TokenType::OpenScope => matches!(k, TokenType::CloseScope),
+            TokenType::OpenParen => matches!(k, TokenType::CloseParen),
             TokenType::OpenGeneric => matches!(k, TokenType::CloseGeneric),
             _ => false,
         };
-        let is_open = |k: &TokenType| std::mem::discriminant(k) == std::mem::discriminant(open);
+        let is_open =
+            |k: &TokenType| std::mem::discriminant(k) == std::mem::discriminant(open);
 
         let mut depth: usize = 1;
-        let mut len: usize = 0;
-        let mut counted = false;
-
         for t in &tokens[open_index + 1..] {
             let k = &t.kind;
             if is_open(k) {
@@ -483,15 +810,10 @@ impl Formatter {
                 }
             }
             if matches!(k, TokenType::StatementSeparator) {
-                continue;
+                return true;
             }
-            if counted {
-                len += 1;
-            }
-            len += k.as_text().len();
-            counted = true;
         }
-        len
+        false
     }
 
     // Estimate line length from token index onward.
