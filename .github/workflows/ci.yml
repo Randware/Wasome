@@ -47,6 +47,17 @@ jobs:
         run: |
           echo "LLVM_SYS_211_PREFIX=/opt/llvm21" >> $GITHUB_ENV
           echo "RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=/opt/llvm21/lib" >> $GITHUB_ENV
+
+      - name: Check LLVM dynamic linking (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "=== LLVM .so files ==="
+          ls /opt/llvm21/lib/libLLVM*.so* 2>/dev/null || echo "no LLVM .so files found"
+          echo "=== Broken dependencies ==="
+          ldd /opt/llvm21/lib/libLLVM*.so* 2>/dev/null | grep "not found" || echo "no broken deps"
+          echo "=== LD_LIBRARY_PATH ==="
+          echo "$LD_LIBRARY_PATH"
 
       # ── Windows ───────────────────────────────────────────────────────────
       - name: Cache LLVM 21 (Windows)
