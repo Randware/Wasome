@@ -155,6 +155,7 @@ jobs:
           imageName: wasome-compiler-devcontainer
           subFolder: compiler
           runCmd: cargo test --workspace
+          push: never
 
       - name: Save Result
         if: always()
