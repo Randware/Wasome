@@ -155,7 +155,8 @@ jobs:
           imageName: wasome-compiler-devcontainer
           subFolder: compiler
           runCmd: cargo test --workspace
-          # Prevent docker to push the container image
+          # Prevent docker to push the container image to DockerHub
+          # This is useless and would fail, because we don't have any DockerHub credentials
           push: never
 
       - name: Save Result
