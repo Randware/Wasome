@@ -56,7 +56,7 @@ const MODULAR_ADD: &'static str =
     include_str!("test_programs/single_project/modular_arithmetic/modular_add.waso");
 const MODULAR_MUL: &'static str =
     include_str!("test_programs/single_project/modular_arithmetic/modular_mul.waso");
-const MISC_FEATURES: &'static str = include_str!("test_programs/single_file/misc.waso");
+const LEADING_EMPTY_LINES: &'static str = include_str!("test_programs/single_file/misc.waso");
 const UNARY_CAST: &'static str = include_str!("test_programs/single_file/unary_cast.waso");
 const IF_TEST: &'static str = include_str!("test_programs/single_file/if.waso");
 const LOOP_TEST: &'static str = include_str!("test_programs/single_file/loop.waso");
@@ -78,7 +78,7 @@ const GENERICS_MULTI_FILE_DEFS: &'static str =
     include_str!("test_programs/single_project/generic_multi_file/defs.waso");
 const GENERICS_MULTI_FILE_MAIN: &'static str =
     include_str!("test_programs/single_project/generic_multi_file/main.waso");
-const EMPTY: &'static str = include_str!("test_programs/single_file/empty.waso");
+const EMPTY: &'static str = include_str!("empty.waso");
 const EXTERN_FUNCTION: &'static str =
     include_str!("test_programs/single_file/extern_function.waso");
 const SUBDIR_IMPORT_MAIN: &'static str =
@@ -1386,8 +1386,8 @@ fn test_parse_modular_arithmetic() {
 }
 
 #[test]
-fn test_misc_features() {
-    let (sm, id) = setup_source_map(MISC_FEATURES);
+fn test_leading_empty_lines() {
+    let (sm, id) = setup_source_map(LEADING_EMPTY_LINES);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(&to_parse).expect("Parsing failed");
 
