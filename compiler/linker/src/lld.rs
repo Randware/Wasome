@@ -1,9 +1,4 @@
-use std::{
-    env::{self},
-    io::{self},
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{env, io, path::PathBuf, process::Command};
 
 pub fn find_lld() -> Result<PathBuf, io::Error> {
     let target_bin: PathBuf = executable_name("wasm-ld").into();
