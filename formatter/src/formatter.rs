@@ -358,7 +358,14 @@ impl Formatter {
         }
 
         if self.at_line_start {
-            self.pull_back_to_previous_line();
+            // Don't pull `{` back if the previous line ended with a `//` comment,
+            // otherwise `{` would end up inside the comment text.
+            if !matches!(self.prev_non_separator_kind, Some(TokenType::Comment(_))) {
+                self.pull_back_to_previous_line();
+            } else {
+                // Prevent blank lines between the comment and `{`.
+                self.pending_empty_lines = 0;
+            }
         }
         self.emit_space();
 

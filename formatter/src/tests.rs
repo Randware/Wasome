@@ -1144,3 +1144,29 @@ fn comment_terminates_line_before_return_and_close() {
 }",
     );
 }
+
+#[test]
+fn comment_between_close_paren_and_open_scope() {
+    // When a `//` comment sits between `)` and `{`, the `{` must not be pulled
+    // back into the comment line — it goes on its own indented line instead.
+    // When a `//` comment sits between `)` and `{`, the `{` must not be pulled
+    // back into the comment line — it goes on its own indented line instead.
+    // A comment immediately after a function's `{` stays inline (same as
+    // user_example_max_with_comments).
+    assert_fmt(
+        "fn is_even(s32 n) -> bool {//Test
+    if(n % 2 == 0)//Test
+{
+        -> true
+    }
+    -> false
+}",
+        "fn is_even(s32 n) -> bool { //Test
+    if (n % 2 == 0) //Test
+    {
+        -> true
+    }
+    -> false
+}",
+    );
+}
