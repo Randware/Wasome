@@ -1126,3 +1126,21 @@ fn main() {
     );
 }
 
+#[test]
+fn comment_terminates_line_before_return_and_close() {
+    // A `//` comment must end the line; whatever follows goes on the next line.
+    // The final `}` must be on its own line.
+    assert_fmt(
+        "fn showcase_if_conditionals() -> char {\nbool wasome_is_awesome <- true\nif (wasome_is_awesome) {\n-> '✨'\n} else {\n-> '🤥'\n}// We need to have a return at the end\n-> ' '\n}",
+        "fn showcase_if_conditionals() -> char {
+    bool wasome_is_awesome <- true
+    if (wasome_is_awesome) {
+        -> '✨'
+    } else {
+        -> '🤥'
+    }
+    // We need to have a return at the end
+    -> ' '
+}",
+    );
+}

@@ -313,7 +313,8 @@ impl Formatter {
                 if let Some(TokenType::Else) = self.next_non_separator(tokens, index) {
                     self.suppress_newlines = true;
                 } else if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
-                    self.suppress_newlines = true;
+                    // A comment immediately after `}` goes on its own line.
+                    self.ensure_newline();
                 } else if matches!(self.next_non_separator(tokens, index), Some(TokenType::Return)) {
                     // `-> value` follows `}` — put it on the next line with no
                     // blank lines between. suppress_newlines eats all the
@@ -458,6 +459,12 @@ impl Formatter {
         }
         let text = curr.as_text();
         self.emit_token(&text);
+        // A `//` comment always terminates the current line; whatever follows
+        // must start on the next line.  Reuse `just_opened_scope` to absorb
+        // the mandatory single newline that follows without turning it into a
+        // blank line — further blank lines still accumulate normally.
+        self.ensure_newline();
+        self.just_opened_scope = true;
     }
 
     fn should_collapse_separator(&mut self, tokens: &[Token], index: usize) -> bool {
