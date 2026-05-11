@@ -124,7 +124,12 @@ mod import_parser {
                     )
                 })?;
                 let use_as = usage_name.map_or_else(
-                    || file_information.module_name().to_owned(),
+                    || {
+                        path.1
+                            .last()
+                            .cloned()
+                            .unwrap_or_else(|| file_information.module_name().to_owned())
+                    },
                     |inner| inner.inner,
                 );
 

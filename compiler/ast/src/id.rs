@@ -66,6 +66,17 @@ impl Id {
     pub fn new() -> Self {
         Self { inner: next_id() }
     }
+    
+    /// Creates a string that has the same equality properties as self
+    /// 
+    /// This means for any two ids `a` and `b`:
+    /// 
+    /// `(a == b) == (a.as_unique_string() == b.as_unique_string())`
+    /// 
+    /// The exact contents of the string are an implementation detail
+    pub fn as_unique_string(&self) -> String {
+        self.inner.to_string()
+    }
 }
 
 #[cfg(test)]

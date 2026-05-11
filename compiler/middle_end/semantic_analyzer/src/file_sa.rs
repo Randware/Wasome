@@ -59,7 +59,7 @@ pub(crate) fn analyze_file(
                             .zip(st.fields().iter())
                             .map(|(typed, untyped)| {
                                 ASTNode::new(
-                                    StructField::new(typed, untyped.visibility()),
+                                    StructField::new(typed.0, untyped.visibility()),
                                     *untyped.position(),
                                 )
                             })

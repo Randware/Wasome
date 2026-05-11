@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use driver::program_information::ProgramInformation;
+use driver::program_information::{ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation, ConcreteLoadInformation};
 use source::SourceMap;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 
 pub struct Workspace {
     pub source: SourceMap,
-    pub info: ProgramInformation,
+    pub info: ConcreteLoadBinaryProgramInformation,
 }
 
 impl Workspace {
@@ -26,7 +26,7 @@ impl Workspace {
 
         // We wrap everything past here in a closure so we can catch ManifestError
         // and attach the SourceMap to it before returning CliError
-        let mut build_workspace = || -> Result<ProgramInformation, ManifestError> {
+        let mut build_workspace = || -> Result<ConcreteLoadBinaryProgramInformation, ManifestError> {
             let file_id = source.load_file(manifest::MANIFEST_FILE)?;
             let content = source.get_file(&file_id).unwrap().content();
 
@@ -43,12 +43,14 @@ impl Workspace {
                 PathBuf::from("."),
             ));
 
-            let info = ProgramInformation::new(
+            let info = ConcreteLoadBinaryProgramInformation::new(
+                ConcreteLoadInformation::new(
                 manifest.project.name.clone(),
                 root.clone(),
-                projects,
+                projects),
+                ConcreteBinaryProgramInformation::new(
                 manifest.project.name.clone(),
-                entry_file,
+                entry_file)
             );
 
             info.ok_or_else(|| ManifestError::NoEntry(manifest.project.name.clone()))
@@ -93,6 +95,7 @@ fn find_entry_file(root: &Path, manifest: &Manifest) -> Result<PathBuf, Manifest
 mod tests {
     use super::*;
     use crate::{manifest::MANIFEST_FILE, template::Template};
+    use driver::program_information::{BinaryProgramInformation, LoadInformation};
     use std::fs;
     use tempfile::tempdir;
 

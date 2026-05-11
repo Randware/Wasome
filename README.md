@@ -1,9 +1,16 @@
+<<<<<<< feature/formatter-fix
 <<<<<<< Updated upstream
 # Wasome
 This will become a programming language with WebAssembly as its target
 =======
 <div align="center">
 
+=======
+<div align="center">
+
+<h3>Work in Progress</h3>
+
+>>>>>>> main
 <img src=".github/assets/Wasome_Yellow.png" width="148" alt="Wasome" />
 
 <br/><br/>
@@ -35,6 +42,10 @@ Wasome is a programming language built from scratch to compile to WebAssembly.<b
 Whether you're targeting the browser, a server, or the edge,<br/>
 Write Wasome, compile to Wasm, and it <strong>just works</strong>.
 </p>
+<<<<<<< feature/formatter-fix
+=======
+
+>>>>>>> main
 </div>
 
 <br/>
@@ -145,6 +156,11 @@ fn main() {
 </tr>
 </table>
 
+<<<<<<< feature/formatter-fix
+=======
+<br/>
+
+>>>>>>> main
 
 ## ✦ Explore Wasome
 
@@ -186,7 +202,11 @@ The `docs/examples/` directory has a growing collection of real programs, organi
 </tr>
 <tr>
 <td width="8%" align="center">📁</td>
+<<<<<<< feature/formatter-fix
 <td width="22%"><a href="docs/examples/single_project"><b>Single Project</b></a></td>
+=======
+<td width="22%"><a href="docs/examples/single_project"><b>Single-Project</b></a></td>
+>>>>>>> main
 <td width="70%">Multi-file projects with module imports; see how Wasome scales beyond one file.</td>
 </tr>
 <tr>
@@ -206,6 +226,10 @@ Install the Wasome toolchain with a single command:
 
 <div align="center">
 
+<<<<<<< feature/formatter-fix
+=======
+```sh
+>>>>>>> main
 curl -fsSL https://get.wasome.dev/install | sh
 ```
 
@@ -239,9 +263,16 @@ This project is dual-licensed under your choice of:
 
 <div align="center">
 
+<<<<<<< feature/formatter-fix
 <sub>Built with love and Rust &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
+=======
+<sub>Built with ❤️ and Rust &nbsp;·&nbsp; <a href="https://wasome.dev">wasome.dev</a></sub>
+>>>>>>> main
 
 <br/><br/>
 
 </div>
+<<<<<<< feature/formatter-fix
 >>>>>>> Stashed changes
+=======
+>>>>>>> main

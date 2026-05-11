@@ -25,7 +25,7 @@ RUN <<EOF
   apt-get update
   apt-get upgrade -y
 
-  apt-get install wget curl lsb-release build-essential software-properties-common gnupg -y
+  apt-get install wget curl lsb-release build-essential software-properties-common gnupg zlib1g-dev libzstd-dev -y
 EOF
 
 # Install LLVM using debian install script

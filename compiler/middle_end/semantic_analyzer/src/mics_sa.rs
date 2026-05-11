@@ -11,6 +11,7 @@ use ast::symbol::{
 use ast::traversal::HasSymbols;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
+use ast::visibility::Visibility;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::rc::Rc;
 
@@ -345,24 +346,6 @@ pub(crate) fn analyze_method_call(
 ) -> Result<FunctionCall<TypedAST>, SemanticError> {
     let struct_expr = analyze_expression(to_analyze.struct_source(), context, mapper)?;
 
-    let untyped_function_symbol = symbol_by_name(
-        &to_analyze.function().0,
-        context.ast_reference.symbols_available_at(),
-    )
-    .ok_or_else(|| SemanticError::UnknownSymbol {
-        name: to_analyze.function().0.clone(),
-        span,
-    })?;
-
-    let function_symbol = if let DirectlyAvailableSymbol::Function(func) = untyped_function_symbol {
-        func
-    } else {
-        return Err(SemanticError::InvalidUsage {
-            message: format!("'{}' is not a function", to_analyze.function().0),
-            span,
-        });
-    };
-
     let struct_symbol = if let DataType::Struct(st) = struct_expr.data_type() {
         st
     } else {
@@ -371,7 +354,6 @@ pub(crate) fn analyze_method_call(
             span: *to_analyze.struct_source().position(),
         });
     };
-
     let untyped_struct_symbol = context
         .global_elements
         .untyped_struct_symbol_from_typed(&struct_symbol)
@@ -379,6 +361,14 @@ pub(crate) fn analyze_method_call(
             message: "Could not find untyped struct symbol".to_string(),
             span,
         })?;
+    let methods = context.global_elements.methods(&untyped_struct_symbol, struct_symbol.type_parameters()).expect("We have a typed symbol but didn't translate it");
+
+
+    let function_symbol = methods.into_iter().find(|method| method.name() == to_analyze.function().0)
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.function().0.clone(),
+        span,
+    })?;
 
     let typed_type_parameters = analyze_type_parameters_providing(
         function_symbol.type_parameters(),
@@ -390,7 +380,7 @@ pub(crate) fn analyze_method_call(
     let typed_function_symbol = context.global_elements.get_typed_method_symbol(
         &untyped_struct_symbol,
         struct_symbol.type_parameters(),
-        Rc::new(function_symbol.clone()),
+        function_symbol.clone(),
         &typed_type_parameters,
         span,
     )?;
@@ -412,4 +402,39 @@ pub(crate) fn analyze_method_call(
             span,
         }
     })
+}
+
+/// Checks if a struct field with the given visibility can be accessed from the current context.
+///
+/// Private fields are only accessible from methods within the same struct.
+/// Public fields are always accessible.
+///
+/// # Parameters
+/// * `field_name` - The name of the field being accessed
+/// * `field_visibility` - The visibility of the field
+/// * `containing_struct` - The struct that contains the field
+/// * `context` - The syntax context used to determine the current containing struct
+/// * `span` - The span for error reporting
+///
+/// # Returns
+/// * `Ok(())` if the field access is allowed
+/// * `Err(SemanticError::PrivateFieldAccess)` if a private field is accessed from outside its struct
+pub(crate) fn check_struct_field_visibility(
+    field_name: &str,
+    field_visibility: Visibility,
+    containing_struct: &StructSymbol<UntypedAST>,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
+    span: source::types::Span,
+) -> Result<(), SemanticError> {
+    if field_visibility == Visibility::Private {
+        let current_containing_struct = context.ast_reference.root_helper().containing_struct();
+        if current_containing_struct.as_ref().map(|rc| rc.as_ref()) != Some(containing_struct) {
+            return Err(SemanticError::PrivateFieldAccess {
+                field: field_name.to_string(),
+                struct_name: containing_struct.name().to_string(),
+                span,
+            });
+        }
+    }
+    Ok(())
 }
