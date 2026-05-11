@@ -1,0 +1,8 @@
+[build]
+target = "wasm32-wasip1"
+[target.wasm32-wasip1]
+rustflags = [
+    "-C", "link-arg=--export-dynamic",
+    "-C", "link-arg=--allow-undefined",
+    "-C", "link-arg=--lwasi-libc",
+]
