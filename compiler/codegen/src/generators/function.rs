@@ -45,7 +45,10 @@ impl<'ctx> Codegen<'ctx> {
                 .build_alloca(llvm_context.lower_type(param_ast.data_type()), name)
                 .unwrap();
 
-            llvm_context.builder().build_store(var, param_llvm_value).unwrap();
+            llvm_context
+                .builder()
+                .build_store(var, param_llvm_value)
+                .unwrap();
 
             vars.insert(param_ast, var);
         }
