@@ -11,6 +11,44 @@ fn assert_fmt(input: &str, expected: &str) {
     );
 }
 
+#[test]
+fn binary_operator_split_across_lines_collapsed() {
+    // Expression continuations split across lines by binary operators
+    // should be collapsed onto one line.
+    assert_fmt(
+        "fn main() {
+    s32 sum <- 0
+    loop (s32 count2 <- 0; count2 < 100; count2 <- count2 + 1) {
+        sum <- sum
+        + count2
+    }
+}",
+        "fn main() {
+    s32 sum <- 0
+    loop (s32 count2 <- 0; count2 < 100; count2 <- count2 + 1) {
+        sum <- sum + count2
+    }
+    );
+}
+
+#[test]
+fn loop_on_new_line_after_statement() {
+    // A loop keyword that starts a new statement must appear on its own line,
+    // not glued to the end of the previous statement.
+    assert_fmt(
+        "fn main() {
+    s32 count3 <- 0 loop {
+        count3 <- count3 + 1
+    }
+}",
+        "fn main() {
+    s32 count3 <- 0
+    loop {
+        count3 <- count3 + 1
+    }
+    );
+}
+
 // Spec examples.
 
 #[test]

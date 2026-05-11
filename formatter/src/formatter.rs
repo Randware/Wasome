@@ -114,6 +114,7 @@ impl Formatter {
         if matches!(self.current_scope(), Some(ScopeKind::EnumDef)) {
             self.ensure_newline_before_enum_variant(&curr);
         }
+        self.ensure_newline_before_control_flow_statement(&curr);
 
         match &curr {
             TokenType::CloseScope => self.handle_close_scope(tokens, index),
@@ -585,6 +586,17 @@ impl Formatter {
             return true;
         }
 
+        // Keep expression continuations on one line when the break lands before
+        // or after a binary operator.
+        // Caveat: don't collapse before Subtraction as `next` — we can't tell
+        // yet if it's unary, so only trust it when it's `prev` (already emitted).
+        if matches!(prev, Some(p) if Self::is_binary_operator(p)) {
+            return true;
+        }
+        if matches!(next, Some(n) if Self::is_binary_operator_except_subtraction(n)) {
+            return true;
+        }
+
         // Join new expressions or calls split across lines.
         if matches!(prev, Some(TokenType::New | TokenType::Dot | TokenType::PathSeparator)) {
             return true;
@@ -601,6 +613,70 @@ impl Formatter {
         }
 
         false
+    }
+
+    fn is_binary_operator(token: &TokenType) -> bool {
+        matches!(
+            token,
+            TokenType::Addition
+                | TokenType::Subtraction
+                | TokenType::Multiplication
+                | TokenType::Slash
+                | TokenType::Modulo
+                | TokenType::LessThan
+                | TokenType::GreaterThan
+                | TokenType::LessThanEqual
+                | TokenType::GreaterThanEqual
+                | TokenType::NotEqual
+                | TokenType::Comparison
+                | TokenType::And
+                | TokenType::Or
+                | TokenType::BitAnd
+                | TokenType::BitOr
+                | TokenType::LShift
+                | TokenType::RShift
+        )
+    }
+
+    fn is_binary_operator_except_subtraction(token: &TokenType) -> bool {
+        matches!(
+            token,
+            TokenType::Addition
+                | TokenType::Multiplication
+                | TokenType::Slash
+                | TokenType::Modulo
+                | TokenType::LessThan
+                | TokenType::GreaterThan
+                | TokenType::LessThanEqual
+                | TokenType::GreaterThanEqual
+                | TokenType::NotEqual
+                | TokenType::Comparison
+                | TokenType::And
+                | TokenType::Or
+                | TokenType::BitAnd
+                | TokenType::BitOr
+                | TokenType::LShift
+                | TokenType::RShift
+        )
+    }
+
+    fn ensure_newline_before_control_flow_statement(&mut self, curr: &TokenType) {
+        if self.generic_depth > 0 || self.paren_depth > 0 {
+            return;
+        }
+        if !matches!(curr, TokenType::If | TokenType::Loop) {
+            return;
+        }
+        if self.at_line_start {
+            return;
+        }
+        if matches!(self.prev_kind, Some(TokenType::StatementSeparator | TokenType::OpenScope)) {
+            return;
+        }
+        if matches!(self.prev_non_separator_kind, Some(TokenType::Else)) {
+            return;
+        }
+        self.ensure_newline();
     }
 
     fn is_struct_field_start(curr: &TokenType) -> bool {
