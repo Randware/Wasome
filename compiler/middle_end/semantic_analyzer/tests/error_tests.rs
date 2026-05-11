@@ -197,11 +197,12 @@ mod tests {
     fn test_e3010_generic_argument_count_mismatch() {
         // Expected: E3010
         // Message should state the wrong number of type parameters.
-        // Wir deklarieren ZWEI Parameter, übergeben aber nur EINEN.
-        // Das provoziert garantiert den E3010 im Semantic Analyzer.
+        // We declare TWO parameters, but only pass ONE.
+        // This is guaranteed to trigger E3010 in the Semantic Analyzer.
         let code = "struct Pair[T, U] { T first }\nfn main() {\n    Pair[s32] p <- new Pair[s32] { first <- 1 }\n}\n";
         print_diagnostic_for_code(code);
     }
+
 
     #[test]
     #[ignore]
@@ -340,7 +341,7 @@ mod tests {
         // Expected: E3027
         // Message should state that the initialization parameters do not match the fields of 'Vector'.
         // Snippet should point to "new Vector(...)".
-        // Parser erwartet für Structs geschweifte Klammern statt runder Klammern.
+        // The parser expects curly braces instead of parentheses for structs.
         let code = "struct Vector {\n    s32 x\n}\nfn main() {\n    Vector v <- new Vector { y <- 1 }\n}\n";
         print_diagnostic_for_code(code);
     }

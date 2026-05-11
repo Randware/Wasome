@@ -126,10 +126,10 @@ pub enum SemanticError {
     /// E3025: A variable is defined twice in the exact same local scope (shadowing violation).
     LocalVariableShadowing { name: String, span: Span },
 
-    /// E3026: Eine Void-Funktion oder Methode wird als Wert in einer Expression verwendet.
+    /// E3026: A void function or method is used as a value in an expression.
     VoidUsedAsValue { name: String, span: Span },
 
-    /// E3027: Die übergebenen Parameter bei der Struct-Initialisierung passen nicht zu den definierten Feldern.
+    /// E3027: The provided parameters in the struct initialization do not match the defined fields.
     StructInitializationMismatch { struct_name: String, span: Span },
 
     /// E3999: An internal compiler error during semantic analysis.
