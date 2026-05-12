@@ -20,7 +20,7 @@ pub unsafe extern "C" fn malloc(to_alloc: usize) -> *mut u8 {
     alloc
 }
 
-/// Safety
+/// # Safety
 ///
 /// This is UB if either:
 /// 1. `to_free` was not allocated by [`malloc`]

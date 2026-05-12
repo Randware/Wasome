@@ -8,13 +8,6 @@ mod wasome_vec;
 use alloc::string::String;
 use core::panic::PanicInfo;
 
-// WASI imports
-// SAFETY: FFI imports are declarations of WASI host imports. The actual calls happen inside the
-// SAFETY: `print` and `exit` helpers where all pointers are guaranteed valid:
-//
-// SAFETY: - `fd_write` is called with `&iovec` and `&mut nwritten`, both stack-allocated and
-// SAFETY:   live for the duration of the call.
-// SAFETY: - `proc_exit` takes no pointers and never returns.
 #[link(wasm_import_module = "wasi_snapshot_preview1")]
 unsafe extern "C" {
     fn fd_write(fd: i32, iovs: *const Iovec, iovs_len: usize, nwritten: *mut usize) -> i32;
