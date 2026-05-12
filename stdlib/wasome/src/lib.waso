@@ -1,17 +1,14 @@
-// === Print ===
 extern fn print_char(u32)
 
-// === Vector Creation ===
 pub extern fn vec_new[T]() -> Vec[T]
 
-// === Vector Operations ===
 extern fn vec_push[T](Vec[T] vec, T to_push)
 extern fn vec_pop[T](Vec[T] vec) -> T
 extern fn vec_get[T](Vec[T] vec, u32 index) -> T
 extern fn vec_set[T](Vec[T] vec, u32 index, T new_val) -> T
 extern fn vec_remove[T](Vec[T] vec, u32 index) -> T
+extern fn vec_drop[T](Vec[T] vec) -> T
 
-// === Generic Vec Wrapper ===
 pub struct Vec[T] {
     u32 prt
     u32 cnt
@@ -35,5 +32,9 @@ pub struct Vec[T] {
 
     pub fn remove(u32 index) -> T {
         -> vec_remove[T](self, index)
+    }
+
+    fn drop() {
+        vec_drop(self)
     }
 }

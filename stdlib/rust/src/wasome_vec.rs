@@ -76,52 +76,52 @@ impl<T: Copy> WasomeVec<T> {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_new_1() -> *mut WasomeVec<u8> {
+pub extern "C" fn vec_new_1() -> *mut WasomeVec<u8> {
     Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_new_2() -> *mut WasomeVec<u16> {
+pub extern "C" fn vec_new_2() -> *mut WasomeVec<u16> {
     Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_new_4() -> *mut WasomeVec<u32> {
+pub extern "C" fn vec_new_4() -> *mut WasomeVec<u32> {
     Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_new_8() -> *mut WasomeVec<u64> {
+pub extern "C" fn vec_new_8() -> *mut WasomeVec<u64> {
     Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_new_ptr() -> *mut WasomeVec<*mut WasomeComposite> {
+pub extern "C" fn vec_new_ptr() -> *mut WasomeVec<*mut WasomeComposite> {
     Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_push_1(mut_vec: *mut WasomeVec<u8>, elem: u8) {
+pub extern "C" fn vec_push_1(mut_vec: *mut WasomeVec<u8>, elem: u8) {
     unsafe { (*mut_vec).push(elem) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_push_2(mut_vec: *mut WasomeVec<u16>, elem: u16) {
+pub extern "C" fn vec_push_2(mut_vec: *mut WasomeVec<u16>, elem: u16) {
     unsafe { (*mut_vec).push(elem) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_push_4(mut_vec: *mut WasomeVec<u32>, elem: u32) {
+pub extern "C" fn vec_push_4(mut_vec: *mut WasomeVec<u32>, elem: u32) {
     unsafe { (*mut_vec).push(elem) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_push_8(mut_vec: *mut WasomeVec<u64>, elem: u64) {
+pub extern "C" fn vec_push_8(mut_vec: *mut WasomeVec<u64>, elem: u64) {
     unsafe { (*mut_vec).push(elem) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_push_ptr(
+pub extern "C" fn vec_push_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
     elem: *mut WasomeComposite,
 ) {
@@ -129,54 +129,54 @@ pub extern "C" fn wasome_vec_push_ptr(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_pop_1(mut_vec: *mut WasomeVec<u8>) -> u8 {
+pub extern "C" fn vec_pop_1(mut_vec: *mut WasomeVec<u8>) -> u8 {
     unsafe { (*mut_vec).pop() }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_pop_2(mut_vec: *mut WasomeVec<u16>) -> u16 {
+pub extern "C" fn vec_pop_2(mut_vec: *mut WasomeVec<u16>) -> u16 {
     unsafe { (*mut_vec).pop() }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_pop_4(mut_vec: *mut WasomeVec<u32>) -> u32 {
+pub extern "C" fn vec_pop_4(mut_vec: *mut WasomeVec<u32>) -> u32 {
     unsafe { (*mut_vec).pop() }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_pop_8(mut_vec: *mut WasomeVec<u64>) -> u64 {
+pub extern "C" fn vec_pop_8(mut_vec: *mut WasomeVec<u64>) -> u64 {
     unsafe { (*mut_vec).pop() }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_pop_ptr(
+pub extern "C" fn vec_pop_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
 ) -> *mut WasomeComposite {
     unsafe { (*mut_vec).pop() }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_remove_1(mut_vec: *mut WasomeVec<u8>, index: usize) -> u8 {
+pub extern "C" fn vec_remove_1(mut_vec: *mut WasomeVec<u8>, index: usize) -> u8 {
     unsafe { (*mut_vec).remove(index) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_remove_2(mut_vec: *mut WasomeVec<u16>, index: usize) -> u16 {
+pub extern "C" fn vec_remove_2(mut_vec: *mut WasomeVec<u16>, index: usize) -> u16 {
     unsafe { (*mut_vec).remove(index) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_remove_4(mut_vec: *mut WasomeVec<u32>, index: usize) -> u32 {
+pub extern "C" fn vec_remove_4(mut_vec: *mut WasomeVec<u32>, index: usize) -> u32 {
     unsafe { (*mut_vec).remove(index) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_remove_8(mut_vec: *mut WasomeVec<u64>, index: usize) -> u64 {
+pub extern "C" fn vec_remove_8(mut_vec: *mut WasomeVec<u64>, index: usize) -> u64 {
     unsafe { (*mut_vec).remove(index) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_remove_ptr(
+pub extern "C" fn vec_remove_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
     index: usize,
 ) -> *mut WasomeComposite {
@@ -184,27 +184,27 @@ pub extern "C" fn wasome_vec_remove_ptr(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_get_1(mut_vec: *mut WasomeVec<u8>, index: usize) -> u8 {
+pub extern "C" fn vec_get_1(mut_vec: *mut WasomeVec<u8>, index: usize) -> u8 {
     unsafe { (*mut_vec).get(index) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_get_2(mut_vec: *mut WasomeVec<u16>, index: usize) -> u16 {
+pub extern "C" fn vec_get_2(mut_vec: *mut WasomeVec<u16>, index: usize) -> u16 {
     unsafe { (*mut_vec).get(index) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_get_4(mut_vec: *mut WasomeVec<u32>, index: usize) -> u32 {
+pub extern "C" fn vec_get_4(mut_vec: *mut WasomeVec<u32>, index: usize) -> u32 {
     unsafe { (*mut_vec).get(index) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_get_8(mut_vec: *mut WasomeVec<u64>, index: usize) -> u64 {
+pub extern "C" fn vec_get_8(mut_vec: *mut WasomeVec<u64>, index: usize) -> u64 {
     unsafe { (*mut_vec).get(index) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_get_ptr(
+pub extern "C" fn vec_get_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
     index: usize,
 ) -> *mut WasomeComposite {
@@ -214,27 +214,27 @@ pub extern "C" fn wasome_vec_get_ptr(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_set_1(mut_vec: *mut WasomeVec<u8>, index: usize, new: u8) -> u8 {
+pub extern "C" fn vec_set_1(mut_vec: *mut WasomeVec<u8>, index: usize, new: u8) -> u8 {
     unsafe { (*mut_vec).set(index, new) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_set_2(mut_vec: *mut WasomeVec<u16>, index: usize, new: u16) -> u16 {
+pub extern "C" fn vec_set_2(mut_vec: *mut WasomeVec<u16>, index: usize, new: u16) -> u16 {
     unsafe { (*mut_vec).set(index, new) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_set_4(mut_vec: *mut WasomeVec<u32>, index: usize, new: u32) -> u32 {
+pub extern "C" fn vec_set_4(mut_vec: *mut WasomeVec<u32>, index: usize, new: u32) -> u32 {
     unsafe { (*mut_vec).set(index, new) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_set_8(mut_vec: *mut WasomeVec<u64>, index: usize, new: u64) -> u64 {
+pub extern "C" fn vec_set_8(mut_vec: *mut WasomeVec<u64>, index: usize, new: u64) -> u64 {
     unsafe { (*mut_vec).set(index, new) }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_set_ptr(
+pub extern "C" fn vec_set_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
     index: usize,
     new: *mut WasomeComposite,
@@ -243,7 +243,7 @@ pub extern "C" fn wasome_vec_set_ptr(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn wasome_vec_drop(
+pub extern "C" fn vec_drop(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
 ) {
     unsafe {

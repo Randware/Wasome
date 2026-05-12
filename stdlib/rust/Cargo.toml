@@ -10,7 +10,6 @@ crate-type = ["staticlib"]
 
 [dependencies]
 # Use wasi crate instead of std for I/O
-wasi = "0.11"
 wee_alloc = "0.4.5"
 
 [profile.release]

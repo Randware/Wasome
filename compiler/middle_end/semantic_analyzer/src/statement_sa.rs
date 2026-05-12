@@ -141,20 +141,12 @@ fn try_analyze_void_method_call(
         _ => return Ok(None),
     };
 
-    let symbol = match symbol_by_name(&call.function().0, to_analyze.symbols_available_at()) {
-        Some(s) => s,
-        None => return Ok(None),
-    };
-
-    if let DirectlyAvailableSymbol::Function(func) = symbol {
-        if func.return_type().is_none() {
-            return Ok(None);
-        }
-    } else {
-        return Ok(None);
-    };
-
     let typed_call = analyze_method_call(call, function_symbol_mapper, context, span)?;
+    if typed_call
+        .function()
+        .return_type().is_some() {
+        return Ok(None);
+    }
     Ok(Some(typed_call))
 }
 

@@ -88,14 +88,14 @@ fn extract_main_func<T: FullProgramInformation>(
 ) -> Option<Rc<FunctionSymbol<TypedAST>>> {
     let main_project = tast.subdirectory_by_name(prog_info.main_project())?;
     let mut curr_dir = main_project;
-    let main_path_len = prog_info.path().iter().count();
-    for (i, path_elem) in prog_info.path().iter().enumerate() {
+    let main_path_len = prog_info.main_file().iter().count();
+    for (i, path_elem) in prog_info.main_file().iter().enumerate() {
         if main_path_len - 1 == i {
             continue;
         }
         curr_dir = curr_dir.subdirectory_by_name(&path_elem.to_string_lossy())?;
     }
-    let main_file = curr_dir.file_by_name(&prog_info.path().iter().next_back()?.to_string_lossy())?;
+    let main_file = curr_dir.file_by_name(&prog_info.main_file().iter().next_back()?.to_string_lossy().rsplit_once('.')?.0)?;
     main_file
         .function_by_identifier(("main", &[]))
         .map(|func| func.declaration_owned())
