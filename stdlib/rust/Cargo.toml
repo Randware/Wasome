@@ -14,3 +14,6 @@ wee_alloc = "0.4.5"
 
 [profile.release]
 panic = "abort"
+strip = true
+# Makes the binary size smaller
+lto = true

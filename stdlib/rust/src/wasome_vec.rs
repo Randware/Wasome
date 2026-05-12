@@ -1,7 +1,7 @@
+use crate::WasomeComposite;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::mem::forget;
-use crate::WasomeComposite;
 
 #[repr(C)]
 pub struct WasomeVec<T: Copy> {
@@ -27,46 +27,85 @@ impl<T: Copy> WasomeVec<T> {
         }
     }
 
-    unsafe fn as_vec(&mut self) -> Vec<T> {
-        unsafe { Vec::from_raw_parts(self.prt, self.cnt, self.cap) }
+    /// # Safety
+    ///
+    /// `of` must be a valid pointer.
+    ///
+    /// Should the drop function of the resulting `Vec` be called and then this again, it is UB.
+    /// In other words, executing the drop function of the vec invalidates self.
+    pub unsafe fn as_vec(of: *mut Self) -> Vec<T> {
+        let this = unsafe { &mut *of };
+        unsafe { Vec::from_raw_parts(this.prt, this.cnt, this.cap) }
     }
 
-    fn update_from_vec(&mut self, mut vec: Vec<T>) {
-        self.cnt = vec.len();
-        self.cap = vec.capacity();
-        self.prt = vec.as_mut_ptr();
+    /// # Safety
+    ///
+    /// `of` must be a valid pointer.
+    ///
+    /// This does not call the drop function of vec.
+    pub fn update_from_vec(of: *mut Self, mut vec: Vec<T>) {
+        let this = unsafe { &mut *of };
+        this.cnt = vec.len();
+        this.cap = vec.capacity();
+        this.prt = vec.as_mut_ptr();
         // Don't actually dealloc the memory
         forget(vec);
     }
-    pub fn push(&mut self, elem: T) {
-        let mut vec = unsafe { self.as_vec() };
+
+    /// # Safety
+    ///
+    /// `of` must be a valid pointer.
+    pub fn push(of: *mut Self, elem: T) {
+        // SAFETY:
+        // We do not run the drop function
+        let mut vec = unsafe { Self::as_vec(of) };
         vec.push(elem);
-        self.update_from_vec(vec);
+        Self::update_from_vec(of, vec);
     }
 
-    pub fn pop(&mut self) -> T {
-        let mut vec = unsafe { self.as_vec() };
+    /// # Safety
+    ///
+    /// `of` must be a valid pointer.
+    pub fn pop(of: *mut Self) -> T {
+        // SAFETY:
+        // We do not run the drop function
+        let mut vec = unsafe { Self::as_vec(of) };
         let elem = vec.pop().expect("Pop on empty vec!");
-        self.update_from_vec(vec);
+        Self::update_from_vec(of, vec);
         elem
     }
 
-    pub fn remove(&mut self, index: usize) -> T {
-        let mut vec = unsafe { self.as_vec() };
+    /// # Safety
+    ///
+    /// `of` must be a valid pointer.
+    pub fn remove(of: *mut Self, index: usize) -> T {
+        // SAFETY:
+        // We do not run the drop function
+        let mut vec = unsafe { Self::as_vec(of) };
         let elem = vec.remove(index);
-        self.update_from_vec(vec);
+        Self::update_from_vec(of, vec);
         elem
     }
 
-    pub fn get(&mut self, index: usize) -> T {
-        let vec = unsafe { self.as_vec() };
+    /// # Safety
+    ///
+    /// `of` must be a valid pointer.
+    pub fn get(of: *mut Self, index: usize) -> T {
+        // SAFETY:
+        // We do not run the drop function
+        let vec = unsafe { Self::as_vec(of) };
         let elem = vec[index];
         forget(vec);
         elem
     }
 
-    pub fn set(&mut self, index: usize, new: T) -> T {
-        let mut vec = unsafe { self.as_vec() };
+    /// # Safety
+    ///
+    /// `of` must be a valid pointer.
+    pub fn set(of: *mut Self, index: usize, new: T) -> T {
+        // SAFETY:
+        // We do not run the drop function
+        let mut vec = unsafe { Self::as_vec(of) };
         let elem = vec[index];
         vec[index] = new;
         // There is no need to update the vec as only the allocated area changed
@@ -100,153 +139,236 @@ pub extern "C" fn vec_new_ptr() -> *mut WasomeVec<*mut WasomeComposite> {
     Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_push_1(mut_vec: *mut WasomeVec<u8>, elem: u8) {
-    unsafe { (*mut_vec).push(elem) }
+    WasomeVec::push(mut_vec, elem)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_push_2(mut_vec: *mut WasomeVec<u16>, elem: u16) {
-    unsafe { (*mut_vec).push(elem) }
+    WasomeVec::push(mut_vec, elem)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_push_4(mut_vec: *mut WasomeVec<u32>, elem: u32) {
-    unsafe { (*mut_vec).push(elem) }
+    WasomeVec::push(mut_vec, elem)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_push_8(mut_vec: *mut WasomeVec<u64>, elem: u64) {
-    unsafe { (*mut_vec).push(elem) }
+    WasomeVec::push(mut_vec, elem)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
+/// `elem` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_push_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
     elem: *mut WasomeComposite,
 ) {
-    unsafe { (*mut_vec).push(elem) }
+    WasomeVec::push(mut_vec, elem)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_pop_1(mut_vec: *mut WasomeVec<u8>) -> u8 {
-    unsafe { (*mut_vec).pop() }
+    WasomeVec::pop(mut_vec)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_pop_2(mut_vec: *mut WasomeVec<u16>) -> u16 {
-    unsafe { (*mut_vec).pop() }
+    WasomeVec::pop(mut_vec)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_pop_4(mut_vec: *mut WasomeVec<u32>) -> u32 {
-    unsafe { (*mut_vec).pop() }
+    WasomeVec::pop(mut_vec)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_pop_8(mut_vec: *mut WasomeVec<u64>) -> u64 {
-    unsafe { (*mut_vec).pop() }
+    WasomeVec::pop(mut_vec)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_pop_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
 ) -> *mut WasomeComposite {
-    unsafe { (*mut_vec).pop() }
+    WasomeVec::pop(mut_vec)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_remove_1(mut_vec: *mut WasomeVec<u8>, index: usize) -> u8 {
-    unsafe { (*mut_vec).remove(index) }
+    WasomeVec::remove(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_remove_2(mut_vec: *mut WasomeVec<u16>, index: usize) -> u16 {
-    unsafe { (*mut_vec).remove(index) }
+    WasomeVec::remove(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_remove_4(mut_vec: *mut WasomeVec<u32>, index: usize) -> u32 {
-    unsafe { (*mut_vec).remove(index) }
+    WasomeVec::remove(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_remove_8(mut_vec: *mut WasomeVec<u64>, index: usize) -> u64 {
-    unsafe { (*mut_vec).remove(index) }
+    WasomeVec::remove(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_remove_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
     index: usize,
 ) -> *mut WasomeComposite {
-    unsafe { (*mut_vec).remove(index) }
+    WasomeVec::remove(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_get_1(mut_vec: *mut WasomeVec<u8>, index: usize) -> u8 {
-    unsafe { (*mut_vec).get(index) }
+    WasomeVec::get(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_get_2(mut_vec: *mut WasomeVec<u16>, index: usize) -> u16 {
-    unsafe { (*mut_vec).get(index) }
+    WasomeVec::get(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_get_4(mut_vec: *mut WasomeVec<u32>, index: usize) -> u32 {
-    unsafe { (*mut_vec).get(index) }
+    WasomeVec::get(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_get_8(mut_vec: *mut WasomeVec<u64>, index: usize) -> u64 {
-    unsafe { (*mut_vec).get(index) }
+    WasomeVec::get(mut_vec, index)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_get_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
     index: usize,
 ) -> *mut WasomeComposite {
-    let val = unsafe { (*mut_vec).get(index) };
-    WasomeComposite::inc_rc(val);
+    let val = WasomeVec::get(mut_vec, index);
+    // SAFETY;
+    //
+    // WasomeVec always returns valid pointers
+    unsafe {
+        WasomeComposite::inc_rc(val);
+    }
     val
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_set_1(mut_vec: *mut WasomeVec<u8>, index: usize, new: u8) -> u8 {
-    unsafe { (*mut_vec).set(index, new) }
+    WasomeVec::set(mut_vec, index, new)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_set_2(mut_vec: *mut WasomeVec<u16>, index: usize, new: u16) -> u16 {
-    unsafe { (*mut_vec).set(index, new) }
+    WasomeVec::set(mut_vec, index, new)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_set_4(mut_vec: *mut WasomeVec<u32>, index: usize, new: u32) -> u32 {
-    unsafe { (*mut_vec).set(index, new) }
+    WasomeVec::set(mut_vec, index, new)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_set_8(mut_vec: *mut WasomeVec<u64>, index: usize, new: u64) -> u64 {
-    unsafe { (*mut_vec).set(index, new) }
+    WasomeVec::set(mut_vec, index, new)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
+/// `new` must be a valid pointer.
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_set_ptr(
     mut_vec: *mut WasomeVec<*mut WasomeComposite>,
     index: usize,
     new: *mut WasomeComposite,
 ) -> *mut WasomeComposite {
-    unsafe { (*mut_vec).set(index, new) }
+    WasomeVec::set(mut_vec, index, new)
 }
 
+/// # Safety
+///
+/// `mut_vec` must be a valid pointer.
 #[unsafe(no_mangle)]
-pub extern "C" fn vec_drop(
-    mut_vec: *mut WasomeVec<*mut WasomeComposite>,
-) {
+pub extern "C" fn vec_drop(mut_vec: *mut WasomeVec<*mut WasomeComposite>) {
     unsafe {
-        (*mut_vec).as_vec();
+        WasomeVec::as_vec(mut_vec);
     }
 }
