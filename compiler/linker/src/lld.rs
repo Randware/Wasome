@@ -14,9 +14,11 @@ pub fn find_lld() -> Result<PathBuf, io::Error> {
     // Option 2: wasm-ld is next to the wasome bin
     if let Ok(mut current_dir) = std::env::current_exe() {
         current_dir.pop();
-        current_dir.push(target_bin);
+        current_dir.push(&target_bin);
 
-        return check_lld(&current_dir).map(|_| current_dir);
+        if check_lld(&current_dir).is_ok() {
+            return Ok(current_dir);
+        }
     }
 
     // Option 3: Look for the command in sys path
@@ -53,7 +55,7 @@ pub fn find_lld() -> Result<PathBuf, io::Error> {
 
 fn check_lld(path: &PathBuf) -> Result<(), io::Error> {
     Command::new(path)
-        .args(["--flavor", "wasm"])
+        .args(["-flavor", "wasm"])
         .arg("-v")
         .output()
         .map(|_| ())
