@@ -242,11 +242,11 @@ pub extern "C" fn wasome_vec_set_ptr(
     unsafe { (*mut_vec).set(index, new) }
 }
 
-impl<T: Copy> Drop for WasomeVec<T> {
-    fn drop(&mut self) {
-        // Drops the allocation
-        unsafe {
-            self.as_vec();
-        }
+#[unsafe(no_mangle)]
+pub extern "C" fn wasome_vec_drop(
+    mut_vec: *mut WasomeVec<*mut WasomeComposite>,
+) {
+    unsafe {
+        (*mut_vec).as_vec();
     }
 }
