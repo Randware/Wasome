@@ -1,8 +1,9 @@
 use std::{
-    fs::File,
+    fs::{self, File},
     io::{self, Read, Write},
     iter,
     marker::PhantomData,
+    path::Path,
     process::Command,
 };
 
@@ -13,23 +14,27 @@ use crate::error::LinkerError;
 mod error;
 mod lld;
 
-#[derive(Debug)]
-pub struct LLD {}
-
-// Our states
+/// During this state the linker is just collecting files
 pub struct Init;
-pub struct Ready;
-pub trait Shared {}
 
+/// When reaching this state the user of this lib can call `.link()`
+pub struct Ready;
+
+/// Trait for shared functionality of [Init] and [Ready]
+pub trait Shared {}
 impl Shared for Init {}
 impl Shared for Ready {}
 
+/// A wrapper around the WebAssembly linker (`wasm-ld`).
 pub struct Linker<State> {
+    /// The collection of object files (`.o`) to be linked.
     files: Vec<OFile>,
     __state: PhantomData<State>,
 }
 
 impl Linker<Init> {
+    /// Creates a new, empty `Linker` builder in the `Init` state.
+    /// To transition, call `.build()`
     pub fn builder() -> Self {
         Linker {
             files: Vec::new(),
@@ -37,13 +42,16 @@ impl Linker<Init> {
         }
     }
 
-    pub fn ready(self) -> Linker<Ready> {
+    /// Consumes the `Init` state and transitions the `Linker` into the `Ready` state.
+    pub fn build(self) -> Linker<Ready> {
         Linker {
             files: self.files,
             __state: PhantomData,
         }
     }
 
+    /// Create a new linker and skip the building process (`builder()`).
+    /// Use this if every OFile is known hat initialization
     pub fn new(files: impl IntoIterator<Item = OFile>) -> Linker<Ready> {
         Linker {
             files: files.into_iter().collect(),
@@ -51,27 +59,37 @@ impl Linker<Init> {
         }
     }
 
+    /// Returns a slice of the object files
     pub fn files(&self) -> &[OFile] {
         &self.files
     }
 }
 
 impl<State: Shared> Linker<State> {
-    pub fn add_files(mut self, files: impl IntoIterator<Item = OFile>) -> Self {
+    /// Add a multiple [OFiles](OFile) to the linking process
+    pub fn add_files(&mut self, files: impl IntoIterator<Item = OFile>) -> &mut Self {
         self.files.extend(files);
         self
     }
 
-    pub fn add_file(self, file: OFile) -> Self {
+    /// Add a single [OFile] to the linking process
+    pub fn add_file(&mut self, file: OFile) -> &mut Self {
         self.add_files(iter::once(file))
     }
 
+    /// Returns a reference to the slice of object files
     pub fn get_files(&self) -> &[OFile] {
         &self.files
     }
 }
 
 impl Linker<Ready> {
+    /// Executes the linking process using the system's `wasm-ld` binary.
+    ///
+    /// # Errors
+    /// Returns a tuple containing `(self, LinkerError)` if the linking fails
+    /// Returning `self` allows the caller to recover the linker state/inspect the inputs
+    /// or retry the operation without losing the underlying memory allocation.
     pub fn link(self) -> Result<OFile, (Self, LinkerError)> {
         let lld = match lld::find_lld() {
             Ok(path) => path,
@@ -133,8 +151,25 @@ impl Linker<Ready> {
     }
 }
 
+/// Represents an in-memory binary file payload
 pub struct OFile {
     pub data: Vec<u8>,
+}
+
+impl OFile {
+    /// Creates a new `OFile` from an iterator of bytes
+    pub fn new(data: impl IntoIterator<Item = u8>) -> Self {
+        OFile {
+            data: data.into_iter().collect(),
+        }
+    }
+
+    /// Reads a file from the host filesystem directly into memory and wraps it as an [`OFile`]
+    pub fn from_path(path: &Path) -> io::Result<Self> {
+        Ok(OFile {
+            data: fs::read(path)?,
+        })
+    }
 }
 
 impl From<Vec<u8>> for OFile {
@@ -142,13 +177,3 @@ impl From<Vec<u8>> for OFile {
         OFile { data: value }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn it_works() {
-//         assert_eq!(4, 4);
-//     }
-// }

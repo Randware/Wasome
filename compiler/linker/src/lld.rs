@@ -1,7 +1,48 @@
 use std::{env, io, path::PathBuf, process::Command};
 
+/// Locates a WebAssembly-compatible LLVM linker (`wasm-ld` or `lld`) on the host system.
+///
+/// The Wasome compiler needs the LLVM's linker. It tries 4 steps (only 3 of them in prod) to find
+/// the lld
+///
+/// 1. **Explicit Override:** Checks the `WASOME_LINKER` environment variable.
+///    if the user wants to override the linker for whatever reason.
+/// 2. **Bundled LLD:** Looks for `wasm-ld` in the exact same directory
+///    Looks for the Wasome's bundled LLD.
+/// 3. **System PATH:** Checks if `wasm-ld` or the generic `lld` are available
+///    in the operating system path.
+/// 4. **Rust Sysroot:** Only in DEBUG builds!
+///    this is somewhat of a hack. It uses the rust intern linker (rust-ld), but it is just for
+///    developers who compile this (with rust obv) it is perfectly fine.
+///
+/// # Returns
+/// * `Ok(PathBuf)` - The absolute path (or verifiable command string) to a working linker.
+/// * `Err(io::Error)` - If no valid WebAssembly linker could be found anywhere on the system.
+///
+/// # Examples
+///
+/// Normal execution will automatically find the bundled or system linker:
+/// ```rust,no_run
+/// use cli::lld;
+///
+/// let linker_path = lld::find_lld().expect("Could not find a valid WebAssembly linker.");
+/// println!("Successfully located linker at: {}", linker_path.display());
+/// ```
+///
+/// Users can force a specific linker via the environment variable:
+/// ```rust,no_run
+/// use std::env;
+/// use cli::lld;
+///
+/// // In practice, the user sets this in their terminal before running Wasome.
+/// env::set_var("WASOME_LINKER", "/usr/local/opt/llvm/bin/wasm-ld");
+///
+/// let custom_path = lld::find_lld().unwrap();
+/// assert_eq!(custom_path.to_str().unwrap(), "/usr/local/opt/llvm/bin/wasm-ld");
+/// ```
 pub fn find_lld() -> Result<PathBuf, io::Error> {
     let target_bin: PathBuf = executable_name("wasm-ld").into();
+
     // Option 1: User provides custom linker
     if let Ok(path) = env::var("WASOME_LINKER") {
         let path: PathBuf = path.into();
@@ -53,6 +94,10 @@ pub fn find_lld() -> Result<PathBuf, io::Error> {
     ))
 }
 
+/// Verifies that the given path points to a valid/executable LLVM linker capable of WebAssembly.
+///
+/// # Arguments
+/// * `path` - A reference to the `PathBuf` representing the linker executable.
 fn check_lld(path: &PathBuf) -> Result<(), io::Error> {
     Command::new(path)
         .args(["-flavor", "wasm"])
@@ -61,6 +106,10 @@ fn check_lld(path: &PathBuf) -> Result<(), io::Error> {
         .map(|_| ())
 }
 
+/// Helper function to normalize executable names across different operating systems.
+///
+/// # Arguments
+/// * `name` - The base name of the executable
 fn executable_name(name: &str) -> String {
     if cfg!(target_os = "windows") {
         format!("{}.exe", name)
