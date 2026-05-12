@@ -8,5 +8,5 @@ fn main() {
 
     // Small optimization. Tells cargo to only rebuild this script
     // if the TARGET env changes.
-    println!("cargo:rerun-if-changed-env=TARGET");
+    println!("cargo:rerun-if-env-changed=TARGET");
 }

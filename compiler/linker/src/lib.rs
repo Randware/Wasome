@@ -9,10 +9,10 @@ use std::{
 
 use tempfile::tempdir;
 
-use crate::error::LinkerError;
-
 mod error;
 mod lld;
+
+pub use error::LinkerError;
 
 /// During this state the linker is just collecting files
 pub struct Init;
@@ -51,7 +51,7 @@ impl Linker<Init> {
     }
 
     /// Create a new linker and skip the building process (`builder()`).
-    /// Use this if every OFile is known hat initialization
+    /// Use this if every OFile is known at initialization
     pub fn new(files: impl IntoIterator<Item = OFile>) -> Linker<Ready> {
         Linker {
             files: files.into_iter().collect(),
@@ -111,6 +111,7 @@ impl Linker<Ready> {
         };
 
         let mut output = Command::new(lld);
+        output.args(["-flavor", "wasm"]);
 
         for (index, o_file) in self.get_files().iter().enumerate() {
             let path = tempdir.path().join(format!("wasome_input_{}.o", index));
@@ -127,7 +128,7 @@ impl Linker<Ready> {
         }
 
         let out_path = tempdir.path().join("output.wasm");
-        let output = match output.args(["-o", out_path.to_str().unwrap()]).output() {
+        let output = match output.arg("-o").arg(&out_path).output() {
             Ok(o) => o,
             Err(e) => return Err((self, e.into())),
         };

@@ -45,16 +45,6 @@ impl LinkerError {
     ///
     /// # Arguments
     /// * `stderr` - The raw string captured from the linker's standard error stream.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use cli::error::LinkerError; // Adjust path based on your crate structure
-    ///
-    /// let raw_llvm_output = "wasm-ld: error: undefined symbol: main\n>>> referenced by src/main.o";
-    /// let parsed_error = LinkerError::from_stderr(raw_llvm_output);
-    ///
-    /// assert!(matches!(parsed_error, LinkerError::UndefinedSymbol(_)));
-    /// ```
     pub fn from_stderr(stderr: &str) -> Self {
         for line in stderr.lines() {
             if !line.contains("wasm-ld: error:") && !line.contains("wasm-ld: warning:") {

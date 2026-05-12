@@ -19,27 +19,6 @@ use std::{env, io, path::PathBuf, process::Command};
 /// * `Ok(PathBuf)` - The absolute path (or verifiable command string) to a working linker.
 /// * `Err(io::Error)` - If no valid WebAssembly linker could be found anywhere on the system.
 ///
-/// # Examples
-///
-/// Normal execution will automatically find the bundled or system linker:
-/// ```rust,no_run
-/// use cli::lld;
-///
-/// let linker_path = lld::find_lld().expect("Could not find a valid WebAssembly linker.");
-/// println!("Successfully located linker at: {}", linker_path.display());
-/// ```
-///
-/// Users can force a specific linker via the environment variable:
-/// ```rust,no_run
-/// use std::env;
-/// use cli::lld;
-///
-/// // In practice, the user sets this in their terminal before running Wasome.
-/// env::set_var("WASOME_LINKER", "/usr/local/opt/llvm/bin/wasm-ld");
-///
-/// let custom_path = lld::find_lld().unwrap();
-/// assert_eq!(custom_path.to_str().unwrap(), "/usr/local/opt/llvm/bin/wasm-ld");
-/// ```
 pub fn find_lld() -> Result<PathBuf, io::Error> {
     let target_bin: PathBuf = executable_name("wasm-ld").into();
 
@@ -115,5 +94,15 @@ fn executable_name(name: &str) -> String {
         format!("{}.exe", name)
     } else {
         name.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::lld::find_lld;
+
+    #[test]
+    fn is_lld_present() {
+        assert!(find_lld().is_ok())
     }
 }
