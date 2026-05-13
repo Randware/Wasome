@@ -41,31 +41,31 @@ pub fn find_lld() -> Result<PathBuf, io::Error> {
         }
     }
 
-    // Option 3: Look for the command in sys path
-    let lld_bin: PathBuf = executable_name("lld").into();
-    if check_lld(&target_bin).is_ok() {
-        return Ok(target_bin);
-    } else if check_lld(&lld_bin).is_ok() {
-        return Ok(lld_bin);
-    }
-
-    // Option 4: (ONLY IN DEV ENV) Use rust's own LLVM
-    if cfg!(debug_assertions)
-        && let Ok(out) = Command::new("rustc").args(["--print", "sysroot"]).output()
-        && let Ok(rustsys_path) = String::from_utf8(out.stdout)
-        && let Ok(target) = env::var("TARGET")
-    {
-        let mut path = PathBuf::from(rustsys_path.trim());
-        path.extend([
-            "lib",
-            "rustlib",
-            target.as_str(),
-            "bin",
-            executable_name("rust-lld").as_str(),
-        ]);
-
-        return check_lld(&path).map(|_| path);
-    }
+    // // Option 3: Look for the command in sys path
+    // let lld_bin: PathBuf = executable_name("lld").into();
+    // if check_lld(&target_bin).is_ok() {
+    //     return Ok(target_bin);
+    // } else if check_lld(&lld_bin).is_ok() {
+    //     return Ok(lld_bin);
+    // }
+    //
+    // // Option 4: (ONLY IN DEV ENV) Use rust's own LLVM
+    // if cfg!(debug_assertions)
+    //     && let Ok(out) = Command::new("rustc").args(["--print", "sysroot"]).output()
+    //     && let Ok(rustsys_path) = String::from_utf8(out.stdout)
+    //     && let Ok(target) = env::var("TARGET")
+    // {
+    //     let mut path = PathBuf::from(rustsys_path.trim());
+    //     path.extend([
+    //         "lib",
+    //         "rustlib",
+    //         target.as_str(),
+    //         "bin",
+    //         executable_name("rust-lld").as_str(),
+    //     ]);
+    //
+    //     return check_lld(&path).map(|_| path);
+    // }
 
     Err(io::Error::new(
         io::ErrorKind::NotFound,
