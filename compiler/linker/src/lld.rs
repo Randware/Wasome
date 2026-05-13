@@ -69,7 +69,7 @@ pub fn find_lld() -> Result<PathBuf, io::Error> {
 
     Err(io::Error::new(
         io::ErrorKind::NotFound,
-        "Could not find wasm-ld or lld on this system. Ensure the WASOME_LINKER environment variable is set, or that wasm-ld is installed next to the wasome binary.",
+        "Could not find wasm-ld or lld.",
     ))
 }
 
@@ -103,9 +103,6 @@ mod tests {
 
     #[test]
     fn is_lld_present() {
-        match find_lld() {
-            Ok(path) => eprintln!("Found linker at: {}", path.display()),
-            Err(e) => panic!("find_lld() failed: {e}"),
-        }
+        assert!(find_lld().is_ok())
     }
 }

@@ -10,6 +10,7 @@ members = [
   "driver",
   "middle_end/semantic_analyzer",
   "codegen",
+  "linker",
 ]
 
 [workspace.dependencies]
