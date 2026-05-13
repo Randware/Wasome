@@ -34,6 +34,10 @@ pub struct Vec[T] {
         -> vec_remove[T](self, index)
     }
 
+    pub fn len() -> u32 {
+        -> (self).cnt
+    }
+
     fn drop() {
         vec_drop(self)
     }

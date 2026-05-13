@@ -26,6 +26,6 @@ pub unsafe extern "C" fn malloc(to_alloc: usize) -> *mut u8 {
 /// 1. `to_free` was not allocated by [`malloc`]
 /// 2. `size` is different than the one passed to `malloc`
 #[unsafe(no_mangle)]
-pub extern "C" fn free(to_free: *mut u8, size: usize) {
+pub unsafe extern "C" fn free(to_free: *mut u8, size: usize) {
     unsafe { dealloc(to_free, Layout::from_size_align(size, 8).unwrap()) }
 }
