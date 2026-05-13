@@ -7,7 +7,7 @@ extern fn vec_pop[T](Vec[T] vec) -> T
 extern fn vec_get[T](Vec[T] vec, u32 index) -> T
 extern fn vec_set[T](Vec[T] vec, u32 index, T new_val) -> T
 extern fn vec_remove[T](Vec[T] vec, u32 index) -> T
-extern fn vec_drop[T](Vec[T] vec) -> T
+extern fn vec_drop[T](Vec[T] vec)
 
 pub struct Vec[T] {
     u32 prt
