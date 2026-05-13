@@ -309,7 +309,7 @@ pub unsafe extern "C" fn vec_get_ptr(
     index: usize,
 ) -> *mut WasomeComposite {
     let val = unsafe { WasomeVec::get(mut_vec, index) };
-    // SAFETY;
+    // SAFETY:
     //
     // WasomeVec always returns valid pointers
     unsafe {
