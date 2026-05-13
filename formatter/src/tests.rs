@@ -1147,23 +1147,19 @@ fn comment_terminates_line_before_return_and_close() {
 
 #[test]
 fn comment_between_close_paren_and_open_scope() {
-    // When a `//` comment sits between `)` and `{`, the `{` must not be pulled
-    // back into the comment line — it goes on its own indented line instead.
-    // When a `//` comment sits between `)` and `{`, the `{` must not be pulled
-    // back into the comment line — it goes on its own indented line instead.
-    // A comment immediately after a function's `{` stays inline (same as
-    // user_example_max_with_comments).
+    // A comment between `)` and `{` is dropped because they must be on
+    // the same output line.  A comment immediately after a function's `{`
+    // stays inline (same as user_example_max_with_comments).
     assert_fmt(
-        "fn is_even(s32 n) -> bool {//Test
-    if(n % 2 == 0)//Test
+        "fn is_even(s32 n) -> bool {//Test1
+    if(n % 2 == 0)//Test2
 {
         -> true
     }
     -> false
 }",
-        "fn is_even(s32 n) -> bool { //Test
-    if (n % 2 == 0) //Test
-    {
+        "fn is_even(s32 n) -> bool { //Test1
+    if (n % 2 == 0) {
         -> true
     }
     -> false
@@ -1208,5 +1204,40 @@ fn loop_on_new_line_after_statement() {
         count3 <- count3 + 1
     }
 }",
+    );
+}
+
+#[test]
+fn comment_placement_comprehensive() {
+    // Comments that sit between tokens that must be on the same output line
+    // are dropped. Comments at natural line-ending positions are kept inline.
+    assert_fmt(
+        "fn //Test1
+max // Test2
+(s32 a, s32 b) //Test3
+-> //Test4
+s32 //Test5
+{ // Test6
+    if //Test7
+      (a //Test8
+      > //Test9
+      b) //Test10
+      { //Test11
+        -> //Test12
+        a //Test13
+    } //Test14
+    else //Test15
+    { //Test16
+        -> //Test17
+        b //Test18
+    } //Test19
+} //Test20",
+        "fn max(s32 a, s32 b) -> s32 { // Test6
+    if (a > b) { //Test11
+        -> a //Test13
+    } else { //Test16
+        -> b //Test18
+    } //Test19
+} //Test20",
     );
 }

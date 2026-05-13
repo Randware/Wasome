@@ -105,6 +105,15 @@ impl Formatter {
         }
 
         self.just_opened_scope = false;
+
+        // Drop comments that would break a line where tokens must be joined.
+        // This must happen before reset of suppress_newlines so that
+        // suppress_newlines set by handle_close_scope survives through
+        // dropped comments.
+        if matches!(curr, TokenType::Comment(_)) && self.should_drop_comment(tokens, index) {
+            return;
+        }
+
         self.suppress_newlines = false;
 
         if matches!(self.current_scope(), Some(ScopeKind::StructDef)) {
@@ -311,17 +320,15 @@ impl Formatter {
                 self.ensure_newline();
                 self.emit_token("}");
 
-                if let Some(TokenType::Else) = self.next_non_separator(tokens, index) {
+                // Use next_significant to see past comments that will be dropped.
+                if let Some(TokenType::Else) = self.next_significant(tokens, index) {
+                    self.suppress_newlines = true;
+                } else if matches!(self.next_significant(tokens, index), Some(TokenType::Return)) {
+                    // `-> value` follows `}` — next line, no blank lines between.
+                    self.ensure_newline();
                     self.suppress_newlines = true;
                 } else if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
-                    // A comment immediately after `}` goes on its own line.
-                    self.ensure_newline();
-                } else if matches!(self.next_non_separator(tokens, index), Some(TokenType::Return)) {
-                    // `-> value` follows `}` — put it on the next line with no
-                    // blank lines between. suppress_newlines eats all the
-                    // separators between `}` and `->` after ensure_newline()
-                    // has already placed us at the start of a fresh line.
-                    self.ensure_newline();
+                    // A kept comment immediately after `}` stays inline with `}`.
                     self.suppress_newlines = true;
                 } else if self.indent_level == 0 {
                     self.ensure_newline();
@@ -371,7 +378,7 @@ impl Formatter {
         self.emit_space();
 
         // Empty block: emit `{}` inline only for struct init or loop header.
-        if matches!(self.next_non_separator(tokens, index), Some(TokenType::CloseScope)) {
+        if matches!(self.next_significant(tokens, index), Some(TokenType::CloseScope)) {
             if self.current_scope_allows_empty_inline(tokens, index) {
                 self.emit_token("{");
                 self.emit_token("}");
@@ -475,9 +482,51 @@ impl Formatter {
         self.just_opened_scope = true;
     }
 
+    /// A comment must be dropped when it sits between two tokens that must be
+    /// on the same output line.  Comments survive only at natural line-ending
+    /// positions (after `{`, after a statement's final value, after `}`).
+    fn should_drop_comment(&self, tokens: &[Token], index: usize) -> bool {
+        // Inside parens or generics all whitespace is suppressed — drop.
+        if self.paren_depth > 0 || self.generic_depth > 0 {
+            return true;
+        }
+
+        let prev = self.prev_non_separator_kind.as_ref();
+        let next = self.next_significant(tokens, index);
+
+        // Between `}` and `else` — must stay on one line (`} else {`).
+        if matches!(prev, Some(TokenType::CloseScope))
+            && matches!(next, Some(TokenType::Else))
+        {
+            return true;
+        }
+
+        // Between `else` and `{` — must stay on one line (`} else {`).
+        if matches!(prev, Some(TokenType::Else))
+            && matches!(next, Some(TokenType::OpenScope))
+        {
+            return true;
+        }
+
+        // Between `->` and its value.
+        if matches!(prev, Some(TokenType::Return))
+            && !matches!(next, Some(TokenType::CloseScope))
+        {
+            return true;
+        }
+
+        // Any token pair that `should_join_tokens` would force onto one line.
+        if Self::should_join_tokens(prev, next, self.prev_prev_non_separator_kind.as_ref()) {
+            return true;
+        }
+
+        false
+    }
+
     fn should_collapse_separator(&mut self, tokens: &[Token], index: usize) -> bool {
         let prev = self.prev_non_separator_kind.as_ref();
-        let next = self.next_non_separator(tokens, index);
+        let next = self.next_significant(tokens, index);
+
         if self.at_line_start {
             // Skip leading blank lines entirely.
             if !self.has_content {
@@ -494,6 +543,20 @@ impl Formatter {
             }
         }
 
+        if Self::should_join_tokens(prev, next, self.prev_prev_non_separator_kind.as_ref()) {
+            return true;
+        }
+
+        false
+    }
+
+    /// Pure pair-based check: must `prev` and `next` appear on the same output
+    /// line?  Used by both `should_collapse_separator` and `should_drop_comment`.
+    fn should_join_tokens(
+        prev: Option<&TokenType>,
+        next: Option<&TokenType>,
+        prev_prev: Option<&TokenType>,
+    ) -> bool {
         // Join if/loop/function keyword with its paren to avoid line breaks.
         if matches!(prev, Some(TokenType::If | TokenType::Loop | TokenType::Function))
             && matches!(next, Some(TokenType::OpenParen))
@@ -559,8 +622,7 @@ impl Formatter {
         }
 
         // Join assignment pieces split across lines.
-        if matches!(prev, Some(TokenType::Identifier(_))) && matches!(next, Some(TokenType::Assign))
-        {
+        if matches!(prev, Some(TokenType::Identifier(_))) && matches!(next, Some(TokenType::Assign)) {
             return true;
         }
         if matches!(prev, Some(TokenType::Assign)) {
@@ -568,13 +630,38 @@ impl Formatter {
         }
 
         // Join return value across lines.
-        if matches!(prev, Some(TokenType::Return)) && !matches!(next, Some(TokenType::CloseScope))
-        {
+        if matches!(prev, Some(TokenType::Return)) && !matches!(next, Some(TokenType::CloseScope)) {
             return true;
         }
 
         // Keep `) -> T` on the same line as the function signature.
         if matches!(prev, Some(TokenType::CloseParen)) && matches!(next, Some(TokenType::Return)) {
+            return true;
+        }
+
+        // Keep `)` and `{` on the same line — e.g. `if (...) {`, `fn f() {`.
+        if matches!(prev, Some(TokenType::CloseParen))
+            && matches!(next, Some(TokenType::OpenScope))
+        {
+            return true;
+        }
+
+        // Keep a return type (datatype) and `{` on the same line.
+        if matches!(prev, Some(p) if classify::is_datatype(p))
+            && matches!(next, Some(TokenType::OpenScope))
+        {
+            return true;
+        }
+
+        // `} else {` must stay on one line.
+        if matches!(prev, Some(TokenType::CloseScope))
+            && matches!(next, Some(TokenType::Else))
+        {
+            return true;
+        }
+        if matches!(prev, Some(TokenType::Else))
+            && matches!(next, Some(TokenType::OpenScope))
+        {
             return true;
         }
 
@@ -588,8 +675,6 @@ impl Formatter {
 
         // Keep expression continuations on one line when the break lands before
         // or after a binary operator.
-        // Caveat: don't collapse before Subtraction as `next` — we can't tell
-        // yet if it's unary, so only trust it when it's `prev` (already emitted).
         if matches!(prev, Some(p) if Self::is_binary_operator(p)) {
             return true;
         }
@@ -601,14 +686,18 @@ impl Formatter {
         if matches!(prev, Some(TokenType::New | TokenType::Dot | TokenType::PathSeparator)) {
             return true;
         }
-        if matches!(prev, Some(TokenType::Identifier(_))) && matches!(next, Some(TokenType::OpenParen))
-        {
+        if matches!(prev, Some(TokenType::Identifier(_))) && matches!(next, Some(TokenType::OpenParen)) {
             return true;
         }
         if matches!(prev, Some(TokenType::Identifier(_)))
-            && matches!(self.prev_prev_non_separator_kind, Some(TokenType::New))
+            && matches!(prev_prev, Some(TokenType::New))
             && matches!(next, Some(TokenType::OpenScope))
         {
+            return true;
+        }
+
+        // Keep `,` on the same line as the preceding value.
+        if matches!(next, Some(TokenType::ArgumentSeparator)) {
             return true;
         }
 
@@ -708,16 +797,7 @@ impl Formatter {
         if matches!(self.prev_kind, Some(TokenType::Comment(_))) {
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::StatementSeparator)) {
-            if self.pending_empty_lines > 0 {
-                return;
-            }
-            return;
-        }
-        if matches!(self.prev_kind, Some(TokenType::OpenScope)) {
-            return;
-        }
-        if matches!(self.next_non_separator(tokens, index), Some(TokenType::OpenParen)) {
+        if matches!(self.next_significant(tokens, index), Some(TokenType::OpenParen)) {
             return;
         }
         if matches!(self.prev_non_separator_kind, Some(TokenType::Return)) {
@@ -786,7 +866,7 @@ impl Formatter {
             return false;
         }
         // If next is a close scope and we're inside parentheses, do not inline.
-        if self.paren_depth > 0 && matches!(self.next_non_separator(tokens, index), None) {
+        if self.paren_depth > 0 && matches!(self.next_significant(tokens, index), None) {
             return false;
         }
         false
@@ -818,7 +898,7 @@ impl Formatter {
         let is_method_start = match curr {
             TokenType::Function => true,
             TokenType::Public => self
-                .next_non_separator(tokens, index)
+                .next_significant(tokens, index)
                 .is_some_and(|t| matches!(t, TokenType::Function)),
             _ => return,
         };
@@ -856,12 +936,12 @@ impl Formatter {
         )
     }
 
-    // Find the next non-newline token.
-    fn next_non_separator<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
+    // Find the next non-newline, non-comment token.
+    fn next_significant<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
         tokens[index + 1..]
             .iter()
             .map(|t| &t.kind)
-            .find(|k| !matches!(k, TokenType::StatementSeparator))
+            .find(|k| !matches!(k, TokenType::StatementSeparator | TokenType::Comment(_)))
     }
 
     // Next token only if it is immediately adjacent (same line, no newline between).
