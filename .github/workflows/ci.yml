@@ -69,9 +69,9 @@ jobs:
           echo "$llvmDir\bin" >> $env:GITHUB_PATH
 
       # ── macOS ─────────────────────────────────────────────────────────────
-      - name: Install LLVM 21 (macOS)
+      - name: Install LLVM 21 and LLD (macOS)
         if: matrix.os == 'macos-latest'
-        run: brew install llvm@21
+        run: brew install llvm@21 lld
 
       - name: Export LLVM Prefix (macOS)
         if: matrix.os == 'macos-latest'
