@@ -4,7 +4,7 @@ mod formatter;
 
 use formatter::Formatter;
 
-// Public formatter entrypoint.
+// Entry point for formatting a source string.
 pub fn format(source: String) -> String {
     let tokens: Vec<_> = lexer::lex(&source).filter_map(|r| r.ok()).collect();
 

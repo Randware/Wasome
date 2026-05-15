@@ -1,8 +1,8 @@
-// Spaces per indentation level.
+// Defines the number of spaces per indentation level.
 pub const INDENT_SIZE: usize = 4;
 
-// Max line width before wrapping.
+// Defines the maximum line width before wrapping.
 pub const MAX_LINE_LENGTH: usize = 80;
 
-// Max consecutive blank lines.
+// Defines the maximum number of consecutive blank lines.
 pub const MAX_CONSECUTIVE_EMPTY_LINES: usize = 1;

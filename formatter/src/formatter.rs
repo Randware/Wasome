@@ -30,9 +30,9 @@ pub(crate) struct Formatter {
     generic_depth: usize,
     paren_wrap_mode: bool,
     paren_wrap_depth: usize,
-    // True once we emitted a real token.
+    // Tracks whether any non-separator token has been emitted.
     has_content: bool,
-    // Skip the next CloseScope because it was already emitted inline.
+    // Skips the next CloseScope because it was emitted inline.
     skip_next_close_scope: bool,
 }
 
@@ -72,9 +72,8 @@ impl Formatter {
         let curr = tokens[index].kind.clone();
 
         if matches!(curr, TokenType::StatementSeparator) {
-            // Inside parens or generic brackets, always collapse newlines.
-            // Don't update prev_kind in either case — keep it as the last real
-            // token so space_before() stays correct (e.g. no space after `(`).
+            // Collapses newlines inside parens or generics to keep tokens together.
+            // Note: prev_kind remains unchanged to preserve spacing rules.
             if self.paren_depth > 0 && !self.paren_wrap_mode {
                 return;
             }
@@ -82,7 +81,7 @@ impl Formatter {
                 return;
             }
             if self.just_opened_scope {
-                // Consume the first newline after `{` without creating a blank line.
+                // Consumes the first newline after `{` without creating a blank line.
                 if self.at_line_start {
                     self.just_opened_scope = false;
                     return;
@@ -104,10 +103,8 @@ impl Formatter {
             return;
         }
 
-        // Drop comments that would break a line where tokens must be joined.
-        // This must happen before reset of suppress_newlines so that
-        // suppress_newlines set by handle_close_scope survives through
-        // dropped comments.
+        // Drops comments that would break a forced join between tokens.
+        // Note: This runs before resetting suppress_newlines.
         if matches!(curr, TokenType::Comment(_)) && self.should_drop_comment(tokens, index) {
             return;
         }
@@ -212,7 +209,7 @@ impl Formatter {
         }
     }
 
-    // Pull `{` back onto the previous line.
+    // Pulls `{` back onto the previous line.
     fn pull_back_to_previous_line(&mut self) {
         self.pending_empty_lines = 0;
         while self.output.ends_with('\n') {
@@ -225,7 +222,7 @@ impl Formatter {
         };
     }
 
-    // Decide whether to print a space before the token.
+    // Determines whether to print a space before the token.
     fn space_before(&self, curr: &TokenType) -> bool {
         let prev = match &self.prev_kind {
             Some(p) => p,
@@ -322,20 +319,20 @@ impl Formatter {
                 self.ensure_newline();
                 self.emit_token("}");
 
-                // Use next_significant to see past comments that will be dropped.
+                // Uses next_significant to see past dropped comments.
                 if let Some(TokenType::Else) = self.next_significant(tokens, index) {
                     self.suppress_newlines = true;
                 } else if matches!(self.next_significant(tokens, index), Some(TokenType::Return))
                     && matches!(self.prev_non_separator_kind, Some(TokenType::CloseParen))
                 {
-                    // `fn ... ) -> T` must stay on one line.
+                    // Keeps `fn ... ) -> T` on one line.
                     self.suppress_newlines = true;
                 } else if matches!(self.next_significant(tokens, index), Some(TokenType::Return)) {
-                    // `-> value` follows `}` — next line, no blank lines between.
+                    // Keeps `-> value` on the next line without extra blanks.
                     self.ensure_newline();
                     self.suppress_newlines = true;
                 } else if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
-                    // A kept comment immediately after `}` stays inline with `}`.
+                    // Keeps an immediate comment inline with `}`.
                     self.suppress_newlines = true;
                 } else if self.indent_level == 0 {
                     self.ensure_newline();
@@ -354,7 +351,7 @@ impl Formatter {
         let has_inline_close = matches!(next_token, Some(TokenType::CloseScope));
 
         if scope_kind == ScopeKind::StructInit {
-            // Pull the `{` back onto the previous line if it was separated by newlines.
+            // Pulls `{` back onto the previous line if separated by newlines.
             if self.at_line_start {
                 self.pull_back_to_previous_line();
             }
@@ -368,26 +365,24 @@ impl Formatter {
         }
 
         if self.at_line_start {
-            // Don't pull `{` back if the previous line ended with a `//` comment,
-            // otherwise `{` would end up inside the comment text.
+            // Avoids pulling `{` into a `//` comment line.
             if !matches!(self.prev_non_separator_kind, Some(TokenType::Comment(_))) {
                 self.pull_back_to_previous_line();
             } else {
-                // Prevent blank lines between the comment and `{`.
+                // Prevents blank lines between the comment and `{`.
                 self.pending_empty_lines = 0;
             }
         }
         self.emit_space();
 
-        // Empty block: emit `{}` inline only when the block is truly empty.
-        // Comments are significant enough to keep the block open, matching
-        // rustfmt/gofmt behavior for comment-only blocks.
+        // Emits `{}` inline only when the block is truly empty.
+        // Note: Comment-only blocks stay expanded.
         if matches!(self.next_non_separator(tokens, index), Some(TokenType::CloseScope)) {
             if self.current_scope_allows_empty_inline(tokens, index) {
                 self.emit_token("{");
                 self.emit_token("}");
                 self.skip_next_close_scope = true;
-                // Top-level empty items still need a blank line after.
+                // Inserts a blank line after top-level empty items.
                 if self.indent_level == 0 {
                     self.ensure_newline();
                     self.pending_empty_lines = self.pending_empty_lines.max(1);
@@ -440,8 +435,7 @@ impl Formatter {
 
         if self.should_force_newline_after_comma() {
             self.ensure_newline();
-            // Suppress any separator tokens the input may have after the comma
-            // so they don't produce spurious blank lines inside StructInitExpanded.
+            // Suppresses separators after commas inside expanded struct inits.
             self.suppress_newlines = true;
         } else if self.paren_wrap_mode && self.paren_depth == self.paren_wrap_depth {
             let next_len = self.measure_next_chunk(tokens, index + 1);
@@ -479,19 +473,15 @@ impl Formatter {
         }
         let text = curr.as_text();
         self.emit_token(&text);
-        // A `//` comment always terminates the current line; whatever follows
-        // must start on the next line.  Reuse `just_opened_scope` to absorb
-        // the mandatory single newline that follows without turning it into a
-        // blank line — further blank lines still accumulate normally.
+        // Ends the current line after `//` comments and preserves a single newline.
         self.ensure_newline();
         self.just_opened_scope = true;
     }
 
-    /// A comment must be dropped when it sits between two tokens that must be
-    /// on the same output line.  Comments survive only at natural line-ending
-    /// positions (after `{`, after a statement's final value, after `}`).
+    /// Drops comments that would split tokens that must be joined.
+    /// Note: Comments survive only at natural line endings.
     fn should_drop_comment(&self, tokens: &[Token], index: usize) -> bool {
-        // Inside parens or generics all whitespace is suppressed — drop.
+        // Drops comments inside parens or generics where newlines are suppressed.
         if self.paren_depth > 0 || self.generic_depth > 0 {
             return true;
         }
@@ -500,47 +490,47 @@ impl Formatter {
         let next = self.next_significant(tokens, index);
         let next_immediate = self.next_immediate(tokens, index);
 
-        // Between `}` and `else` — must stay on one line (`} else {`).
+        // Drops comments between `}` and `else` to keep `} else {` on one line.
         if matches!(prev, Some(TokenType::CloseScope))
             && matches!(next, Some(TokenType::Else))
         {
             return true;
         }
 
-        // Between `}` and a following `->` return — drop comment.
+        // Drops comments between `}` and a following `->` return.
         if matches!(prev, Some(TokenType::CloseScope))
             && matches!(next, Some(TokenType::Return))
         {
             return true;
         }
 
-        // Between `else` and `{` — must stay on one line (`} else {`).
+        // Drops comments between `else` and `{` to keep `} else {` on one line.
         if matches!(prev, Some(TokenType::Else))
             && matches!(next, Some(TokenType::OpenScope))
         {
             return true;
         }
 
-        // Between `->` and its value.
+        // Drops comments between `->` and its value.
         if matches!(prev, Some(TokenType::Return))
             && !matches!(next, Some(TokenType::CloseScope))
         {
             return true;
         }
 
-        // Any token pair that `should_join_tokens` would force onto one line.
+        // Drops comments between tokens that must join.
         if Self::should_join_tokens(prev, next, self.prev_prev_non_separator_kind.as_ref()) {
             return true;
         }
 
-        // After `import`, keep an inline comment (next token on the line).
+        // Keeps an inline comment immediately after `import`.
         if matches!(prev, Some(TokenType::Import))
             && matches!(next_immediate, Some(TokenType::Comment(_)))
         {
             return false;
         }
 
-        // After `}`: drop inline comments when a return follows later.
+        // Drops inline comments after `}` when a return follows later.
         if matches!(prev, Some(TokenType::CloseScope))
             && matches!(next, Some(TokenType::Return))
             && matches!(next_immediate, Some(TokenType::Comment(_)))
@@ -556,11 +546,11 @@ impl Formatter {
         let next = self.next_significant(tokens, index);
 
         if self.at_line_start {
-            // Skip leading blank lines entirely.
+            // Skips leading blank lines entirely.
             if !self.has_content {
                 return true;
             }
-            // Skip blank lines immediately after `{` or before `}`.
+            // Skips blank lines immediately after `{` or before `}`.
             if matches!(self.prev_kind, Some(TokenType::OpenScope))
                 || matches!(prev, Some(TokenType::OpenScope))
             {
@@ -578,21 +568,21 @@ impl Formatter {
         false
     }
 
-    /// Pure pair-based check: must `prev` and `next` appear on the same output
-    /// line?  Used by both `should_collapse_separator` and `should_drop_comment`.
+    /// Returns whether `prev` and `next` must share the same output line.
+    /// Note: This is used by separator collapsing and comment dropping.
     fn should_join_tokens(
         prev: Option<&TokenType>,
         next: Option<&TokenType>,
         prev_prev: Option<&TokenType>,
     ) -> bool {
-        // Join if/loop/function keyword with its paren to avoid line breaks.
+        // Joins if/loop/function with its opening paren.
         if matches!(prev, Some(TokenType::If | TokenType::Loop | TokenType::Function))
             && matches!(next, Some(TokenType::OpenParen))
         {
             return true;
         }
 
-        // Join fn/struct/enum keyword with the following name.
+        // Joins fn/struct/enum with the following identifier.
         if matches!(
             prev,
             Some(TokenType::Function | TokenType::Struct | TokenType::Enum)
@@ -601,14 +591,14 @@ impl Formatter {
             return true;
         }
 
-        // Join `import` with the path or string literal.
+        // Joins `import` with the path or string literal.
         if matches!(prev, Some(TokenType::Import))
             && matches!(next, Some(TokenType::Identifier(_) | TokenType::String(_)))
         {
             return true;
         }
 
-        // Join `import "path" as name` pieces.
+        // Joins `import "path" as name` into one line.
         if matches!(prev, Some(TokenType::String(_)))
             && matches!(prev_prev, Some(TokenType::Import))
         {
@@ -619,55 +609,54 @@ impl Formatter {
             return true;
         }
 
-        // Join modifier keywords: `pub` always precedes another keyword or
-        // identifier on the same logical line (pub extern, pub fn, pub struct…).
+        // Joins `pub` with the following keyword or identifier.
         if matches!(prev, Some(TokenType::Public)) {
             return true;
         }
 
-        // Join `extern` to the `fn` that follows it.
+        // Joins `extern` with the following `fn`.
         if matches!(prev, Some(TokenType::Extern))
             && matches!(next, Some(TokenType::Function))
         {
             return true;
         }
 
-        // Join `]` directly to `(` — generic param list followed by fn param list.
+        // Joins `]` directly to `(` for generic function signatures.
         if matches!(prev, Some(TokenType::CloseGeneric))
             && matches!(next, Some(TokenType::OpenParen))
         {
             return true;
         }
 
-        // Join `]` to a following identifier — e.g. `Wrapper[s32] w`.
+        // Joins `]` to a following identifier.
         if matches!(prev, Some(TokenType::CloseGeneric))
             && matches!(next, Some(TokenType::Identifier(_)))
         {
             return true;
         }
 
-        // Join `]` to a following `::` — e.g. `Option[T]::Some`.
+        // Joins `]` to a following `::`.
         if matches!(prev, Some(TokenType::CloseGeneric))
             && matches!(next, Some(TokenType::PathSeparator))
         {
             return true;
         }
 
-        // Join identifier directly to its generic bracket — e.g. `Box[T]`, `Option[Box[f64]]`.
+        // Joins identifiers directly to their generic brackets.
         if matches!(prev, Some(TokenType::Identifier(_)))
             && matches!(next, Some(TokenType::OpenGeneric))
         {
             return true;
         }
 
-        // Join declarations split across lines.
+        // Joins split declaration tokens onto one line.
         if matches!(prev, Some(p) if classify::is_datatype(p))
             && matches!(next, Some(TokenType::Identifier(_)))
         {
             return true;
         }
 
-        // Join assignment pieces split across lines.
+        // Joins split assignment tokens onto one line.
         if matches!(prev, Some(TokenType::Identifier(_))) && matches!(next, Some(TokenType::Assign)) {
             return true;
         }
@@ -675,31 +664,31 @@ impl Formatter {
             return true;
         }
 
-        // Join return value across lines.
+        // Joins return values split across lines.
         if matches!(prev, Some(TokenType::Return)) && !matches!(next, Some(TokenType::CloseScope)) {
             return true;
         }
 
-        // Keep `) -> T` on the same line as the function signature.
+        // Keeps `) -> T` on the same line as the signature.
         if matches!(prev, Some(TokenType::CloseParen)) && matches!(next, Some(TokenType::Return)) {
             return true;
         }
 
-        // Keep `)` and `{` on the same line — e.g. `if (...) {`, `fn f() {`.
+        // Keeps `)` and `{` on the same line.
         if matches!(prev, Some(TokenType::CloseParen))
             && matches!(next, Some(TokenType::OpenScope))
         {
             return true;
         }
 
-        // Keep a return type (datatype) and `{` on the same line.
+        // Keeps a return type and `{` on the same line.
         if matches!(prev, Some(p) if classify::is_datatype(p))
             && matches!(next, Some(TokenType::OpenScope))
         {
             return true;
         }
 
-        // `} else {` must stay on one line.
+        // Keeps `} else {` on one line.
         if matches!(prev, Some(TokenType::CloseScope))
             && matches!(next, Some(TokenType::Else))
         {
@@ -711,7 +700,7 @@ impl Formatter {
             return true;
         }
 
-        // Keep `as` cast chains together: collapse before and after `as`.
+        // Keeps `as` cast chains together.
         if matches!(prev, Some(TokenType::As)) {
             return true;
         }
@@ -719,8 +708,7 @@ impl Formatter {
             return true;
         }
 
-        // Keep expression continuations on one line when the break lands before
-        // or after a binary operator.
+        // Keeps expression continuations with binary operators on one line.
         if matches!(prev, Some(p) if Self::is_binary_operator(p)) {
             return true;
         }
@@ -728,7 +716,7 @@ impl Formatter {
             return true;
         }
 
-        // Join new expressions or calls split across lines.
+        // Joins split expressions and calls onto one line.
         if matches!(prev, Some(TokenType::New | TokenType::Dot | TokenType::PathSeparator)) {
             return true;
         }
@@ -745,7 +733,7 @@ impl Formatter {
             return true;
         }
 
-        // Keep `,` on the same line as the preceding value.
+        // Keeps `,` on the same line as the preceding value.
         if matches!(next, Some(TokenType::ArgumentSeparator)) {
             return true;
         }
@@ -974,7 +962,7 @@ impl Formatter {
         self.scope_stack.last()
     }
 
-    // Force newlines for enum and expanded struct-init entries.
+    // Forces newlines for enum entries and expanded struct inits.
     fn should_force_newline_after_comma(&self) -> bool {
         if self.generic_depth > 0 || self.paren_depth > 0 {
             return false;
@@ -988,7 +976,7 @@ impl Formatter {
         )
     }
 
-    // Find the next non-newline token (comments included).
+    // Finds the next non-newline token, including comments.
     fn next_non_separator<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
         tokens[index + 1..]
             .iter()
@@ -996,7 +984,7 @@ impl Formatter {
             .find(|k| !matches!(k, TokenType::StatementSeparator))
     }
 
-    // Find the next non-newline, non-comment token.
+    // Finds the next non-newline, non-comment token.
     fn next_significant<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
         tokens[index + 1..]
             .iter()
@@ -1004,7 +992,7 @@ impl Formatter {
             .find(|k| !matches!(k, TokenType::StatementSeparator | TokenType::Comment(_)))
     }
 
-    // Next token only if it is immediately adjacent (same line, no newline between).
+    // Returns the next token only if it is on the same line.
     fn next_immediate<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
         let next = tokens.get(index + 1).map(|t| &t.kind)?;
         if matches!(next, TokenType::StatementSeparator) {
@@ -1014,7 +1002,7 @@ impl Formatter {
         }
     }
 
-    // Estimate line length from token index onward.
+    // Estimates line length from a token index onward.
     fn measure_to_end_of_line(&self, tokens: &[Token], from: usize) -> usize {
         let mut len: usize = 0;
         let mut first = true;
@@ -1036,7 +1024,7 @@ impl Formatter {
         len
     }
 
-    // Wrap parens when the line is long and comma-separated.
+    // Wraps parens when the line is long and comma-separated.
     fn should_wrap_parens(&self, tokens: &[Token], open_index: usize) -> bool {
         if !self.has_commas_at_depth(tokens, open_index, 1) {
             return false;
@@ -1071,7 +1059,7 @@ impl Formatter {
         false
     }
 
-    // Measure until next comma/close at current depth.
+    // Measures until the next comma or close at the current depth.
     fn measure_next_chunk(&self, tokens: &[Token], from: usize) -> usize {
         let mut len: usize = 0;
         let mut depth: usize = 0;

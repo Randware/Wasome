@@ -1,6 +1,6 @@
 use lexer::TokenType;
 
-// True for primitive and uppercase user types.
+// Detects primitive types and uppercase user types.
 #[allow(dead_code)]
 pub fn is_datatype(token: &TokenType) -> bool {
     match token {
@@ -21,7 +21,7 @@ pub fn is_datatype(token: &TokenType) -> bool {
     }
 }
 
-// True when `-` should be treated as unary.
+// Determines when `-` should be treated as unary.
 pub fn is_unary_minus_context(prev: Option<&TokenType>) -> bool {
     match prev {
         None => true,
