@@ -69,22 +69,15 @@ jobs:
           echo "$llvmDir\bin" >> $env:GITHUB_PATH
 
       # ── macOS ─────────────────────────────────────────────────────────────
-      - name: Cache LLVM 21 (macOS)
+      - name: Install LLVM 21 and LLD (macOS)
         if: matrix.os == 'macos-latest'
-        id: cache-llvm-macos
-        uses: actions/cache@v4
-        with:
-          path: /opt/homebrew/Cellar/llvm@21
-          key: llvm-21-macos-cellar
-
-      - name: Install LLVM 21 (macOS)
-        if: matrix.os == 'macos-latest' && steps.cache-llvm-macos.outputs.cache-hit != 'true'
-        run: brew install llvm@21
+        run: brew install llvm@21 lld
 
       - name: Export LLVM Prefix (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          LLVM_DIR=$(ls -d /opt/homebrew/Cellar/llvm@21/*)
+          LLVM_DIR=$(brew --prefix llvm@21)
+
           echo "LLVM_SYS_211_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
           echo "$LLVM_DIR/bin" >> $GITHUB_PATH
 
