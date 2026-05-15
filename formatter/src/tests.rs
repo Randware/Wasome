@@ -48,7 +48,11 @@ fn ex04_generics_paths_methods() {
 fn ex05_struct_init() {
     assert_fmt(
         "Point p<-new Point{x<-10,y<-20}",
-        "Point p <- new Point { x <- 10, y <- 20 }",
+        "\
+Point p <- new Point {
+    x <- 10,
+    y <- 20
+}",
     );
 }
 
@@ -357,7 +361,11 @@ loop {
 fn nested_struct_init() {
     assert_fmt(
         "Point p<-new Point{x<-10,y<-20}",
-        "Point p <- new Point { x <- 10, y <- 20 }",
+        "\
+Point p <- new Point {
+    x <- 10,
+    y <- 20
+}",
     );
 }
 
@@ -410,7 +418,6 @@ fn showcase_if_conditionals() -> char {
     } else {
         -> '🤥'
     }
-    // Keep explicit final return.
     -> ' '
 }
 ";
@@ -538,7 +545,7 @@ fn main() {
 fn blank_line_between_struct_and_fn_with_methods() {
     // Reported struct-to-fn spacing case.
     assert_fmt(
-        "struct Point {\n    s32 x\n    s32 y\n\n    pub fn get_x() -> s32 {\n        -> self.x\n    }\n}\nfn main() {\n    Point point <- new Point { x <- 10, y <- 20 }\n}",
+        "struct Point {\n    s32 x\n    s32 y\n\n    pub fn get_x() -> s32 {\n        -> self.x\n    }\n}\nfn main() {\n    Point point <- new Point {\n        x <- 10,\n        y <- 20\n    }\n}",
         "\
 struct Point {
     s32 x
@@ -550,7 +557,10 @@ struct Point {
 }
 
 fn main() {
-    Point point <- new Point { x <- 10, y <- 20 }
+    Point point <- new Point {
+        x <- 10,
+        y <- 20
+    }
 }",
     );
 }
@@ -758,6 +768,33 @@ fn main() {
     );
 }
 
+#[test]
+fn comment_after_open_brace_moves_into_body() {
+    assert_fmt(
+        "fn main(){// note\n    s32 x<-1\n}",
+        "\
+fn main() {
+    // note
+    s32 x <- 1
+}",
+    );
+}
+
+#[test]
+fn comment_only_if_body_stays_open() {
+    assert_fmt(
+        "fn main(){if(num<10){// less than
+ }
+ }",
+        "\
+fn main() {
+    if (num < 10) {
+        // less than
+    }
+}",
+    );
+}
+
 // User-provided formatting examples.
 
 #[test]
@@ -824,7 +861,8 @@ fn user_example_max_with_comments() {
     assert_fmt(
         "fn max(s32 a, s32 b) -> s32 {//incline comments are allowed\n    if (a > b) {\n    //this comment is perfectly fine\n        -> a\n    } else {\n    \n    \n    \n    //since the surrounding empty line are more than 1, they need to be reduced to only one\n    \n    \n    \n        -> b\n    }\n}",
         "\
-fn max(s32 a, s32 b) -> s32 { //incline comments are allowed
+fn max(s32 a, s32 b) -> s32 {
+    //incline comments are allowed
     if (a > b) {
         //this comment is perfectly fine
         -> a
@@ -840,6 +878,33 @@ fn max(s32 a, s32 b) -> s32 { //incline comments are allowed
 #[test]
 fn import_string_with_alias() {
     assert_fmt("import \"./utils\" as u", "import \"./utils\" as u");
+}
+
+#[test]
+fn import_string_joined() {
+    assert_fmt(
+        "import\n\"./utils\"\n as\n u",
+        "import \"./utils\" as u",
+    );
+}
+
+#[test]
+fn import_string_with_comment_dropped() {
+    assert_fmt(
+        "import\n// note\n\"./utils\"",
+        "import \"./utils\"",
+    );
+}
+
+#[test]
+fn member_access_joined() {
+    assert_fmt(
+        "fn main() {\n    s32 x <- point\n    .\n    x\n}",
+        "\
+fn main() {
+    s32 x <- point.x
+}",
+    );
 }
 
 #[test]
@@ -924,7 +989,9 @@ fn generic_type_var_declaration_same_line() {
         "fn main() {\n    Wrapper[\n    s32\n    ]\n    w <- new Wrapper[s32] { item <- 42 }\n}",
         "\
 fn main() {
-    Wrapper[s32] w <- new Wrapper[s32] { item <- 42 }
+    Wrapper[s32] w <- new Wrapper[s32] {
+        item <- 42
+    }
 }",
     );
 }
@@ -1082,10 +1149,14 @@ enum Option[T] {
 
 #[test]
 fn struct_init_inline_preserved() {
-    // User wrote struct init inline (no newlines inside `{}`) — keep it inline.
+    // Struct init is always expanded.
     assert_fmt(
         "Point p <- new Point { x <- 1, y <- 2 }",
-        "Point p <- new Point { x <- 1, y <- 2 }",
+        "\
+Point p <- new Point {
+    x <- 1,
+    y <- 2
+}",
     );
 }
 
@@ -1118,7 +1189,9 @@ enum Option[T] {
 }
 
 fn main() {
-    Box[Option[s32]] nested <- new Box[Option[s32]] { value <- Option[s32]::Some(10) }
+    Box[Option[s32]] nested <- new Box[Option[s32]] {
+        value <- Option[s32]::Some(10)
+    }
     Option[Box[f64]] opt_box <- Option[Box[f64]]::Some(new Box[f64] {
         value <- 5.5
     })
@@ -1139,7 +1212,6 @@ fn comment_terminates_line_before_return_and_close() {
     } else {
         -> '🤥'
     }
-    // We need to have a return at the end
     -> ' '
 }",
     );
@@ -1148,8 +1220,8 @@ fn comment_terminates_line_before_return_and_close() {
 #[test]
 fn comment_between_close_paren_and_open_scope() {
     // A comment between `)` and `{` is dropped because they must be on
-    // the same output line.  A comment immediately after a function's `{`
-    // stays inline (same as user_example_max_with_comments).
+    // the same output line. A comment immediately after a function's `{`
+    // moves into the body.
     assert_fmt(
         "fn is_even(s32 n) -> bool {//Test1
     if(n % 2 == 0)//Test2
@@ -1158,11 +1230,27 @@ fn comment_between_close_paren_and_open_scope() {
     }
     -> false
 }",
-        "fn is_even(s32 n) -> bool { //Test1
+        "\
+fn is_even(s32 n) -> bool {
+    //Test1
     if (n % 2 == 0) {
         -> true
     }
     -> false
+}",
+    );
+}
+
+#[test]
+fn comment_between_close_scope_and_return_dropped() {
+    assert_fmt(
+        "fn main() {\n    if (x) {\n        -> 1\n    } // note\n    -> 2\n}",
+        "\
+fn main() {
+    if (x) {
+        -> 1
+    }
+    -> 2
 }",
     );
 }
@@ -1210,7 +1298,7 @@ fn loop_on_new_line_after_statement() {
 #[test]
 fn comment_placement_comprehensive() {
     // Comments that sit between tokens that must be on the same output line
-    // are dropped. Comments at natural line-ending positions are kept inline.
+    // are dropped. Comments after `{` move into the body.
     assert_fmt(
         "fn //Test1
 max // Test2
@@ -1232,10 +1320,9 @@ s32 //Test5
         b //Test18
     } //Test19
 } //Test20",
-        "fn max(s32 a, s32 b) -> s32 { // Test6
-    if (a > b) { //Test11
+        "fn max(s32 a, s32 b) -> s32 {\n    // Test6\n    if (a > b) {\n        //Test11
         -> a //Test13
-    } else { //Test16
+    } else {\n        //Test16
         -> b //Test18
     } //Test19
 } //Test20",

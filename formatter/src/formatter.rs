@@ -104,8 +104,6 @@ impl Formatter {
             return;
         }
 
-        self.just_opened_scope = false;
-
         // Drop comments that would break a line where tokens must be joined.
         // This must happen before reset of suppress_newlines so that
         // suppress_newlines set by handle_close_scope survives through
@@ -113,6 +111,8 @@ impl Formatter {
         if matches!(curr, TokenType::Comment(_)) && self.should_drop_comment(tokens, index) {
             return;
         }
+
+        self.just_opened_scope = false;
 
         self.suppress_newlines = false;
 
@@ -140,7 +140,9 @@ impl Formatter {
             }
             TokenType::ArgumentSeparator => self.handle_argument_separator(tokens, index),
             TokenType::Subtraction => self.handle_subtraction(),
-            TokenType::Comment(_) => self.handle_comment(&curr),
+            TokenType::Comment(_) => {
+                self.handle_comment(&curr);
+            }
             other => {
                 if self.space_before(other) {
                     self.emit_space();
@@ -323,6 +325,11 @@ impl Formatter {
                 // Use next_significant to see past comments that will be dropped.
                 if let Some(TokenType::Else) = self.next_significant(tokens, index) {
                     self.suppress_newlines = true;
+                } else if matches!(self.next_significant(tokens, index), Some(TokenType::Return))
+                    && matches!(self.prev_non_separator_kind, Some(TokenType::CloseParen))
+                {
+                    // `fn ... ) -> T` must stay on one line.
+                    self.suppress_newlines = true;
                 } else if matches!(self.next_significant(tokens, index), Some(TokenType::Return)) {
                     // `-> value` follows `}` — next line, no blank lines between.
                     self.ensure_newline();
@@ -342,19 +349,14 @@ impl Formatter {
         let scope_kind = self.next_scope.clone();
         self.next_scope = ScopeKind::Block;
 
+        let next_token = self.next_non_separator(tokens, index);
+        let has_inline_comment = matches!(next_token, Some(TokenType::Comment(_)));
+        let has_inline_close = matches!(next_token, Some(TokenType::CloseScope));
+
         if scope_kind == ScopeKind::StructInit {
             // Pull the `{` back onto the previous line if it was separated by newlines.
             if self.at_line_start {
                 self.pull_back_to_previous_line();
-            }
-            // Preserve the user's choice: if the original input had no newlines
-            // inside the `{…}`, keep the struct init inline.  If there were
-            // newlines, use the expanded (indented) format.
-            if !self.has_separators_in_group(tokens, index) {
-                self.emit_space();
-                self.emit_token("{");
-                self.scope_stack.push(ScopeKind::StructInit);
-                return;
             }
             self.emit_space();
             self.emit_token("{");
@@ -377,8 +379,10 @@ impl Formatter {
         }
         self.emit_space();
 
-        // Empty block: emit `{}` inline only for struct init or loop header.
-        if matches!(self.next_significant(tokens, index), Some(TokenType::CloseScope)) {
+        // Empty block: emit `{}` inline only when the block is truly empty.
+        // Comments are significant enough to keep the block open, matching
+        // rustfmt/gofmt behavior for comment-only blocks.
+        if matches!(self.next_non_separator(tokens, index), Some(TokenType::CloseScope)) {
             if self.current_scope_allows_empty_inline(tokens, index) {
                 self.emit_token("{");
                 self.emit_token("}");
@@ -395,7 +399,8 @@ impl Formatter {
         self.emit_token("{");
         self.indent_level += 1;
         self.scope_stack.push(scope_kind);
-        if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
+        if has_inline_comment && !has_inline_close {
+            self.ensure_newline();
             self.just_opened_scope = true;
             return;
         }
@@ -493,10 +498,18 @@ impl Formatter {
 
         let prev = self.prev_non_separator_kind.as_ref();
         let next = self.next_significant(tokens, index);
+        let next_immediate = self.next_immediate(tokens, index);
 
         // Between `}` and `else` — must stay on one line (`} else {`).
         if matches!(prev, Some(TokenType::CloseScope))
             && matches!(next, Some(TokenType::Else))
+        {
+            return true;
+        }
+
+        // Between `}` and a following `->` return — drop comment.
+        if matches!(prev, Some(TokenType::CloseScope))
+            && matches!(next, Some(TokenType::Return))
         {
             return true;
         }
@@ -517,6 +530,21 @@ impl Formatter {
 
         // Any token pair that `should_join_tokens` would force onto one line.
         if Self::should_join_tokens(prev, next, self.prev_prev_non_separator_kind.as_ref()) {
+            return true;
+        }
+
+        // After `import`, keep an inline comment (next token on the line).
+        if matches!(prev, Some(TokenType::Import))
+            && matches!(next_immediate, Some(TokenType::Comment(_)))
+        {
+            return false;
+        }
+
+        // After `}`: drop inline comments when a return follows later.
+        if matches!(prev, Some(TokenType::CloseScope))
+            && matches!(next, Some(TokenType::Return))
+            && matches!(next_immediate, Some(TokenType::Comment(_)))
+        {
             return true;
         }
 
@@ -570,6 +598,24 @@ impl Formatter {
             Some(TokenType::Function | TokenType::Struct | TokenType::Enum)
         ) && matches!(next, Some(TokenType::Identifier(_)))
         {
+            return true;
+        }
+
+        // Join `import` with the path or string literal.
+        if matches!(prev, Some(TokenType::Import))
+            && matches!(next, Some(TokenType::Identifier(_) | TokenType::String(_)))
+        {
+            return true;
+        }
+
+        // Join `import "path" as name` pieces.
+        if matches!(prev, Some(TokenType::String(_)))
+            && matches!(prev_prev, Some(TokenType::Import))
+        {
+            return true;
+        }
+
+        if matches!(prev, Some(TokenType::String(_))) && matches!(next, Some(TokenType::As)) {
             return true;
         }
 
@@ -684,6 +730,9 @@ impl Formatter {
 
         // Join new expressions or calls split across lines.
         if matches!(prev, Some(TokenType::New | TokenType::Dot | TokenType::PathSeparator)) {
+            return true;
+        }
+        if matches!(next, Some(TokenType::Dot | TokenType::PathSeparator)) {
             return true;
         }
         if matches!(prev, Some(TokenType::Identifier(_))) && matches!(next, Some(TokenType::OpenParen)) {
@@ -930,10 +979,21 @@ impl Formatter {
         if self.generic_depth > 0 || self.paren_depth > 0 {
             return false;
         }
+        if matches!(self.current_scope(), Some(ScopeKind::StructInit)) {
+            return true;
+        }
         matches!(
             self.current_scope(),
             Some(ScopeKind::EnumDef) | Some(ScopeKind::StructInitExpanded)
         )
+    }
+
+    // Find the next non-newline token (comments included).
+    fn next_non_separator<'a>(&self, tokens: &'a [Token], index: usize) -> Option<&'a TokenType> {
+        tokens[index + 1..]
+            .iter()
+            .map(|t| &t.kind)
+            .find(|k| !matches!(k, TokenType::StatementSeparator))
     }
 
     // Find the next non-newline, non-comment token.
@@ -952,38 +1012,6 @@ impl Formatter {
         } else {
             Some(next)
         }
-    }
-
-    // Returns true if any StatementSeparator token appears inside the bracket
-    // group that starts at `open_index` (scanning only at the outermost depth).
-    fn has_separators_in_group(&self, tokens: &[Token], open_index: usize) -> bool {
-        let open = &tokens[open_index].kind;
-        let is_close = |k: &TokenType| match open {
-            TokenType::OpenScope => matches!(k, TokenType::CloseScope),
-            TokenType::OpenParen => matches!(k, TokenType::CloseParen),
-            TokenType::OpenGeneric => matches!(k, TokenType::CloseGeneric),
-            _ => false,
-        };
-        let is_open =
-            |k: &TokenType| std::mem::discriminant(k) == std::mem::discriminant(open);
-
-        let mut depth: usize = 1;
-        for t in &tokens[open_index + 1..] {
-            let k = &t.kind;
-            if is_open(k) {
-                depth += 1;
-            }
-            if is_close(k) {
-                depth -= 1;
-                if depth == 0 {
-                    break;
-                }
-            }
-            if matches!(k, TokenType::StatementSeparator) {
-                return true;
-            }
-        }
-        false
     }
 
     // Estimate line length from token index onward.
