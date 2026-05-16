@@ -5,7 +5,7 @@ mod statement;
 use crate::context::{FunctionContext, StatementContext};
 use crate::symbols::{EnumInformation, StructInformation, VariableTable};
 use crate::{Codegen, context::LLVMContext};
-use ast::data_type::Typed;
+use ast::data_type::{DataType, Typed};
 use ast::expression::FunctionCall;
 use ast::id::Id;
 use ast::symbol::SymbolWithTypeParameter;
@@ -16,6 +16,7 @@ use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::file_traversal::FileTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
+use ast::type_parameter::TypedTypeParameter;
 use ast::{AST, TypedAST};
 use inkwell::types::BasicType;
 use inkwell::values::CallSiteValue;
@@ -274,7 +275,9 @@ impl<'ctx> Codegen<'ctx> {
                         .map(|field| llvm_context.lower_type(field.inner().data_type())),
                 )
                 .collect::<Vec<_>>();
-            struct_information.lowered().set_body(&fields_lowered, false);
+            struct_information
+                .lowered()
+                .set_body(&fields_lowered, false);
             for field in fields {
                 struct_information.add_field(field.inner_owned());
             }
@@ -320,11 +323,17 @@ impl<'ctx> Codegen<'ctx> {
                 match func.inner().function_type() {
                     FunctionType::Regular(_) => mangle(symbol.name(), symbol.id()),
                     FunctionType::External => {
-                        let sizes = symbol
-                            .params()
+                        let containing_struct = func.containing_struct();
+                        let data_types = containing_struct
                             .iter()
-                            .map(|param| param.data_type().size_bytes())
-                            .map(|param| param.to_string())
+                            .flat_map(|st| st.type_parameters().iter())
+                            .chain(symbol.type_parameters().iter())
+                            .map(TypedTypeParameter::data_type);
+                        let sizes = data_types
+                            .map(|param| match param {
+                                DataType::Struct(_) | DataType::Enum(_) => "prt".to_string(),
+                                _ => param.size_bytes().to_string(),
+                            })
                             .collect::<Vec<_>>()
                             .join("_");
                         if sizes.is_empty() {
@@ -339,8 +348,9 @@ impl<'ctx> Codegen<'ctx> {
             // as the mangling for them does not always produce unique names
             // In this case, we just take the already existing signature as we never implement them
             // and won't get conflicts there
-            let lowered = module.get_function(&name).unwrap_or_else(||
-                module.add_function(&name, lowered_type, None));
+            let lowered = module
+                .get_function(&name)
+                .unwrap_or_else(|| module.add_function(&name, lowered_type, None));
             debug_assert!(
                 llvm_context
                     .type_registry_mut()

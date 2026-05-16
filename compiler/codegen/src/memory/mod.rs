@@ -438,11 +438,6 @@ impl<'ctx> Codegen<'ctx> {
             to_drop,
             lowered.lowered().size_of().expect("Should be sized"),
         );
-        self.dealloc(
-            llvm_context,
-            to_drop,
-            lowered.lowered().size_of().expect("Should be sized"),
-        );
         llvm_context.builder().build_return(None).unwrap();
     }
 
