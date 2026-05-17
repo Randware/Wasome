@@ -91,6 +91,11 @@ jobs:
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
 
+      - name: Install wasm32-wasmp1 target
+        id: stdlib-target
+        shell: bash
+        run: |
+          rustup target add wasm32-wasip1
       - name: Run Tests
         id: test
         shell: bash
@@ -116,6 +121,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install wasm32-wasmp1 target
+        id: stdlib-target-freebsd
+        shell: bash
+        run: |
+          rustup target add wasm32-wasip1
       - name: Test on FreeBSD
         id: freebsd
         uses: vmactions/freebsd-vm@v1
