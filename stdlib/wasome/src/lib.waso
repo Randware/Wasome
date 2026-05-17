@@ -39,6 +39,10 @@ pub struct Vec[T] {
     }
 
     fn drop() {
+        // Drop the contents first to prevent memory leaks
+        loop (self.cnt != 0 as u32) {
+            (self).pop()
+        }
         vec_drop(self)
     }
 }
