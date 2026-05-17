@@ -80,7 +80,10 @@ fn panic_internal(msg: Option<&str>) -> ! {
     }
     print("\n");
     exit(1);
-    print("WARNING: Exit did return. Entering infinite loop as fallback");
+    #[cfg(target_arch = "wasm32")]
+    core::arch::wasm32::unreachable();
+    // Infinite loop as final fallback if we for some reason don't compile to wasm32
+    #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::empty_loop)]
     loop {}
 }
