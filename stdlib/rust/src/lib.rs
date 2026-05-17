@@ -90,8 +90,99 @@ fn panic_internal(msg: Option<&str>) -> ! {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use alloc::boxed::Box;
+
     #[test]
     fn test() {
         assert_eq!(1, 1);
+    }
+
+    #[test]
+    fn test_wasome_composite_initial_refc() {
+        let mut refc = 42u32;
+        let composite = WasomeComposite {
+            refc: &mut refc as *mut u32,
+        };
+        assert_eq!(unsafe { *composite.refc }, 42);
+    }
+
+    #[test]
+    fn test_wasome_composite_inc_rc() {
+        let mut refc = 1u32;
+        let composite = WasomeComposite {
+            refc: &mut refc as *mut u32,
+        };
+        let ptr = &composite as *const WasomeComposite as *mut WasomeComposite;
+        unsafe { WasomeComposite::inc_rc(ptr) };
+        assert_eq!(refc, 2);
+    }
+
+    #[test]
+    fn test_wasome_composite_inc_rc_multiple() {
+        let mut refc = 0u32;
+        let composite = WasomeComposite {
+            refc: &mut refc as *mut u32,
+        };
+        let ptr = &composite as *const WasomeComposite as *mut WasomeComposite;
+        unsafe { WasomeComposite::inc_rc(ptr) };
+        unsafe { WasomeComposite::inc_rc(ptr) };
+        unsafe { WasomeComposite::inc_rc(ptr) };
+        assert_eq!(refc, 3);
+    }
+
+    #[test]
+    fn test_wasome_composite_inc_rc_from_zero() {
+        let mut refc = 0u32;
+        let composite = WasomeComposite {
+            refc: &mut refc as *mut u32,
+        };
+        let ptr = &composite as *const WasomeComposite as *mut WasomeComposite;
+        unsafe { WasomeComposite::inc_rc(ptr) };
+        assert_eq!(refc, 1);
+    }
+
+    #[test]
+    fn test_wasome_composite_inc_rc_many() {
+        let mut refc = 100u32;
+        let composite = WasomeComposite {
+            refc: &mut refc as *mut u32,
+        };
+        let ptr = &composite as *const WasomeComposite as *mut WasomeComposite;
+        for _ in 0..50 {
+            unsafe { WasomeComposite::inc_rc(ptr) };
+        }
+        assert_eq!(refc, 150);
+    }
+
+    #[test]
+    fn test_wasome_composite_with_boxed() {
+        let mut refc = 1u32;
+        let boxed = Box::new(WasomeComposite {
+            refc: &mut refc as *mut u32,
+        });
+        let ptr = Box::into_raw(boxed);
+        unsafe { WasomeComposite::inc_rc(ptr) };
+        assert_eq!(refc, 2);
+        unsafe { drop(Box::from_raw(ptr)) };
+    }
+
+    #[test]
+    fn test_wasome_composite_inc_rc_via_ptr() {
+        let mut refc = 1u32;
+        let mut composite = WasomeComposite {
+            refc: &mut refc as *mut u32,
+        };
+        let ptr = &mut composite;
+        unsafe { WasomeComposite::inc_rc(ptr) };
+        assert_eq!(refc, 2);
+    }
+
+    #[test]
+    fn test_wasome_composite_repr_c_layout() {
+        assert_eq!(
+            core::mem::size_of::<WasomeComposite>(),
+            core::mem::size_of::<*mut u32>()
+        );
     }
 }
