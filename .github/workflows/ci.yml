@@ -98,6 +98,7 @@ jobs:
           cargo test --workspace --manifest-path compiler/Cargo.toml --release -- --test-threads=8
           cargo test --workspace --manifest-path cli/Cargo.toml --release -- --test-threads=8
           cargo test --workspace --manifest-path formatter/Cargo.toml --release -- --test-threads=8
+          cargo test --workspace --manifest-path stdlib/rust/Cargo.toml --release -- --test-threads=8
 
       - name: Save Result
         if: always()
@@ -126,6 +127,7 @@ jobs:
             cargo test --workspace --manifest-path compiler/Cargo.toml --jobs 2
             cargo test --workspace --manifest-path cli/Cargo.toml --jobs 2
             cargo test --workspace --manifest-path formatter/Cargo.toml --jobs 2
+            cargo test --workspace --manifest-path stdlib/rust/Cargo.toml --jobs 2
 
       - name: Save Result
         if: always()
