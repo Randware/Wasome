@@ -113,6 +113,34 @@ fn <function-name>(<parameter-list>) -> <return-type> <code block>
 
 A function body is a code block. Parameters are bound in the function's code block scope.
 
+Functions can also be extern. This means that there is no implementation in wasome.
+
+Extern function syntax:
+
+```
+extern fn <function-name>(<parameter-list>) -> <return-type>
+```
+
+In the compiled object file, the function will have the same name but with suffixes for type parameters.
+
+These suffixes are the size of the parameter or `ptr` for pointers:
+- 1 - `u8`, `s8`
+- 2 - `u16`, `s16`
+- 4 - `u32`, `s32`, `f32`, `char`
+- 8 - `u64`, `s64`, `f64`
+- ptr - enums and structs
+
+The suffixes are combined with underscores. 
+
+Examples:
+```
+function_1
+function_4_1
+function // No type parameters
+function_8_2_2
+function_ptr
+```
+
 Function call syntax:
 
 ```
@@ -207,6 +235,11 @@ Semantics:
 - A `struct` type is its own type (named by the struct).
 - Struct instances are passed by reference. Mutating a struct through any reference affects all references.
 
+Structs can have a predrop method with the same name.
+
+It is executed right before a struct is dropped.
+
+Should it increase the reference count back up, the dropping is canceled.
 ---
 
 ### Enums
