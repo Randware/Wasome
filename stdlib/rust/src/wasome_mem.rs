@@ -7,9 +7,11 @@ use core::alloc::Layout;
 /// # Safety
 ///
 /// This is UB if `to_alloc == 0`
+///     - In debug mode, this panics
 #[cfg(not(test))]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn malloc(to_alloc: usize) -> *mut u8 {
+    debug_assert_ne!(to_alloc, 0);
     let alloc = unsafe {
         alloc(Layout::from_size_align(to_alloc, 8).unwrap_or_else(|_| {
             panic!(
