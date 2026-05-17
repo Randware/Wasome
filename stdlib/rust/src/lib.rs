@@ -18,8 +18,7 @@ struct Iovec {
     len: usize,
 }
 #[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
+static A: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
 /// # Safety
 ///
 /// The passed char must be a valid char

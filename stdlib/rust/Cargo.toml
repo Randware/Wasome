@@ -9,8 +9,7 @@ edition = "2024"
 crate-type = ["staticlib"]
 
 [dependencies]
-# Use wasi crate instead of std for I/O
-wee_alloc = "0.4.5"
+dlmalloc = { version = "0.2.14", features = ["global"] }
 
 [profile.release]
 panic = "abort"
