@@ -15,7 +15,11 @@
       };
       # auto-updating latest stable rust w/ lsp support
       rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-        extensions = [ "rust-src" "rust-analyzer" ];
+        extensions = [ 
+        "rust-src"
+        "rust-analyzer"
+       # "llvm-tools-preview"
+        ];
       };
       # llvm 21 — host (x86_64) build, llvm-config is executable on the runner
       llvmPkg = pkgs.llvmPackages_21;
@@ -95,6 +99,7 @@
           pkg-config
           cmake
           rustToolchain
+          llvmPkg.lld
         ];
         buildInputs = with pkgs; [
           stdenv.cc.cc.lib
