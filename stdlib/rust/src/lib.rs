@@ -1,5 +1,4 @@
 #![no_std]
-#![no_main]
 
 extern crate alloc;
 mod wasome_mem;
@@ -85,4 +84,12 @@ fn panic_internal(msg: Option<&str>) -> ! {
     print("WARNING: Exit did return. Entering infinite loop as fallback");
     #[allow(clippy::empty_loop)]
     loop {}
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test() {
+        assert_eq!(1, 1);
+    }
 }

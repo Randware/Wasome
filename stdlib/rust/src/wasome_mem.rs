@@ -1,9 +1,13 @@
 use alloc::alloc::{alloc, dealloc};
 use core::alloc::Layout;
 
+// Free and malloc are also functions in libc.
+// So we can't have them in the tests (as they require libc)
+
 /// # Safety
 ///
 /// This is UB if `to_alloc == 0`
+#[cfg(not(test))]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn malloc(to_alloc: usize) -> *mut u8 {
     let alloc = unsafe {
@@ -25,6 +29,7 @@ pub unsafe extern "C" fn malloc(to_alloc: usize) -> *mut u8 {
 /// This is UB if either:
 /// 1. `to_free` was not allocated by [`malloc`]
 /// 2. `size` is different than the one passed to `malloc`
+#[cfg(not(test))]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn free(to_free: *mut u8, size: usize) {
     unsafe { dealloc(to_free, Layout::from_size_align(size, 8).unwrap()) }
