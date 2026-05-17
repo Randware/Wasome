@@ -1,7 +1,6 @@
 use lexer::TokenType;
 
 // Detects primitive types and uppercase user types.
-#[allow(dead_code)]
 pub fn is_datatype(token: &TokenType) -> bool {
     match token {
         TokenType::S8

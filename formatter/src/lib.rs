@@ -5,10 +5,10 @@ mod formatter;
 use formatter::Formatter;
 
 // Entry point for formatting a source string.
-pub fn format(source: String) -> String {
-    let tokens: Vec<_> = lexer::lex(&source).filter_map(|r| r.ok()).collect();
+pub fn format(source: String) -> Result<String, lexer::tokens::LexError> {
+    let tokens = lexer::lex(&source).collect::<Result<Vec<_>, _>>()?;
 
-    Formatter::new().format(&tokens)
+    Ok(Formatter::new().format(&tokens))
 }
 
 #[cfg(test)]

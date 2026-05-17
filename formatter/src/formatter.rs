@@ -9,55 +9,84 @@ enum ScopeKind {
     StructDef,
     EnumDef,
     StructInit,
-    StructInitExpanded,
 }
 
-pub(crate) struct Formatter {
+#[derive(Debug, Clone, PartialEq)]
+struct OutputState {
     output: String,
-    indent_level: usize,
     current_line_len: usize,
     pending_empty_lines: usize,
     at_line_start: bool,
+    has_content: bool,
+    pending_inline_comment: Option<PendingComment>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct PendingComment {
+    text: String,
+    needs_space: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ScopeState {
+    indent_level: usize,
     just_opened_scope: bool,
     suppress_newlines: bool,
+    scope_stack: Vec<ScopeKind>,
+    next_scope: ScopeKind,
+    skip_next_close_scope: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct TokenState {
     prev_kind: Option<TokenType>,
     prev_non_separator_kind: Option<TokenType>,
     prev_prev_non_separator_kind: Option<TokenType>,
     prev_was_unary_minus: bool,
-    scope_stack: Vec<ScopeKind>,
-    next_scope: ScopeKind,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct DepthState {
     paren_depth: usize,
     generic_depth: usize,
-    paren_wrap_mode: bool,
-    paren_wrap_depth: usize,
-    // Tracks whether any non-separator token has been emitted.
-    has_content: bool,
-    // Skips the next CloseScope because it was emitted inline.
-    skip_next_close_scope: bool,
+}
+
+pub(crate) struct Formatter {
+    output: OutputState,
+    scope: ScopeState,
+    tokens: TokenState,
+    depth: DepthState,
 }
 
 impl Formatter {
     pub(crate) fn new() -> Self {
         Self {
-            output: String::new(),
-            indent_level: 0,
-            current_line_len: 0,
-            pending_empty_lines: 0,
-            at_line_start: true,
-            just_opened_scope: false,
-            suppress_newlines: false,
-            prev_kind: None,
-            prev_non_separator_kind: None,
-            prev_prev_non_separator_kind: None,
-            prev_was_unary_minus: false,
-            scope_stack: Vec::new(),
-            next_scope: ScopeKind::Block,
-            paren_depth: 0,
-            generic_depth: 0,
-            paren_wrap_mode: false,
-            paren_wrap_depth: 0,
-            has_content: false,
-            skip_next_close_scope: false,
+            output: OutputState {
+                output: String::new(),
+                current_line_len: 0,
+                pending_empty_lines: 0,
+                at_line_start: true,
+                has_content: false,
+                pending_inline_comment: None,
+            },
+            scope: ScopeState {
+                indent_level: 0,
+                just_opened_scope: false,
+                suppress_newlines: false,
+                scope_stack: Vec::new(),
+                next_scope: ScopeKind::Block,
+                skip_next_close_scope: false,
+            },
+            tokens: TokenState {
+                prev_kind: None,
+                prev_non_separator_kind: None,
+                prev_prev_non_separator_kind: None,
+                prev_was_unary_minus: false,
+            },
+            depth: DepthState {
+                paren_depth: 0,
+                generic_depth: 0,
+            },
         }
     }
 
@@ -74,31 +103,30 @@ impl Formatter {
         if matches!(curr, TokenType::StatementSeparator) {
             // Collapses newlines inside parens or generics to keep tokens together.
             // Note: prev_kind remains unchanged to preserve spacing rules.
-            if self.paren_depth > 0 && !self.paren_wrap_mode {
+            if self.depth.paren_depth > 0 {
                 return;
             }
-            if self.generic_depth > 0 {
+            if self.depth.generic_depth > 0 {
                 return;
             }
-            if self.just_opened_scope {
+            if matches!(self.current_scope(), Some(ScopeKind::StructInit)) {
+                return;
+            }
+            if self.scope.just_opened_scope {
                 // Consumes the first newline after `{` without creating a blank line.
-                if self.at_line_start {
-                    self.just_opened_scope = false;
+                let should_skip = self.output.at_line_start
+                    || matches!(self.current_scope(), Some(ScopeKind::StructDef | ScopeKind::EnumDef));
+                self.scope.just_opened_scope = false;
+                if should_skip {
                     return;
                 }
-                if matches!(self.current_scope(), Some(ScopeKind::StructDef | ScopeKind::EnumDef))
-                {
-                    self.just_opened_scope = false;
-                    return;
-                }
-                self.just_opened_scope = false;
             }
-            if !self.suppress_newlines {
+            if !self.scope.suppress_newlines {
                 if self.should_collapse_separator(tokens, index) {
                     return;
                 }
                 self.emit_newline();
-                self.prev_kind = Some(TokenType::StatementSeparator);
+                self.tokens.prev_kind = Some(TokenType::StatementSeparator);
             }
             return;
         }
@@ -109,36 +137,63 @@ impl Formatter {
             return;
         }
 
-        self.just_opened_scope = false;
+        self.scope.just_opened_scope = false;
+        self.scope.suppress_newlines = false;
 
-        self.suppress_newlines = false;
+        self.prepare_layout(&curr, tokens, index);
+        self.emit_current_token(&curr, tokens, index);
+        self.update_scope_context(&curr);
+        self.update_token_state(&curr);
+    }
 
+    fn prepare_layout(&mut self, curr: &TokenType, tokens: &[Token], index: usize) {
         if matches!(self.current_scope(), Some(ScopeKind::StructDef)) {
-            self.ensure_newline_before_struct_field(&curr, tokens, index);
-            self.ensure_blank_line_before_method(&curr, tokens, index);
+            self.ensure_newline_before_struct_field(curr, tokens, index);
+            self.ensure_blank_line_before_method(curr, tokens, index);
         }
         if matches!(self.current_scope(), Some(ScopeKind::EnumDef)) {
-            self.ensure_newline_before_enum_variant(&curr);
+            self.ensure_newline_before_enum_variant(curr);
         }
-        self.ensure_newline_before_control_flow_statement(&curr);
+        self.ensure_newline_before_control_flow_statement(curr);
+        self.ensure_newline_before_return_after_close_scope(curr);
+    }
 
-        match &curr {
+    fn ensure_newline_before_return_after_close_scope(&mut self, curr: &TokenType) {
+        if !matches!(curr, TokenType::Return) {
+            return;
+        }
+        if matches!(self.output.pending_inline_comment, Some(_)) {
+            return;
+        }
+        if matches!(self.tokens.prev_non_separator_kind, Some(TokenType::CloseScope))
+            && !self.output.at_line_start
+        {
+            // If the last token emitted was a comment, we shouldn't emit an extra newline.
+            // But we don't have a reliable way to check that here, and if `at_line_start` is true we're safe.
+            self.ensure_newline();
+        }
+    }
+
+    fn emit_current_token(&mut self, curr: &TokenType, tokens: &[Token], index: usize) {
+        match curr {
             TokenType::CloseScope => self.handle_close_scope(tokens, index),
             TokenType::OpenScope => self.handle_open_scope(tokens, index),
-            TokenType::OpenParen => self.handle_open_paren(tokens, index),
+            TokenType::OpenParen => self.handle_open_paren(),
             TokenType::CloseParen => self.handle_close_paren(),
             TokenType::OpenGeneric => {
-                self.emit_token("[");
-                self.generic_depth += 1;
+                let text = TokenType::OpenGeneric.as_text();
+                self.emit_token(&text);
+                self.depth.generic_depth += 1;
             }
             TokenType::CloseGeneric => {
-                self.emit_token("]");
-                self.generic_depth = self.generic_depth.saturating_sub(1);
+                let text = TokenType::CloseGeneric.as_text();
+                self.emit_token(&text);
+                self.depth.generic_depth = self.depth.generic_depth.saturating_sub(1);
             }
-            TokenType::ArgumentSeparator => self.handle_argument_separator(tokens, index),
+            TokenType::ArgumentSeparator => self.handle_argument_separator(),
             TokenType::Subtraction => self.handle_subtraction(),
             TokenType::Comment(_) => {
-                self.handle_comment(&curr);
+                self.handle_comment(curr);
             }
             other => {
                 if self.space_before(other) {
@@ -148,83 +203,108 @@ impl Formatter {
                 self.emit_token(&text);
             }
         }
+    }
 
-        self.update_scope_context(&curr);
-        self.prev_kind = Some(curr.clone());
+    fn update_token_state(&mut self, curr: &TokenType) {
+        if matches!(curr, TokenType::StatementSeparator) {
+            self.output.pending_inline_comment = None;
+        }
+        self.tokens.prev_kind = Some(curr.clone());
         if !matches!(curr, TokenType::StatementSeparator) {
-            self.prev_prev_non_separator_kind = self.prev_non_separator_kind.clone();
-            self.prev_non_separator_kind = Some(curr.clone());
+            self.tokens.prev_prev_non_separator_kind = self.tokens.prev_non_separator_kind.clone();
+            self.tokens.prev_non_separator_kind = Some(curr.clone());
         }
         if !matches!(curr, TokenType::Subtraction) {
-            self.prev_was_unary_minus = false;
+            self.tokens.prev_was_unary_minus = false;
         }
     }
 
     fn emit_token(&mut self, text: &str) {
-        if self.at_line_start {
-            let empty = if self.has_content {
-                self.pending_empty_lines.min(MAX_CONSECUTIVE_EMPTY_LINES)
+        self.flush_pending_inline_comment();
+        if self.output.at_line_start {
+            let empty = if self.output.has_content {
+                self.output
+                    .pending_empty_lines
+                    .min(MAX_CONSECUTIVE_EMPTY_LINES)
             } else {
                 0
             };
             for _ in 0..empty {
-                self.output.push('\n');
+                self.output.output.push('\n');
             }
-            self.pending_empty_lines = 0;
+            self.output.pending_empty_lines = 0;
 
-            let indent = INDENT_SIZE * self.indent_level;
+            let indent = INDENT_SIZE * self.scope.indent_level;
             for _ in 0..indent {
-                self.output.push(' ');
+                self.output.output.push(' ');
             }
-            self.current_line_len = indent;
-            self.at_line_start = false;
+            self.output.current_line_len = indent;
+            self.output.at_line_start = false;
         }
-        self.output.push_str(text);
-        self.current_line_len += text.chars().count();
-        self.has_content = true;
+        self.output.output.push_str(text);
+        self.output.current_line_len += text.chars().count();
+        self.output.has_content = true;
     }
 
     fn emit_space(&mut self) {
-        if !self.at_line_start {
-            self.output.push(' ');
-            self.current_line_len += 1;
+        self.flush_pending_inline_comment();
+        if !self.output.at_line_start {
+            self.output.output.push(' ');
+            self.output.current_line_len += 1;
         }
     }
 
     fn emit_newline(&mut self) {
-        if self.at_line_start {
-            self.pending_empty_lines += 1;
+        let had_pending = self.output.pending_inline_comment.is_some();
+        self.flush_pending_inline_comment();
+        if self.output.at_line_start {
+            if !had_pending {
+                self.output.pending_empty_lines += 1;
+            }
         } else {
-            self.output.push('\n');
-            self.at_line_start = true;
-            self.current_line_len = 0;
+            self.push_newline();
         }
     }
 
     fn ensure_newline(&mut self) {
-        if !self.at_line_start {
-            self.output.push('\n');
-            self.at_line_start = true;
-            self.current_line_len = 0;
+        self.flush_pending_inline_comment();
+        if !self.output.at_line_start {
+            self.push_newline();
         }
+    }
+
+    fn flush_pending_inline_comment(&mut self) {
+        if let Some(comment) = self.output.pending_inline_comment.take() {
+            if comment.needs_space && !self.output.at_line_start {
+                self.output.output.push(' ');
+            }
+            self.output.output.push_str(&comment.text);
+            self.push_newline();
+        }
+    }
+
+    fn push_newline(&mut self) {
+        self.output.output.push('\n');
+        self.output.at_line_start = true;
+        self.output.current_line_len = 0;
     }
 
     // Pulls `{` back onto the previous line.
     fn pull_back_to_previous_line(&mut self) {
-        self.pending_empty_lines = 0;
-        while self.output.ends_with('\n') {
-            self.output.pop();
+        self.output.pending_empty_lines = 0;
+        while self.output.output.ends_with('\n') {
+            self.output.output.pop();
         }
-        self.at_line_start = false;
-        self.current_line_len = match self.output.rfind('\n') {
-            Some(pos) => self.output.len() - pos - 1,
-            None => self.output.len(),
+        self.output.at_line_start = false;
+        self.output.current_line_len = match self.output.output.rfind('\n') {
+            Some(pos) => self.output.output.len() - pos - 1,
+            None => self.output.output.len(),
         };
     }
 
     // Determines whether to print a space before the token.
     fn space_before(&self, curr: &TokenType) -> bool {
-        let prev = match &self.prev_kind {
+        let prev = match &self.tokens.prev_kind {
             Some(p) => p,
             None => return false,
         };
@@ -251,7 +331,7 @@ impl Formatter {
             return false;
         }
 
-        if self.prev_was_unary_minus {
+        if self.tokens.prev_was_unary_minus {
             return false;
         }
 
@@ -295,198 +375,215 @@ impl Formatter {
     }
 
     fn handle_close_scope(&mut self, tokens: &[Token], index: usize) {
-        if self.skip_next_close_scope {
-            self.skip_next_close_scope = false;
+        if self.scope.skip_next_close_scope {
+            self.scope.skip_next_close_scope = false;
             return;
         }
-        let scope = self.scope_stack.pop();
-        match scope.as_ref() {
-            Some(ScopeKind::StructInit) => {
-                self.emit_space();
-                self.emit_token("}");
-            }
-            _ => {
-                if matches!(
-                    scope,
-                    Some(ScopeKind::Block)
-                        | Some(ScopeKind::StructDef)
-                        | Some(ScopeKind::EnumDef)
-                        | Some(ScopeKind::StructInitExpanded)
-                ) {
-                    self.indent_level = self.indent_level.saturating_sub(1);
-                }
-                self.pending_empty_lines = 0;
-                self.ensure_newline();
-                self.emit_token("}");
+        let scope = self.scope.scope_stack.pop();
+        let should_dedent = matches!(
+            scope,
+            Some(ScopeKind::Block) | Some(ScopeKind::StructDef) | Some(ScopeKind::EnumDef)
+        );
+        if should_dedent {
+            self.scope.indent_level = self.scope.indent_level.saturating_sub(1);
+        }
 
-                // Uses next_significant to see past dropped comments.
-                if let Some(TokenType::Else) = self.next_significant(tokens, index) {
-                    self.suppress_newlines = true;
-                } else if matches!(self.next_significant(tokens, index), Some(TokenType::Return))
-                    && matches!(self.prev_non_separator_kind, Some(TokenType::CloseParen))
-                {
-                    // Keeps `fn ... ) -> T` on one line.
-                    self.suppress_newlines = true;
-                } else if matches!(self.next_significant(tokens, index), Some(TokenType::Return)) {
-                    // Keeps `-> value` on the next line without extra blanks.
-                    self.ensure_newline();
-                    self.suppress_newlines = true;
-                } else if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
-                    // Keeps an immediate comment inline with `}`.
-                    self.suppress_newlines = true;
-                } else if self.indent_level == 0 {
-                    self.ensure_newline();
-                    self.pending_empty_lines = self.pending_empty_lines.max(1);
+        let is_struct_init = matches!(scope, Some(ScopeKind::StructInit));
+        if is_struct_init {
+            if self.output.at_line_start {
+                // We just had a newline (likely from a comment). We must NOT emit space.
+                // We just indent.
+                let indent = crate::config::INDENT_SIZE * self.scope.indent_level;
+                for _ in 0..indent {
+                    self.output.output.push(' ');
                 }
+                self.output.current_line_len = indent;
+                self.output.at_line_start = false;
+            } else {
+                self.emit_space();
             }
+            self.emit_token("}");
+            return;
+        }
+
+        self.output.pending_empty_lines = 0;
+        self.ensure_newline();
+        self.emit_token("}");
+
+        // Uses next_significant to see past dropped comments.
+        let next_significant = self.next_significant(tokens, index);
+        if matches!(next_significant, Some(TokenType::Else)) {
+            self.scope.suppress_newlines = true;
+            return;
+        }
+        if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_))) {
+            // Keeps an immediate comment inline with `}`.
+            self.scope.suppress_newlines = true;
+            return;
+        }
+        if matches!(next_significant, Some(TokenType::Return)) {
+            if matches!(self.next_immediate(tokens, index), Some(TokenType::Comment(_)))
+                && matches!(self.tokens.prev_non_separator_kind, Some(TokenType::CloseParen))
+            {
+                self.scope.suppress_newlines = true;
+                return;
+            }
+            // Keeps `-> value` on the next line without extra blanks.
+            self.ensure_newline();
+            self.scope.suppress_newlines = true;
+            return;
+        }
+        if self.scope.indent_level == 0 {
+            self.ensure_newline();
+            self.output.pending_empty_lines = self.output.pending_empty_lines.max(1);
         }
     }
 
     fn handle_open_scope(&mut self, tokens: &[Token], index: usize) {
-        let scope_kind = self.next_scope.clone();
-        self.next_scope = ScopeKind::Block;
+        let scope_kind = self.scope.next_scope.clone();
+        self.scope.next_scope = ScopeKind::Block;
 
         let next_token = self.next_non_separator(tokens, index);
         let has_inline_comment = matches!(next_token, Some(TokenType::Comment(_)));
         let has_inline_close = matches!(next_token, Some(TokenType::CloseScope));
 
         if scope_kind == ScopeKind::StructInit {
-            // Pulls `{` back onto the previous line if separated by newlines.
-            if self.at_line_start {
-                self.pull_back_to_previous_line();
-            }
-            self.emit_space();
-            self.emit_token("{");
-            self.indent_level += 1;
-            self.scope_stack.push(ScopeKind::StructInitExpanded);
-            self.ensure_newline();
-            self.just_opened_scope = true;
+            self.open_struct_init_scope();
             return;
         }
 
-        if self.at_line_start {
+        if self.output.at_line_start {
             // Avoids pulling `{` into a `//` comment line.
-            if !matches!(self.prev_non_separator_kind, Some(TokenType::Comment(_))) {
+            if !matches!(self.tokens.prev_non_separator_kind, Some(TokenType::Comment(_))) {
                 self.pull_back_to_previous_line();
             } else {
                 // Prevents blank lines between the comment and `{`.
-                self.pending_empty_lines = 0;
+                self.output.pending_empty_lines = 0;
             }
         }
         self.emit_space();
 
         // Emits `{}` inline only when the block is truly empty.
         // Note: Comment-only blocks stay expanded.
-        if matches!(self.next_non_separator(tokens, index), Some(TokenType::CloseScope)) {
-            if self.current_scope_allows_empty_inline(tokens, index) {
-                self.emit_token("{");
-                self.emit_token("}");
-                self.skip_next_close_scope = true;
-                // Inserts a blank line after top-level empty items.
-                if self.indent_level == 0 {
-                    self.ensure_newline();
-                    self.pending_empty_lines = self.pending_empty_lines.max(1);
-                }
-                return;
+        if matches!(self.next_non_separator(tokens, index), Some(TokenType::CloseScope))
+            && self.current_scope_allows_empty_inline(tokens, index)
+        {
+            self.emit_token("{");
+            self.emit_token("}");
+            self.scope.skip_next_close_scope = true;
+            // Inserts a blank line after top-level empty items.
+            if self.scope.indent_level == 0 {
+                self.ensure_newline();
+                self.output.pending_empty_lines = self.output.pending_empty_lines.max(1);
             }
+            return;
         }
 
         self.emit_token("{");
-        self.indent_level += 1;
-        self.scope_stack.push(scope_kind);
+        self.scope.indent_level += 1;
+        self.scope.scope_stack.push(scope_kind);
         if has_inline_comment && !has_inline_close {
             self.ensure_newline();
-            self.just_opened_scope = true;
+            self.scope.just_opened_scope = true;
             return;
         }
         self.ensure_newline();
-        self.just_opened_scope = true;
+        self.scope.just_opened_scope = true;
     }
 
-    fn handle_open_paren(&mut self, tokens: &[Token], index: usize) {
+    fn open_struct_init_scope(&mut self) {
+        // Pulls `{` back onto the previous line if separated by newlines.
+        if self.output.at_line_start {
+            self.pull_back_to_previous_line();
+        }
+        self.emit_space();
+        self.emit_token("{");
+        self.scope.scope_stack.push(ScopeKind::StructInit);
+    }
+
+    fn handle_open_paren(&mut self) {
         if self.space_before(&TokenType::OpenParen) {
             self.emit_space();
         }
-        self.paren_depth += 1;
+        self.depth.paren_depth += 1;
         self.emit_token("(");
-
-        if !self.paren_wrap_mode && self.should_wrap_parens(tokens, index) {
-            self.paren_wrap_mode = true;
-            self.paren_wrap_depth = self.paren_depth;
-            self.indent_level += 1;
-            self.ensure_newline();
-        }
     }
 
     fn handle_close_paren(&mut self) {
-        if self.paren_wrap_mode && self.paren_depth == self.paren_wrap_depth {
-            self.indent_level = self.indent_level.saturating_sub(1);
-            self.ensure_newline();
-            self.emit_token(")");
-            self.paren_wrap_mode = false;
-        } else {
-            self.emit_token(")");
-        }
-        self.paren_depth = self.paren_depth.saturating_sub(1);
+        self.emit_token(")");
+        self.depth.paren_depth = self.depth.paren_depth.saturating_sub(1);
     }
 
-    fn handle_argument_separator(&mut self, tokens: &[Token], index: usize) {
+    fn handle_argument_separator(&mut self) {
         self.emit_token(",");
 
         if self.should_force_newline_after_comma() {
             self.ensure_newline();
-            // Suppresses separators after commas inside expanded struct inits.
-            self.suppress_newlines = true;
-        } else if self.paren_wrap_mode && self.paren_depth == self.paren_wrap_depth {
-            let next_len = self.measure_next_chunk(tokens, index + 1);
-            if self.current_line_len + 1 + next_len > MAX_LINE_LENGTH {
-                self.ensure_newline();
-            }
+            self.scope.suppress_newlines = true;
         }
     }
 
     fn handle_subtraction(&mut self) {
-        let is_unary = classify::is_unary_minus_context(self.prev_kind.as_ref());
+        let is_unary = classify::is_unary_minus_context(self.tokens.prev_kind.as_ref());
         if is_unary {
             if self.space_before(&TokenType::Subtraction) {
                 self.emit_space();
             }
-            self.emit_token("-");
-            self.prev_was_unary_minus = true;
         } else {
             self.emit_space();
-            self.emit_token("-");
-            self.prev_was_unary_minus = false;
         }
+        self.emit_token("-");
+        self.tokens.prev_was_unary_minus = is_unary;
     }
 
     fn handle_comment(&mut self, curr: &TokenType) {
-        if !self.at_line_start {
-            let has_space = self
-                .output
-                .chars()
-                .last()
-                .is_some_and(|c| c == ' ');
-            if !has_space {
-                self.emit_space();
-            }
+        let has_space = self
+            .output
+            .output
+            .chars()
+            .last()
+            .is_some_and(|c| c == ' ');
+        if !self.output.at_line_start && !has_space && !self.should_defer_inline_comment() {
+            self.emit_space();
         }
         let text = curr.as_text();
-        self.emit_token(&text);
-        // Ends the current line after `//` comments and preserves a single newline.
-        self.ensure_newline();
-        self.just_opened_scope = true;
+        if self.should_defer_inline_comment() {
+            let needs_space = !self.output.at_line_start && !has_space;
+            self.output.pending_inline_comment = Some(PendingComment {
+                text: text.to_string(),
+                needs_space,
+            });
+        } else {
+            self.emit_token(&text);
+            // Ends the current line after `//` comments and preserves a single newline.
+            self.ensure_newline();
+            self.scope.just_opened_scope = true;
+        }
+    }
+
+    fn should_defer_inline_comment(&self) -> bool {
+        matches!(
+            self.tokens.prev_non_separator_kind,
+            Some(TokenType::CloseScope)
+                | Some(TokenType::CloseParen)
+                | Some(TokenType::CloseGeneric)
+        )
     }
 
     /// Drops comments that would split tokens that must be joined.
     /// Note: Comments survive only at natural line endings.
     fn should_drop_comment(&self, tokens: &[Token], index: usize) -> bool {
         // Drops comments inside parens or generics where newlines are suppressed.
-        if self.paren_depth > 0 || self.generic_depth > 0 {
+        if self.depth.paren_depth > 0 || self.depth.generic_depth > 0 {
             return true;
         }
 
-        let prev = self.prev_non_separator_kind.as_ref();
+        // Drops comments inside struct inits since they are strictly inline and newlines break syntax.
+        if matches!(self.current_scope(), Some(ScopeKind::StructInit)) {
+            return true;
+        }
+
+        let prev = self.tokens.prev_non_separator_kind.as_ref();
         let next = self.next_significant(tokens, index);
         let next_immediate = self.next_immediate(tokens, index);
 
@@ -498,10 +595,16 @@ impl Formatter {
         }
 
         // Drops comments between `}` and a following `->` return.
-        if matches!(prev, Some(TokenType::CloseScope))
-            && matches!(next, Some(TokenType::Return))
-        {
-            return true;
+        if matches!(prev, Some(TokenType::CloseScope)) && matches!(next, Some(TokenType::Return)) {
+            return !self.allow_comment_after_close_scope(tokens, index);
+        }
+
+        // Drops comments between `)` and `->` for function signatures, but not calls.
+        if matches!(prev, Some(TokenType::CloseParen)) && matches!(next, Some(TokenType::Return)) {
+            if self.is_function_signature(tokens, index) {
+                return !self.allow_comment_after_close_scope(tokens, index);
+            }
+            return false;
         }
 
         // Drops comments between `else` and `{` to keep `} else {` on one line.
@@ -519,7 +622,7 @@ impl Formatter {
         }
 
         // Drops comments between tokens that must join.
-        if Self::should_join_tokens(prev, next, self.prev_prev_non_separator_kind.as_ref()) {
+        if self.should_join_tokens(prev, next, self.tokens.prev_prev_non_separator_kind.as_ref(), tokens, index) {
             return true;
         }
 
@@ -534,6 +637,7 @@ impl Formatter {
         if matches!(prev, Some(TokenType::CloseScope))
             && matches!(next, Some(TokenType::Return))
             && matches!(next_immediate, Some(TokenType::Comment(_)))
+            && !self.allow_comment_after_close_scope(tokens, index)
         {
             return true;
         }
@@ -541,17 +645,34 @@ impl Formatter {
         false
     }
 
+    fn allow_comment_after_close_scope(&self, tokens: &[Token], index: usize) -> bool {
+        let prev = self.tokens.prev_non_separator_kind.as_ref();
+        if !matches!(prev, Some(TokenType::CloseScope)) {
+            return false;
+        }
+        let next = self.next_significant(tokens, index);
+        if !matches!(next, Some(TokenType::Return)) {
+            return false;
+        }
+        // Allow comment between `}` and `->` for control-flow blocks, but not for
+        // function signatures where `) -> T` must remain on one line.
+        if matches!(self.tokens.prev_prev_non_separator_kind, Some(TokenType::CloseParen)) {
+            return false;
+        }
+        true
+    }
+
     fn should_collapse_separator(&mut self, tokens: &[Token], index: usize) -> bool {
-        let prev = self.prev_non_separator_kind.as_ref();
+        let prev = self.tokens.prev_non_separator_kind.as_ref();
         let next = self.next_significant(tokens, index);
 
-        if self.at_line_start {
+        if self.output.at_line_start {
             // Skips leading blank lines entirely.
-            if !self.has_content {
+            if !self.output.has_content {
                 return true;
             }
             // Skips blank lines immediately after `{` or before `}`.
-            if matches!(self.prev_kind, Some(TokenType::OpenScope))
+            if matches!(self.tokens.prev_kind, Some(TokenType::OpenScope))
                 || matches!(prev, Some(TokenType::OpenScope))
             {
                 return true;
@@ -561,7 +682,7 @@ impl Formatter {
             }
         }
 
-        if Self::should_join_tokens(prev, next, self.prev_prev_non_separator_kind.as_ref()) {
+        if self.should_join_tokens(prev, next, self.tokens.prev_prev_non_separator_kind.as_ref(), tokens, index) {
             return true;
         }
 
@@ -571,9 +692,12 @@ impl Formatter {
     /// Returns whether `prev` and `next` must share the same output line.
     /// Note: This is used by separator collapsing and comment dropping.
     fn should_join_tokens(
+        &self,
         prev: Option<&TokenType>,
         next: Option<&TokenType>,
         prev_prev: Option<&TokenType>,
+        tokens: &[Token],
+        index: usize,
     ) -> bool {
         // Joins if/loop/function with its opening paren.
         if matches!(prev, Some(TokenType::If | TokenType::Loop | TokenType::Function))
@@ -671,6 +795,13 @@ impl Formatter {
 
         // Keeps `) -> T` on the same line as the signature.
         if matches!(prev, Some(TokenType::CloseParen)) && matches!(next, Some(TokenType::Return)) {
+            // Function returns (preceded by CloseParen and returning a type block) must stay joined.
+            // Statement returns (like `call() -> 1`) may separate if they aren't part of a signature.
+            // We check this by seeing if there is a pending inline comment that was deferred.
+            let is_call_return = self.output.pending_inline_comment.is_some() || !self.is_function_signature(tokens, index);
+            if is_call_return {
+                return false;
+            }
             return true;
         }
 
@@ -787,19 +918,22 @@ impl Formatter {
     }
 
     fn ensure_newline_before_control_flow_statement(&mut self, curr: &TokenType) {
-        if self.generic_depth > 0 || self.paren_depth > 0 {
+        if self.depth.generic_depth > 0 || self.depth.paren_depth > 0 {
             return;
         }
         if !matches!(curr, TokenType::If | TokenType::Loop) {
             return;
         }
-        if self.at_line_start {
+        if self.output.at_line_start {
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::StatementSeparator | TokenType::OpenScope)) {
+        if matches!(
+            self.tokens.prev_kind,
+            Some(TokenType::StatementSeparator | TokenType::OpenScope)
+        ) {
             return;
         }
-        if matches!(self.prev_non_separator_kind, Some(TokenType::Else)) {
+        if matches!(self.tokens.prev_non_separator_kind, Some(TokenType::Else)) {
             return;
         }
         self.ensure_newline();
@@ -816,50 +950,52 @@ impl Formatter {
         index: usize,
     ) {
         // Never fire inside a generic bracket list `[…]` or paren list `(…)`.
-        if self.generic_depth > 0 || self.paren_depth > 0 {
+        if self.depth.generic_depth > 0 || self.depth.paren_depth > 0 {
             return;
         }
         if !Self::is_struct_field_start(curr) {
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::OpenScope)) {
+        if matches!(self.tokens.prev_kind, Some(TokenType::OpenScope)) {
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::StatementSeparator)) {
-            if self.pending_empty_lines > 0 {
+        if matches!(self.tokens.prev_kind, Some(TokenType::StatementSeparator)) {
+            if self.output.pending_empty_lines > 0 {
                 return;
             }
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::Comment(_))) {
+        if matches!(self.tokens.prev_kind, Some(TokenType::Comment(_))) {
             return;
         }
         if matches!(self.next_significant(tokens, index), Some(TokenType::OpenParen)) {
             return;
         }
-        if matches!(self.prev_non_separator_kind, Some(TokenType::Return)) {
+        if matches!(self.tokens.prev_non_separator_kind, Some(TokenType::Return)) {
             return;
         }
-        if matches!(self.prev_non_separator_kind, Some(TokenType::Identifier(_))) {
-            if matches!(
-                self.prev_prev_non_separator_kind.as_ref(),
+        if matches!(self.tokens.prev_non_separator_kind, Some(TokenType::Identifier(_)))
+            && (matches!(
+                self.tokens.prev_prev_non_separator_kind.as_ref(),
                 Some(prev_prev) if classify::is_datatype(prev_prev)
-            ) || matches!(self.prev_prev_non_separator_kind, Some(TokenType::CloseGeneric))
-            {
-                if !self.at_line_start {
-                    self.ensure_newline();
-                }
-                return;
+            ) || matches!(
+                self.tokens.prev_prev_non_separator_kind,
+                Some(TokenType::CloseGeneric)
+            ))
+        {
+            if !self.output.at_line_start {
+                self.ensure_newline();
             }
+            return;
         }
-        if !self.at_line_start {
+        if !self.output.at_line_start {
             self.ensure_newline();
         }
     }
 
     fn ensure_newline_before_enum_variant(&mut self, curr: &TokenType) {
         // Never fire inside generic brackets or parens.
-        if self.generic_depth > 0 || self.paren_depth > 0 {
+        if self.depth.generic_depth > 0 || self.depth.paren_depth > 0 {
             return;
         }
         if !matches!(curr, TokenType::Identifier(_)) {
@@ -867,43 +1003,43 @@ impl Formatter {
         }
         // Enum variants are never separated by blank lines — always discard any
         // accumulated blank lines before emitting the next variant.
-        self.pending_empty_lines = 0;
-        if matches!(self.prev_kind, Some(TokenType::OpenScope)) {
+        self.output.pending_empty_lines = 0;
+        if matches!(self.tokens.prev_kind, Some(TokenType::OpenScope)) {
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::StatementSeparator)) {
+        if matches!(self.tokens.prev_kind, Some(TokenType::StatementSeparator)) {
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::Comment(_))) {
+        if matches!(self.tokens.prev_kind, Some(TokenType::Comment(_))) {
             return;
         }
-        if !self.at_line_start {
+        if !self.output.at_line_start {
             self.ensure_newline();
         }
     }
 
     fn current_scope_allows_empty_inline(&self, tokens: &[Token], index: usize) -> bool {
         if matches!(self.current_scope(), Some(ScopeKind::StructInit)) {
-            return true;
+            return false;
         }
         if matches!(
-            self.prev_kind,
+            self.tokens.prev_kind,
             Some(TokenType::Loop | TokenType::If | TokenType::Else | TokenType::Function)
         ) {
             return false;
         }
         // Allow inline empty blocks only when not at top-level items.
-        if self.indent_level > 0 {
+        if self.scope.indent_level > 0 {
             return true;
         }
         if matches!(
-            self.prev_kind,
+            self.tokens.prev_kind,
             Some(TokenType::Struct | TokenType::Enum | TokenType::Function)
         ) {
             return false;
         }
         // If next is a close scope and we're inside parentheses, do not inline.
-        if self.paren_depth > 0 && matches!(self.next_significant(tokens, index), None) {
+        if self.depth.paren_depth > 0 && matches!(self.next_significant(tokens, index), None) {
             return false;
         }
         false
@@ -911,11 +1047,11 @@ impl Formatter {
 
     fn update_scope_context(&mut self, curr: &TokenType) {
         match curr {
-            TokenType::Struct => self.next_scope = ScopeKind::StructDef,
-            TokenType::Enum => self.next_scope = ScopeKind::EnumDef,
-            TokenType::New => self.next_scope = ScopeKind::StructInit,
+            TokenType::Struct => self.scope.next_scope = ScopeKind::StructDef,
+            TokenType::Enum => self.scope.next_scope = ScopeKind::EnumDef,
+            TokenType::New => self.scope.next_scope = ScopeKind::StructInit,
             TokenType::Function | TokenType::If | TokenType::Else | TokenType::Loop => {
-                self.next_scope = ScopeKind::Block;
+                self.scope.next_scope = ScopeKind::Block;
             }
             _ => {}
         }
@@ -929,7 +1065,7 @@ impl Formatter {
         index: usize,
     ) {
         // Never fire inside generic brackets or parens.
-        if self.generic_depth > 0 || self.paren_depth > 0 {
+        if self.depth.generic_depth > 0 || self.depth.paren_depth > 0 {
             return;
         }
         let is_method_start = match curr {
@@ -942,38 +1078,32 @@ impl Formatter {
         if !is_method_start {
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::OpenScope)) {
+        if matches!(self.tokens.prev_kind, Some(TokenType::OpenScope)) {
             return;
         }
-        if matches!(self.prev_kind, Some(TokenType::StatementSeparator)) {
-            if self.pending_empty_lines > 0 {
+        if matches!(self.tokens.prev_kind, Some(TokenType::StatementSeparator)) {
+            if self.output.pending_empty_lines > 0 {
                 return;
             }
         }
-        if matches!(self.prev_kind, Some(TokenType::Comment(_))) {
+        if matches!(self.tokens.prev_kind, Some(TokenType::Comment(_))) {
             return;
         }
-        if self.at_line_start && self.pending_empty_lines == 0 {
-            self.pending_empty_lines = 1;
+        if self.output.at_line_start && self.output.pending_empty_lines == 0 {
+            self.output.pending_empty_lines = 1;
         }
     }
 
     fn current_scope(&self) -> Option<&ScopeKind> {
-        self.scope_stack.last()
+        self.scope.scope_stack.last()
     }
 
     // Forces newlines for enum entries and expanded struct inits.
     fn should_force_newline_after_comma(&self) -> bool {
-        if self.generic_depth > 0 || self.paren_depth > 0 {
+        if self.depth.generic_depth > 0 || self.depth.paren_depth > 0 {
             return false;
         }
-        if matches!(self.current_scope(), Some(ScopeKind::StructInit)) {
-            return true;
-        }
-        matches!(
-            self.current_scope(),
-            Some(ScopeKind::EnumDef) | Some(ScopeKind::StructInitExpanded)
-        )
+        matches!(self.current_scope(), Some(ScopeKind::EnumDef))
     }
 
     // Finds the next non-newline token, including comments.
@@ -1002,99 +1132,30 @@ impl Formatter {
         }
     }
 
-    // Estimates line length from a token index onward.
-    fn measure_to_end_of_line(&self, tokens: &[Token], from: usize) -> usize {
-        let mut len: usize = 0;
-        let mut first = true;
-        for t in &tokens[from..] {
-            let k = &t.kind;
-            if matches!(k, TokenType::StatementSeparator) {
-                break;
-            }
-            if matches!(k, TokenType::OpenScope) {
-                len += 2;
-                break;
-            }
-            if !first {
-                len += 1;
-            }
-            len += k.as_text().len();
-            first = false;
+    fn finish(mut self) -> String {
+        let end = self.output.output.trim_end().len();
+        self.output.output.truncate(end);
+        if !self.output.output.is_empty() {
+            self.output.output.push('\n');
         }
-        len
+        self.output.output
     }
 
-    // Wraps parens when the line is long and comma-separated.
-    fn should_wrap_parens(&self, tokens: &[Token], open_index: usize) -> bool {
-        if !self.has_commas_at_depth(tokens, open_index, 1) {
+    fn is_function_signature(&self, tokens: &[Token], index: usize) -> bool {
+        // We are currently at the CloseParen before the Return token.
+        // `index` points to CloseParen. We need to look past Return to the type.
+        let mut i = index + 1;
+        while i < tokens.len() {
+            let kind = &tokens[i].kind;
+            if matches!(kind, TokenType::StatementSeparator | TokenType::Comment(_) | TokenType::Return) {
+                i += 1;
+                continue;
+            }
+            if classify::is_datatype(kind) || matches!(kind, TokenType::Identifier(_)) {
+                return true;
+            }
             return false;
         }
-        let rest = self.measure_to_end_of_line(tokens, open_index);
-        self.current_line_len + rest > MAX_LINE_LENGTH
-    }
-
-    fn has_commas_at_depth(
-        &self,
-        tokens: &[Token],
-        open_index: usize,
-        target_depth: usize,
-    ) -> bool {
-        let mut depth: usize = 0;
-        for t in &tokens[open_index..] {
-            match &t.kind {
-                TokenType::OpenParen => depth += 1,
-                TokenType::CloseParen => {
-                    if depth == 0 {
-                        break;
-                    }
-                    depth -= 1;
-                    if depth == 0 {
-                        break;
-                    }
-                }
-                TokenType::ArgumentSeparator if depth == target_depth => return true,
-                _ => {}
-            }
-        }
         false
-    }
-
-    // Measures until the next comma or close at the current depth.
-    fn measure_next_chunk(&self, tokens: &[Token], from: usize) -> usize {
-        let mut len: usize = 0;
-        let mut depth: usize = 0;
-        let mut first = true;
-        for t in &tokens[from..] {
-            let k = &t.kind;
-            match k {
-                TokenType::OpenParen | TokenType::OpenGeneric | TokenType::OpenScope => {
-                    depth += 1;
-                }
-                TokenType::CloseParen | TokenType::CloseGeneric | TokenType::CloseScope => {
-                    if depth == 0 {
-                        break;
-                    }
-                    depth -= 1;
-                }
-                TokenType::ArgumentSeparator if depth == 0 => break,
-                TokenType::StatementSeparator => continue,
-                _ => {}
-            }
-            if !first {
-                len += 1;
-            }
-            len += k.as_text().len();
-            first = false;
-        }
-        len
-    }
-
-    fn finish(mut self) -> String {
-        let end = self.output.trim_end().len();
-        self.output.truncate(end);
-        if !self.output.is_empty() {
-            self.output.push('\n');
-        }
-        self.output
     }
 }

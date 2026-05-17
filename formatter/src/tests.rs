@@ -2,7 +2,7 @@ use crate::format;
 
 // Compare output while keeping indentation strict.
 fn assert_fmt(input: &str, expected: &str) {
-    let actual = format(input.to_string());
+    let actual = format(input.to_string()).expect("Formatting should succeed");
     let actual_trimmed = actual.trim_end();
     let expected_trimmed = expected.trim_end();
     assert_eq!(
@@ -48,11 +48,7 @@ fn ex04_generics_paths_methods() {
 fn ex05_struct_init() {
     assert_fmt(
         "Point p<-new Point{x<-10,y<-20}",
-        "\
-Point p <- new Point {
-    x <- 10,
-    y <- 20
-}",
+        "Point p <- new Point { x <- 10, y <- 20 }",
     );
 }
 
@@ -361,11 +357,7 @@ loop {
 fn nested_struct_init() {
     assert_fmt(
         "Point p<-new Point{x<-10,y<-20}",
-        "\
-Point p <- new Point {
-    x <- 10,
-    y <- 20
-}",
+        "Point p <- new Point { x <- 10, y <- 20 }",
     );
 }
 
@@ -399,7 +391,7 @@ fn fibonacci(u8 n) -> u64 {
     -> curr
 }
 ";
-    let result = format(formatted.to_string());
+    let result = format(formatted.to_string()).expect("Formatting should succeed");
     assert_eq!(result, formatted, "Formatting should be idempotent");
 }
 
@@ -421,7 +413,7 @@ fn showcase_if_conditionals() -> char {
     -> ' '
 }
 ";
-    let result = format(formatted.to_string());
+    let result = format(formatted.to_string()).expect("Formatting should succeed");
     assert_eq!(result, formatted, "Formatting should be idempotent");
 }
 
@@ -557,10 +549,7 @@ struct Point {
 }
 
 fn main() {
-    Point point <- new Point {
-        x <- 10,
-        y <- 20
-    }
+    Point point <- new Point { x <- 10, y <- 20 }
 }",
     );
 }
@@ -844,10 +833,7 @@ struct Point {
 }
 
 fn main() {
-    Point point <- new Point {
-        x <- 10,
-        y <- 20
-    }
+    Point point <- new Point { x <- 10, y <- 20 }
 
     s32 old_x_coordinate <- point.x
 
@@ -989,9 +975,7 @@ fn generic_type_var_declaration_same_line() {
         "fn main() {\n    Wrapper[\n    s32\n    ]\n    w <- new Wrapper[s32] { item <- 42 }\n}",
         "\
 fn main() {
-    Wrapper[s32] w <- new Wrapper[s32] {
-        item <- 42
-    }
+    Wrapper[s32] w <- new Wrapper[s32] { item <- 42 }
 }",
     );
 }
@@ -1016,9 +1000,7 @@ struct Wrapper[T] {
 }
 
 fn main() {
-    Wrapper[s32] w <- new Wrapper[s32] {
-        item <- 42
-    }
+    Wrapper[s32] w <- new Wrapper[s32] { item <- 42 }
     s32 val <- w.get_item()
 
     s32 old <- w.update[bool](true)
@@ -1149,27 +1131,19 @@ enum Option[T] {
 
 #[test]
 fn struct_init_inline_preserved() {
-    // Struct init is always expanded.
+    // Struct init must stay inline.
     assert_fmt(
         "Point p <- new Point { x <- 1, y <- 2 }",
-        "\
-Point p <- new Point {
-    x <- 1,
-    y <- 2
-}",
+        "Point p <- new Point { x <- 1, y <- 2 }",
     );
 }
 
 #[test]
 fn struct_init_expanded_preserved() {
-    // User wrote struct init expanded (newlines inside `{}`) — keep it expanded.
+    // Struct init must collapse inline.
     assert_fmt(
         "Point p <- new Point {\n    x <- 1,\n    y <- 2\n}",
-        "\
-Point p <- new Point {
-    x <- 1,
-    y <- 2
-}",
+        "Point p <- new Point { x <- 1, y <- 2 }",
     );
 }
 
@@ -1189,19 +1163,62 @@ enum Option[T] {
 }
 
 fn main() {
-    Box[Option[s32]] nested <- new Box[Option[s32]] {
-        value <- Option[s32]::Some(10)
-    }
-    Option[Box[f64]] opt_box <- Option[Box[f64]]::Some(new Box[f64] {
-        value <- 5.5
-    })
+    Box[Option[s32]] nested <- new Box[Option[s32]] { value <- Option[s32]::Some(10) }
+    Option[Box[f64]] opt_box <- Option[Box[f64]]::Some(new Box[f64] { value <- 5.5 })
 }",
     );
 }
 
 #[test]
-fn comment_terminates_line_before_return_and_close() {
+fn syntax_break_struct_init_comment() {
+    assert_fmt(
+        "Point p <- new Point { x <- 10 // note \n }",
+        "Point p <- new Point { x <- 10 }",
+    );
+}
+
+#[test]
+fn syntax_break_import_comment() {
+    assert_fmt(
+        "import \"foo\" // note \n as bar",
+        "import \"foo\" as bar",
+    );
+}
+
+#[test]
+fn syntax_break_as_cast_comment() {
+    assert_fmt(
+        "s32 x <- 1 // note \n as u32",
+        "s32 x <- 1 as u32",
+    );
+}
+
+#[test]
+fn syntax_break_binary_math_comment() {
+    assert_fmt(
+        "s32 x <- 1 // note \n + 2",
+        "s32 x <- 1 + 2",
+    );
+}
+
+#[test]
+fn syntax_break_assignment_comment() {
+    assert_fmt(
+        "s32 x // note \n <- 1",
+        "s32 x <- 1",
+    );
+}
+
+#[test]
+fn syntax_break_return_type_comment() {
+    assert_fmt(
+        "fn main() // note \n -> s32 { -> 1 }",
+        "fn main() -> s32 {\n    -> 1\n}",
+    );
+}
     // A `//` comment must end the line; whatever follows goes on the next line.
+#[test]
+fn comment_terminates_line_before_return_and_close() {
     // The final `}` must be on its own line.
     assert_fmt(
         "fn showcase_if_conditionals() -> char {\nbool wasome_is_awesome <- true\nif (wasome_is_awesome) {\n-> '✨'\n} else {\n-> '🤥'\n}// We need to have a return at the end\n-> ' '\n}",
@@ -1211,7 +1228,7 @@ fn comment_terminates_line_before_return_and_close() {
         -> '✨'
     } else {
         -> '🤥'
-    }
+    } // We need to have a return at the end
     -> ' '
 }",
     );
@@ -1242,14 +1259,14 @@ fn is_even(s32 n) -> bool {
 }
 
 #[test]
-fn comment_between_close_scope_and_return_dropped() {
+fn comment_between_close_scope_and_return_preserved() {
     assert_fmt(
         "fn main() {\n    if (x) {\n        -> 1\n    } // note\n    -> 2\n}",
         "\
 fn main() {
     if (x) {
         -> 1
-    }
+    } // note
     -> 2
 }",
     );
@@ -1325,6 +1342,53 @@ s32 //Test5
     } else {\n        //Test16
         -> b //Test18
     } //Test19
-} //Test20",
+}",
+    );
+}
+
+#[test]
+fn inline_comment_after_close_paren_preserved() {
+    assert_fmt(
+        "fn main() {\n    call() // note\n    -> 1\n}",
+        "\
+fn main() {
+    call() // note
+    -> 1
+}",
+    );
+}
+
+#[test]
+fn inline_comment_after_close_generic_preserved() {
+    assert_fmt(
+        "fn main() {\n    Option[s32] // note\n    -> 1\n}",
+        "\
+fn main() {
+    Option[s32] // note
+    -> 1
+}",
+    );
+}
+
+#[test]
+fn inline_comment_after_struct_init_preserved() {
+    assert_fmt(
+        "fn main() {\n    Box[s32] b <- new Box[s32] { value <- 1 } // note\n    -> b\n}",
+        "\
+fn main() {
+    Box[s32] b <- new Box[s32] { value <- 1 } // note
+    -> b
+}",
+    );
+}
+
+#[test]
+fn inline_comment_after_return_value_preserved() {
+    assert_fmt(
+        "fn main() {\n    -> value // note\n}",
+        "\
+fn main() {
+    -> value // note
+}",
     );
 }
