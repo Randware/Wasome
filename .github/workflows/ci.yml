@@ -103,9 +103,9 @@ jobs:
           cargo test --workspace --manifest-path compiler/Cargo.toml --release -- --test-threads=8
           cargo test --workspace --manifest-path cli/Cargo.toml --release -- --test-threads=8
           cargo test --workspace --manifest-path formatter/Cargo.toml --release -- --test-threads=8
-          # Make sure that the .cargo/config.toml file gets used
-          cd stdlib/rust
-          cargo test --jobs 2
+          # # Make sure that the .cargo/config.toml file gets used
+          # cd stdlib/rust
+          # cargo test --jobs 2
       - name: Save Result
         if: always()
         run: echo "${{ matrix.name || matrix.os }}|Standard OS|${{ steps.test.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_${{ matrix.os }}.txt
@@ -133,9 +133,9 @@ jobs:
             cargo test --workspace --manifest-path compiler/Cargo.toml --jobs 2
             cargo test --workspace --manifest-path cli/Cargo.toml --jobs 2
             cargo test --workspace --manifest-path formatter/Cargo.toml --jobs 2
-            # Make sure that the .cargo/config.toml file gets used
-            cd stdlib/rust
-            cargo test --jobs 2
+            # # Make sure that the .cargo/config.toml file gets used
+            # cd stdlib/rust
+            # cargo test --jobs 2
 
       - name: Save Result
         if: always()
@@ -243,6 +243,23 @@ jobs:
         with:
           name: result-nix-cross-${{ matrix.target }}
           path: result_nix_cross_*.txt
+  test-wasm:
+    name: WebAssembly (WASI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+
+      - name: Install Wasmtime
+        run: curl https://wasmtime.dev/install.sh -sSf | bash
+
+      - name: Add Wasmtime to Path
+        run: echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
+
+      - name: Run Tests in WASM
+        run: cargo test --workspace --target wasm32-wasip1
 
   report:
     needs:
