@@ -235,11 +235,13 @@ Semantics:
 - A `struct` type is its own type (named by the struct).
 - Struct instances are passed by reference. Mutating a struct through any reference affects all references.
 
-Structs can have a predrop method with the same name.
+Structs can have a `predrop` method with the same name, no parameters aside from the implicit `self` one and no return value.
+   - Having a method called `predrop` that does not fulfill the other criteria is a syntax error.
 
 It is executed right before a struct is dropped.
 
 Should it increase the reference count back up, the dropping is canceled.
+
 ---
 
 ### Enums
