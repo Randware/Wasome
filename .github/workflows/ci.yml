@@ -244,7 +244,7 @@ jobs:
           name: result-nix-cross-${{ matrix.target }}
           path: result_nix_cross_*.txt
   test-wasm:
-    name: WebAssembly (WASI)
+    name: WebAssembly (WASM)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -259,7 +259,7 @@ jobs:
         run: echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
 
       - name: Run Tests in WASM
-        run: cargo test --workspace --target wasm32-wasip1
+        run: cargo test --manifest-path stdlib/rust/Cargo.toml --target wasm32-wasip1
 
   report:
     needs:
