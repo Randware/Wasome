@@ -79,6 +79,7 @@ pub fn compile_link_pipeline<IO: FullIO, T: FullProgramInformation>() -> impl fo
     from_func(from)
 }
 
+#[must_use]
 pub fn compile_pipeline<IO: FullIO, T: FullProgramInformation>()
 -> impl for<'a> Pipeline<(&'a T, &'a mut SourceMap<IO>), Diagnostic, Output = Vec<u8>> {
     let from: for<'a> fn((AST<TypedAST>, &mut SourceMap<IO>, &'a T)) -> _ =
