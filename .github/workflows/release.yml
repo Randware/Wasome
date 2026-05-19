@@ -20,45 +20,49 @@ jobs:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             archive: tar.gz
-            use_cross: false
+            builder: cargo
 
-          # --- CROSS-COMPILED LINUX & FREEBSD
+          # --- CROSS-COMPILED LINUX & FREEBSD (via Nix)
           - os: ubuntu-22.04
-            target: aarch64-unknown-linux-gnu # Linux ARM64
+            target: aarch64-unknown-linux-gnu
+            nix_target: aarch64-linux
             archive: tar.gz
-            use_cross: true
+            builder: nix
           - os: ubuntu-22.04
-            target: armv7-unknown-linux-gnueabihf # Linux ARM 32-bit
+            target: armv7-unknown-linux-gnueabihf
+            nix_target: armv7l-linux
             archive: tar.gz
-            use_cross: true
+            builder: nix
           - os: ubuntu-22.04
-            target: i686-unknown-linux-gnu # Linux 32-bit (x86)
+            target: i686-unknown-linux-gnu
+            nix_target: i686-linux
             archive: tar.gz
-            use_cross: true
+            builder: nix
           - os: ubuntu-22.04
-            target: x86_64-unknown-freebsd # FreeBSD
+            target: x86_64-unknown-freebsd
+            nix_target: x86_64-freebsd
             archive: tar.gz
-            use_cross: true
+            builder: nix
 
           # --- MAC OS
-          - os: macos-13 # Intel Mac
+          - os: macos-13
             target: x86_64-apple-darwin
             archive: tar.gz
-            use_cross: false
-          - os: macos-14 # Apple Silicon Mac
+            builder: cargo
+          - os: macos-14
             target: aarch64-apple-darwin
             archive: tar.gz
-            use_cross: false
+            builder: cargo
 
           # --- WINDOWS
           - os: windows-latest
-            target: x86_64-pc-windows-msvc # Windows x64
+            target: x86_64-pc-windows-msvc
             archive: zip
-            use_cross: false
+            builder: cargo
           - os: windows-latest
-            target: aarch64-pc-windows-msvc # Windows ARM64
+            target: aarch64-pc-windows-msvc
             archive: zip
-            use_cross: false
+            builder: cargo
 
     steps:
       - name: Checkout code
@@ -69,38 +73,93 @@ jobs:
         with:
           targets: ${{ matrix.target }}, wasm32-wasip1
 
-      - name: Install Cross (for cross-compilation)
-        if: matrix.use_cross == true
-        uses: taiki-e/install-action@cross
+      # --- NIX INSTALLATION
+      - name: Install Nix
+        if: matrix.builder == 'nix'
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
 
+      - name: Cache Nix Store
+        if: matrix.builder == 'nix'
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      # --- NATIVE LLVM INSTALLATIONS
+      - name: Install LLVM 21 (Ubuntu Native)
+        if: matrix.os == 'ubuntu-22.04' && matrix.builder == 'cargo'
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 21 all
+          echo "LLVM_SYS_211_PREFIX=/usr/lib/llvm-21" >> $GITHUB_ENV
+          echo "/usr/lib/llvm-21/bin" >> $GITHUB_PATH
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
+
+      - name: Cache LLVM 21 (Windows)
+        if: matrix.os == 'windows-latest'
+        id: cache-llvm-windows
+        uses: actions/cache@v4
+        with:
+          path: C:\llvm
+          key: llvm-21-windows
+
+      - name: Install LLVM 21 (Windows)
+        if: matrix.os == 'windows-latest' && steps.cache-llvm-windows.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $archive = "$env:TEMP\llvm.7z"
+          curl.exe -L --output $archive "https://github.com/c3lang/win-llvm/releases/download/llvm_21_1_8/llvm-21.1.8-windows-amd64-msvc17-msvcrt.7z"
+          7z x $archive -o"C:\llvm" -y
+
+      - name: Export LLVM Prefix (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
+          echo "LLVM_SYS_211_PREFIX=$llvmDir" >> $env:GITHUB_ENV
+          echo "$llvmDir\bin" >> $env:GITHUB_PATH
+
+      - name: Install LLVM 21 and LLD (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: brew install llvm@21 lld
+
+      - name: Export LLVM Prefix (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          LLVM_DIR=$(brew --prefix llvm@21)
+          echo "LLVM_SYS_211_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
+          echo "$LLVM_DIR/bin" >> $GITHUB_PATH
+
+      # --- COMPILATION
       - name: Build Compiler (Native)
-        if: matrix.use_cross == false
+        if: matrix.builder == 'cargo'
         run: cargo build --release --target ${{ matrix.target }} --manifest-path cli/Cargo.toml
 
-      - name: Build Compiler (Cross)
-        if: matrix.use_cross == true
-        run: cross build --release --target ${{ matrix.target }} --manifest-path cli/Cargo.toml
+      - name: Build Compiler (Nix Cross)
+        if: matrix.builder == 'nix'
+        working-directory: ./compiler
+        run: nix build .#packages.${{ matrix.nix_target }}.default
 
       - name: Build Standard Library (WASI)
         run: cargo build --release --target wasm32-wasip1 --manifest-path stdlib/rust/Cargo.toml
 
+      # --- PACKAGING
       - name: Package (Unix)
         if: matrix.os != 'windows-latest'
         run: |
           mkdir -p release_pkg/bin
           mkdir -p release_pkg/std
 
-          # 1. Copy compiler frontend and rename 'wasome'
-          # TODO: Should it be called waso instead??
-          cp cli/target/${{ matrix.target }}/release/waso release_pkg/bin/wasome
+          # Copy frontend based on build method
+          if [ "${{ matrix.builder }}" == "nix" ]; then
+            cp compiler/result/bin/waso release_pkg/bin/waso
+          else
+            cp cli/target/${{ matrix.target }}/release/waso release_pkg/bin/waso
+          fi
 
-          # 2. Copy the pure Wasome std
           cp -r stdlib/wasome/* release_pkg/std/
-
-          # 3. Copy the rust bindings for the std
           cp stdlib/rust/target/wasm32-wasip1/release/libstdlib.a release_pkg/std/
 
-          # Compress
           cd release_pkg
           tar -czvf ../wasome-${{ matrix.target }}.tar.gz *
 
@@ -111,17 +170,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path release_pkg\bin
           New-Item -ItemType Directory -Force -Path release_pkg\std
 
-          # 1. Copy compiler frontend and rename 'wasome.exe'
-          # TODO: Should it be called waso instead??
-          Copy-Item cli\target\${{ matrix.target }}\release\waso.exe release_pkg\bin\wasome.exe
-
-          # 2. Copy the pure Wasome std
+          Copy-Item cli\target\${{ matrix.target }}\release\waso.exe release_pkg\bin\waso.exe
           Copy-Item -Recurse stdlib\wasome\* release_pkg\std\
-
-          # 3. Copy the rust bindings for the std
           Copy-Item stdlib\rust\target\wasm32-wasip1\release\libstdlib.a release_pkg\std\
 
-          # Compress
           Compress-Archive -Path release_pkg\* -DestinationPath wasome-${{ matrix.target }}.zip
 
       - name: Upload Artifact to GitHub Release
