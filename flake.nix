@@ -32,13 +32,15 @@
       makePackage = crossPkgs:
         let
           crossLlvm = crossPkgs.llvmPackages_21;
+          srcWithLock = pkgs.runBuildCargoLock {
+            lockFile = ./compiler/Cargo.lock;
+            src = ./.;
+          };
         in
         crossPkgs.rustPlatform.buildRustPackage {
           pname = "wasome-compiler";
           version = "0.1.0";
-          src = ./.;
-          cargoLock.lockFile = ./compiler/Cargo.lock;
-          cargoPatches = [ ./compiler/Cargo.lock ];
+          src = pkgs.lib.cleanSource srcWithLock;
 
           nativeBuildInputs = with pkgs; [
             pkg-config
