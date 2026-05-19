@@ -40,6 +40,16 @@
 
           postUnpack = "sourceRoot+=/cli";
 
+          preConfigure = ''
+            mkdir -p $PWD/fake-bin/bin
+            cat << 'WRAPPER' > $PWD/fake-bin/bin/llvm-config
+            #!/bin/sh
+            ${pkgs.llvmPackages_21.libllvm.dev}/bin/llvm-config "$@" | sed "s|${pkgs.llvmPackages_21.libllvm.lib}|${crossLlvm.libllvm.lib}|g; s|${pkgs.llvmPackages_21.libllvm.dev}|${crossLlvm.libllvm.dev}|g"
+            WRAPPER
+            chmod +x $PWD/fake-bin/bin/llvm-config
+            export LLVM_SYS_211_PREFIX=$PWD/fake-bin
+          '';
+
           cargoLock = {
             lockFile = ./cli/Cargo.lock;
           };
@@ -60,7 +70,6 @@
             llvmPackages_21.libllvm
           ];
 
-          LLVM_SYS_211_PREFIX = "${llvmPkg.libllvm.dev}";
           LIBCLANG_PATH = "${llvmPkg.libclang.lib}/lib";
           NIX_LDFLAGS = "-L${crossLlvm.libllvm}/lib";
         };
