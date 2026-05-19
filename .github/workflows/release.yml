@@ -59,10 +59,6 @@ jobs:
             target: x86_64-pc-windows-msvc
             archive: zip
             builder: cargo
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-            archive: zip
-            builder: cargo
 
     steps:
       - name: Checkout code
@@ -195,18 +191,15 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Download release assets and calculate SHAs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}"
-          
-          curl -sL -o mac_arm.tar.gz "$BASE_URL/wasome-aarch64-apple-darwin.tar.gz"
-          curl -sL -o mac_x86.tar.gz "$BASE_URL/wasome-x86_64-apple-darwin.tar.gz"
-          curl -sL -o linux_arm.tar.gz "$BASE_URL/wasome-aarch64-unknown-linux-gnu.tar.gz"
-          curl -sL -o linux_x86.tar.gz "$BASE_URL/wasome-x86_64-unknown-linux-gnu.tar.gz"
+          gh release download ${VERSION} --repo ${{ github.repository }} --pattern "*.tar.gz"
 
-          echo "MAC_ARM_SHA=$(sha256sum mac_arm.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
-          echo "MAC_X86_SHA=$(sha256sum mac_x86.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
-          echo "LINUX_ARM_SHA=$(sha256sum linux_arm.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
-          echo "LINUX_X86_SHA=$(sha256sum linux_x86.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+          echo "MAC_ARM_SHA=$(sha256sum wasome-aarch64-apple-darwin.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+          echo "MAC_X86_SHA=$(sha256sum wasome-x86_64-apple-darwin.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+          echo "LINUX_ARM_SHA=$(sha256sum wasome-aarch64-unknown-linux-gnu.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+          echo "LINUX_X86_SHA=$(sha256sum wasome-x86_64-unknown-linux-gnu.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
 
       - name: Checkout Homebrew Tap
         uses: actions/checkout@v4
