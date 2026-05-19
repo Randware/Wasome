@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use driver::program_information::{ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation, ConcreteLoadInformation};
+use driver::program_information::{
+    ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation, ConcreteLoadInformation,
+};
 use source::SourceMap;
 
 use crate::{
@@ -26,35 +28,38 @@ impl Workspace {
 
         // We wrap everything past here in a closure so we can catch ManifestError
         // and attach the SourceMap to it before returning CliError
-        let mut build_workspace = || -> Result<ConcreteLoadBinaryProgramInformation, ManifestError> {
-            let file_id = source.load_file(manifest::MANIFEST_FILE)?;
-            let content = source.get_file(&file_id).unwrap().content();
+        let mut build_workspace =
+            || -> Result<ConcreteLoadBinaryProgramInformation, ManifestError> {
+                let file_id = source.load_file(manifest::MANIFEST_FILE)?;
+                let content = source.get_file(&file_id).unwrap().content();
 
-            let manifest =
-                Manifest::parse(content).map_err(|e| ManifestError::Parse(e, file_id))?;
+                let manifest =
+                    Manifest::parse(content).map_err(|e| ManifestError::Parse(e, file_id))?;
 
-            let entry_file = find_entry_file(&root, &manifest)?;
+                let entry_file = find_entry_file(&root, &manifest)?;
 
-            let mut projects =
-                DependencyResolver::new(root.clone()).resolve_all(&manifest, &mut source)?;
+                let mut projects =
+                    DependencyResolver::new(root.clone()).resolve_all(&manifest, &mut source)?;
 
-            projects.push(driver::program_information::Project::new(
-                manifest.project.name.clone(),
-                PathBuf::from("."),
-            ));
+                projects.push(driver::program_information::Project::new(
+                    manifest.project.name.clone(),
+                    PathBuf::from("."),
+                ));
 
-            let info = ConcreteLoadBinaryProgramInformation::new(
-                ConcreteLoadInformation::new(
-                manifest.project.name.clone(),
-                root.clone(),
-                projects),
-                ConcreteBinaryProgramInformation::new(
-                manifest.project.name.clone(),
-                entry_file)
-            );
+                let info = ConcreteLoadBinaryProgramInformation::new(
+                    ConcreteLoadInformation::new(
+                        manifest.project.name.clone(),
+                        root.clone(),
+                        projects,
+                    ),
+                    ConcreteBinaryProgramInformation::new(
+                        manifest.project.name.clone(),
+                        entry_file,
+                    ),
+                );
 
-            info.ok_or_else(|| ManifestError::NoEntry(manifest.project.name.clone()))
-        };
+                info.ok_or_else(|| ManifestError::NoEntry(manifest.project.name.clone()))
+            };
 
         match build_workspace() {
             Ok(info) => Ok(Self { source, info }),

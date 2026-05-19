@@ -21,6 +21,12 @@ pub enum CliError {
 
     #[error("Could not compile project")]
     CompilationFailed,
+
+    #[error("Could not format project")]
+    FormattingFailed,
+
+    #[error("Could not load project")]
+    ProjectLoadingFailed,
 }
 
 impl CliError {
@@ -106,7 +112,9 @@ impl CliError {
                     .print()?;
             }
 
-            CliError::CompilationFailed => {}
+            CliError::CompilationFailed
+            | CliError::FormattingFailed
+            | CliError::ProjectLoadingFailed => {}
         }
 
         Ok(())

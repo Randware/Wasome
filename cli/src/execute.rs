@@ -6,6 +6,7 @@ use crate::{
     command::{BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs},
     error::{CliError, CliResult, ManifestError},
     manifest::{self},
+    pipeline,
     template::Template,
     workspace::Workspace,
 };
@@ -46,24 +47,7 @@ impl Executable for CheckArgs {
             .build()
             .print()?;
 
-        match driver::syntax_check(&workspace.info, &mut workspace.source) {
-            Ok(_) => Diagnostic::builder()
-                .level(Level::Info)
-                .message("Check was successful")
-                .build()
-                .print()?,
-            Err(d) => {
-                d.print_snippets(&workspace.source)?;
-
-                Diagnostic::builder()
-                    .level(Level::Error)
-                    .message("Check was not successful")
-                    .build()
-                    .print()?;
-
-                return Err(CliError::CompilationFailed);
-            }
-        }
+        pipeline::check(&mut workspace)?;
 
         Ok(())
     }
@@ -123,7 +107,7 @@ impl Executable for FmtArgs {
     fn execute(self) -> CliResult<()> {
         let path = self.path.canonicalize()?;
 
-        let workspace = Workspace::load(&path)?;
+        let mut workspace = Workspace::load(&path)?;
 
         Diagnostic::builder()
             .level(Level::Info)
@@ -134,8 +118,11 @@ impl Executable for FmtArgs {
             .build()
             .print()?;
 
-        // TODO: Formatting is not yet possible
-        todo!();
+        let program = pipeline::load(&mut workspace)?;
+
+        pipeline::fmt(&mut workspace, &program)?;
+
+        Ok(())
     }
 }
 
@@ -254,10 +241,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not yet implemented")]
-    fn test_fmt_panics() {
+    fn test_fmt_valid_project() {
         let path = valid_fixture_path();
         let args = FmtArgs { path };
-        let _ = args.execute();
+        args.execute().unwrap();
     }
 }
