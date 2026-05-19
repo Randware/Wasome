@@ -38,6 +38,7 @@
           version = "0.1.0";
           src = ./.;
           cargoLock.lockFile = ./compiler/Cargo.lock;
+          cargoPatches = [ ./compiler/Cargo.lock ];
 
           nativeBuildInputs = with pkgs; [
             pkg-config
