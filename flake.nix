@@ -37,7 +37,7 @@
           pname = "wasome-compiler";
           version = "0.1.0";
           src = ./.;
-          cargoLock.lockFile = ./Cargo.lock;
+          cargoLock = null;
 
           nativeBuildInputs = with pkgs; [
             pkg-config
