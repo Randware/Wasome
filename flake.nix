@@ -36,10 +36,12 @@
         crossPkgs.rustPlatform.buildRustPackage {
           pname = "wasome-compiler";
           version = "0.1.0";
-          src = ./compiler;
+          src = ./.;
+
+          postUnpack = "sourceRoot+=/cli";
 
           cargoLock = {
-            lockFile = ./compiler/Cargo.lock;
+            lockFile = ./cli/Cargo.lock;
           };
 
           nativeBuildInputs = with pkgs; [

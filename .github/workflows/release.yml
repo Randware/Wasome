@@ -137,7 +137,6 @@ jobs:
 
       - name: Build Compiler (Nix Cross)
         if: matrix.builder == 'nix'
-        working-directory: ./compiler
         run: nix build .#packages.${{ matrix.nix_target }}.default
 
       - name: Build Standard Library (WASI)
@@ -152,7 +151,7 @@ jobs:
 
           # Copy frontend based on build method
           if [ "${{ matrix.builder }}" == "nix" ]; then
-            cp compiler/result/bin/waso release_pkg/bin/waso
+            cp result/bin/waso release_pkg/bin/waso
           else
             cp cli/target/${{ matrix.target }}/release/waso release_pkg/bin/waso
           fi
