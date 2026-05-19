@@ -201,13 +201,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: aarch64-linux
-            pkgsCross: aarch64-multiplatform
-          - target: armv7l-linux
-            pkgsCross: armv7l-hf-multiplatform
-          - target: riscv64-linux
-            pkgsCross: riscv64
+        target: [aarch64-linux, armv7l-linux, i686-linux, riscv64-linux, x86_64-freebsd]
     steps:
       - uses: actions/checkout@v4
 
