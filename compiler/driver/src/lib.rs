@@ -11,6 +11,7 @@ use ast::symbol::FunctionSymbol;
 use ast::{AST, TypedAST, UntypedAST};
 use codegen::{CodegenCreationError, codegen};
 use io::FullIO;
+use linker::{LinkableFile, Linker};
 use semantic_analyzer::analyze;
 use source::SourceMap;
 use std::rc::Rc;
@@ -29,6 +30,9 @@ const MAIN_FUNCTION_TAKES_ARGUMENTS_MSG: &str = "The main function must not take
 
 const MAIN_FUNCTION_NONVOID_RETURN_CODE: &str = "E4003";
 const MAIN_FUNCTION_NONVOID_RETURN_MSG: &str = "The main function must return void";
+
+const LIKE_ERROR_CODE: &str = "E4004";
+const LINK_ERROR_MSG: &str = "Linking error:";
 
 /// Like [`syntax_check_pipeline`], but the pipeline is used immediately
 ///
@@ -54,31 +58,51 @@ pub fn syntax_check_pipeline<IO: FullIO, T: LoadBinaryProgramInformation>()
     typed_ast_pipeline().then(from_infallible_func::<_, (), (), _>(from))
 }
 
+pub fn compile_link_pipeline<IO: FullIO, T: FullProgramInformation>() -> impl for<'a> Pipeline<
+    (&'a T, &'a mut SourceMap<IO>, Vec<LinkableFile>),
+    Diagnostic,
+    Output = LinkableFile,
+> {
+    let from: for<'a> fn((&'a T, &mut SourceMap<IO>, Vec<LinkableFile>)) -> _ =
+        |(prog_info, sm, mut link_files)| {
+            let compiled = compile_pipeline().process((prog_info, sm))?;
+            link_files.push(LinkableFile::new(compiled));
+            let mut linker = Linker::builder();
+            linker.add_files(link_files);
+            linker.build().link().map_err(|(_, err)| {
+                Diagnostic::builder()
+                    .code(LIKE_ERROR_CODE)
+                    .message(format!("{LINK_ERROR_MSG} {err}"))
+                    .build()
+            })
+        };
+    from_func(from)
+}
+
 pub fn compile_pipeline<IO: FullIO, T: FullProgramInformation>()
 -> impl for<'a> Pipeline<(&'a T, &'a mut SourceMap<IO>), Diagnostic, Output = Vec<u8>> {
-    let from: for<'a> fn(
-        (AST<TypedAST>, &mut SourceMap<IO>, &'a T),
-    ) -> _ = |(tast, _sm, prog_info)| {
-        let main_func = extract_main_func(&tast, &prog_info).ok_or_else(|| {
-            Diagnostic::builder()
-                .code(MAIN_FUNCTION_NOT_FOUND_CODE)
-                .message(MAIN_FUNCTION_NOT_FOUND_MSG)
-                .build()
-        })?;
-        let compiled = codegen(prog_info.opt_level(), main_func, tast);
+    let from: for<'a> fn((AST<TypedAST>, &mut SourceMap<IO>, &'a T)) -> _ =
+        |(tast, _sm, prog_info)| {
+            let main_func = extract_main_func(&tast, &prog_info).ok_or_else(|| {
+                Diagnostic::builder()
+                    .code(MAIN_FUNCTION_NOT_FOUND_CODE)
+                    .message(MAIN_FUNCTION_NOT_FOUND_MSG)
+                    .build()
+            })?;
+            let compiled = codegen(prog_info.opt_level(), main_func, tast);
 
-        compiled.map_err(|err| {
-            match err {
-                CodegenCreationError::MainFunctionNonVoidReturn => Diagnostic::builder()
-                    .code(MAIN_FUNCTION_NONVOID_RETURN_CODE)
-                    .message(MAIN_FUNCTION_NONVOID_RETURN_MSG),
-                CodegenCreationError::MainFunctionTakesArguments => Diagnostic::builder()
-                    .code(MAIN_FUNCTION_TAKES_ARGUMENTS_CODE)
-                    .message(MAIN_FUNCTION_TAKES_ARGUMENTS_MSG),
-            }
-            .build()
-        })
-    };
+            compiled.map_err(|err| {
+                match err {
+                    CodegenCreationError::MainFunctionNonVoidReturn => Diagnostic::builder()
+                        .code(MAIN_FUNCTION_NONVOID_RETURN_CODE)
+                        .message(MAIN_FUNCTION_NONVOID_RETURN_MSG),
+                    CodegenCreationError::MainFunctionTakesArguments => Diagnostic::builder()
+                        .code(MAIN_FUNCTION_TAKES_ARGUMENTS_CODE)
+                        .message(MAIN_FUNCTION_TAKES_ARGUMENTS_MSG),
+                }
+                .build()
+            })
+        };
     typed_ast_pipeline().then(from_func(from))
 }
 
@@ -95,7 +119,15 @@ fn extract_main_func<T: FullProgramInformation>(
         }
         curr_dir = curr_dir.subdirectory_by_name(&path_elem.to_string_lossy())?;
     }
-    let main_file = curr_dir.file_by_name(&prog_info.main_file().iter().next_back()?.to_string_lossy().rsplit_once('.')?.0)?;
+    let main_file = curr_dir.file_by_name(
+        prog_info
+            .main_file()
+            .iter()
+            .next_back()?
+            .to_string_lossy()
+            .rsplit_once('.')?
+            .0,
+    )?;
     main_file
         .function_by_identifier(("main", &[]))
         .map(|func| func.declaration_owned())
