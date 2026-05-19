@@ -93,7 +93,7 @@ jobs:
           sudo ./llvm.sh 21 all
           echo "LLVM_SYS_211_PREFIX=/usr/lib/llvm-21" >> $GITHUB_ENV
           echo "/usr/lib/llvm-21/bin" >> $GITHUB_PATH
-          echo "RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
+          echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
 
       - name: Cache LLVM 21 (Windows)
         if: matrix.os == 'windows-latest'
@@ -181,3 +181,76 @@ jobs:
           files: wasome-${{ matrix.target }}.${{ matrix.archive }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-homebrew:
+    name: Publish Homebrew Formula
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Download release assets and calculate SHAs
+        run: |
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}"
+          
+          curl -sL -o mac_arm.tar.gz "$BASE_URL/wasome-aarch64-apple-darwin.tar.gz"
+          curl -sL -o mac_x86.tar.gz "$BASE_URL/wasome-x86_64-apple-darwin.tar.gz"
+          curl -sL -o linux_arm.tar.gz "$BASE_URL/wasome-aarch64-unknown-linux-gnu.tar.gz"
+          curl -sL -o linux_x86.tar.gz "$BASE_URL/wasome-x86_64-unknown-linux-gnu.tar.gz"
+
+          echo "MAC_ARM_SHA=$(sha256sum mac_arm.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+          echo "MAC_X86_SHA=$(sha256sum mac_x86.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+          echo "LINUX_ARM_SHA=$(sha256sum linux_arm.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+          echo "LINUX_X86_SHA=$(sha256sum linux_x86.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+
+      - name: Checkout Homebrew Tap
+        uses: actions/checkout@v4
+        with:
+          repository: Randware/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update Formula
+        run: |
+          mkdir -p homebrew-tap/Formula
+          cat << EOF > homebrew-tap/Formula/wasome.rb
+          class Wasome < Formula
+            desc "The WebAssembly Language for Everyone"
+            homepage "https://wasome.dev/"
+            version "${VERSION}"
+
+            if OS.mac?
+              if Hardware::CPU.arm?
+                url "https://github.com/${{ github.repository }}/releases/download/${VERSION}/wasome-aarch64-apple-darwin.tar.gz"
+                sha256 "${MAC_ARM_SHA}"
+              else
+                url "https://github.com/${{ github.repository }}/releases/download/${VERSION}/wasome-x86_64-apple-darwin.tar.gz"
+                sha256 "${MAC_X86_SHA}"
+              end
+            elsif OS.linux?
+              if Hardware::CPU.arm?
+                url "https://github.com/${{ github.repository }}/releases/download/${VERSION}/wasome-aarch64-unknown-linux-gnu.tar.gz"
+                sha256 "${LINUX_ARM_SHA}"
+              else
+                url "https://github.com/${{ github.repository }}/releases/download/${VERSION}/wasome-x86_64-unknown-linux-gnu.tar.gz"
+                sha256 "${LINUX_X86_SHA}"
+              end
+            end
+
+            def install
+              libexec.install "bin", "std"
+              bin.install_symlink libexec/"bin/waso"
+            end
+          end
+          EOF
+
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/wasome.rb
+          git commit -m "Update Wasome to ${VERSION}"
+          git push
