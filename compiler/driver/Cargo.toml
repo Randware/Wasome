@@ -11,6 +11,7 @@ semantic_analyzer = { path = "../middle_end/semantic_analyzer" }
 io = { path = "../io" }
 ordered_hash_map = "0.5.0"
 error = { path ="../error" }
+linker = { path = "../linker" }
 codegen = { path = "../codegen" }
 
 [dev-dependencies]
