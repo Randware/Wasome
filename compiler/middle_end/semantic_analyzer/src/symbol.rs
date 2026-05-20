@@ -376,6 +376,27 @@ fn convert_method_symbol(
         span,
     )?;
 
+    if untyped.name() == "drop" {
+        if return_type.is_some() {
+            return Err(SemanticError::InvalidDropSignature {
+                message: "drop methods must not return a value".to_string(),
+                span,
+            });
+        }
+        if !typed_type_params.is_empty() {
+            return Err(SemanticError::InvalidDropSignature {
+                message: "drop methods must not have generic type parameters".to_string(),
+                span,
+            });
+        }
+        if typed_params.len() > 1 {
+            return Err(SemanticError::InvalidDropSignature {
+                message: "drop methods must not take any arguments except 'self'".to_string(),
+                span,
+            });
+        }
+    }
+
     Ok(Rc::new(FunctionSymbol::new(
         untyped.name().to_string(),
         return_type,

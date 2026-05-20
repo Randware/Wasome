@@ -4,7 +4,7 @@ use crate::symbol::SyntaxContext;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::composite::{Enum, EnumVariant};
 use ast::statement::{ControlStructure, Statement};
-use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, SymbolWithTypeParameter};
+use ast::symbol::{DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, SymbolWithTypeParameter};
 use ast::top_level::Function;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
@@ -38,6 +38,58 @@ pub(crate) fn analyze_function(
 ) -> Result<ASTNode<Function<TypedAST>>, SemanticError> {
     let mut func_mapper = FunctionSymbolMapper::new();
     func_mapper.set_current_function_return_type(symbol.return_type().cloned());
+
+    use std::collections::HashSet;
+    let mut duplicate_param_error = None;
+    context.ast_reference.symbols().find(|sym| {
+        match &sym.1 {
+            DirectlyAvailableSymbol::Struct(st) => {
+                let mut seen = HashSet::new();
+                for tp in st.type_parameters() {
+                    let name = tp.inner().name().to_string();
+                    if !seen.insert(name.clone()) {
+                        duplicate_param_error = Some(SemanticError::DuplicateTypeParameter {
+                            name,
+                            span: *context.ast_reference.inner().position(),
+                        });
+                        return true;
+                    }
+                }
+            }
+            DirectlyAvailableSymbol::Enum(en) => {
+                let mut seen = HashSet::new();
+                for tp in en.type_parameters() {
+                    let name = tp.inner().name().to_string();
+                    if !seen.insert(name.clone()) {
+                        duplicate_param_error = Some(SemanticError::DuplicateTypeParameter {
+                            name,
+                            span: *context.ast_reference.inner().position(),
+                        });
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+        false
+    });
+
+    if let Some(err) = duplicate_param_error {
+        return Err(err);
+    }
+
+    // Validate drop/predrop method signature constraints (E3029)
+    if symbol.name() == "drop" || symbol.name() == "predrop" {
+        if symbol.return_type().is_some()
+            || !symbol.type_parameters().is_empty()
+            || symbol.params().iter().any(|p| p.name() != "self")
+        {
+            return Err(SemanticError::InvalidDropSignature {
+                message: "Drop methods cannot accept parameters, generics, or explicit return signatures".to_string(),
+                span: *context.ast_reference.inner().position(),
+            });
+        }
+    }
 
     for param_symbol in symbol.params().iter() {
         func_mapper

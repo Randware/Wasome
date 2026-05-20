@@ -51,7 +51,22 @@ pub(crate) fn analyze_expression(
                 })?;
             Expression::FunctionCall(typed_call)
         }
-        Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper, span)?,
+        Expression::Variable(inner) => match function_symbol_mapper.lookup_variable(inner) {
+            Some(variable_symbol) => Expression::Variable(variable_symbol),
+            None => {
+                if symbol_by_name(inner, context.ast_reference.symbols_available_at()).is_some() {
+                    return Err(SemanticError::InvalidUsage {
+                        message: format!("Symbol '{}' cannot be used as a standalone value", inner),
+                        span,
+                    });
+                }
+
+                return Err(SemanticError::UnknownSymbol {
+                    name: inner.to_string(),
+                    span,
+                });
+            }
+        },
         Expression::Literal(inner) => Expression::Literal(analyze_literal(inner, span)?),
         Expression::UnaryOp(inner) => Expression::UnaryOp(analyze_unary_op(
             inner,
@@ -232,10 +247,10 @@ fn analyze_new_struct(
         &to_analyze.symbol().0,
         context.ast_reference.symbols_available_at(),
     )
-    .ok_or_else(|| SemanticError::UnknownSymbol {
-        name: to_analyze.symbol().0.clone(),
-        span,
-    })? {
+        .ok_or_else(|| SemanticError::UnknownSymbol {
+            name: to_analyze.symbol().0.clone(),
+            span,
+        })? {
         st
     } else {
         return Err(SemanticError::SymbolKindMismatch {
@@ -260,7 +275,7 @@ fn analyze_new_struct(
             let field = struct_fields
                 .iter()
                 .find(|field| param.0.deref() == field.name())
-                .ok_or_else(|| SemanticError::UnknownField {
+                .ok_or_else(|| SemanticError::MissingOrInvalidStructField {
                     struct_name: to_analyze.symbol().0.clone(),
                     field_name: param.0.deref().to_string(),
                     span: *param.0.position(),

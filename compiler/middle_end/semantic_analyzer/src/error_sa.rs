@@ -137,8 +137,12 @@ pub enum SemanticError {
 
     /// E3000: Generic fallback for errors that haven't been categorized yet.
     Custom { message: String, span: Span },
-    // E3028: A type parameter is declared more than once in the same generic declaration.
+
+    /// E3028: A type parameter is declared more than once in the same generic declaration.
     DuplicateTypeParameter { name: String, span: Span },
+
+    /// E3029: A drop method has an invalid signature (e.g., has parameters, generics, or a return type).
+    InvalidDropSignature { message: String, span: Span },
 }
 
 impl SemanticError {
@@ -610,11 +614,26 @@ impl SemanticError {
             SemanticError::DuplicateTypeParameter { name, span } => Diagnostic::builder()
                 .level(Level::Error)
                 .code("E3028".to_string())
-                .message(format!("Type parameter '{}' is declared more than once", name))
+                .message(format!(
+                    "Type parameter '{}' is declared more than once",
+                    name
+                ))
                 .snippet(
                     Snippet::builder()
                         .file(span.file_id)
                         .primary(span.start..span.end, "Duplicate type parameter declaration")
+                        .build(),
+                )
+                .build(),
+
+            SemanticError::InvalidDropSignature { message, span } => Diagnostic::builder()
+                .level(Level::Error)
+                .code("E3029".to_string())
+                .message(format!("Invalid drop method signature: {}", message))
+                .snippet(
+                    Snippet::builder()
+                        .file(span.file_id)
+                        .primary(span.start..span.end, "Invalid drop definition")
                         .build(),
                 )
                 .build(),

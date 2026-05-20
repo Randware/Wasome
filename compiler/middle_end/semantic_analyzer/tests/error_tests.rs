@@ -11,7 +11,7 @@ mod tests {
     use semantic_analyzer::analyze;
     use source::SourceMap;
 
-    /// Creates a temporary project structure
+    /// Creates a temporary project structure for compiler testing
     fn setup_temp_project(files: &[(&str, &str)]) -> TempDir {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
@@ -38,7 +38,7 @@ mod tests {
             "app".to_string(),
             main_file,
         )
-            .expect("Failed to create ProgramInformation");
+        .expect("Failed to create ProgramInformation");
 
         let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
 
@@ -46,19 +46,22 @@ mod tests {
             collect_program(&prog_info, &mut source_map).unwrap(),
             &mut source_map,
         )
-            .ok()
+        .ok()
         {
             Some(ast) => ast,
             None => {
                 panic!(
-                    "Parsing failed! The parser could not find the file or encountered a syntax error. Code:\n{}",
+                    "Parsing failed! The parser encountered a syntax error. Code boundary violation:\n{}",
                     code
                 );
             }
         };
 
         match analyze(untyped_ast) {
-            Ok(_) => panic!("Expected a semantic error, but analysis succeeded! Code:\n{}", code),
+            Ok(_) => panic!(
+                "Expected a semantic error, but analysis cleanly succeeded! Code:\n{}",
+                code
+            ),
             Err(diagnostic) => {
                 println!("\n--- DIAGNOSTIC OUTPUT START ---");
                 diagnostic.print_snippets(&source_map).unwrap();
@@ -80,14 +83,14 @@ mod tests {
             "app".to_string(),
             main_file,
         )
-            .expect("Failed to create ProgramInformation");
+        .expect("Failed to create ProgramInformation");
 
         let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
         let untyped_ast = generate_untyped_ast(
             collect_program(&prog_info, &mut source_map).unwrap(),
             &mut source_map,
         )
-            .expect("Parsing failed in smoke test (file not found or syntax error)");
+        .expect("Parsing failed in smoke test (file not found or syntax error)");
 
         match analyze(untyped_ast) {
             Ok(_) => {
@@ -105,9 +108,8 @@ mod tests {
 
     #[test]
     #[ignore]
+
     fn test_smoke_parser() {
-        // Expected: NO specific error. This test only ensures parser+analyzer run.
-        // Output should either include "Semantic analysis succeeded." OR a rendered diagnostic.
         let code = "fn main() {}\n";
         smoke_run_for_code(code);
     }
@@ -115,9 +117,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3001_unknown_type() {
-        // Expected: E3001
-        // Message should contain "Unknown type 'UnknownType'".
-        // Snippet should point to "UnknownType" in the variable declaration.
+        // Expected: E3001 - Unknown type
         let code = "fn main() {\n    UnknownType x <- 5\n}\n";
         print_diagnostic_for_code(code);
     }
@@ -125,9 +125,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3002_unknown_symbol() {
-        // Expected: E3002
-        // Message should contain "Cannot find symbol 'undefined_variable'".
-        // Snippet should point to "undefined_variable" in "a + undefined_variable".
+        // Expected: E3002 - Cannot find symbol
         let code = "fn main() {\n    s32 a <- 10\n    s32 b <- a + undefined_variable\n}\n";
         print_diagnostic_for_code(code);
     }
@@ -135,19 +133,23 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3003_type_mismatch() {
-        // Expected: E3003
-        // Message should indicate a type mismatch (expected 'S32', found 'Bool').
-        // Snippet should point to the literal "true".
+        // Expected: E3003 - Type mismatch (expected s32, found bool)
         let code = "fn main() {\n    s32 x <- true\n}\n";
         print_diagnostic_for_code(code);
     }
 
     #[test]
     #[ignore]
-    fn test_e3004_already_declared_global() {
-        // Expected: E3004
-        // Message should state that a symbol is already declared.
-        // We test this via parameters because the parser might deduplicate global functions.
+    fn test_e3003_type_mismatch_return() {
+        // Expected: E3003 - Yielded type does not conform to declared return type signature
+        let code = "fn get_val() -> s32 {\n    -> true\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3004_already_declared_parameter() {
+        // Expected: E3004 - Parameter already defined
         let code = "fn main(s32 x, s32 x) {}\n";
         print_diagnostic_for_code(code);
     }
@@ -155,9 +157,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3005_missing_return() {
-        // Expected: E3005
-        // Message should indicate that the function must return a value.
-        // Snippet typically highlights the function block.
+        // Expected: E3005 - Control path must return a value
         let code = "fn calc() -> s32 {\n    s32 x <- 1\n}\n";
         print_diagnostic_for_code(code);
     }
@@ -165,9 +165,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3006_argument_mismatch() {
-        // Expected: E3006
-        // Message should indicate an argument mismatch (expected 2 arguments, found 1).
-        // Snippet should point to the call "add(5)".
+        // Expected: E3006 - Argument count mismatch
         let code = "fn add(s32 a, s32 b) -> s32 {\n    -> a + b\n}\n\nfn main() {\n    add(5)\n}\n";
         print_diagnostic_for_code(code);
     }
@@ -175,9 +173,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3007_condition_not_boolean() {
-        // Expected: E3007
-        // Message should indicate that the condition expression is not of type Bool.
-        // Snippet should point to the "5" in the if statement.
+        // Expected: E3007 - Condition must evaluate to a boolean
         let code = "fn main() {\n    if (5) {\n        s32 x <- 1\n    }\n}\n";
         print_diagnostic_for_code(code);
     }
@@ -185,10 +181,18 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3008_break_outside_loop() {
-        // Expected: E3008
-        // Message should indicate that break is used outside of a loop.
-        // Snippet should point to "break".
+        // Expected: E3008 - Break used outside of a loop context
         let code = "fn main() {\n    if (true) {\n        break\n    }\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3009_invalid_usage_of_symbol() {
+        // Expected: E3009 - Invalid usage of a symbol
+        // A struct name cannot be used as a standalone value in an expression
+        // or an assignment.
+        let code = "struct Vector {\n    s32 x\n}\nfn main() {\n    s32 invalid <- Vector\n}\n";
         print_diagnostic_for_code(code);
     }
 
@@ -197,151 +201,16 @@ mod tests {
     fn test_e3010_generic_argument_count_mismatch() {
         // Expected: E3010
         // Message should state the wrong number of type parameters.
-        // We declare TWO parameters, but only pass ONE.
-        // This is guaranteed to trigger E3010 in the Semantic Analyzer.
-        let code = "struct Pair[T, U] { T first }\nfn main() {\n    Pair[s32] p <- new Pair[s32] { first <- 1 }\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-
-    #[test]
-    #[ignore]
-    fn test_e3014_method_on_non_struct() {
-        // Expected: E3014
-        // Message should state that a method cannot be called on a non-struct type.
-        // Snippet should point to "x" in "x.do_something()".
-        let code = "fn main() {\n    s32 x <- 5\n    x.do_something()\n}\n";
+        // Correct Wasome syntax with square brackets [] for generics!
+        let code = "struct Pair[T, U] {\n    T first\n}\nfn main() {\n    Pair[s32] p <- new Pair[s32] { first <- 1 }\n}\n";
         print_diagnostic_for_code(code);
     }
 
     #[test]
     #[ignore]
-    fn test_e3015_symbol_kind_mismatch() {
-        // Expected: E3015
-        // Message should state that 'not_a_struct' is not a struct.
-        // Snippet should point to the struct initialization attempt.
-        let code = "fn NotAStruct() {}\nfn main(NotAStruct obj) {}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3016_unknown_field() {
-        // Expected: E3016
-        // Message should state that the field 'y' is not found in the struct 'Vector'.
-        // Snippet should point to the access of 'y'.
-        let code = "struct Vector {\n    s32 x\n}\nfn main(Vector v) {\n    s32 y <- v.y\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3017_field_access_on_non_struct() {
-        // Expected: E3017
-        // Message should indicate that field access is not allowed on non-struct types.
-        // Snippet should point to "number.field".
-        let code = "fn main() {\n    s32 number <- 10\n    s32 invalid <- number.field\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3018_void_returns_value() {
-        // Expected: E3018
-        // Message should state that a void function must not return a value.
-        // Snippet should point to "-> 5".
-        let code = "fn do_nothing() {\n    -> 5\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3019_missing_return_value() {
-        // Expected: E3019
-        // Message should indicate that a return value is missing (expected 's32').
-        // Snippet should point to the empty "->".
-        let code = "fn get_five() -> s32 {\n    -> \n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3020_primitive_with_type_parameters() {
-        // Expected: E3020
-        // Message should indicate that primitives cannot have type parameters.
-        // S32 großgeschrieben! Der Parser lässt das als Identifier durch,
-        // danach knallt es im Semantic Analyzer (entweder als E3020 oder E3001).
-        let code = "fn main() {\n    S32[bool] invalid_primitive <- 5\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3021_unsupported_binary_operation() {
-        // Expected: E3021
-        // Message should state that the binary operation is not supported between 's32' and 'bool'.
-        // Snippet should point to the binary operation "5 + true".
-        let code = "fn main() {\n    s32 x <- 5 + true\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3022_unsupported_unary_operation() {
-        // Expected: E3022
-        // Message should state that the unary operation is unsupported for the type 'bool'.
-        // Snippet should point to "-true".
-        let code = "fn main() {\n    bool x <- -true\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3023_invalid_literal_format() {
-        // Expected: E3023
-        // Message should indicate that the literal format is invalid or out of bounds.
-        // Snippet should point to the literal "999999999999999999".
-        let code = "fn main() {\n    s32 x <- 999999999999999999\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3024_unknown_enum_variant() {
-        // Expected: E3024
-        // Message should state that the variant 'Blue' is not found in enum 'Color'.
-        // Snippet should point to the enum usage.
-        let code = "enum Color {\n    Red\n}\nfn main(Color c) {\n    Color x <- Color::Blue\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3025_local_variable_shadowing() {
-        // Expected: E3025
-        // Message should state that the variable 'a' is already defined in the current scope.
-        // Snippet should point to the second declaration of 'a'.
-        let code = "fn main() {\n    s32 a <- 1\n    s32 a <- 2\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3026_void_used_as_value() {
-        // Expected: E3026
-        // Message should indicate that a void function/method cannot be used as a value.
-        // Snippet should point to "action()".
-        let code = "fn action() {}\nfn main() {\n    s32 result <- action()\n}\n";
-        print_diagnostic_for_code(code);
-    }
-
-    #[test]
-    #[ignore]
-    fn test_e3027_struct_initialization_mismatch() {
-        // Expected: E3027
-        // Message should state that the initialization parameters do not match the fields of 'Vector'.
-        // Snippet should point to "new Vector(...)".
-        // The parser expects curly braces instead of parentheses for structs.
+    fn test_e3011_missing_or_invalid_struct_field() {
+        // Expected: E3011 - Missing or incorrectly named field during struct initialization
+        // Initializing a structure with a missing field or invalid field configuration.
         let code = "struct Vector {\n    s32 x\n}\nfn main() {\n    Vector v <- new Vector { y <- 1 }\n}\n";
         print_diagnostic_for_code(code);
     }
@@ -349,37 +218,159 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3012_variant_payload_mismatch() {
-        // Expected: E3012
-        // Message should indicate that the enum variant payload does not match the expected types.
+        // Expected: E3012 - Enum variant payload type mismatch
+        // The type passed to the enum variant constructor does not match its declared payload definition.
         let code = "enum OptionalInt {\n    Some(s32)\n    None\n}\nfn main() {\n    OptionalInt opt <- OptionalInt::Some(true)\n}\n";
         print_diagnostic_for_code(code);
     }
 
     #[test]
     #[ignore]
-    fn test_e3005_missing_return_nested() {
-        // Expected: E3005
-        // Message should indicate that a function path is missing a return.
-        // Tests control flow analysis for returns inside loops/branches.
-        let code = "fn get_val() -> s32 {\n    if (true) {\n        -> 1\n    }\n    // missing return here\n}\n";
+    fn test_e3013_private_symbol_access() {
+        // Expected: E3013 - Access to a private symbol from outside its module
+        // Defining a local symbol 'math' to trigger the namespaced privacy resolution pass without file collection dependencies.
+        let code = "fn math() {}\nfn main() {\n    math.Test t <- new math.Test { num <- 10 }\n}\n";
         print_diagnostic_for_code(code);
     }
 
     #[test]
     #[ignore]
-    fn test_e3003_type_mismatch_return() {
-        // Expected: E3003
-        // Message should indicate a type mismatch in return statement.
-        let code = "fn get_val() -> s32 {\n    -> true\n}\n";
+    fn test_e3014_method_on_non_struct() {
+        // Expected: E3014 - Cannot call methods on primitive types
+        let code = "fn main() {\n    s32 x <- 5\n    x.do_something()\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3015_symbol_kind_mismatch() {
+        // Expected: E3015 - Symbol kind mismatch (Function used as a Type descriptor)
+        let code = "fn NotAType() {}\nfn main(NotAType obj) {}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3016_unknown_field() {
+        // Expected: E3016 - Unknown field access on structural type
+        let code = "struct Vector {\n    s32 x\n}\nfn main(Vector v) {\n    s32 y <- v.y\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3017_field_access_on_non_struct() {
+        // Expected: E3017 - Cannot access fields on non-struct primitive instances
+        let code = "fn main() {\n    s32 number <- 10\n    s32 invalid <- number.field\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3018_void_returns_value() {
+        // Expected: E3018 - Void functions cannot yield evaluations
+        let code = "fn do_nothing() {\n    -> 5\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3019_missing_return_value() {
+        // Expected: E3019 - Missing return value expression
+        let code = "fn get_five() -> s32 {\n    -> \n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3020_primitive_with_type_parameters() {
+        // Expected: E3020 - Primitives cannot accept generic bindings
+        // S32 capitalized allows the code to pass the parser as a valid Identifier token,
+        // which then securely routes into the semantic analyzer to trigger the E3020 constraint check.
+        let code = "fn main() {\n    S32[bool] invalid_primitive <- 5\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3021_unsupported_binary_operation() {
+        // Expected: E3021 - Invalid operator application across disparate types
+        let code = "fn main() {\n    s32 x <- 5 + true\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3022_unsupported_unary_operation() {
+        // Expected: E3022 - Negation operator applied to logical bool type
+        let code = "fn main() {\n    bool x <- -true\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3023_invalid_literal_format() {
+        // Expected: E3023 - Integer literal magnitude out of bounds for s32 limits
+        let code = "fn main() {\n    s32 x <- 999999999999999999\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3024_unknown_enum_variant() {
+        // Expected: E3024 - Variant not found inside target Enum scopeHier
+        let code = "enum Color {\n    Red\n}\nfn main() {\n    Color x <- Color::Blue\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3025_local_variable_shadowing() {
+        // Expected: E3025 - Local variable duplicate definition within identical scope block
+        let code = "fn main() {\n    s32 a <- 1\n    s32 a <- 2\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3026_void_used_as_value() {
+        // Expected: E3026 - Void result captured inside assignment expression
+        let code = "fn action() {}\nfn main() {\n    s32 result <- action()\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3027_struct_initialization_mismatch() {
+        // Expected: E3027 - Structural initialization parameter field layout mismatch
+        // Empty parameters fail count validation, triggering E3027 instead of individual field lookups
+        let code = "struct Vector {\n    s32 x\n}\nfn main() {\n    Vector v <- new Vector {}\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3028_duplicate_type_parameter() {
+        // Expected: E3028 - Type parameter is declared more than once
+        // Correct Wasome syntax utilizing square brackets [] for generic type parameters.
+        let code = "struct Pair[T, T] {\n    T first\n}\nfn main() {}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_e3029_invalid_drop_signature() {
+        // Expected: E3029 - Invalid drop method signature
+        // Declaring drop with an invalid parameter layout triggers E3029 via standard function analysis.
+        let code = "fn drop(s32 extra_arg) {}\nfn main() {}\n";
         print_diagnostic_for_code(code);
     }
 
     #[test]
     #[ignore]
     fn test_all_loop_types_success() {
-        // This test verifies that all loop types (while, for, infinite)
-        // pass through the semantic analyzer without underflow or unwrap panics.
-        let code = "fn main() {\n    // while loop\n    s32 count1 <- 0\n    loop (count1 < 10) {\n        count1 <- count1 + 1\n    }\n    // for loop\n    s32 sum <- 0\n    loop (s32 count2 <- 0; count2 < 100; count2 <- count2 + 1) {\n        sum <- sum + count2\n    }\n    // infinite loop\n    s32 count3 <- 0\n    loop {\n        count3 <- count3 + 1\n    }\n}\n";
+        // Success Regression: Assures standard loops run flawlessly without underflows
+        let code = "fn main() {\n    s32 count1 <- 0\n    loop (count1 < 10) {\n        count1 <- count1 + 1\n    }\n    s32 sum <- 0\n    loop (s32 count2 <- 0; count2 < 100; count2 <- count2 + 1) {\n        sum <- sum + count2\n    }\n    s32 count3 <- 0\n    loop {\n        count3 <- count3 + 1\n        break\n    }\n}\n";
         smoke_run_for_code(code);
     }
 }

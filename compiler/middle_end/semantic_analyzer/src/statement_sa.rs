@@ -63,11 +63,16 @@ pub(crate) fn analyze_statement(
             {
                 Ok(Statement::VoidFunctionCall(void_method))
             } else {
-                let typed_expr = analyze_expression(inner, context, function_symbol_mapper)?;
-                Ok(Statement::Expression(ASTNode::new(
-                    typed_expr,
-                    *inner.position(),
-                )))
+                match analyze_expression(inner, context, function_symbol_mapper) {
+                    Ok(typed_expr) => Ok(Statement::Expression(ASTNode::new(
+                        typed_expr,
+                        *inner.position(),
+                    ))),
+                    Err(SemanticError::UnknownSymbol { name, span }) if name == "break" => {
+                        analyze_break(context, span)
+                    }
+                    Err(e) => Err(e),
+                }
             }
         }
         Statement::Return(inner) => {
@@ -533,10 +538,10 @@ fn analyze_if_enum_variant(
         &to_analyze.condition_enum().0,
         context.ast_reference.symbols_available_at(),
     )
-        .ok_or_else(|| SemanticError::UnknownSymbol {
-            name: to_analyze.condition_enum().0.clone(),
-            span,
-        })? {
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.condition_enum().0.clone(),
+        span,
+    })? {
         en
     } else {
         return Err(SemanticError::SymbolKindMismatch {
@@ -626,10 +631,10 @@ fn analyze_if_enum_variant(
         variables,
         typed_then_node,
     )
-        .ok_or_else(|| SemanticError::Internal {
-            message: "Failed to create if-enum-variant structure".to_string(),
-            span,
-        })
+    .ok_or_else(|| SemanticError::Internal {
+        message: "Failed to create if-enum-variant structure".to_string(),
+        span,
+    })
 }
 
 /// Analyzes a code block (a list of statements).
