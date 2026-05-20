@@ -9,5 +9,5 @@ fn main() {
 
     s32 old_x_coordinate <- point.x
     
-    point.x <- 15
+    ((point)).x <- 15
 }
