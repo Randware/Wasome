@@ -238,9 +238,23 @@ pub(crate) fn analyze_type_parameters_declaration<'a, T: Clone + HasSymbols<'a, 
     to_analyze: impl Iterator<Item = &'a UntypedTypeParameter>,
     span: source::types::Span,
 ) -> Result<Vec<TypedTypeParameter>, SemanticError> {
-    to_analyze
-        .map(|tp| analyze_type_parameter_full(tp, context, span).cloned())
-        .collect::<Result<Vec<_>, _>>()
+    use std::collections::HashSet;
+    let mut seen_params = HashSet::new();
+    let mut typed_params = Vec::new();
+
+    for tp in to_analyze {
+        let name = tp.inner().name().to_string();
+        if !seen_params.insert(name.clone()) {
+            return Err(SemanticError::DuplicateTypeParameter {
+                name,
+                span,
+            });
+        }
+        let typed_param = analyze_type_parameter_full(tp, context, span)?.clone();
+        typed_params.push(typed_param);
+    }
+
+    Ok(typed_params)
 }
 
 pub(crate) fn analyze_type_parameter_providing<'a, T: Clone + HasSymbols<'a, UntypedAST>>(

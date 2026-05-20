@@ -137,6 +137,8 @@ pub enum SemanticError {
 
     /// E3000: Generic fallback for errors that haven't been categorized yet.
     Custom { message: String, span: Span },
+    // E3028: A type parameter is declared more than once in the same generic declaration.
+    DuplicateTypeParameter { name: String, span: Span },
 }
 
 impl SemanticError {
@@ -604,6 +606,18 @@ impl SemanticError {
                     )
                     .build()
             }
+
+            SemanticError::DuplicateTypeParameter { name, span } => Diagnostic::builder()
+                .level(Level::Error)
+                .code("E3028".to_string())
+                .message(format!("Type parameter '{}' is declared more than once", name))
+                .snippet(
+                    Snippet::builder()
+                        .file(span.file_id)
+                        .primary(span.start..span.end, "Duplicate type parameter declaration")
+                        .build(),
+                )
+                .build(),
         }
     }
 }
