@@ -298,14 +298,14 @@ This `as` syntax is an expression.
 Structs support type parameters:
 
 ```
-struct <StructName><T, U, ...> <struct-block>
+struct <StructName>[T, U, ...] <struct-block>
 ```
 
 - Type parameter identifiers use `PascalCase`.
 - When instantiating a generic struct, provide concrete types:
 
 ```
-new <StructName><ConcreteType, ...> <parameter-block>
+new <StructName>[ConcreteType, ...] <parameter-block>
 ```
 
 Type parameters become part of the instantiated struct's type.
