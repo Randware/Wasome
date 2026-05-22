@@ -5,7 +5,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{map, unspan_vec, ParserSpan};
+use crate::{ParserSpan, map, unspan_vec};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,
@@ -58,35 +58,38 @@ pub fn statement_parser<'src>()
         let not_dot = token_parser(TokenType::Dot).not();
         let not_assign_token = any().spanned().and_is(not_assign.clone());
 
-        let struct_field_assignment =
-        expression_parser().nested_in(
-            not_assign_token
-                .clone()
-                .then_ignore(
-                    // Don't consume the struct field in the expression
-                    not_assign_token
-                        .clone()
-                        .and_is(not_dot)
-                        .repeated()
-                        .then(token_parser(TokenType::Dot))
-                        .rewind(),
-                )
-                .repeated()
-                .at_least(1)
-                .to_slice())
+        let struct_field_assignment = expression_parser()
+            .nested_in(
+                not_assign_token
+                    .clone()
+                    .then_ignore(
+                        // Don't consume the struct field in the expression
+                        not_assign_token
+                            .clone()
+                            .and_is(not_dot)
+                            .repeated()
+                            .then(token_parser(TokenType::Dot))
+                            .rewind(),
+                    )
+                    .repeated()
+                    .at_least(1)
+                    .to_slice(),
+            )
             .then_ignore(token_parser(TokenType::Dot))
             .then(
                 // Identifiers can never contain assignments
                 // So this never consumes the assignment token
-                identifier_parser()
+                identifier_parser(),
             )
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())
             .map(|((src, field), val)| {
                 let pos: ParserSpan = src.position().merge(*val.position()).unwrap().into();
-                pos.make_wrapped(
-                    StructFieldAssignment::<UntypedAST>::new(src, field.inner, val)
-                )
+                pos.make_wrapped(StructFieldAssignment::<UntypedAST>::new(
+                    src,
+                    field.inner,
+                    val,
+                ))
             });
 
         let variable_declaration = data_type
