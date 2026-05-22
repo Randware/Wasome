@@ -225,6 +225,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let args = BuildArgs {
             path: dir.path().to_path_buf(),
+            profile: Default::default(),
         };
 
         let err = args.execute().unwrap_err();
@@ -236,7 +237,10 @@ mod tests {
     #[should_panic(expected = "not yet implemented")]
     fn test_build_panics() {
         let path = valid_fixture_path();
-        let args = BuildArgs { path };
+        let args = BuildArgs {
+            path,
+            profile: Default::default(),
+        };
         let _ = args.execute();
     }
 

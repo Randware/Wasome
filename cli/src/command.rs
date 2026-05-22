@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand, ValueHint};
+use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
 
 #[derive(Parser)]
 #[command(
@@ -23,6 +23,14 @@ pub(crate) struct CheckArgs {
 pub(crate) struct BuildArgs {
     #[arg(help = "Path of project to compile [default: Current directory]", value_hint = ValueHint::DirPath, default_value = ".", hide_default_value = true)]
     pub(crate) path: PathBuf,
+    #[arg(
+        long,
+        help = "Optimization profile for compilation",
+        default_value = "default",
+        value_enum,
+        ignore_case = true
+    )]
+    pub(crate) profile: Profile,
 }
 
 #[derive(Args, Debug)]
@@ -49,4 +57,45 @@ pub(crate) enum Command {
     New(NewArgs),
     #[command(about = "Format the project source")]
     Fmt(FmtArgs),
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub(crate) enum Profile {
+    #[value(
+        name = "debug",
+        alias = "O0",
+        help = "(O0) No optimization, lowest compile time, best for debugging"
+    )]
+    Debug,
+    #[value(
+        name = "basic",
+        alias = "O1",
+        help = "(O1) Basic optimizations, no significant compile time cost"
+    )]
+    Basic,
+    #[default]
+    #[value(
+        name = "default",
+        alias = "O2",
+        help = "(O2) Fast execution, good compile time, recommended in most cases"
+    )]
+    Default,
+    #[value(
+        name = "max",
+        alias = "O3",
+        help = "(O3) Maximum speed, significantly increased binary size"
+    )]
+    Max,
+    #[value(
+        name = "size",
+        alias = "Os",
+        help = "(Os) Optimize for binary size, no significant performance cost"
+    )]
+    Size,
+    #[value(
+        name = "size-min",
+        alias = "Oz",
+        help = "(Oz) Minimum binary size at all costs, significant performance cost"
+    )]
+    SizeMin,
 }
