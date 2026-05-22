@@ -498,9 +498,9 @@ fn mangle(name: &str, id: &Id) -> String {
 ///
 /// Traverses all files and subdirectories, yielding each function (including methods
 /// defined inside structs) to the callback.
-fn recursive_functions_of_dir<'b>(
+fn recursive_functions_of_dir<'b, Callback: FnMut(FunctionTraversalHelper<'_, 'b, TypedAST>)>(
     dir: &DirectoryTraversalHelper<'_, 'b, TypedAST>,
-    mut callback: impl for<'a> FnMut(FunctionTraversalHelper<'a, 'b, TypedAST>),
+    mut callback: Callback,
 ) {
     recursive_files_of_dir(dir, &mut |file| {
         file.function_iterator().for_each(&mut callback);
@@ -512,9 +512,9 @@ fn recursive_functions_of_dir<'b>(
 /// Recursively iterates over all enum declarations in the directory tree.
 ///
 /// Traverses all files and subdirectories, yielding each enum declaration to the callback.
-fn recursive_enums_of_dir(
-    dir: &DirectoryTraversalHelper<TypedAST>,
-    mut callback: impl FnMut(EnumTraversalHelper<TypedAST>),
+fn recursive_enums_of_dir<'b, Callback: FnMut(EnumTraversalHelper<'_, 'b, TypedAST>)>(
+    dir: &DirectoryTraversalHelper<'_, 'b, TypedAST>,
+    mut callback: Callback,
 ) {
     recursive_files_of_dir(dir, &mut |file| {
         file.enums_iterator().for_each(&mut callback);
@@ -524,9 +524,9 @@ fn recursive_enums_of_dir(
 /// Recursively iterates over all struct declarations in the directory tree.
 ///
 /// Traverses all files and subdirectories, yielding each struct declaration to the callback.
-fn recursive_structs_of_dir(
-    dir: &DirectoryTraversalHelper<TypedAST>,
-    mut callback: impl FnMut(StructTraversalHelper<TypedAST>),
+fn recursive_structs_of_dir<'b, Callback: FnMut(StructTraversalHelper<'_, 'b, TypedAST>)>(
+    dir: &DirectoryTraversalHelper<'_, 'b, TypedAST>,
+    mut callback: Callback,
 ) {
     recursive_files_of_dir(dir, &mut |file| {
         file.structs_iterator().for_each(&mut callback);
@@ -544,4 +544,700 @@ fn recursive_files_of_dir<'b, Callback: FnMut(FileTraversalHelper<'_, 'b, TypedA
     dir.subdirectories_iterator()
         .for_each(|subdir| recursive_files_of_dir(&subdir, callback));
     dir.files_iterator().for_each(callback);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ast::composite::{Enum, EnumVariant, Struct};
+    use ast::directory::Directory;
+    use ast::file::File;
+    use ast::id::Id;
+    use ast::statement::{CodeBlock, Statement};
+    use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, StructSymbol};
+    use ast::top_level::{Function, FunctionType};
+    use ast::traversal::enum_traversal::EnumTraversalHelper;
+    use ast::traversal::function_traversal::FunctionTraversalHelper;
+    use ast::traversal::struct_traversal::StructTraversalHelper;
+    use ast::visibility::Visibility;
+    use ast::{AST, ASTNode, TypedAST};
+    use source::types::FileID;
+    use std::path::PathBuf;
+    use std::rc::Rc;
+
+    fn sample_span() -> source::types::Span {
+        FileID::from(0).span(0, 10)
+    }
+
+    #[test]
+    fn mangle_simple_name() {
+        let id = Id::new();
+        let result = mangle("foo", &id);
+        assert_eq!(result, format!("foo-{}", id.as_unique_string()));
+    }
+
+    #[test]
+    fn mangle_name_with_underscore() {
+        let id = Id::new();
+        let result = mangle("my_func", &id);
+        assert_eq!(result, format!("my_func-{}", id.as_unique_string()));
+    }
+
+    #[test]
+    fn mangle_different_ids_different_results() {
+        let id1 = Id::new();
+        let id2 = Id::new();
+        let r1 = mangle("same", &id1);
+        let r2 = mangle("same", &id2);
+        assert_ne!(r1, r2);
+    }
+
+    #[test]
+    fn mangle_same_id_same_name_same_result() {
+        let id = Id::new();
+        let id_clone = id.clone();
+        let r1 = mangle("test", &id);
+        let r2 = mangle("test", &id_clone);
+        assert_eq!(r1, r2);
+    }
+
+    #[test]
+    fn mangle_different_names_different_results() {
+        let id = Id::new();
+        let r1 = mangle("alpha", &id);
+        let r2 = mangle("beta", &id);
+        assert_ne!(r1, r2);
+        assert!(r1.starts_with("alpha-"));
+        assert!(r2.starts_with("beta-"));
+    }
+
+    // -----------------------------------------------------------------------
+    // recursive_files_of_dir tests
+    // -----------------------------------------------------------------------
+
+    fn make_ast_with_files(file_names: Vec<&str>) -> AST<TypedAST> {
+        let files: Vec<ASTNode<File<TypedAST>, FileID>> = file_names
+            .into_iter()
+            .map(|name| {
+                ASTNode::new(
+                    File::<TypedAST>::new(
+                        name.to_string(),
+                        Vec::new(),
+                        Vec::new(),
+                        Vec::new(),
+                        Vec::new(),
+                    ),
+                    FileID::from(0),
+                )
+            })
+            .collect();
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), files),
+            PathBuf::new(),
+        );
+        AST::new(root_dir).unwrap()
+    }
+
+    #[test]
+    fn recursive_files_empty() {
+        let ast = make_ast_with_files(Vec::new());
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        recursive_files_of_dir(&root, &mut |_| panic!());
+    }
+
+    #[test]
+    fn recursive_files_single() {
+        let ast = make_ast_with_files(vec!["main"]);
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_files_of_dir(&root, &mut |_| count += 1);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn recursive_files_multiple() {
+        let ast = make_ast_with_files(vec!["a", "b", "c"]);
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_files_of_dir(&root, &mut |_| count += 1);
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn recursive_files_with_subdirectory() {
+        let sub_files: Vec<ASTNode<File<TypedAST>, FileID>> = vec![ASTNode::new(
+            File::<TypedAST>::new(
+                "sub_file".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ),
+            FileID::from(0),
+        )];
+        let sub_dir = ASTNode::new(
+            Directory::new("sub".to_string(), Vec::new(), sub_files),
+            PathBuf::new(),
+        );
+        let main_file: ASTNode<File<TypedAST>, FileID> = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), vec![sub_dir], vec![main_file]),
+            PathBuf::new(),
+        );
+        let ast = AST::new(root_dir).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_files_of_dir(&root, &mut |_| count += 1);
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn recursive_files_nested_subdirectories() {
+        let deep_files: Vec<ASTNode<File<TypedAST>, FileID>> = vec![ASTNode::new(
+            File::<TypedAST>::new(
+                "deep".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ),
+            FileID::from(0),
+        )];
+        let deep_dir = ASTNode::new(
+            Directory::new("deep".to_string(), Vec::new(), deep_files),
+            PathBuf::new(),
+        );
+        let mid_files: Vec<ASTNode<File<TypedAST>, FileID>> = vec![ASTNode::new(
+            File::<TypedAST>::new(
+                "mid".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ),
+            FileID::from(0),
+        )];
+        let mid_dir = ASTNode::new(
+            Directory::new("mid".to_string(), vec![deep_dir], mid_files),
+            PathBuf::new(),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), vec![mid_dir], Vec::new()),
+            PathBuf::new(),
+        );
+        let ast = AST::new(root_dir).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_files_of_dir(&root, &mut |_| count += 1);
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn recursive_files_with_subdirectory_order() {
+        let sub_files: Vec<ASTNode<File<TypedAST>, FileID>> = vec![ASTNode::new(
+            File::<TypedAST>::new(
+                "sub_file".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ),
+            FileID::from(0),
+        )];
+        let sub_dir = ASTNode::new(
+            Directory::new("sub".to_string(), Vec::new(), sub_files),
+            PathBuf::new(),
+        );
+        let file_a: ASTNode<File<TypedAST>, FileID> = ASTNode::new(
+            File::<TypedAST>::new(
+                "a".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ),
+            FileID::from(0),
+        );
+        let file_b: ASTNode<File<TypedAST>, FileID> = ASTNode::new(
+            File::<TypedAST>::new(
+                "b".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), vec![sub_dir], vec![file_a, file_b]),
+            PathBuf::new(),
+        );
+        let ast = AST::new(root_dir).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut visited: Vec<String> = Vec::new();
+        recursive_files_of_dir(&root, &mut |file| {
+            visited.push(file.inner().name().to_string());
+        });
+        assert_eq!(visited.len(), 3);
+        assert!(visited.contains(&"sub_file".to_string()));
+        assert!(visited.contains(&"a".to_string()));
+        assert!(visited.contains(&"b".to_string()));
+    }
+
+    // -----------------------------------------------------------------------
+    // recursive_functions_of_dir tests
+    // -----------------------------------------------------------------------
+
+    fn make_ast_with_functions(func_names: Vec<&str>) -> AST<TypedAST> {
+        let functions: Vec<ASTNode<Function<TypedAST>, source::types::Span>> = func_names
+            .into_iter()
+            .map(|name| {
+                let symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+                    name.to_string(),
+                    None,
+                    Vec::new(),
+                    Vec::new(),
+                ));
+                ASTNode::new(
+                    Function::new(
+                        symbol,
+                        FunctionType::Regular(ASTNode::new(
+                            Statement::Codeblock(CodeBlock::new(Vec::new())),
+                            sample_span(),
+                        )),
+                        Visibility::Public,
+                    ),
+                    sample_span(),
+                )
+            })
+            .collect();
+        let file = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                Vec::new(),
+                functions,
+                Vec::new(),
+                Vec::new(),
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::new(),
+        );
+        AST::new(root_dir).unwrap()
+    }
+
+    #[test]
+    fn recursive_functions_empty() {
+        let ast = make_ast_with_functions(Vec::new());
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        recursive_functions_of_dir(&root, |_| panic!());
+    }
+
+    #[test]
+    fn recursive_functions_single() {
+        let ast = make_ast_with_functions(vec!["foo"]);
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_functions_of_dir(&root, |_| count += 1);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn recursive_functions_multiple() {
+        let ast = make_ast_with_functions(vec!["a", "b", "c"]);
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_functions_of_dir(&root, |_| count += 1);
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn recursive_functions_with_struct_methods() {
+        let struct_symbol = Rc::new(StructSymbol::<TypedAST>::new(
+            "MyStruct".to_string(),
+            Vec::new(),
+        ));
+        let method1_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            "method1".to_string(),
+            None,
+            Vec::new(),
+            Vec::new(),
+        ));
+        let method2_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            "method2".to_string(),
+            None,
+            Vec::new(),
+            Vec::new(),
+        ));
+        let struct_fn1 = ASTNode::new(
+            Function::new(
+                method1_symbol,
+                FunctionType::Regular(ASTNode::new(
+                    Statement::Codeblock(CodeBlock::new(Vec::new())),
+                    sample_span(),
+                )),
+                Visibility::Public,
+            ),
+            sample_span(),
+        );
+        let struct_fn2 = ASTNode::new(
+            Function::new(
+                method2_symbol,
+                FunctionType::Regular(ASTNode::new(
+                    Statement::Codeblock(CodeBlock::new(Vec::new())),
+                    sample_span(),
+                )),
+                Visibility::Public,
+            ),
+            sample_span(),
+        );
+        let struct_node = ASTNode::new(
+            Struct::<TypedAST>::new(
+                struct_symbol.clone(),
+                vec![struct_fn1, struct_fn2],
+                Vec::new(),
+                Visibility::Public,
+            ),
+            sample_span(),
+        );
+        let main_fn_symbol = Rc::new(FunctionSymbol::<TypedAST>::new(
+            "main".to_string(),
+            None,
+            Vec::new(),
+            Vec::new(),
+        ));
+        let main_fn = ASTNode::new(
+            Function::new(
+                main_fn_symbol,
+                FunctionType::Regular(ASTNode::new(
+                    Statement::Codeblock(CodeBlock::new(Vec::new())),
+                    sample_span(),
+                )),
+                Visibility::Public,
+            ),
+            sample_span(),
+        );
+        let file = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                Vec::new(),
+                vec![main_fn],
+                Vec::new(),
+                vec![struct_node],
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::new(),
+        );
+        let ast = AST::new(root_dir).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_functions_of_dir(&root, |_| count += 1);
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn recursive_functions_returns_correct_symbols() {
+        let fn_a = Rc::new(FunctionSymbol::<TypedAST>::new(
+            "func_a".to_string(),
+            None,
+            Vec::new(),
+            Vec::new(),
+        ));
+        let fn_b = Rc::new(FunctionSymbol::<TypedAST>::new(
+            "func_b".to_string(),
+            None,
+            Vec::new(),
+            Vec::new(),
+        ));
+        let struct_symbol = Rc::new(StructSymbol::<TypedAST>::new(
+            "MyStruct".to_string(),
+            Vec::new(),
+        ));
+        let method = Rc::new(FunctionSymbol::<TypedAST>::new(
+            "method".to_string(),
+            None,
+            Vec::new(),
+            Vec::new(),
+        ));
+
+        let make_fn = |sym: Rc<FunctionSymbol<TypedAST>>| -> ASTNode<Function<TypedAST>, source::types::Span> {
+            ASTNode::new(
+                Function::new(
+                    sym,
+                    FunctionType::Regular(ASTNode::new(
+                        Statement::Codeblock(CodeBlock::new(Vec::new())),
+                        sample_span(),
+                    )),
+                    Visibility::Public,
+                ),
+                sample_span(),
+            )
+        };
+
+        let struct_node = ASTNode::new(
+            Struct::<TypedAST>::new(
+                struct_symbol.clone(),
+                vec![make_fn(method.clone())],
+                Vec::new(),
+                Visibility::Public,
+            ),
+            sample_span(),
+        );
+        let file = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                Vec::new(),
+                vec![make_fn(fn_a.clone()), make_fn(fn_b.clone())],
+                Vec::new(),
+                vec![struct_node],
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::new(),
+        );
+        let ast = AST::new(root_dir).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut collected_names: Vec<String> = Vec::new();
+        recursive_functions_of_dir(&root, &mut |func: FunctionTraversalHelper<TypedAST>| {
+            collected_names.push(func.inner().declaration().name().to_string());
+        });
+        assert_eq!(collected_names.len(), 3);
+        assert!(collected_names.contains(&"func_a".to_string()));
+        assert!(collected_names.contains(&"func_b".to_string()));
+        assert!(collected_names.contains(&"method".to_string()));
+    }
+
+    // -----------------------------------------------------------------------
+    // recursive_structs_of_dir tests
+    // -----------------------------------------------------------------------
+
+    fn make_ast_with_structs(struct_names: Vec<&str>) -> AST<TypedAST> {
+        let structs: Vec<ASTNode<Struct<TypedAST>, source::types::Span>> = struct_names
+            .into_iter()
+            .map(|name| {
+                let symbol = Rc::new(StructSymbol::<TypedAST>::new(name.to_string(), Vec::new()));
+                ASTNode::new(
+                    Struct::<TypedAST>::new(symbol, Vec::new(), Vec::new(), Visibility::Public),
+                    sample_span(),
+                )
+            })
+            .collect();
+        let file = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                structs,
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::new(),
+        );
+        AST::new(root_dir).unwrap()
+    }
+
+    #[test]
+    fn recursive_structs_empty() {
+        let ast = make_ast_with_structs(Vec::new());
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        recursive_structs_of_dir(&root, |_| panic!());
+    }
+
+    #[test]
+    fn recursive_structs_single() {
+        let ast = make_ast_with_structs(vec!["Foo"]);
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_structs_of_dir(&root, |_| count += 1);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn recursive_structs_multiple() {
+        let ast = make_ast_with_structs(vec!["A", "B", "C"]);
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_structs_of_dir(&root, |_| count += 1);
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn recursive_structs_returns_correct_symbols() {
+        let struct_a = Rc::new(StructSymbol::<TypedAST>::new(
+            "StructA".to_string(),
+            Vec::new(),
+        ));
+        let struct_b = Rc::new(StructSymbol::<TypedAST>::new(
+            "StructB".to_string(),
+            Vec::new(),
+        ));
+
+        let make_struct =
+            |sym: Rc<StructSymbol<TypedAST>>| -> ASTNode<Struct<TypedAST>, source::types::Span> {
+                ASTNode::new(
+                    Struct::<TypedAST>::new(sym, Vec::new(), Vec::new(), Visibility::Public),
+                    sample_span(),
+                )
+            };
+
+        let file = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                vec![make_struct(struct_a.clone()), make_struct(struct_b.clone())],
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::new(),
+        );
+        let ast = AST::new(root_dir).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut collected_names: Vec<String> = Vec::new();
+        recursive_structs_of_dir(&root, |st: StructTraversalHelper<TypedAST>| {
+            collected_names.push(st.inner().symbol().name().to_string());
+        });
+        assert_eq!(collected_names.len(), 2);
+        assert!(collected_names.contains(&"StructA".to_string()));
+        assert!(collected_names.contains(&"StructB".to_string()));
+    }
+
+    // -----------------------------------------------------------------------
+    // recursive_enums_of_dir tests
+    // -----------------------------------------------------------------------
+
+    fn make_ast_with_enums(enum_names: Vec<&str>) -> AST<TypedAST> {
+        let enums: Vec<ASTNode<Enum<TypedAST>, source::types::Span>> = enum_names
+            .into_iter()
+            .map(|name| {
+                let symbol = Rc::new(EnumSymbol::<TypedAST>::new(name.to_string(), Vec::new()));
+                let variant_symbol = Rc::new(EnumVariantSymbol::<TypedAST>::new(
+                    format!("{}V", name),
+                    Vec::new(),
+                ));
+                ASTNode::new(
+                    Enum::<TypedAST>::new(
+                        symbol,
+                        vec![ASTNode::new(
+                            EnumVariant::<TypedAST>::new(variant_symbol),
+                            sample_span(),
+                        )],
+                        Visibility::Public,
+                    ),
+                    sample_span(),
+                )
+            })
+            .collect();
+        let file = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                Vec::new(),
+                Vec::new(),
+                enums,
+                Vec::new(),
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::new(),
+        );
+        AST::new(root_dir).unwrap()
+    }
+
+    #[test]
+    fn recursive_enums_empty() {
+        let ast = make_ast_with_enums(Vec::new());
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        recursive_enums_of_dir(&root, |_| panic!());
+    }
+
+    #[test]
+    fn recursive_enums_single() {
+        let ast = make_ast_with_enums(vec!["Color"]);
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_enums_of_dir(&root, |_| count += 1);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn recursive_enums_multiple() {
+        let ast = make_ast_with_enums(vec!["Red", "Green", "Blue"]);
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut count = 0;
+        recursive_enums_of_dir(&root, |_| count += 1);
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn recursive_enums_returns_correct_symbols() {
+        let enum_a = Rc::new(EnumSymbol::<TypedAST>::new("EnumA".to_string(), Vec::new()));
+        let enum_b = Rc::new(EnumSymbol::<TypedAST>::new("EnumB".to_string(), Vec::new()));
+
+        let make_enum =
+            |sym: Rc<EnumSymbol<TypedAST>>| -> ASTNode<Enum<TypedAST>, source::types::Span> {
+                let variant_sym = Rc::new(EnumVariantSymbol::<TypedAST>::new(
+                    format!("{}_V", sym.name()),
+                    Vec::new(),
+                ));
+                ASTNode::new(
+                    Enum::<TypedAST>::new(
+                        sym,
+                        vec![ASTNode::new(
+                            EnumVariant::<TypedAST>::new(variant_sym),
+                            sample_span(),
+                        )],
+                        Visibility::Public,
+                    ),
+                    sample_span(),
+                )
+            };
+
+        let file = ASTNode::new(
+            File::<TypedAST>::new(
+                "main".to_string(),
+                Vec::new(),
+                Vec::new(),
+                vec![make_enum(enum_a.clone()), make_enum(enum_b.clone())],
+                Vec::new(),
+            ),
+            FileID::from(0),
+        );
+        let root_dir = ASTNode::new(
+            Directory::new("src".to_string(), Vec::new(), vec![file]),
+            PathBuf::new(),
+        );
+        let ast = AST::new(root_dir).unwrap();
+        let root = DirectoryTraversalHelper::new_from_ast(&ast);
+        let mut collected_names: Vec<String> = Vec::new();
+        recursive_enums_of_dir(&root, |en: EnumTraversalHelper<TypedAST>| {
+            collected_names.push(en.inner().symbol().name().to_string());
+        });
+        assert_eq!(collected_names.len(), 2);
+        assert!(collected_names.contains(&"EnumA".to_string()));
+        assert!(collected_names.contains(&"EnumB".to_string()));
+    }
 }
