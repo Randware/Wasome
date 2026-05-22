@@ -1,7 +1,7 @@
 use crate::error_sa::SemanticError;
 use crate::mics_sa::{
     analyze_data_type, analyze_enum_usage, analyze_function_call, analyze_method_call,
-    analyze_struct_usage,
+    analyze_struct_usage, check_struct_field_visibility,
 };
 use crate::symbol::SyntaxContext;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
@@ -13,6 +13,7 @@ use ast::expression::{
 };
 use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
+use ast::visibility::Visibility;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use source::types::Span;
 use std::ops::Deref;
@@ -189,11 +190,11 @@ fn analyze_unary_op(
         converted_unary_op_type,
         ASTNode::new(converted_input, postion),
     )
-    .ok_or_else(|| SemanticError::UnsupportedUnaryOperation {
-        op: format!("{:?}", op_type),
-        target_type: input_data_type,
-        span,
-    })?;
+        .ok_or_else(|| SemanticError::UnsupportedUnaryOperation {
+            op: format!("{:?}", op_type),
+            target_type: input_data_type,
+            span,
+        })?;
 
     Ok(Box::new(analyzed))
 }
@@ -274,6 +275,7 @@ fn analyze_new_struct(
         .map(|param| {
             let field = struct_fields
                 .iter()
+                .map(|field| &field.0)
                 .find(|field| param.0.deref() == field.name())
                 .ok_or_else(|| SemanticError::MissingOrInvalidStructField {
                     struct_name: to_analyze.symbol().0.clone(),
@@ -292,6 +294,7 @@ fn analyze_new_struct(
         .collect::<Result<Vec<_>, SemanticError>>()?;
 
     let all_struct_fields_exist_dt_match = struct_fields.iter().all(|field| {
+        let field = &field.0;
         parameter
             .iter()
             .find(|param| param.0.name() == field.name())
@@ -327,10 +330,10 @@ fn analyze_new_enum(
         &to_analyze.to_create().0,
         context.ast_reference.symbols_available_at(),
     )
-    .ok_or_else(|| SemanticError::UnknownSymbol {
-        name: to_analyze.to_create().0.clone(),
-        span,
-    })? {
+        .ok_or_else(|| SemanticError::UnknownSymbol {
+            name: to_analyze.to_create().0.clone(),
+            span,
+        })? {
         en
     } else {
         return Err(SemanticError::SymbolKindMismatch {
@@ -427,24 +430,34 @@ fn analyze_struct_field_access(
             span,
         })?;
 
-    let sf = sfs
+    // Exaktes Tuple-Handling wie im main-Branch vorgesehen
+    let field_info = sfs
         .iter()
-        .find(|sf| sf.name() == to_analyze.field())
+        .find(|(sf, _)| sf.name() == to_analyze.field())
         .ok_or_else(|| SemanticError::UnknownField {
             struct_name: source_symbol.name().to_string(),
             field_name: to_analyze.field().to_string(),
             span,
-        })?
-        .clone();
+        })?;
+
+    let (sf, field_visibility) = (field_info.0.clone(), field_info.1);
+
+    check_struct_field_visibility(
+        to_analyze.field(),
+        field_visibility,
+        &untyped_symbol,
+        context,
+        span,
+    )?;
 
     let analyzed = StructFieldAccess::<TypedAST>::new(
         ASTNode::new(source_expr, *to_analyze.of().position()),
         sf,
     )
-    .ok_or_else(|| SemanticError::Internal {
-        message: "Failed to create struct field access".to_string(),
-        span,
-    })?;
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Failed to create struct field access".to_string(),
+            span,
+        })?;
 
     Ok(Box::new(analyzed))
 }

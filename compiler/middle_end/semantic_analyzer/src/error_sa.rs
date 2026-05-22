@@ -51,6 +51,13 @@ pub enum SemanticError {
         span: Span,
     },
 
+    /// E3010: Accessing a private field from outside its struct
+    PrivateFieldAccess {
+        field: String,
+        struct_name: String,
+        span: Span,
+    },
+
     /// E3011: Missing or incorrectly named field during struct initialization.
     MissingOrInvalidStructField {
         struct_name: String,
@@ -292,6 +299,28 @@ impl SemanticError {
                         .primary(
                             span.start..span.end,
                             format!("Expected {}, but found {}", expected, found),
+                        )
+                        .build(),
+                )
+                .build(),
+
+            SemanticError::PrivateFieldAccess {
+                field,
+                struct_name,
+                span,
+            } => Diagnostic::builder()
+                .level(Level::Error)
+                .code("E3010".to_string())
+                .message(format!(
+                    "Cannot access private field '{}' of struct '{}'",
+                    field, struct_name
+                ))
+                .snippet(
+                    Snippet::builder()
+                        .file(span.file_id)
+                        .primary(
+                            span.start..span.end,
+                            format!("Field '{}' is private", field),
                         )
                         .build(),
                 )
@@ -552,33 +581,6 @@ impl SemanticError {
                 )
                 .build(),
 
-            SemanticError::Internal { message, span } => Diagnostic::builder()
-                .level(Level::Error)
-                .code("E3999".to_string())
-                .message(format!("Internal Compiler Error: {}", message))
-                .snippet(
-                    Snippet::builder()
-                        .file(span.file_id)
-                        .primary(
-                            span.start..span.end,
-                            "The compiler encountered an unexpected state",
-                        )
-                        .build(),
-                )
-                .build(),
-
-            SemanticError::Custom { message, span } => Diagnostic::builder()
-                .level(Level::Error)
-                .code("E3000".to_string())
-                .message(message.clone())
-                .snippet(
-                    Snippet::builder()
-                        .file(span.file_id)
-                        .primary(span.start..span.end, message.clone())
-                        .build(),
-                )
-                .build(),
-
             SemanticError::VoidUsedAsValue { name, span } => Diagnostic::builder()
                 .level(Level::Error)
                 .code("E3026".to_string())
@@ -634,6 +636,33 @@ impl SemanticError {
                     Snippet::builder()
                         .file(span.file_id)
                         .primary(span.start..span.end, "Invalid drop definition")
+                        .build(),
+                )
+                .build(),
+
+            SemanticError::Internal { message, span } => Diagnostic::builder()
+                .level(Level::Error)
+                .code("E3999".to_string())
+                .message(format!("Internal Compiler Error: {}", message))
+                .snippet(
+                    Snippet::builder()
+                        .file(span.file_id)
+                        .primary(
+                            span.start..span.end,
+                            "The compiler encountered an unexpected state",
+                        )
+                        .build(),
+                )
+                .build(),
+
+            SemanticError::Custom { message, span } => Diagnostic::builder()
+                .level(Level::Error)
+                .code("E3000".to_string())
+                .message(message.clone())
+                .snippet(
+                    Snippet::builder()
+                        .file(span.file_id)
+                        .primary(span.start..span.end, message.clone())
                         .build(),
                 )
                 .build(),
