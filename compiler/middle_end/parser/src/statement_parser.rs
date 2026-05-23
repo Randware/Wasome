@@ -5,7 +5,7 @@ use crate::misc_parsers::{
     datatype_parser, identifier_parser, identifier_with_type_parameter_parser,
     maybe_statement_separator, statement_separator, token_parser,
 };
-use crate::{ParserSpan, map, unspan_vec};
+use crate::{map, unspan_vec, ParserSpan};
 use ast::statement::{
     CodeBlock, Conditional, ControlStructure, IfEnumVariant, Loop, LoopType, Return, Statement,
     StructFieldAssignment, VariableAssignment, VariableDeclaration,
@@ -59,8 +59,6 @@ pub fn statement_parser<'src>()
         let not_assign_token = any().spanned().and_is(not_assign.clone());
 
         let struct_field_assignment =
-        // TODO:
-        // Improvement: Remove the collect
         expression_parser().nested_in(
             not_assign_token
                 .clone()
@@ -69,23 +67,18 @@ pub fn statement_parser<'src>()
                     not_assign_token
                         .clone()
                         .and_is(not_dot)
-                        .or_not()
+                        .repeated()
                         .then(token_parser(TokenType::Dot))
                         .rewind(),
                 )
                 .repeated()
                 .at_least(1)
-                .collect::<Vec<_>>()
                 .to_slice())
             .then_ignore(token_parser(TokenType::Dot))
             .then(
-                identifier_parser().nested_in(
-                    not_assign_token
-                        .repeated()
-                        .at_least(1)
-                        .collect::<Vec<_>>()
-                        .to_slice()
-                )
+                // Identifiers can never contain assignments
+                // So this never consumes the assignment token
+                identifier_parser()
             )
             .then_ignore(token_parser(TokenType::Assign))
             .then(expression.clone())

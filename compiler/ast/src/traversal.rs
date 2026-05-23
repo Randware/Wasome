@@ -1,7 +1,8 @@
-use crate::ASTType;
-use crate::symbol::SymbolTable;
+use crate::symbol::{StructSymbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
+use crate::ASTType;
 use std::fmt::Debug;
+use std::rc::Rc;
 
 pub mod directory_traversal;
 pub mod enum_traversal;
@@ -59,4 +60,22 @@ pub trait FunctionContainer<'b, Type: ASTType> {
     ) -> impl DoubleEndedIterator<Item = FunctionTraversalHelper<'c, 'b, Type>> + 'c
     where
         'b: 'c;
+}
+
+/// Any type that can provide a struct symbol if it is a struct
+pub trait MaybeHasStructSymbol<Type: ASTType>: Debug {
+    /// Gets the struct symbol of the containing struct if it exists
+    fn maybe_struct_symbol(&self) -> Option<Rc<StructSymbol<Type>>>;
+}
+
+/// A trait that combines [`HasSymbols`] and [`MaybeHasStructSymbol`]
+/// Auto-implemented for all types that satisfy both bounds
+pub trait FunctionScope<'b, Type: ASTType>:
+    HasSymbols<'b, Type> + MaybeHasStructSymbol<Type>
+{
+}
+
+impl<'b, Type: ASTType, T> FunctionScope<'b, Type> for T where
+    T: HasSymbols<'b, Type> + MaybeHasStructSymbol<Type>
+{
 }

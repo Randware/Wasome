@@ -5,7 +5,7 @@ mod tests {
     use tempfile::TempDir;
 
     use driver::parser_driver::generate_untyped_ast;
-    use driver::program_information::{ProgramInformation, Project};
+    use driver::program_information::{ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation, ConcreteLoadInformation, Project};
     use driver::source_collector::collect_program;
     use io::WasomeLoader;
     use semantic_analyzer::analyze;
@@ -31,14 +31,17 @@ mod tests {
         let root = dir.path().to_path_buf().join("error_project");
         let main_file = PathBuf::from("main.waso");
 
-        let prog_info = ProgramInformation::new(
-            "error_project".to_string(),
-            root.clone(),
-            vec![Project::new("app".to_string(), PathBuf::from("app"))],
-            "app".to_string(),
-            main_file,
-        )
-        .expect("Failed to create ProgramInformation");
+        let prog_info = ConcreteLoadBinaryProgramInformation::new(
+            ConcreteLoadInformation::new(
+                "error_project".to_string(),
+                root.clone(),
+                vec![
+                    Project::new("app".to_string(), PathBuf::from("app")),
+                ]),
+            ConcreteBinaryProgramInformation::new(
+                "app".to_string(),
+                main_file)
+        ).expect("Failed to create ProgramInformation");
 
         let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
 
@@ -46,7 +49,7 @@ mod tests {
             collect_program(&prog_info, &mut source_map).unwrap(),
             &mut source_map,
         )
-        .ok()
+            .ok()
         {
             Some(ast) => ast,
             None => {
@@ -76,21 +79,24 @@ mod tests {
         let root = dir.path().to_path_buf().join("error_project");
         let main_file = PathBuf::from("main.waso");
 
-        let prog_info = ProgramInformation::new(
-            "error_project".to_string(),
-            root.clone(),
-            vec![Project::new("app".to_string(), PathBuf::from("app"))],
-            "app".to_string(),
-            main_file,
-        )
-        .expect("Failed to create ProgramInformation");
+        let prog_info = ConcreteLoadBinaryProgramInformation::new(
+            ConcreteLoadInformation::new(
+                "error_project".to_string(),
+                root.clone(),
+                vec![
+                    Project::new("app".to_string(), PathBuf::from("app")),
+                ]),
+            ConcreteBinaryProgramInformation::new(
+                "app".to_string(),
+                main_file)
+        ).expect("Failed to create ProgramInformation");
 
         let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
         let untyped_ast = generate_untyped_ast(
             collect_program(&prog_info, &mut source_map).unwrap(),
             &mut source_map,
         )
-        .expect("Parsing failed in smoke test (file not found or syntax error)");
+            .expect("Parsing failed in smoke test (file not found or syntax error)");
 
         match analyze(untyped_ast) {
             Ok(_) => {
@@ -108,7 +114,6 @@ mod tests {
 
     #[test]
     #[ignore]
-
     fn test_smoke_parser() {
         let code = "fn main() {}\n";
         smoke_run_for_code(code);
@@ -318,7 +323,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_e3024_unknown_enum_variant() {
-        // Expected: E3024 - Variant not found inside target Enum scopeHier
+        // Expected: E3024 - Variant not found inside target Enum scope
         let code = "enum Color {\n    Red\n}\nfn main() {\n    Color x <- Color::Blue\n}\n";
         print_diagnostic_for_code(code);
     }
@@ -368,9 +373,54 @@ mod tests {
 
     #[test]
     #[ignore]
+    fn test_e3030_private_field_access() {
+        // Expected: E3030 - Cannot access private field of struct
+        // Versucht von außerhalb der Struct-Definition (in fn main)
+        // auf das private Feld 'secret' zuzugreifen.
+        let code = "struct Account {\n    s32 secret\n}\n\nfn main(Account acc) {\n    s32 stolen <- acc.secret\n}\n";
+        print_diagnostic_for_code(code);
+    }
+
+    #[test]
+    #[ignore]
     fn test_all_loop_types_success() {
         // Success Regression: Assures standard loops run flawlessly without underflows
         let code = "fn main() {\n    s32 count1 <- 0\n    loop (count1 < 10) {\n        count1 <- count1 + 1\n    }\n    s32 sum <- 0\n    loop (s32 count2 <- 0; count2 < 100; count2 <- count2 + 1) {\n        sum <- sum + count2\n    }\n    s32 count3 <- 0\n    loop {\n        count3 <- count3 + 1\n        break\n    }\n}\n";
         smoke_run_for_code(code);
+    }
+
+    const STRUCT_FIELD_DATA: &str =
+        include_str!("private_struct_field_outside_struct/lib/data.waso");
+    const STRUCT_FIELD_MAIN: &str =
+        include_str!("private_struct_field_outside_struct/app/main.waso");
+
+    #[test]
+    #[ignore = "Manual visual inspection of the struct field visibility check"]
+    fn test_struct_field_visibility_check() {
+        let dir = setup_temp_project(&[
+            ("struct_field/lib/data.waso", STRUCT_FIELD_DATA),
+            ("struct_field/app/main.waso", STRUCT_FIELD_MAIN),
+        ]);
+        let root = dir.path().to_path_buf().join("struct_field");
+        let main_file = PathBuf::from("main.waso");
+
+        let prog_info = ConcreteLoadBinaryProgramInformation::new(
+            ConcreteLoadInformation::new(
+                "struct_field".to_string(),
+                root.clone(),
+                vec![
+                    Project::new("app".to_string(), PathBuf::from("app")),
+                    Project::new("lib".to_string(), PathBuf::from("lib")),
+                ]),
+            ConcreteBinaryProgramInformation::new(
+                "app".to_string(),
+                main_file)
+        ).unwrap();
+
+        let mut sm = SourceMap::<WasomeLoader>::with_default(root);
+        let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
+            .expect("Failed to generate AST");
+        let err = analyze(ast).unwrap_err();
+        err.print_snippets(&sm).unwrap()
     }
 }

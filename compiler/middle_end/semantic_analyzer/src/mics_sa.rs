@@ -8,7 +8,7 @@ use ast::expression::{Expression, FunctionCall, MethodCall};
 use ast::symbol::{
     DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter,
 };
-use ast::traversal::HasSymbols;
+use ast::traversal::{HasSymbols};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::visibility::Visibility;
@@ -355,7 +355,6 @@ pub(crate) fn analyze_function_call(
         let parts: Vec<&str> = name.split('.').collect();
         if parts.len() == 2 {
             let prefix = parts[0];
-            // If the prefix corresponds to a local variable instance, validate its base type
             if let Some(variable_symbol) = mapper.lookup_variable(prefix) {
                 if !matches!(variable_symbol.data_type(), DataType::Struct(_)) {
                     return Err(SemanticError::MethodOnNonStruct {
@@ -456,7 +455,6 @@ pub(crate) fn analyze_method_call(
             message: "Could not find untyped struct symbol".to_string(),
             span,
         })?;
-
     let methods = context.global_elements.methods(&untyped_struct_symbol, struct_symbol.type_parameters()).expect("We have a typed symbol but didn't translate it");
 
     let function_symbol = methods.into_iter().find(|method| method.name() == to_analyze.function().0)
@@ -531,8 +529,18 @@ pub(crate) fn check_struct_field_visibility(
     span: source::types::Span,
 ) -> Result<(), SemanticError> {
     if field_visibility == Visibility::Private {
-        let current_containing_struct = context.ast_reference.root_helper().containing_struct();
-        if current_containing_struct.as_ref().map(|rc| rc.as_ref()) != Some(containing_struct) {
+        let current_func = context.ast_reference.root_helper().inner().declaration();
+        let mut is_valid_access = false;
+
+        if let Some(first_param) = current_func.params().first() {
+            if first_param.name() == "self"
+                && first_param.data_type().name() == containing_struct.name()
+            {
+                is_valid_access = true;
+            }
+        }
+
+        if !is_valid_access {
             return Err(SemanticError::PrivateFieldAccess {
                 field: field_name.to_string(),
                 struct_name: containing_struct.name().to_string(),

@@ -54,23 +54,15 @@ pub fn expression_parser<'src>()
 
         let function_call = ident_with_typ_param
             .clone()
+            .then_ignore(token_parser(TokenType::OpenParen))
             .then(
                 expr.clone()
                     .separated_by(token_parser(TokenType::ArgumentSeparator))
-                    .collect::<Vec<ASTNode<Expression<UntypedAST>>>>()
-                    .delimited_by(
-                        token_parser(TokenType::OpenParen),
-                        token_parser(TokenType::CloseParen),
-                    ),
+                    .collect::<Vec<ASTNode<Expression<UntypedAST>>>>(),
             )
-            .map(|((name, type_parameters), args)| {
-                let pos = name
-                    .span
-                    .merge(
-                        args.last()
-                            .map_or(name.span, |to_map| (*to_map.position()).into()),
-                    )
-                    .unwrap();
+            .then(token_parser(TokenType::CloseParen))
+            .map(|(((name, type_parameters), args), end)| {
+                let pos = name.span.merge(end.span).unwrap();
                 let type_parameters = type_parameters
                     .into_iter()
                     .map(|type_param| type_param.inner)

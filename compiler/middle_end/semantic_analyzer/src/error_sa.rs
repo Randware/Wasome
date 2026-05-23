@@ -51,13 +51,6 @@ pub enum SemanticError {
         span: Span,
     },
 
-    /// E3010: Accessing a private field from outside its struct
-    PrivateFieldAccess {
-        field: String,
-        struct_name: String,
-        span: Span,
-    },
-
     /// E3011: Missing or incorrectly named field during struct initialization.
     MissingOrInvalidStructField {
         struct_name: String,
@@ -139,17 +132,24 @@ pub enum SemanticError {
     /// E3027: The provided parameters in the struct initialization do not match the defined fields.
     StructInitializationMismatch { struct_name: String, span: Span },
 
-    /// E3999: An internal compiler error during semantic analysis.
-    Internal { message: String, span: Span },
-
-    /// E3000: Generic fallback for errors that haven't been categorized yet.
-    Custom { message: String, span: Span },
-
     /// E3028: A type parameter is declared more than once in the same generic declaration.
     DuplicateTypeParameter { name: String, span: Span },
 
     /// E3029: A drop method has an invalid signature (e.g., has parameters, generics, or a return type).
     InvalidDropSignature { message: String, span: Span },
+
+    /// E3030: Accessing a private field from outside its struct.
+    PrivateFieldAccess {
+        field: String,
+        struct_name: String,
+        span: Span,
+    },
+
+    /// E3999: An internal compiler error during semantic analysis.
+    Internal { message: String, span: Span },
+
+    /// E3000: Generic fallback for errors that haven't been categorized yet.
+    Custom { message: String, span: Span },
 }
 
 impl SemanticError {
@@ -299,28 +299,6 @@ impl SemanticError {
                         .primary(
                             span.start..span.end,
                             format!("Expected {}, but found {}", expected, found),
-                        )
-                        .build(),
-                )
-                .build(),
-
-            SemanticError::PrivateFieldAccess {
-                field,
-                struct_name,
-                span,
-            } => Diagnostic::builder()
-                .level(Level::Error)
-                .code("E3010".to_string())
-                .message(format!(
-                    "Cannot access private field '{}' of struct '{}'",
-                    field, struct_name
-                ))
-                .snippet(
-                    Snippet::builder()
-                        .file(span.file_id)
-                        .primary(
-                            span.start..span.end,
-                            format!("Field '{}' is private", field),
                         )
                         .build(),
                 )
@@ -636,6 +614,28 @@ impl SemanticError {
                     Snippet::builder()
                         .file(span.file_id)
                         .primary(span.start..span.end, "Invalid drop definition")
+                        .build(),
+                )
+                .build(),
+
+            SemanticError::PrivateFieldAccess {
+                field,
+                struct_name,
+                span,
+            } => Diagnostic::builder()
+                .level(Level::Error)
+                .code("E3030".to_string())
+                .message(format!(
+                    "Cannot access private field '{}' of struct '{}'",
+                    field, struct_name
+                ))
+                .snippet(
+                    Snippet::builder()
+                        .file(span.file_id)
+                        .primary(
+                            span.start..span.end,
+                            format!("Field '{}' is private", field),
+                        )
                         .build(),
                 )
                 .build(),

@@ -16,6 +16,7 @@ use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
 use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
+use ast::visibility::Visibility;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
@@ -62,13 +63,13 @@ impl<'a> SyntaxElementMap<'a> {
     ) -> Result<Rc<FunctionSymbol<TypedAST>>, SemanticError> {
         let struct_of_method = self
             .structs
-            .get_typed_syntax_element_mut(from, from_type_parameters)
+            .get_typed_syntax_element(from, from_type_parameters)
             .ok_or_else(|| SemanticError::UnknownSymbol {
                 name: from.name().to_string(),
                 span,
             })?;
 
-        let methods = struct_of_method.subanalyzables();
+        let methods = struct_of_method.subanalyzables().borrow_mut();
         methods.get_or_insert_typed_symbol(self, symbol, type_parameters, span)
     }
 
@@ -118,7 +119,7 @@ impl<'a> SyntaxElementMap<'a> {
         &'b self,
         symbol: &StructSymbol<UntypedAST>,
         type_parameters: &[TypedTypeParameter],
-    ) -> Option<Ref<'b, Vec<Rc<StructFieldSymbol<TypedAST>>>>> {
+    ) -> Option<Ref<'b, Vec<(Rc<StructFieldSymbol<TypedAST>>, Visibility)>>> {
         self.structs.get_pre_implementation(symbol, type_parameters)
     }
 
@@ -173,6 +174,7 @@ impl<'a> SyntaxElementMap<'a> {
         symbol: &StructSymbol<UntypedAST>,
     ) -> Option<impl Iterator<Item = StructImplementation<'a>>> {
         self.structs.implementations_for_untyped_symbol(symbol)
+            .map(|implem| implem.map(|single| (single.0, single.1.into_inner())))
     }
 
     pub fn untyped_struct_symbol_from_typed(
@@ -181,12 +183,19 @@ impl<'a> SyntaxElementMap<'a> {
     ) -> Option<Rc<StructSymbol<UntypedAST>>> {
         self.structs.untyped_from_typed_symbol(typed)
     }
+
+    pub fn methods(&self, symbol: &StructSymbol<UntypedAST>,
+                          type_parameters: &[TypedTypeParameter]) -> Option<Vec<Rc<FunctionSymbol<UntypedAST>>>> {
+        let st = self.structs.get_typed_syntax_element(symbol, type_parameters)?;
+        Some(st.subanalyzables().borrow().untyped_elements().collect())
+
+    }
 }
 
 pub(crate) type StructImplementation<'a> = (
     (
         Rc<StructSymbol<TypedAST>>,
-        Vec<Rc<StructFieldSymbol<TypedAST>>>,
+        Vec<(Rc<StructFieldSymbol<TypedAST>>, Visibility)>,
     ),
     SingleSyntaxElementMap<'a, AnalyzableMethod>,
 );

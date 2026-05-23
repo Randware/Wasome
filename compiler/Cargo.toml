@@ -1,7 +1,17 @@
 [workspace]
 resolver = "3"
-
-members = ["ast", "error", "lexer", "source", "io", "middle_end/parser", "driver", "middle_end/semantic_analyzer"]
+members = [
+  "ast",
+  "error",
+  "lexer",
+  "source",
+  "io",
+  "middle_end/parser",
+  "driver",
+  "middle_end/semantic_analyzer",
+  "codegen",
+  "linker",
+]
 
 [workspace.dependencies]
 tempfile = "3"

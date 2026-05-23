@@ -12,7 +12,7 @@ use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
     StructSymbol, VariableSymbol,
 };
-use ast::top_level::{Function, Import, ImportRoot};
+use ast::top_level::{Function, FunctionType, Import, ImportRoot};
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
 use parser::{FileInformation, parse};
@@ -56,13 +56,12 @@ const MODULAR_ADD: &'static str =
     include_str!("test_programs/single_project/modular_arithmetic/modular_add.waso");
 const MODULAR_MUL: &'static str =
     include_str!("test_programs/single_project/modular_arithmetic/modular_mul.waso");
-const MISC_FEATURES: &'static str = include_str!("test_programs/single_file/misc.waso");
+const LEADING_EMPTY_LINES: &'static str = include_str!("test_programs/single_file/misc.waso");
 const UNARY_CAST: &'static str = include_str!("test_programs/single_file/unary_cast.waso");
 const IF_TEST: &'static str = include_str!("test_programs/single_file/if.waso");
 const LOOP_TEST: &'static str = include_str!("test_programs/single_file/loop.waso");
 const OPERATOR_TEST: &'static str = include_str!("test_programs/single_file/operator.waso");
-const MISSING_STATEMENT_SEPARATOR: &'static str =
-    include_str!("missing_statement_separator.waso");
+const MISSING_STATEMENT_SEPARATOR: &'static str = include_str!("missing_statement_separator.waso");
 const STRUCT_TEST: &'static str = include_str!("test_programs/single_file/struct.waso");
 const METHOD_CALL_TEST: &'static str = include_str!("test_programs/single_file/method_call.waso");
 const ENUM_TEST: &'static str = include_str!("test_programs/single_file/enum.waso");
@@ -79,7 +78,13 @@ const GENERICS_MULTI_FILE_DEFS: &'static str =
     include_str!("test_programs/single_project/generic_multi_file/defs.waso");
 const GENERICS_MULTI_FILE_MAIN: &'static str =
     include_str!("test_programs/single_project/generic_multi_file/main.waso");
-const EMPTY: &'static str = include_str!("test_programs/single_file/empty.waso");
+const EMPTY: &'static str = include_str!("empty.waso");
+const EXTERN_FUNCTION: &'static str =
+    include_str!("test_programs/single_file/extern_function.waso");
+const SUBDIR_IMPORT_MAIN: &'static str =
+    include_str!("test_programs/single_project/subdir_import/main.waso");
+const SUBDIR_IMPORT_MATH: &'static str =
+    include_str!("test_programs/single_project/subdir_import/math/main.waso");
 
 #[test]
 fn test_parse_generics() {
@@ -164,11 +169,11 @@ fn test_parse_generics() {
     ));
     let identity_func = wrap(Function::new(
         identity_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::Variable(
                 "val".to_string(),
             ))))),
-        )]))),
+        )])))),
         Visibility::Public,
     ));
 
@@ -219,12 +224,12 @@ fn test_parse_generics() {
     )));
     let map_func = wrap(Function::new(
         map_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             result_decl,
             wrap(Statement::Return(Return::new(Some(wrap(
                 Expression::Variable("result".to_string()),
             ))))),
-        ]))),
+        ])))),
         Visibility::Public,
     ));
 
@@ -343,9 +348,9 @@ fn test_parse_generics() {
 
     let main_func = wrap(Function::new(
         main_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             b_decl, o_decl, p_decl, id_decl,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -487,10 +492,10 @@ fn test_parse_generics_nested() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             nested_decl,
             opt_box_decl,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -526,14 +531,14 @@ fn test_parse_generics_methods() {
     ));
     let get_item_func = wrap(Function::new(
         get_item_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::StructFieldAccess(
                 Box::new(StructFieldAccess::<UntypedAST>::new(
                     wrap(Expression::Variable("self".to_string())),
                     "item".to_string(),
                 )),
             ))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -559,7 +564,7 @@ fn test_parse_generics_methods() {
     )));
     let update_func = wrap(Function::new(
         update_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             temp_decl,
             wrap(Statement::Return(Return::new(Some(wrap(
                 Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(
@@ -567,7 +572,7 @@ fn test_parse_generics_methods() {
                     "item".to_string(),
                 ))),
             ))))),
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -649,9 +654,9 @@ fn test_parse_generics_methods() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             w_decl, val_decl, old_decl,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -732,7 +737,7 @@ fn test_parse_generics_multi_file_defs() {
     ));
     let create_container_func = wrap(Function::new(
         create_container_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::NewStruct(Box::new(
                 NewStruct::<UntypedAST>::new(
                     (
@@ -745,7 +750,7 @@ fn test_parse_generics_multi_file_defs() {
                     )],
                 ),
             )))))),
-        )]))),
+        )])))),
         Visibility::Public,
     ));
 
@@ -836,7 +841,7 @@ fn test_parse_generics_multi_file_main() {
             vec![],
             Vec::new(),
         )),
-        main_body,
+        FunctionType::Regular(main_body),
         Visibility::Private,
     ));
 
@@ -1012,7 +1017,7 @@ fn test_parse_simple_program() {
 
     let function = wrap(Function::new(
         fib_symbol,
-        function_body,
+        FunctionType::Regular(function_body),
         Visibility::Private,
     ));
 
@@ -1072,7 +1077,9 @@ fn test_parse_max() {
 
     let function = wrap(Function::new(
         max_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![conditional]))),
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
+            conditional,
+        ])))),
         Visibility::Private,
     ));
 
@@ -1170,9 +1177,9 @@ fn test_parse_sum_n() {
 
     let function = wrap(Function::new(
         sum_n_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             sum_decl, loop_stmt, ret_stmt,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -1229,10 +1236,10 @@ fn test_parse_is_even() {
 
     let function = wrap(Function::new(
         is_even_symbol,
-        wrap(Statement::Codeblock(CodeBlock::new(vec![
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
             conditional,
             ret_stmt,
-        ]))),
+        ])))),
         Visibility::Private,
     ));
 
@@ -1298,7 +1305,11 @@ fn test_parse_modular_arithmetic() {
             )))))),
         )])));
 
-        let function = wrap(Function::new(mod_add_symbol, body, Visibility::Private));
+        let function = wrap(Function::new(
+            mod_add_symbol,
+            FunctionType::Regular(body),
+            Visibility::Private,
+        ));
         let expected = ast::file::File::new(
             "main".to_string(),
             Vec::new(),
@@ -1358,7 +1369,11 @@ fn test_parse_modular_arithmetic() {
             Statement::Return(Return::new(Some(call))),
         )])));
 
-        let function = wrap(Function::new(mod_mul_symbol, body, Visibility::Private));
+        let function = wrap(Function::new(
+            mod_mul_symbol,
+            FunctionType::Regular(body),
+            Visibility::Private,
+        ));
         let expected = ast::file::File::new(
             "main".to_string(),
             vec![import],
@@ -1371,8 +1386,8 @@ fn test_parse_modular_arithmetic() {
 }
 
 #[test]
-fn test_misc_features() {
-    let (sm, id) = setup_source_map(MISC_FEATURES);
+fn test_leading_empty_lines() {
+    let (sm, id) = setup_source_map(LEADING_EMPTY_LINES);
     let to_parse = FileInformation::new(id, "test", &sm).unwrap();
     let parsed = parse(&to_parse).expect("Parsing failed");
 
@@ -1384,7 +1399,7 @@ fn test_misc_features() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![])))),
         Visibility::Public,
     ));
 
@@ -1404,7 +1419,7 @@ fn test_misc_features() {
             vec![a.clone(), b.clone()],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::BinaryOp(Box::new(
                 BinaryOp::<UntypedAST>::new(
                     BinaryOpType::BitwiseOr,
@@ -1424,7 +1439,7 @@ fn test_misc_features() {
                     )))),
                 ),
             )))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1436,12 +1451,12 @@ fn test_misc_features() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::ControlStructure(Box::new(ControlStructure::Loop(Loop::new(
                 wrap(Statement::Codeblock(CodeBlock::new(vec![]))),
                 LoopType::Infinite,
             )))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1453,11 +1468,11 @@ fn test_misc_features() {
             vec![],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::Literal(
                 "'c'".to_string(),
             ))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1473,7 +1488,7 @@ fn test_misc_features() {
             vec![bool_a.clone()],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::UnaryOp(Box::new(
                 UnaryOp::<UntypedAST>::new(
                     UnaryOpType::Not,
@@ -1483,7 +1498,7 @@ fn test_misc_features() {
                     )))),
                 ),
             )))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1507,7 +1522,7 @@ fn test_misc_features() {
             vec![u32_a.clone(), u32_b.clone(), u32_c.clone()],
             Vec::new(),
         )),
-        wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![wrap(
             Statement::Return(Return::new(Some(wrap(Expression::BinaryOp(Box::new(
                 BinaryOp::<UntypedAST>::new(
                     BinaryOpType::Addition,
@@ -1519,7 +1534,7 @@ fn test_misc_features() {
                     )))),
                 ),
             )))))),
-        )]))),
+        )])))),
         Visibility::Private,
     ));
 
@@ -1569,7 +1584,11 @@ fn test_unary_on_typecast() {
         )))))),
     )])));
 
-    let function = wrap(Function::new(main_symbol, body, Visibility::Private));
+    let function = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(body),
+        Visibility::Private,
+    ));
     let expected = ast::file::File::new(
         "main".to_string(),
         Vec::new(),
@@ -1605,7 +1624,11 @@ fn test_parse_if() {
             ))),
         )),
     )])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     // fn showcase_if_conditionals() -> char
     let showcase_symbol = Rc::new(FunctionSymbol::new(
@@ -1653,7 +1676,7 @@ fn test_parse_if() {
     ])));
     let showcase_func = wrap(Function::new(
         showcase_symbol,
-        showcase_body,
+        FunctionType::Regular(showcase_body),
         Visibility::Private,
     ));
 
@@ -1797,7 +1820,11 @@ fn test_parse_loop() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         decl1, while_loop, decl_sum, for_loop, decl3, inf_loop,
     ])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -1930,7 +1957,11 @@ fn test_parse_operator() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         decl_math, decl_num, if_lt, if_le, if_eq, if_ne, if_gt, if_ge, if_and, if_or,
     ])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -2043,7 +2074,11 @@ fn test_parse_struct() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         stmt1, stmt2, stmt3,
     ])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -2095,7 +2130,11 @@ fn test_parse_method_call() {
         vec![],
         Vec::new(),
     ));
-    let get_x_method = wrap(Function::new(get_x_symbol, get_x_body, Visibility::Public));
+    let get_x_method = wrap(Function::new(
+        get_x_symbol,
+        FunctionType::Regular(get_x_body),
+        Visibility::Public,
+    ));
 
     let point_struct = wrap(Struct::new(
         point_symbol.clone(),
@@ -2158,7 +2197,11 @@ fn test_parse_method_call() {
     )));
 
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt1, stmt2])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -2226,7 +2269,11 @@ fn test_parse_enum() {
     )));
 
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt1])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -2314,7 +2361,7 @@ fn test_parse_exhaustive_defs() {
     )])));
     let create_point_func = wrap(Function::new(
         create_point_symbol,
-        create_point_body,
+        FunctionType::Regular(create_point_body),
         Visibility::Public,
     ));
 
@@ -2411,7 +2458,11 @@ fn test_parse_exhaustive_main() {
     let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![
         p_decl, if_let, p_y_assign,
     ])));
-    let main_func = wrap(Function::new(main_symbol, main_body, Visibility::Private));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
 
     let expected = ast::file::File::new(
         "main".to_string(),
@@ -2433,6 +2484,107 @@ fn test_parse_empty() {
         "main".to_string(),
         Vec::new(),
         Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_extern_function() {
+    let (sm, id) = setup_source_map(EXTERN_FUNCTION);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(&to_parse).expect("Parsing empty file failed");
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![wrap(Function::new(
+            Rc::new(FunctionSymbol::new(
+                "test".into(),
+                Some(UntypedDataType::new("u64".to_string(), Vec::new())),
+                Vec::new(),
+                Vec::new(),
+            )),
+            FunctionType::External,
+            Visibility::Public,
+        ))],
+        Vec::new(),
+        Vec::new(),
+    );
+
+    assert!(parsed.semantic_eq(&expected));
+}
+
+fn setup_multifile_source_map(files: &[(&str, &str)]) -> (SourceMap, FileID) {
+    let dir = tempfile::tempdir().unwrap();
+    for (path, content) in files {
+        let full_path = dir.path().join(path);
+        if let Some(parent) = full_path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        let mut file = File::create(&full_path).unwrap();
+        write!(file, "{}", content).unwrap();
+    }
+
+    let mut sm: SourceMap = SourceMap::with_default(dir.path().to_path_buf());
+    let id = sm.load_file("main.waso").expect("Failed to load main.waso");
+    (sm, id)
+}
+
+#[test]
+fn test_parse_subdir_import() {
+    let files = &[
+        ("main.waso", SUBDIR_IMPORT_MAIN),
+        ("math/main.waso", SUBDIR_IMPORT_MATH),
+    ];
+    let (sm, id) = setup_multifile_source_map(files);
+    let to_parse = FileInformation::new(id, "main", &sm).unwrap();
+    let parsed = parse(&to_parse).expect("Parsing failed");
+
+    let import = wrap(Import::new(
+        ImportRoot::CurrentModule,
+        vec!["math".to_string()],
+        Rc::new(ModuleUsageNameSymbol::new("math".to_string())),
+    ));
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+        Vec::new(),
+    ));
+
+    let result_symbol = Rc::new(VariableSymbol::new(
+        "result".to_string(),
+        UntypedDataType::new("s32".to_string(), Vec::new()),
+    ));
+    let result_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        result_symbol,
+        wrap(Expression::FunctionCall(FunctionCall::<UntypedAST>::new(
+            ("math.add".to_string(), Vec::new()),
+            vec![
+                wrap(Expression::Literal("10".to_string())),
+                wrap(Expression::Literal("20".to_string())),
+            ],
+        ))),
+    )));
+
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(wrap(Statement::Codeblock(CodeBlock::new(vec![
+            result_decl,
+        ])))),
+        Visibility::Private,
+    ));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        vec![import],
+        vec![main_func],
         Vec::new(),
         Vec::new(),
     );

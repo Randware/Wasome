@@ -1,0 +1,18 @@
+[package]
+name = "stdlib"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+# Build this crate as a self-contained, C-style dynamic library
+# This is required to emit the proper Wasm module type
+crate-type = ["staticlib"]
+
+[dependencies]
+dlmalloc = { version = "0.2.14", features = ["global"] }
+
+[profile.release]
+panic = "abort"
+strip = true
+# Makes the binary size smaller
+lto = true

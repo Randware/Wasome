@@ -5,6 +5,7 @@ fn test_all_keywords() {
     let input = r#"
     fn if else loop
     struct -> <- enum as pub new :: . ; ,
+    extern
     "#;
 
     let expected_tokens = vec![
@@ -79,6 +80,10 @@ fn test_all_keywords() {
         Token {
             kind: TokenType::StatementSeparator,
             span: 62..63,
+        },
+        Token {
+            kind: TokenType::Extern,
+            span: 67..73,
         },
     ];
 

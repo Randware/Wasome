@@ -13,7 +13,6 @@ use ast::expression::{
 };
 use ast::symbol::{DirectlyAvailableSymbol, SymbolWithTypeParameter, VariableSymbol};
 use ast::traversal::statement_traversal::StatementTraversalHelper;
-use ast::visibility::Visibility;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use source::types::Span;
 use std::ops::Deref;
@@ -430,7 +429,6 @@ fn analyze_struct_field_access(
             span,
         })?;
 
-    // Exaktes Tuple-Handling wie im main-Branch vorgesehen
     let field_info = sfs
         .iter()
         .find(|(sf, _)| sf.name() == to_analyze.field())

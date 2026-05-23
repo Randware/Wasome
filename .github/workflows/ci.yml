@@ -11,32 +11,96 @@ permissions:
 
 jobs:
   test-standard:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.name || matrix.os }}
     runs-on: ${{ matrix.os }}
+    # We run inside a Fedora container on the Ubuntu runner.
+    # When running on native ubuntu the testing times took up to 30 minutes.
+    # I could not find why this is the case, but I guess it builts LLVM from scratch, even though we are downloading precompiled bins,
+    # and linkin it correctly. I tried to solve this issue for way too long and i just switched distro
+    # Idk why but when using a fedora container ontop of ubuntu it magically works. So I just leave it that way...
+    container: ${{ matrix.os == 'ubuntu-latest' && 'fedora:latest' || '' }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            name: fedora-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
-      - uses: Swatinem/rust-cache@v2
+      # ── Fedora (runs on ubuntu-latest runner inside fedora container) ─────
+      - name: Install dependencies (Fedora)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          dnf install -y rust cargo clang lld llvm21-devel cmake git \
+            libffi-devel zlib-devel libxml2-devel
+
+      - name: Export LLVM Prefix (Fedora)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "LLVM_SYS_211_PREFIX=$(llvm-config-21 --prefix)" >> $GITHUB_ENV
+          echo "RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
+
+      # ── Windows ───────────────────────────────────────────────────────────
+      - name: Cache LLVM 21 (Windows)
+        if: matrix.os == 'windows-latest'
+        id: cache-llvm-windows
+        uses: actions/cache@v4
         with:
-          workspaces: |
-            compiler
-            cli
+          path: C:\llvm
+          key: llvm-21-windows
+
+      - name: Install LLVM 21 (Windows)
+        if: matrix.os == 'windows-latest' && steps.cache-llvm-windows.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $archive = "$env:TEMP\llvm.7z"
+          curl.exe -L --output $archive "https://github.com/c3lang/win-llvm/releases/download/llvm_21_1_8/llvm-21.1.8-windows-amd64-msvc17-msvcrt.7z"
+          7z x $archive -o"C:\llvm" -y
+
+      - name: Export LLVM Prefix (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
+          echo "LLVM_SYS_211_PREFIX=$llvmDir" >> $env:GITHUB_ENV
+          echo "$llvmDir\bin" >> $env:GITHUB_PATH
+
+      # ── macOS ─────────────────────────────────────────────────────────────
+      - name: Install LLVM 21 and LLD (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install llvm@21 lld
+
+      - name: Export LLVM Prefix (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          LLVM_DIR=$(brew --prefix llvm@21)
+
+          echo "LLVM_SYS_211_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
+          echo "$LLVM_DIR/bin" >> $GITHUB_PATH
+
+      # ── Shared ────────────────────────────────────────────────────────────
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Configure sccache
+        shell: bash
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
 
       - name: Run Tests
         id: test
         shell: bash
         run: |
-          cargo test --workspace --manifest-path compiler/Cargo.toml
-          cargo test --workspace --manifest-path cli/Cargo.toml
-
+          cargo test --workspace --manifest-path compiler/Cargo.toml --release -- --test-threads=8
+          cargo test --workspace --manifest-path cli/Cargo.toml --release -- --test-threads=8
+          cargo test --workspace --manifest-path formatter/Cargo.toml --release -- --test-threads=8
       - name: Save Result
         if: always()
-        run: echo "${{ matrix.os }}|Standard OS|${{ steps.test.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_${{ matrix.os }}.txt
+        run: echo "${{ matrix.name || matrix.os }}|Standard OS|${{ steps.test.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_${{ matrix.os }}.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -54,11 +118,13 @@ jobs:
         uses: vmactions/freebsd-vm@v1
         with:
           usesh: true
-          prepare: pkg install -y rust git cmake
+          prepare: pkg install -y rust git cmake llvm21
           run: |
-            set -e # Exit immediately if command fails
-            cargo test --workspace --manifest-path compiler/Cargo.toml --jobs 2 # This is done to prevent OOM errors: https://github.com/Randware/Wasome/issues/33
+            set -e
+            export LLVM_SYS_211_PREFIX=/usr/local/llvm21
+            cargo test --workspace --manifest-path compiler/Cargo.toml --jobs 2
             cargo test --workspace --manifest-path cli/Cargo.toml --jobs 2
+            cargo test --workspace --manifest-path formatter/Cargo.toml --jobs 2
 
       - name: Save Result
         if: always()
@@ -70,42 +136,124 @@ jobs:
           name: result-freebsd
           path: result_freebsd.txt
 
-  test-simulated:
-    name: ${{ matrix.target }}
+  test-devcontainer:
+    name: Devcontainer
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Cross
-        uses: taiki-e/install-action@v2
+      - name: Run tests inside Devcontainer
+        id: devcontainer
+        uses: devcontainers/ci@v0.3
         with:
-          tool: cross
-
-      - name: Test via QEMU
-        id: sim
-        run: |
-          cross test --workspace --target ${{ matrix.target }} --manifest-path compiler/Cargo.toml
-          cross test --workspace --target ${{ matrix.target }} --manifest-path cli/Cargo.toml
+          imageName: wasome-compiler-devcontainer
+          subFolder: compiler
+          runCmd: cargo test --workspace
+          # Prevent docker to push the container image to DockerHub
+          # This is useless and would fail, because we don't have any DockerHub credentials
+          push: never
 
       - name: Save Result
         if: always()
-        run: |
-          SAFE_TARGET=$(echo "${{ matrix.target }}" | tr -d ' ')
-          echo "$SAFE_TARGET|Simulated Hardware|${{ steps.sim.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_$SAFE_TARGET.txt
+        run: echo "Devcontainer|Isolated Container|${{ steps.devcontainer.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_devcontainer.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: result-${{ matrix.target }}
-          path: result_*.txt
+          name: result-devcontainer
+          path: result_devcontainer.txt
+
+  test-nix:
+    name: Nix Flake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Cache Nix Store
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Run Nix Flake Check and Tests
+        id: nix
+        working-directory: ./compiler
+        run: |
+          nix flake check
+          nix develop --command cargo test --workspace
+
+      - name: Save Result
+        if: always()
+        run: echo "Nix Flake|Isolated Environment|${{ steps.nix.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_nix.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-nix
+          path: result_nix.txt
+
+  test-nix-cross:
+    name: Nix Cross (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-linux
+            pkgsCross: aarch64-multiplatform
+          - target: armv7l-linux
+            pkgsCross: armv7l-hf-multiplatform
+          - target: riscv64-linux
+            pkgsCross: riscv64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Cache Nix Store
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Cross-compile for ${{ matrix.target }}
+        id: cross
+        working-directory: ./compiler
+        run: nix build .#packages.${{ matrix.target }}.default
+
+      - name: Save Result
+        if: always()
+        run: echo "${{ matrix.target }}|Nix Cross-Compile|${{ steps.cross.outcome }}|${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > result_nix_cross_${{ matrix.target }}.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-nix-cross-${{ matrix.target }}
+          path: result_nix_cross_*.txt
+  test-wasm:
+    name: WebAssembly (WASM)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+
+      - name: Install Wasmtime
+        run: curl https://wasmtime.dev/install.sh -sSf | bash
+
+      - name: Add Wasmtime to Path
+        run: echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
+
+      - name: Run Tests in WASM
+        working-directory: stdlib/rust
+        run: cargo test --target wasm32-wasip1
 
   report:
-    needs: [test-standard, test-freebsd, test-simulated]
+    needs:
+      [test-standard, test-freebsd, test-devcontainer, test-nix, test-nix-cross]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -659,6 +659,14 @@ impl<Type: ASTType> Loop<Type> {
             self.loop_type.child_statement_at(index)
         }
     }
+
+    #[must_use]
+    pub const fn to_loop_on_index(&self) -> usize {
+        match self.loop_type {
+            LoopType::Infinite | LoopType::While(_) => 0,
+            LoopType::For { .. } => 1
+        }
+    }
 }
 
 impl<Type: ASTType> SemanticEq for Loop<Type> {

@@ -1,7 +1,11 @@
-use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
+use crate::symbol::{
+    DirectlyAvailableSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable, VariableSymbol,
+};
 use crate::top_level::Function;
-use crate::traversal::HasSymbols;
-use crate::traversal::statement_traversal::StatementTraversalHelper;
+use crate::traversal::{FunctionScope, HasSymbols};
+use crate::traversal::statement_traversal::{
+    StatementTraversalHelper, StatementTraversalHelperCreationError,
+};
 use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -20,11 +24,11 @@ use std::rc::Rc;
 pub struct FunctionTraversalHelper<'a, 'b, Type: ASTType> {
     // The referenced function
     inner: &'b ASTNode<Function<Type>>,
-    parent: &'a dyn HasSymbols<'b, Type>,
+    parent: &'a dyn FunctionScope<'b, Type>,
 }
 
 impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
-    pub fn new(inner: &'b ASTNode<Function<Type>>, root: &'a dyn HasSymbols<'b, Type>) -> Self {
+    pub fn new(inner: &'b ASTNode<Function<Type>>, root: &'a dyn FunctionScope<'b, Type>) -> Self {
         Self {
             inner,
             parent: root,
@@ -37,7 +41,7 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
     }
 
     #[must_use]
-    pub fn root(&self) -> &'a dyn HasSymbols<'b, Type> {
+    pub fn root(&self) -> &'a dyn FunctionScope<'b, Type> {
         self.parent
     }
 
@@ -49,9 +53,19 @@ impl<'a, 'b, Type: ASTType> FunctionTraversalHelper<'a, 'b, Type> {
 
     /// Gets a [`StatementTraversalHelper`] for the top level statement in this function
     /// This is the intended way to traverse a function
-    #[must_use]
-    pub fn ref_to_implementation(&self) -> StatementTraversalHelper<'_, 'b, Type> {
+    /// # Errors
+    ///
+    /// If `self` is attached to an external function
+    pub fn ref_to_implementation(
+        &self,
+    ) -> Result<StatementTraversalHelper<'_, 'b, Type>, StatementTraversalHelperCreationError> {
         StatementTraversalHelper::new_root(self)
+    }
+
+    /// Gets the struct symbol of the containing struct if this function is defined inside a struct
+    #[must_use]
+    pub fn containing_struct(&self) -> Option<Rc<StructSymbol<Type>>> {
+        self.parent.maybe_struct_symbol()
     }
 }
 

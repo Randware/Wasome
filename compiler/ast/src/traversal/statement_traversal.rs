@@ -1,7 +1,8 @@
 use crate::statement::Statement;
 use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, SymbolTable, VariableSymbol};
-use crate::traversal::HasSymbols;
+use crate::top_level::FunctionType;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
+use crate::traversal::HasSymbols;
 use crate::{ASTNode, ASTType};
 use std::collections::HashSet;
 use std::ops::Index;
@@ -30,15 +31,30 @@ pub struct StatementTraversalHelper<'a, 'b, Type: ASTType> {
     root: &'a FunctionTraversalHelper<'a, 'b, Type>,
 }
 
+#[derive(Debug)]
+pub enum StatementTraversalHelperCreationError {
+    ExternalFunction,
+}
 impl<'a, 'b, Type: ASTType> StatementTraversalHelper<'a, 'b, Type> {
     /// Creates a new `StatementTraversalHelper` where inner is the root
-    #[must_use]
-    pub fn new_root(root: &'a FunctionTraversalHelper<'a, 'b, Type>) -> Self {
-        Self {
-            inner: root.inner().implementation(),
-            location: StatementLocation::new_root(root.inner().implementation()),
+    ///
+    /// # Errors
+    ///
+    /// If `root` is attached to an external function
+    pub fn new_root(
+        root: &'a FunctionTraversalHelper<'a, 'b, Type>,
+    ) -> Result<Self, StatementTraversalHelperCreationError> {
+        let implementation = match root.inner().function_type() {
+            FunctionType::Regular(implementation) => implementation,
+            FunctionType::External => {
+                return Err(StatementTraversalHelperCreationError::ExternalFunction);
+            }
+        };
+        Ok(Self {
+            inner: implementation,
+            location: StatementLocation::new_root(implementation),
             root,
-        }
+        })
     }
 
     #[must_use]
