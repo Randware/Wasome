@@ -1,4 +1,4 @@
-pub extern fn print_char(u32 to_print)
+pub extern fn print_char(char to_print)
 
 pub extern fn vec_new[T]() -> Vec[T]
 

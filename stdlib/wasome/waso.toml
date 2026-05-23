@@ -1,5 +1,5 @@
 [project]
-name = "stdlib"
+name = "std"
 version = "0.1.0"
 
 [dependencies]
