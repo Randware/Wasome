@@ -351,10 +351,11 @@ impl<'ctx> Codegen<'ctx> {
             let lowered = module
                 .get_function(&name)
                 .unwrap_or_else(|| module.add_function(&name, lowered_type, None));
+            let prev = llvm_context
+                .type_registry_mut()
+                .register_function(symbol, lowered);
             debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_function(symbol, lowered)
+                prev
                     .is_none()
             );
         });
@@ -382,10 +383,11 @@ impl<'ctx> Codegen<'ctx> {
                 llvm_context.global_registry().drop(),
                 None,
             );
+            let prev = llvm_context
+                .type_registry_mut()
+                .register_enum(symbol, EnumInformation::new(drop));
             debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_enum(symbol, EnumInformation::new(drop))
+                prev
                     .is_none()
             );
         });
@@ -422,10 +424,11 @@ impl<'ctx> Codegen<'ctx> {
                 llvm_context.global_registry().drop(),
                 None,
             );
+            let prev = llvm_context
+                .type_registry_mut()
+                .register_struct(symbol, StructInformation::new(lowered, drop));
             debug_assert!(
-                llvm_context
-                    .type_registry_mut()
-                    .register_struct(symbol, StructInformation::new(lowered, drop))
+                prev
                     .is_none()
             );
         });
