@@ -368,14 +368,10 @@ import "<path>"
 `<path>` is a `/`-separated string consisting of:
 
 1. **Root** - where lookup begins:
-   - `~/` - current file location
+   - `./` - current file location
    - `<project-name>/` - project-relative
    - `std/` - standard-library relative
 
 2. **Directories** - zero or more directory segments.
-
-3. **File** - file name without extension.
-
-4. **Element name** - the identifier of the struct, enum, or function to import.
 
 After import, the element is usable like any local element.
