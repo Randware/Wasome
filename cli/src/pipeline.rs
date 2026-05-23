@@ -1,15 +1,19 @@
 use std::path::PathBuf;
 
+use crate::command::Profile;
 use crate::error::{CliError, CliResult};
+use crate::stdlib::{StdlibPaths, StdlibResolver};
 use crate::workspace::Workspace;
 use driver::pipeline::Pipeline;
-use driver::program_information::BinaryProgramInformation;
+use driver::program_information::{BinaryProgramInformation, Project};
 use driver::source_element::{WasomeProgram, WasomeSourceDirectory};
 use error::diagnostic::{Diagnostic, Level};
+use linker::LinkableFile;
 use source::types::FileID;
 
 pub fn check(workspace: &mut Workspace) -> CliResult<()> {
-    match driver::syntax_check(&workspace.info, &mut workspace.source) {
+    let info = workspace.info();
+    match driver::syntax_check(&info, &mut workspace.source) {
         Ok(_) => {
             Diagnostic::builder()
                 .level(Level::Info)
@@ -31,7 +35,8 @@ pub fn check(workspace: &mut Workspace) -> CliResult<()> {
 }
 
 pub fn load(workspace: &mut Workspace) -> CliResult<WasomeProgram> {
-    match driver::load_pipeline().process((&workspace.info, &mut workspace.source)) {
+    let info = workspace.info();
+    match driver::load_pipeline().process((&info, &mut workspace.source)) {
         Ok((program, _, _)) => Ok(program),
         Err(d) => {
             let _ = d.print_snippets(&workspace.source);
@@ -45,10 +50,48 @@ pub fn load(workspace: &mut Workspace) -> CliResult<WasomeProgram> {
     }
 }
 
+pub fn build(
+    workspace: Workspace,
+    profile: Profile,
+    stdlib: &StdlibPaths,
+    extra_paths: &[PathBuf],
+) -> CliResult<LinkableFile> {
+    let mut link_files = Vec::new();
+
+    // Load the pre-compiled stdlib archive
+    link_files.push(StdlibResolver::load_archive(stdlib)?);
+
+    // Load any additional user-provided files
+    for path in extra_paths {
+        let file = LinkableFile::from_path(path)
+            .map_err(|e| CliError::LinkFileError(path.clone(), e))?;
+        link_files.push(file);
+    }
+
+    let stdlib_project = Project::new("stdlib".to_string(), stdlib.wasome.join("src"));
+    let opt_level = profile.to_opt_level();
+
+    let (info, mut source) = workspace.into_program_info(opt_level, vec![stdlib_project]);
+
+    match driver::compile_link_pipeline().process((&info, &mut source, link_files)) {
+        Ok(output) => Ok(output),
+        Err(d) => {
+            let _ = d.print_snippets(&source);
+            Diagnostic::builder()
+                .level(Level::Error)
+                .message("Compilation failed")
+                .build()
+                .print()?;
+            Err(CliError::LinkingFailed)
+        }
+    }
+}
+
 pub fn fmt(workspace: &mut Workspace, program: &WasomeProgram) -> CliResult<()> {
+    let info = workspace.info();
     let source_directory = program
         .projects()
-        .get(workspace.info.main_project())
+        .get(info.main_project())
         .expect("Project map should always contain main project");
 
     let mut files = Vec::new();

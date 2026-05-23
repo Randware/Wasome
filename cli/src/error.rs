@@ -27,6 +27,15 @@ pub enum CliError {
 
     #[error("Could not load project")]
     ProjectLoadingFailed,
+
+    #[error("Stdlib not found at '{0}'")]
+    StdlibNotFound(std::path::PathBuf),
+
+    #[error("Could not read link file '{0}': {1}")]
+    LinkFileError(std::path::PathBuf, io::Error),
+
+    #[error("Linking failed")]
+    LinkingFailed,
 }
 
 impl CliError {
@@ -114,7 +123,29 @@ impl CliError {
 
             CliError::CompilationFailed
             | CliError::FormattingFailed
-            | CliError::ProjectLoadingFailed => {}
+            | CliError::ProjectLoadingFailed
+            | CliError::LinkingFailed => {}
+
+            CliError::StdlibNotFound(ref path) => {
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message(format!("Stdlib not found at '{}'", path.display()))
+                    .help("Use --stdlib to specify the stdlib location")
+                    .build()
+                    .print()?;
+            }
+
+            CliError::LinkFileError(ref path, ref err) => {
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message(format!(
+                        "Could not read link file '{}': {}",
+                        path.display(),
+                        err
+                    ))
+                    .build()
+                    .print()?;
+            }
         }
 
         Ok(())

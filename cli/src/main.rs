@@ -4,6 +4,7 @@ mod error;
 mod execute;
 mod manifest;
 mod pipeline;
+mod stdlib;
 mod template;
 mod workspace;
 

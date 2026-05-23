@@ -31,6 +31,18 @@ pub(crate) struct BuildArgs {
         ignore_case = true
     )]
     pub(crate) profile: Profile,
+    #[arg(
+        long = "stdlib",
+        help = "Override the default stdlib location",
+        value_hint = ValueHint::DirPath
+    )]
+    pub(crate) stdlib_path: Option<PathBuf>,
+    #[arg(
+        long = "link",
+        help = "Additional files to link (e.g. .o or .a)",
+        value_hint = ValueHint::FilePath
+    )]
+    pub(crate) link_files: Vec<PathBuf>,
 }
 
 #[derive(Args, Debug)]
@@ -98,4 +110,17 @@ pub(crate) enum Profile {
         help = "(Oz) Minimum binary size at all costs, significant performance cost"
     )]
     SizeMin,
+}
+
+impl Profile {
+    pub(crate) fn to_opt_level(self) -> codegen::OptLevel {
+        match self {
+            Self::Debug => codegen::OptLevel::O0,
+            Self::Basic => codegen::OptLevel::O1,
+            Self::Default => codegen::OptLevel::O2,
+            Self::Max => codegen::OptLevel::O3,
+            Self::Size => codegen::OptLevel::Os,
+            Self::SizeMin => codegen::OptLevel::Oz,
+        }
+    }
 }

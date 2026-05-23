@@ -7,6 +7,7 @@ use crate::{
     error::{CliError, CliResult, ManifestError},
     manifest::{self},
     pipeline,
+    stdlib::StdlibResolver,
     template::Template,
     workspace::Workspace,
 };
@@ -42,7 +43,7 @@ impl Executable for CheckArgs {
             .level(Level::Info)
             .message(format!(
                 "Checking project at {}",
-                workspace.info.path().display()
+                workspace.info().path().display()
             ))
             .build()
             .print()?;
@@ -56,20 +57,36 @@ impl Executable for CheckArgs {
 impl Executable for BuildArgs {
     fn execute(self) -> CliResult<()> {
         let path = self.path.canonicalize()?;
-
         let workspace = Workspace::load(&path)?;
 
         Diagnostic::builder()
             .level(Level::Info)
             .message(format!(
                 "Compiling project at {}",
-                workspace.info.path().display()
+                workspace.info().path().display()
             ))
             .build()
             .print()?;
 
-        // TODO: Compiling is not yet possible
-        todo!();
+        let project_name = workspace.info().name().to_string();
+        let stdlib_paths = StdlibResolver::resolve(self.stdlib_path.as_deref())?;
+
+        let output = pipeline::build(workspace, self.profile, &stdlib_paths, &self.link_files)?;
+
+        let output_dir = path.join(manifest::OUTPUT_DIR);
+
+        std::fs::create_dir_all(&output_dir)?;
+        let output_file =
+            output_dir.join(format!("{}.{}", project_name, manifest::OUTPUT_EXTENSION));
+        std::fs::write(&output_file, &output.data)?;
+
+        Diagnostic::builder()
+            .level(Level::Info)
+            .message(format!("Built {}", output_file.display()))
+            .build()
+            .print()?;
+
+        Ok(())
     }
 }
 
@@ -113,7 +130,7 @@ impl Executable for FmtArgs {
             .level(Level::Info)
             .message(format!(
                 "Formatting project at {}",
-                workspace.info.path().display()
+                workspace.info().path().display()
             ))
             .build()
             .print()?;
@@ -226,6 +243,8 @@ mod tests {
         let args = BuildArgs {
             path: dir.path().to_path_buf(),
             profile: Default::default(),
+            stdlib_path: None,
+            link_files: vec![],
         };
 
         let err = args.execute().unwrap_err();
@@ -234,14 +253,16 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "not yet implemented")]
-    fn test_build_panics() {
+    fn test_build_missing_stdlib() {
         let path = valid_fixture_path();
         let args = BuildArgs {
             path,
             profile: Default::default(),
+            stdlib_path: None,
+            link_files: vec![],
         };
-        let _ = args.execute();
+        let err = args.execute().unwrap_err();
+        assert!(matches!(err, CliError::StdlibNotFound(_)));
     }
 
     #[test]
