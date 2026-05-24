@@ -6,7 +6,9 @@ use linker::LinkableFile;
 use crate::error::{CliError, CliResult};
 
 const DEFAULT_STDLIB_REL_PATH: &str = "std";
-const STDLIB_ARCHIVE_NAME: &str = "stdlib.a";
+const STDLIB_ARCHIVE_NAME: &str = "libstd.a";
+
+pub const STDLIB_PROJECT_NAME: &str = "std";
 
 /// Resolved paths to the stdlib components.
 ///

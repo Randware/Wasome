@@ -94,7 +94,7 @@ impl Workspace {
 
                 projects.push(Project::new(
                     manifest.project.name.clone(),
-                    PathBuf::from("."),
+                    PathBuf::from(manifest::SRC_DIR),
                 ));
 
                 let load = ConcreteLoadInformation::new(
@@ -163,7 +163,7 @@ fn find_entry_file(root: &Path, manifest: &Manifest) -> Result<PathBuf, Manifest
     };
 
     Ok(entry_file
-        .strip_prefix(root)
+        .strip_prefix(root.join(manifest::SRC_DIR))
         .unwrap_or(&entry_file)
         .to_path_buf())
 }
@@ -185,7 +185,7 @@ mod tests {
         let info = workspace.info();
 
         assert_eq!(info.name(), "bin_project");
-        assert_eq!(info.main_file(), Path::new("src/main.waso"));
+        assert_eq!(info.main_file(), Path::new("main.waso"));
     }
 
     #[test]
@@ -217,7 +217,7 @@ mod tests {
         let dir = tempdir().unwrap();
         Template::bin("dual").write(dir.path()).unwrap();
 
-        let src_dir = dir.path().join("src");
+        let src_dir = dir.path().join(manifest::SRC_DIR);
         fs::write(src_dir.join("lib.waso"), "fn lib() {}").unwrap();
 
         let err = match Workspace::load(dir.path()) {

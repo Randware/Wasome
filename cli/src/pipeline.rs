@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use crate::command::Profile;
 use crate::error::{CliError, CliResult};
-use crate::stdlib::{StdlibPaths, StdlibResolver};
+use crate::manifest;
+use crate::stdlib::{self, StdlibPaths, StdlibResolver};
 use crate::workspace::Workspace;
 use driver::pipeline::Pipeline;
 use driver::program_information::{BinaryProgramInformation, Project};
@@ -63,12 +64,15 @@ pub fn build(
 
     // Load any additional user-provided files
     for path in extra_paths {
-        let file = LinkableFile::from_path(path)
-            .map_err(|e| CliError::LinkFileError(path.clone(), e))?;
+        let file =
+            LinkableFile::from_path(path).map_err(|e| CliError::LinkFileError(path.clone(), e))?;
         link_files.push(file);
     }
 
-    let stdlib_project = Project::new("stdlib".to_string(), stdlib.wasome.join("src"));
+    let stdlib_project = Project::new(
+        stdlib::STDLIB_PROJECT_NAME.to_string(),
+        stdlib.wasome.join(manifest::SRC_DIR),
+    );
     let opt_level = profile.to_opt_level();
 
     let (info, mut source) = workspace.into_program_info(opt_level, vec![stdlib_project]);
@@ -104,7 +108,7 @@ pub fn fmt(workspace: &mut Workspace, program: &WasomeProgram) -> CliResult<()> 
     if let Some(src_dir) = source_directory
         .subdirs()
         .iter()
-        .find(|d| d.location().name() == "src")
+        .find(|d| d.location().name() == manifest::SRC_DIR)
     {
         collect(src_dir, &mut files);
     }

@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use crate::error::{ManifestError, ManifestResult};
 
 pub const MANIFEST_FILE: &str = "waso.toml";
+pub const SRC_DIR: &str = "src";
 pub const BINARY_ENTRY_FILE: &str = "src/main.waso";
 pub const LIBRARY_ENTRY_FILE: &str = "src/lib.waso";
 pub const LIB_PATH: &str = "lib/";

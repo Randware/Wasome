@@ -86,11 +86,14 @@ impl DependencyResolver {
             let dep_root_path = dep_path
                 .strip_prefix(&self.project_root)
                 .unwrap_or(&dep_path)
-                .to_path_buf();
+                .to_path_buf()
+                .join(manifest::SRC_DIR);
 
-            let unique_name = format!("{}/{}", chain.join("/"), dep_id);
+            let unique_name = dep_id.clone();
 
-            acc.push(Project::new(unique_name, dep_root_path.clone()));
+            if !acc.iter().any(|p| p.name() == unique_name) {
+                acc.push(Project::new(unique_name, dep_root_path.clone()));
+            }
 
             let mut next_chain = chain.clone();
             next_chain.push(version_str(
@@ -202,7 +205,7 @@ version = "{version}"
         let projects = load_and_resolve(root.path()).unwrap();
 
         assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].name(), "my_app@0.1.0/math@1.0.0");
+        assert_eq!(projects[0].name(), "math@1.0.0");
     }
 
     #[test]
@@ -222,9 +225,9 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 3);
-        assert!(names.contains(&"my_app@0.1.0/math@1.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/io@2.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/net@0.5.0"));
+        assert!(names.contains(&"math@1.0.0"));
+        assert!(names.contains(&"io@2.0.0"));
+        assert!(names.contains(&"net@0.5.0"));
     }
 
     #[test]
@@ -242,8 +245,8 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 2);
-        assert!(names.contains(&"my_app@0.1.0/math@1.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/math@1.0.0/core@0.1.0"));
+        assert!(names.contains(&"math@1.0.0"));
+        assert!(names.contains(&"core@0.1.0"));
     }
 
     #[test]
@@ -268,9 +271,9 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 3);
-        assert!(names.contains(&"my_app@0.1.0/a@1.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/a@1.0.0/b@1.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/a@1.0.0/b@1.0.0/c@1.0.0"));
+        assert!(names.contains(&"a@1.0.0"));
+        assert!(names.contains(&"b@1.0.0"));
+        assert!(names.contains(&"c@1.0.0"));
     }
 
     #[test]
