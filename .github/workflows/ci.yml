@@ -18,27 +18,27 @@ jobs:
     # I could not find why this is the case, but I guess it builts LLVM from scratch, even though we are downloading precompiled bins,
     # and linkin it correctly. I tried to solve this issue for way too long and i just switched distro
     # Idk why but when using a fedora container ontop of ubuntu it magically works. So I just leave it that way...
-    container: ${{ matrix.os == 'ubuntu-latest' && 'fedora:latest' || '' }}
+    container: ${{ matrix.os == 'ubuntu-24.04' && 'fedora:latest' || '' }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-24.04, windows-latest, macos-latest]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             name: fedora-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
-      # ── Fedora (runs on ubuntu-latest runner inside fedora container) ─────
+      # ── Fedora (runs on ubuntu-24.04 runner inside fedora container) ─────
       - name: Install dependencies (Fedora)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           dnf install -y rust cargo clang lld llvm21-devel cmake git \
             libffi-devel zlib-devel libxml2-devel
 
       - name: Export LLVM Prefix (Fedora)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           echo "LLVM_SYS_211_PREFIX=$(llvm-config-21 --prefix)" >> $GITHUB_ENV
           echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
@@ -111,7 +111,7 @@ jobs:
 
   test-freebsd:
     name: FreeBSD
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Test on FreeBSD
@@ -139,7 +139,7 @@ jobs:
 
   test-devcontainer:
     name: Devcontainer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -166,7 +166,7 @@ jobs:
 
   test-nix:
     name: Nix Flake
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -198,7 +198,7 @@ jobs:
 
   test-nix-cross:
     name: Nix Cross (${{ matrix.target }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -229,7 +229,7 @@ jobs:
           path: result_nix_cross_*.txt
   test-wasm:
     name: WebAssembly (WASM)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -250,7 +250,7 @@ jobs:
     needs:
       [test-standard, test-freebsd, test-devcontainer, test-nix, test-nix-cross]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:
