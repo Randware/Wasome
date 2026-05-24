@@ -169,10 +169,12 @@ impl Executable for TargetListArgs {
                 .build()
                 .print()?;
         } else {
-            let mut list = String::from("Available targets:");
+            let mut list = String::from("Currently installed targets:\n");
+
             for target in targets {
-                list.push_str(&format!("\n  - {}", target));
+                list.push_str(&format!("\n - {}", target));
             }
+
             Diagnostic::builder()
                 .level(Level::Info)
                 .message(list)
