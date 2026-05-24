@@ -2,6 +2,7 @@
 
 extern crate alloc;
 mod wasome_mem;
+mod wasome_string;
 mod wasome_vec;
 
 use alloc::string::String;

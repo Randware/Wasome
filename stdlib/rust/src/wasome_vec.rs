@@ -5,13 +5,14 @@ use core::mem::forget;
 
 #[repr(C)]
 pub struct WasomeVec<T: Copy> {
-    refc: u32,
+    pub refc: u32,
     prt: *mut T,
     cnt: usize,
     cap: usize,
 }
 
 impl<T: Copy> WasomeVec<T> {
+    #[must_use]
     pub fn new() -> Self {
         let mut vec: Vec<T> = Vec::with_capacity(10);
         let cnt = vec.len();
@@ -114,29 +115,44 @@ impl<T: Copy> WasomeVec<T> {
     }
 }
 
+impl<T: Copy> From<Vec<T>> for WasomeVec<T> {
+    fn from(mut value: Vec<T>) -> Self {
+        let cnt = value.len();
+        let cap = value.capacity();
+        let wasome_vec = Self {
+            refc: 1,
+            prt: value.as_mut_ptr(),
+            cnt,
+            cap,
+        };
+        forget(value);
+        wasome_vec
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_new_1() -> *mut WasomeVec<u8> {
-    Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
+    Box::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_new_2() -> *mut WasomeVec<u16> {
-    Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
+    Box::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_new_4() -> *mut WasomeVec<u32> {
-    Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
+    Box::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_new_8() -> *mut WasomeVec<u64> {
-    Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
+    Box::into_raw(Box::new(WasomeVec::new()))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn vec_new_ptr() -> *mut WasomeVec<*mut WasomeComposite> {
-    Box::<WasomeVec<_>>::into_raw(Box::new(WasomeVec::new()))
+    Box::into_raw(Box::new(WasomeVec::new()))
 }
 
 /// # Safety
