@@ -2,7 +2,12 @@
 
 $ErrorActionPreference = "Stop"
 
-# Determine WASOME_HOME
+# Configuration
+$GithubRepo = $env:WASOME_REPO
+if ([string]::IsNullOrWhiteSpace($GithubRepo)) {
+    $GithubRepo = "Dari-OS/Wasome"
+}
+
 $WasomeHome = $env:WASOME_HOME
 if ([string]::IsNullOrWhiteSpace($WasomeHome)) {
     $WasomeHome = Join-Path $env:USERPROFILE ".wasome"
@@ -13,40 +18,69 @@ $WasomeBin = Join-Path $WasomeHome "bin"
 $Target = "x86_64-pc-windows-msvc"
 
 # Fetch latest version
-Write-Host "Fetching latest Wasome release..."
+Write-Host "Fetching latest Wasome release from $GithubRepo..."
 try {
-    $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/Dari-OS/Wasome/releases/latest"
+    $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$GithubRepo/releases/latest"
     $Version = $Release.tag_name
 } catch {
     Write-Error "Failed to fetch latest release. Please check your internet connection or GitHub API limits."
     exit 1
 }
 
-$DownloadUrl = "https://github.com/Dari-OS/Wasome/releases/download/$Version/wasome-$Target.zip"
+$DownloadUrl = "https://github.com/$GithubRepo/releases/download/$Version/wasome-$Target.zip"
 $ZipPath = Join-Path $env:TEMP "wasome.zip"
 
 Write-Host "Downloading Wasome $Version from $DownloadUrl..."
 Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath
 
+if (!(Test-Path $WasomeHome)) {
+    New-Item -ItemType Directory -Force -Path $WasomeHome | Out-Null
+}
+
 if (Test-Path (Join-Path $WasomeHome "bin")) {
     Write-Host "Updating existing installation at $WasomeHome..."
-    # Clean up old core directories to prevent stale files, but LEAVE lib/ intact!
-    $DirsToClean = @("bin", "std")
-    foreach ($Dir in $DirsToClean) {
-        $DirPath = Join-Path $WasomeHome $Dir
-        if (Test-Path $DirPath) {
-            Remove-Item -Path $DirPath -Recurse -Force
-        }
-    }
 } else {
     Write-Host "Installing to $WasomeHome..."
-    if (!(Test-Path $WasomeHome)) {
-        New-Item -ItemType Directory -Force -Path $WasomeHome | Out-Null
+}
+
+$TempDir = Join-Path $env:TEMP "wasome_update_$([guid]::NewGuid().ToString().Substring(0,8))"
+New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force
+Remove-Item $ZipPath
+
+# Safely replace bin
+$NewBin = Join-Path $TempDir "bin"
+$OldBin = Join-Path $WasomeHome "bin"
+if (Test-Path $NewBin) {
+    if (Test-Path $OldBin) { Remove-Item -Path $OldBin -Recurse -Force }
+    Move-Item -Path $NewBin -Destination $WasomeHome
+}
+
+# Dynamically replace std contents without removing user's custom stds
+$NewStd = Join-Path $TempDir "std"
+$OldStd = Join-Path $WasomeHome "std"
+if (Test-Path $NewStd) {
+    if (!(Test-Path $OldStd)) { New-Item -ItemType Directory -Force -Path $OldStd | Out-Null }
+    Get-ChildItem -Path $NewStd | ForEach-Object {
+        $TargetItem = Join-Path $OldStd $_.Name
+        if (Test-Path $TargetItem) { Remove-Item -Path $TargetItem -Recurse -Force }
+        Move-Item -Path $_.FullName -Destination $OldStd
     }
 }
 
-Expand-Archive -Path $ZipPath -DestinationPath $WasomeHome -Force
-Remove-Item $ZipPath
+# Safely merge lib (preserving existing user-downloaded LLVM binaries)
+$NewLib = Join-Path $TempDir "lib"
+$OldLib = Join-Path $WasomeHome "lib"
+if (Test-Path $NewLib) {
+    if (!(Test-Path $OldLib)) { New-Item -ItemType Directory -Force -Path $OldLib | Out-Null }
+    Get-ChildItem -Path $NewLib | ForEach-Object {
+        $TargetItem = Join-Path $OldLib $_.Name
+        if (Test-Path $TargetItem) { Remove-Item -Path $TargetItem -Recurse -Force }
+        Move-Item -Path $_.FullName -Destination $OldLib
+    }
+}
+
+Remove-Item -Path $TempDir -Recurse -Force
 
 # ---------------------------------------------------------
 # TODO: Install precompiled LLVM/LLD binaries

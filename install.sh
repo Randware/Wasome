@@ -2,7 +2,8 @@
 # Wasome Installer
 set -e
 
-# Determine WASOME_HOME
+# Configuration
+GITHUB_REPO="${WASOME_REPO:-Dari-OS/Wasome}"
 WASOME_HOME="${WASOME_HOME:-$HOME/.wasome}"
 WASOME_BIN="$WASOME_HOME/bin"
 
@@ -47,29 +48,60 @@ fi
 echo "Detected Platform: $OS ($ARCH) -> $TARGET"
 
 # Fetch latest version
-echo "Fetching latest Wasome release..."
-LATEST_RELEASE=$(curl -s https://api.github.com/repos/Dari-OS/Wasome/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+echo "Fetching latest Wasome release from $GITHUB_REPO..."
+LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 if [ -z "$LATEST_RELEASE" ]; then
     echo "Failed to fetch latest release. Check your internet connection or GitHub API limits."
     exit 1
 fi
 
-DOWNLOAD_URL="https://github.com/Dari-OS/Wasome/releases/download/${LATEST_RELEASE}/wasome-${TARGET}.tar.gz"
+DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_RELEASE}/wasome-${TARGET}.tar.gz"
 DOWNLOAD_ARCHIVE="wasome.tar.gz"
 
 echo "Downloading Wasome ${LATEST_RELEASE} from $DOWNLOAD_URL..."
 curl -L -o "$DOWNLOAD_ARCHIVE" "$DOWNLOAD_URL"
 
+mkdir -p "$WASOME_HOME"
 if [ -d "$WASOME_HOME/bin" ]; then
     echo "Updating existing installation at $WASOME_HOME..."
-    # Clean up old core directories to prevent stale files, but LEAVE lib/ intact!
-    rm -rf "$WASOME_HOME/bin" "$WASOME_HOME/std"
 else
     echo "Installing to $WASOME_HOME..."
 fi
-mkdir -p "$WASOME_HOME"
-tar -xzf "$DOWNLOAD_ARCHIVE" -C "$WASOME_HOME"
+
+# Extract to a temporary directory to perform a smart merge
+TEMP_DIR=$(mktemp -d)
+tar -xzf "$DOWNLOAD_ARCHIVE" -C "$TEMP_DIR"
 rm "$DOWNLOAD_ARCHIVE"
+
+# Safely replace bin
+rm -rf "$WASOME_HOME/bin"
+mv "$TEMP_DIR/bin" "$WASOME_HOME/"
+
+# Dynamically replace std contents (e.g. std/runtime) without removing user's custom stds
+if [ -d "$TEMP_DIR/std" ]; then
+    mkdir -p "$WASOME_HOME/std"
+    for item in "$TEMP_DIR/std"/*; do
+        if [ -e "$item" ]; then
+            basename_item=$(basename "$item")
+            rm -rf "$WASOME_HOME/std/$basename_item"
+            mv "$item" "$WASOME_HOME/std/"
+        fi
+    done
+fi
+
+# Safely merge lib (preserving existing user-downloaded LLVM binaries)
+if [ -d "$TEMP_DIR/lib" ]; then
+    mkdir -p "$WASOME_HOME/lib"
+    for item in "$TEMP_DIR/lib"/*; do
+        if [ -e "$item" ]; then
+            basename_item=$(basename "$item")
+            rm -rf "$WASOME_HOME/lib/$basename_item"
+            mv "$item" "$WASOME_HOME/lib/"
+        fi
+    done
+fi
+
+rm -rf "$TEMP_DIR"
 
 # ---------------------------------------------------------
 # TODO: Install precompiled LLVM/LLD binaries
