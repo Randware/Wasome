@@ -76,7 +76,7 @@ pub struct String {
         string_push_u64(self, to_push)
     }
     pub fn push_f64(s64 to_push) {
-        fn string_push_f64(self, to_push)
+        string_push_f64(self, to_push)
     }
     pub fn push_string(String to_push) {
         string_push_string(self, to_push)
