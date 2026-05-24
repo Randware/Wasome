@@ -24,7 +24,8 @@
       subsections: [
         { id: "primitives", title: "1.1 Primitives" },
         { id: "memory-representation", title: "1.2 Memory Representation" },
-        { id: "strings-arrays", title: "1.3 Strings & Arrays" }
+        { id: "strings-arrays", title: "1.3 Strings & Arrays" },
+        { id: "typecasting", title: "1.4 Typecasting" }
       ]
     },
     {
@@ -62,8 +63,7 @@
       icon: Code2,
       subsections: [
         { id: "structure", title: "5.1 Structure" },
-        { id: "extern-functions", title: "5.2 Extern Functions" },
-        { id: "wasm-export-suffixes", title: "5.3 WASM Export Suffixes" }
+        { id: "extern-functions", title: "5.2 Extern Functions" }
       ]
     },
     {
@@ -71,10 +71,10 @@
       title: "6. Structs",
       icon: Brackets,
       subsections: [
-        { id: "declaring-instantiating", title: "6.1 Declaring & Instantiating" },
-        { id: "generics", title: "6.2 Generics [T]" },
+        { id: "declaring-instantiating", title: "6.1 Declaration" },
+        { id: "generics", title: "6.2 Generics" },
         { id: "methods-self", title: "6.3 Methods & self" },
-        { id: "lifecycle-predrop", title: "6.4 Lifecycle & predrop" }
+        { id: "lifecycle-drop", title: "6.4 Lifecycle & drop" }
       ]
     },
     {
@@ -195,15 +195,12 @@
   <article class="docs-content">
     <h1>Documentation</h1>
     <p class="intro">
-      This is the official reference manual for the Wasome programming language. Wasome is a statically-typed, low-level systems programming language designed to compile directly to efficient WebAssembly linear representation.
+      This is the official reference manual for the Wasome programming language. Wasome is a statically-typed programming language designed to compile directly to efficient WebAssembly linear representation.
     </p>
 
     <!-- 1. Datatypes -->
     <div id="datatypes" class="doc-section">
       <h2>1. Datatypes</h2>
-      <p>
-        Wasome is a statically-typed language. The type system comprises primitive types and user-defined structural types. The internal representation and byte alignment of all data types conform to the WebAssembly Canonical Application Binary Interface (ABI) specification.
-      </p>
 
       <div id="primitives" class="doc-subsection">
         <h3>1.1 Primitives</h3>
@@ -218,117 +215,126 @@
                 <th>Type</th>
                 <th>Description</th>
                 <th>Bit Width</th>
-                <th>WASM Representation</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td><code>u8</code></td>
-                <td>Unsigned 8-bit integer</td>
+                <td>An unsigned 8-bit integer</td>
                 <td>8</td>
-                <td><code>i32</code></td>
               </tr>
               <tr>
                 <td><code>u16</code></td>
-                <td>Unsigned 16-bit integer</td>
+                <td>An unsigned 16-bit integer</td>
                 <td>16</td>
-                <td><code>i32</code></td>
               </tr>
               <tr>
                 <td><code>u32</code></td>
-                <td>Unsigned 32-bit integer</td>
+                <td>An unsigned 32-bit integer</td>
                 <td>32</td>
-                <td><code>i32</code></td>
               </tr>
               <tr>
                 <td><code>u64</code></td>
-                <td>Unsigned 64-bit integer</td>
+                <td>An unsigned 64-bit integer</td>
                 <td>64</td>
-                <td><code>i64</code></td>
               </tr>
               <tr>
                 <td><code>s8</code></td>
-                <td>Signed 8-bit integer (two's complement)</td>
+                <td>A signed 8-bit integer</td>
                 <td>8</td>
-                <td><code>i32</code></td>
               </tr>
               <tr>
                 <td><code>s16</code></td>
-                <td>Signed 16-bit integer (two's complement)</td>
+                <td>A signed 16-bit integer</td>
                 <td>16</td>
-                <td><code>i32</code></td>
               </tr>
               <tr>
                 <td><code>s32</code></td>
-                <td>Signed 32-bit integer (two's complement)</td>
+                <td>A signed 32-bit integer</td>
                 <td>32</td>
-                <td><code>i32</code></td>
               </tr>
               <tr>
                 <td><code>s64</code></td>
-                <td>Signed 64-bit integer (two's complement)</td>
+                <td>A signed 64-bit integer</td>
                 <td>64</td>
-                <td><code>i64</code></td>
               </tr>
               <tr>
                 <td><code>f32</code></td>
-                <td>32-bit floating-point number (IEEE 754 binary32)</td>
+                <td>A 32-bit floating-point number (IEEE 754 binary32)</td>
                 <td>32</td>
-                <td><code>f32</code></td>
               </tr>
               <tr>
                 <td><code>f64</code></td>
-                <td>64-bit floating-point number (IEEE 754 binary64)</td>
+                <td>A 64-bit floating-point number (IEEE 754 binary64)</td>
                 <td>64</td>
-                <td><code>f64</code></td>
               </tr>
               <tr>
                 <td><code>bool</code></td>
-                <td>Logical boolean values (<code>true</code> or <code>false</code>)</td>
+                <td>Either <code>true</code> or <code>false</code></td>
                 <td>8</td>
-                <td><code>i32</code> (0 or 1)</td>
               </tr>
               <tr>
                 <td><code>char</code></td>
-                <td>Unicode scalar value (encoded in UTF-8 in source text)</td>
+                <td>A single Unicode code point (source representation encoded in UTF-8)</td>
                 <td>32</td>
-                <td><code>i32</code></td>
               </tr>
             </tbody>
           </table>
         </div>
+
         <p>
-          Character literals represent single Unicode scalar values enclosed in single quotes (e.g., <code>'a'</code>). Integer literals represent decimal whole numbers. Floating-point literals represent decimal fractional numbers. Alternate numeric bases (hexadecimal, octal, or binary) and digit separators are not supported.
+          Values written directly in source code evaluate to a default primitive type:
         </p>
+        <ul>
+          <li><strong>Integer literals</strong> are formatted as a whole number and evaluate to type <code>s32</code>.</li>
+          <li><strong>Floating-point literals</strong> are formatted as a decimal number and evaluate to type <code>f64</code>.</li>
+          <li><strong>Logical (boolean) literals</strong> (<code>true</code> and <code>false</code>) evaluate to type <code>bool</code>.</li>
+        </ul>
       </div>
 
       <div id="memory-representation" class="doc-subsection">
         <h3>1.2 Memory Representation</h3>
         <p>
-          Memory representation of data types is governed by the WebAssembly Canonical ABI. Primitive types are stored inline and passed by value. User-defined structural types (structs and enums) are reference-typed, allocated on the WebAssembly linear heap, and passed by reference.
+          Struct instances are passed by reference. Mutating a struct through any reference affects all references.
         </p>
         <p>
-          Heap-allocated types employ Automatic Reference Counting (ARC) to manage their lifecycles. The compiler automatically generates and injects reference increment (retain) and decrement (release) instructions. Memory reclamation is executed immediately when the reference count of an instance reaches zero.
+          Heap allocations (for structs and enums) are managed via Automatic Reference Counting (ARC). Memory is reclaimed immediately when the reference count of an instance reaches zero.
         </p>
       </div>
 
       <div id="strings-arrays" class="doc-subsection">
         <h3>1.3 Strings & Arrays</h3>
         <p>
-          Wasome does not provide built-in string or array datatypes at the language level.
+          Wasome does not have a built-in array or string type. They must be provided by the standard library.
         </p>
+      </div>
+
+      <div id="typecasting" class="doc-subsection">
+        <h3>1.4 Typecasting</h3>
         <p>
-          Strings and dynamic arrays must be provided by the standard library (<code>std/string</code> and <code>std/array</code>). These types are implemented as reference-counted structures residing in WebAssembly linear memory, relying on ARC for memory management of their underlying byte storage.
+          Typecasting converts an expression to a target type using the <code>as</code> syntax:
         </p>
+        <pre><code>{@html highlight(`<expression> as <type>`, "wasome")}</code></pre>
+        <p>
+          The <code>as</code> expression evaluates to the value converted to the target type if the conversion is defined. The <code>as</code> syntax is an expression. The following conversions are permitted:
+        </p>
+        <ul>
+          <li><strong>Widening conversions:</strong> From a smaller to a larger integer or floating-point type, or from integer to floating-point.</li>
+          <li><strong>Narrowing conversions:</strong> From a larger to a smaller type, or from floating-point to integer.</li>
+          <li><strong>Signed and unsigned conversions:</strong> Conversions between signed and unsigned integer types.</li>
+        </ul>
+        <p>
+          If a converted value does not fit into the target target type, the value will overflow or underflow.
+        </p>
+        <pre><code>{@html highlight(`s32 a <- 255
+u8 b <- a as u8
+f64 c <- b as f64`, "wasome")}</code></pre>
       </div>
     </div>
 
     <!-- 2. Variables & Mutability -->
     <div id="variables-mutability" class="doc-section">
       <h2>2. Variables & Mutability</h2>
-      <p>
-        Variables are named storage locations that hold values of a statically declared type.
-      </p>
 
       <div id="declarations" class="doc-subsection">
         <h3>2.1 Declarations</h3>
@@ -341,18 +347,12 @@
         </p>
         <pre><code>{@html highlight(`s32 value <- 42
 value <- 100`, "wasome")}</code></pre>
-        <p>
-          Declarations are private to their containing file unless prefixed with the <code>pub</code> keyword. Struct fields default to private unless explicitly declared public.
-        </p>
       </div>
 
       <div id="scoping" class="doc-subsection">
         <h3>2.2 Scoping</h3>
         <p>
-          Lexical blocks delimited by curly braces (<code>&#123;</code> and <code>&#125;</code>) define scoping boundaries. Variables are accessible only within the block in which they are declared and any nested blocks.
-        </p>
-        <p>
-          Upon exiting a lexical block, the scope is popped and the compiler automatically inserts release instructions for all active reference-counted heap allocations declared within that scope.
+          Variables declared in a code block are scoped to that block and any nested blocks. Blocks are delimited by curly braces <code>&#123;</code> and <code>&#125;</code> and push a new lexical scope.
         </p>
       </div>
 
@@ -373,9 +373,6 @@ value <- 100`, "wasome")}</code></pre>
     <!-- 3. Operators -->
     <div id="operators" class="doc-section">
       <h2>3. Operators</h2>
-      <p>
-        Operators construct expressions by combining operands. Operands must be of compatible types.
-      </p>
 
       <div id="categories" class="doc-subsection">
         <h3>3.1 Categories</h3>
@@ -391,9 +388,9 @@ value <- 100`, "wasome")}</code></pre>
                 <span class="operator-item"><code>-</code> Subtraction / Negation</span>
                 <span class="operator-item"><code>*</code> Multiplication</span>
                 <span class="operator-item"><code>/</code> Division</span>
-                <span class="operator-item"><code>%</code> Modulo</span>
+                <span class="operator-item"><code>%</code> Remainder</span>
               </div>
-              <p class="operator-note">Binary arithmetic operators require two operands of identical numeric types. Division on integers truncates toward zero. Modulo (%) is defined only for integer types.</p>
+              <p class="operator-note">Binary arithmetic operators expect two numeric operands of the same type. Division on integers truncates toward zero. Remainder (%) is defined only for integer operands.</p>
             </div>
           </div>
 
@@ -420,7 +417,7 @@ value <- 100`, "wasome")}</code></pre>
                 <span class="operator-item"><code>&amp;&amp;</code> Logical AND</span>
                 <span class="operator-item"><code>!</code> Logical NOT</span>
               </div>
-              <p class="operator-note">Logical AND (&&) and Logical OR (||) are short-circuiting.</p>
+              <p class="operator-note">Logical operators are used to evaluate boolean expressions.</p>
             </div>
           </div>
 
@@ -446,94 +443,25 @@ value <- 100`, "wasome")}</code></pre>
         <p>
           Operator evaluation priority is defined by the following precedence levels, ordered from highest to lowest. Binary operators are left-associative unless otherwise specified:
         </p>
-        <div class="precedence-flow-card">
-          <div class="precedence-flow">
-            <div class="precedence-node">
-              <span class="precedence-num">1</span>
-              <span class="precedence-pills"><code>-</code><code>!</code><code>~</code></span>
-              <span class="precedence-name">Unary</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">2</span>
-              <span class="precedence-pills"><code>*</code><code>/</code><code>%</code></span>
-              <span class="precedence-name">Multiplicative</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">3</span>
-              <span class="precedence-pills"><code>+</code><code>-</code></span>
-              <span class="precedence-name">Additive</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">4</span>
-              <span class="precedence-pills"><code>&lt;&lt;</code><code>&gt;&gt;</code></span>
-              <span class="precedence-name">Shifts</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">5</span>
-              <span class="precedence-pills"><code>&gt;</code><code>&lt;</code><code>&gt;=</code><code>&lt;=</code></span>
-              <span class="precedence-name">Comparison</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">6</span>
-              <span class="precedence-pills"><code>==</code><code>!=</code></span>
-              <span class="precedence-name">Equality</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">7</span>
-              <span class="precedence-pills"><code>&amp;</code></span>
-              <span class="precedence-name">Bitwise AND</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">8</span>
-              <span class="precedence-pills"><code>^</code></span>
-              <span class="precedence-name">Bitwise XOR</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">9</span>
-              <span class="precedence-pills"><code>|</code></span>
-              <span class="precedence-name">Bitwise OR</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">10</span>
-              <span class="precedence-pills"><code>&amp;&amp;</code></span>
-              <span class="precedence-name">Logical AND</span>
-            </div>
-            <div class="precedence-connector">›</div>
-
-            <div class="precedence-node">
-              <span class="precedence-num">11</span>
-              <span class="precedence-pills"><code>||</code></span>
-              <span class="precedence-name">Logical OR</span>
-            </div>
-          </div>
-        </div>
+        <ul>
+          <li><strong>Level 1</strong>: <code>-</code> (unary), <code>!</code>, <code>~</code></li>
+          <li><strong>Level 2</strong>: <code>*</code>, <code>/</code>, <code>%</code> (left-associative)</li>
+          <li><strong>Level 3</strong>: <code>+</code>, <code>-</code> (left-associative)</li>
+          <li><strong>Level 4</strong>: <code>&lt;&lt;</code>, <code>&gt;&gt;</code> (left-associative)</li>
+          <li><strong>Level 5</strong>: <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code> (left-associative)</li>
+          <li><strong>Level 6</strong>: <code>==</code>, <code>!=</code> (left-associative)</li>
+          <li><strong>Level 7</strong>: <code>&amp;</code> (left-associative)</li>
+          <li><strong>Level 8</strong>: <code>^</code> (left-associative)</li>
+          <li><strong>Level 9</strong>: <code>|</code> (left-associative)</li>
+          <li><strong>Level 10</strong>: <code>&amp;&amp;</code> (left-associative)</li>
+          <li><strong>Level 11</strong>: <code>||</code> (left-associative)</li>
+        </ul>
       </div>
     </div>
 
     <!-- 4. Control Flow -->
     <div id="control-flow" class="doc-section">
       <h2>4. Control Flow</h2>
-      <p>
-        Control flow statements govern the order of execution.
-      </p>
 
       <div id="conditionals" class="doc-subsection">
         <h3>4.1 Conditionals</h3>
@@ -573,7 +501,7 @@ loop (s32 i <- 0; i < 10; i <- i + 1) {
     accumulator <- accumulator + i
 }`, "wasome")}</code></pre>
         <p>
-          The variable declared in the initialization statement of a for-style loop is scoped strictly within the loop body.
+          The variable declared in the initialization statement of a for-style loop is scoped to that loop block and any nested blocks.
         </p>
         <p>
           The <code>break</code> keyword exits the innermost loop immediately. Wasome does not support a <code>continue</code> statement.
@@ -603,9 +531,6 @@ loop (s32 i <- 0; i < 10; i <- i + 1) {
     <!-- 5. Functions -->
     <div id="functions" class="doc-section">
       <h2>5. Functions</h2>
-      <p>
-        Functions are subprograms that encapsulate parameterized operations.
-      </p>
 
       <div id="structure" class="doc-subsection">
         <h3>5.1 Structure</h3>
@@ -614,60 +539,78 @@ loop (s32 i <- 0; i < 10; i <- i + 1) {
         </p>
         <pre><code>{@html highlight(`fn <function-name>(<parameter-list>) -> <return-type> <code block>`, "wasome")}</code></pre>
         <p>
-          The return type and the <code>-></code> operator may be omitted for functions that do not return a value. Return statements use the <code>-></code> operator:
+          The return type and the <code>-></code> symbol may be omitted for functions that do not return a value. Return statements use the <code>-></code> statement syntax:
         </p>
-        <pre><code>{@html highlight(`pub fn sum(s32 a, s32 b) -> s32 {
+        <pre><code>{@html highlight(`fn sum(s32 a, s32 b) -> s32 {
     -> a + b
 }`, "wasome")}</code></pre>
         <p>
-          If a function declares a return type, every control path must terminate in a return statement yielding a value of the declared type. Functions without a return type may use <code>-></code> alone to execute an early return. Multiple return values are not supported.
+          If a function declares a return type, every control path must terminate in a return statement yielding a value of the declared type. Functions without a return type may use <code>-></code> alone to execute an early return. Return instructions are statements. Multiple return values are not supported.
         </p>
       </div>
 
       <div id="extern-functions" class="doc-subsection">
         <h3>5.2 Extern Functions</h3>
         <p>
-          Extern functions declare interfaces implemented in the host WebAssembly environment. They are defined without a function body.
+          Extern function syntax:
         </p>
-        <pre><code>{@html highlight(`pub extern fn log_message(u32 ptr, s32 len)`, "wasome")}</code></pre>
-      </div>
-
-      <div id="wasm-export-suffixes" class="doc-subsection">
-        <h3>5.3 WASM Export Suffixes</h3>
+        <pre><code>{@html highlight(`extern fn <function-name>(<parameter-list>) -> <return-type>`, "wasome")}</code></pre>
         <p>
-          At compile time, extern function declarations and exported symbols have suffixes appended to their names in the WebAssembly binary. These suffixes map to the parameter types and sizes:
+          In the compiled object file, the function will have the same name but with suffixes for type parameters. These suffixes represent the size of the parameter or <code>ptr</code> for pointers:
         </p>
-        <ul>
-          <li><code>1</code>: For 8-bit types (<code>u8</code>, <code>s8</code>)</li>
-          <li><code>2</code>: For 16-bit types (<code>u16</code>, <code>s16</code>)</li>
-          <li><code>4</code>: For 32-bit types (<code>u32</code>, <code>s32</code>, <code>f32</code>, <code>char</code>)</li>
-          <li><code>8</code>: For 64-bit types (<code>u64</code>, <code>s64</code>, <code>f64</code>)</li>
-          <li><code>ptr</code>: For structural heap types (structs, enums)</li>
-        </ul>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Suffix</th>
+                <th>Applies To</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>1</code></td>
+                <td>8-bit types (<code>u8</code>, <code>s8</code>)</td>
+              </tr>
+              <tr>
+                <td><code>2</code></td>
+                <td>16-bit types (<code>u16</code>, <code>s16</code>)</td>
+              </tr>
+              <tr>
+                <td><code>4</code></td>
+                <td>32-bit types (<code>u32</code>, <code>s32</code>, <code>f32</code>, <code>char</code>)</td>
+              </tr>
+              <tr>
+                <td><code>8</code></td>
+                <td>64-bit types (<code>u64</code>, <code>s64</code>, <code>f64</code>)</td>
+              </tr>
+              <tr>
+                <td><code>ptr</code></td>
+                <td>Heap structural types (enums and structs)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <p>
-          Suffixes are combined using underscores in order of parameter appearance:
+          Suffixes are combined with underscores in order of parameter appearance.
         </p>
-        <pre><code>{@html highlight(`// register_user(u8, s32, struct Point)
-// Compiles to WASM symbol: register_user_1_4_ptr`, "wasome")}</code></pre>
+        <pre><code>{@html highlight(`// extern fn process(u8 value, struct Data d)
+// Symbol name in compiled object: process_1_ptr`, "wasome")}</code></pre>
       </div>
     </div>
 
     <!-- 6. Structs -->
     <div id="structs" class="doc-section">
       <h2>6. Structs</h2>
-      <p>
-        Structs are user-defined aggregate types that group related fields and methods under a single heap-allocated reference.
-      </p>
 
       <div id="declaring-instantiating" class="doc-subsection">
-        <h3>6.1 Declaring & Instantiating</h3>
+        <h3>6.1 Declaration</h3>
         <p>
-          Struct declarations specify the struct name in PascalCase and a block containing member fields and methods. Fields default to private unless prefixed with the <code>pub</code> keyword.
+          Struct declarations specify the struct name in PascalCase and a block containing member fields and methods.
         </p>
-        <pre><code>{@html highlight(`pub struct Vector3 {
-    pub f32 x
-    pub f32 y
-    pub f32 z
+        <pre><code>{@html highlight(`struct Vector3 {
+    f32 x
+    f32 y
+    f32 z
 }`, "wasome")}</code></pre>
         <p>
           Instantiation allocates memory on the heap and returns a reference. Instantiations are written using the <code>new</code> keyword followed by the struct name and a field initialization block:
@@ -679,12 +622,12 @@ loop (s32 i <- 0; i < 10; i <- i + 1) {
       </div>
 
       <div id="generics" class="doc-subsection">
-        <h3>6.2 Generics [T]</h3>
+        <h3>6.2 Generics</h3>
         <p>
           Structs support type parameterization. Generics are specified within square brackets (<code>[]</code>).
         </p>
-        <pre><code>{@html highlight(`pub struct Cell[T] {
-    pub T element
+        <pre><code>{@html highlight(`struct Cell[T] {
+    T element
 }
 
 fn initialize() {
@@ -695,30 +638,36 @@ fn initialize() {
       <div id="methods-self" class="doc-subsection">
         <h3>6.3 Methods & self</h3>
         <p>
-          Methods are functions declared within a struct block. All methods implicitly have a special <code>self</code> variable in scope, which is a mutable reference to the struct instance itself.
+          Methods are regular functions declared within a struct block. All methods implicitly have a special <code>self</code> variable in scope, which is a mutable reference to the struct instance itself. The <code>self</code> parameter does not have to be explicitly specified in the parameter list.
         </p>
-        <pre><code>{@html highlight(`pub struct Rectangle {
-    pub f32 width
-    pub f32 height
+        <pre><code>{@html highlight(`struct Rectangle {
+    f32 width
+    f32 height
 
-    pub fn area() -> f32 {
+    fn area() -> f32 {
         -> self.width * self.height
     }
 }`, "wasome")}</code></pre>
       </div>
 
-      <div id="lifecycle-predrop" class="doc-subsection">
-        <h3>6.4 Lifecycle & predrop</h3>
+      <div id="lifecycle-drop" class="doc-subsection">
+        <h3>6.4 Lifecycle & drop</h3>
         <p>
-          Structs can implement a lifecycle method named <code>predrop</code>. This method must take no parameters (aside from the implicit <code>self</code> reference) and return no value.
+          Structs can have a <code>drop</code> method with the same name, no parameters aside from the implicit <code>self</code> one and no return value.
         </p>
         <p>
-          The <code>predrop</code> method executes immediately before the struct instance is dropped when its reference count falls to zero. If the reference count is increased back up during <code>predrop</code>, the dropping operation is canceled.
+          Having a method called <code>drop</code> that does not fulfill the other criteria is a syntax error.
         </p>
-        <pre><code>{@html highlight(`pub struct Database {
-    pub s32 connection_id
+        <p>
+          It is executed right before a struct is dropped.
+        </p>
+        <p>
+          Should it increase the reference count back up, the dropping is canceled.
+        </p>
+        <pre><code>{@html highlight(`struct Database {
+    s32 connection_id
 
-    fn predrop() {
+    fn drop() {
         sys_close(self.connection_id)
     }
 }`, "wasome")}</code></pre>
@@ -728,16 +677,13 @@ fn initialize() {
     <!-- 7. Enums -->
     <div id="enums" class="doc-section">
       <h2>7. Enums</h2>
-      <p>
-        Enums define tagged-union types that hold type-safe disjoint variant values. Enums are reference-counted heap types.
-      </p>
 
       <div id="tagged-unions" class="doc-subsection">
         <h3>7.1 Tagged Unions</h3>
         <p>
           Enum declarations define one or more variants. Each variant can encapsulate zero or more concrete types.
         </p>
-        <pre><code>{@html highlight(`pub enum Address {
+        <pre><code>{@html highlight(`enum Address {
     V4(u8, u8, u8, u8)
     V6(std.String)
     None
@@ -753,12 +699,12 @@ fn initialize() {
         <p>
           Option and Result patterns represent optional values and fallible operations via generic enums.
         </p>
-        <pre><code>{@html highlight(`pub enum Option[T] {
+        <pre><code>{@html highlight(`enum Option[T] {
     Some(T)
     None
 }
 
-pub enum Result[T, E] {
+enum Result[T, E] {
     Ok(T)
     Err(E)
 }`, "wasome")}</code></pre>
@@ -768,9 +714,6 @@ pub enum Result[T, E] {
     <!-- 8. Imports & Modules -->
     <div id="imports-modules" class="doc-section">
       <h2>8. Imports & Modules</h2>
-      <p>
-        Modules manage namespace scoping and access control across compilation boundaries.
-      </p>
 
       <div id="namespaces" class="doc-subsection">
         <h3>8.1 Namespaces</h3>
@@ -784,6 +727,7 @@ pub enum Result[T, E] {
         <ul>
           <li><code>./</code>: Relative to the current directory (default)</li>
           <li><code>&lt;project-name&gt;/</code>: Project root relative</li>
+          <li><code>std/</code>: Standard library relative</li>
         </ul>
         <p>
           Importing a file namespaces its public elements under the file's base name.
@@ -1046,78 +990,7 @@ fn build() {
     }
   }
 
-  /* Custom Precedence Inline Flow */
-  .precedence-flow-card {
-    background: rgba(255, 255, 255, 0.01);
-    border: 1px solid var(--border-light);
-    border-radius: 8px;
-    padding: 1.75rem 2rem;
-    margin-top: 1.5rem;
-  }
 
-  .precedence-flow {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem 0.8rem;
-  }
-
-  .precedence-node {
-    display: inline-flex;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    border-radius: 6px;
-    padding: 0.45rem 0.9rem;
-    gap: 0.6rem;
-    font-size: 1.05rem;
-    transition: background-color 0.2s, border-color 0.2s;
-  }
-
-  .precedence-node:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.08);
-  }
-
-  .precedence-num {
-    background: rgba(250, 204, 21, 0.1);
-    color: var(--primary);
-    font-weight: 700;
-    font-size: 0.9rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: 4px;
-    border: 1px solid rgba(250, 204, 21, 0.2);
-  }
-
-  .precedence-pills {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .precedence-pills code {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--text-main);
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.9em;
-    font-weight: 600;
-  }
-
-  .precedence-name {
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    font-weight: 500;
-    margin-left: 0.15rem;
-  }
-
-  .precedence-connector {
-    color: var(--text-muted);
-    font-size: 1.4rem;
-    font-weight: 300;
-    user-select: none;
-    margin: 0 0.2rem;
-  }
 
   /* Document layout elements */
   .doc-section {
