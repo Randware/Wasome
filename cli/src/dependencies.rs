@@ -140,7 +140,7 @@ version = "{version}"
     }
 
     fn create_dep(root: &Path, name: &str, version: &str, deps: &[(&str, &str)]) {
-        let dep_dir = root.join("lib").join(version_str(name, version));
+        let dep_dir = root.join(manifest::LIB_PATH).join(version_str(name, version));
         fs::create_dir_all(&dep_dir).unwrap();
         write_manifest(&dep_dir, name, version, deps);
     }
@@ -156,7 +156,7 @@ version = "{version}"
     #[test]
     fn test_locate_found_in_local_lib() {
         let root = tempdir().unwrap();
-        let dep_dir = root.path().join("lib").join("math@1.0.0");
+        let dep_dir = root.path().join(manifest::LIB_PATH).join("math@1.0.0");
         fs::create_dir_all(&dep_dir).unwrap();
         write_manifest(&dep_dir, "math", "1.0.0", &[]);
 
@@ -178,7 +178,7 @@ version = "{version}"
     #[test]
     fn test_locate_folder_exists_but_no_manifest() {
         let root = tempdir().unwrap();
-        let dep_dir = root.path().join("lib").join("math@1.0.0");
+        let dep_dir = root.path().join(manifest::LIB_PATH).join("math@1.0.0");
         fs::create_dir_all(&dep_dir).unwrap();
 
         let resolver = DependencyResolver::new(root.path().to_path_buf());
@@ -234,7 +234,7 @@ version = "{version}"
     fn test_resolve_all_transitive_dependencies() {
         let root = tempdir().unwrap();
 
-        let math_dir = root.path().join("lib").join("math@1.0.0");
+        let math_dir = root.path().join(manifest::LIB_PATH).join("math@1.0.0");
         fs::create_dir_all(&math_dir).unwrap();
         write_manifest(&math_dir, "math", "1.0.0", &[("core", "0.1.0")]);
         create_dep(&math_dir, "core", "0.1.0", &[]);
@@ -253,15 +253,15 @@ version = "{version}"
     fn test_resolve_all_deep_transitive_chain() {
         let root = tempdir().unwrap();
 
-        let a_dir = root.path().join("lib").join("a@1.0.0");
+        let a_dir = root.path().join(manifest::LIB_PATH).join("a@1.0.0");
         fs::create_dir_all(&a_dir).unwrap();
         write_manifest(&a_dir, "a", "1.0.0", &[("b", "1.0.0")]);
 
-        let b_dir = a_dir.join("lib").join("b@1.0.0");
+        let b_dir = a_dir.join(manifest::LIB_PATH).join("b@1.0.0");
         fs::create_dir_all(&b_dir).unwrap();
         write_manifest(&b_dir, "b", "1.0.0", &[("c", "1.0.0")]);
 
-        let c_dir = b_dir.join("lib").join("c@1.0.0");
+        let c_dir = b_dir.join(manifest::LIB_PATH).join("c@1.0.0");
         fs::create_dir_all(&c_dir).unwrap();
         write_manifest(&c_dir, "c", "1.0.0", &[]);
 
@@ -296,7 +296,7 @@ version = "{version}"
     fn test_resolve_all_transitive_missing_dependency_error() {
         let root = tempdir().unwrap();
 
-        let math_dir = root.path().join("lib").join("math@1.0.0");
+        let math_dir = root.path().join(manifest::LIB_PATH).join("math@1.0.0");
         fs::create_dir_all(&math_dir).unwrap();
         write_manifest(&math_dir, "math", "1.0.0", &[("core", "0.1.0")]);
 
@@ -318,11 +318,11 @@ version = "{version}"
     fn test_resolve_all_deep_transitive_missing_error() {
         let root = tempdir().unwrap();
 
-        let a_dir = root.path().join("lib").join("a@1.0.0");
+        let a_dir = root.path().join(manifest::LIB_PATH).join("a@1.0.0");
         fs::create_dir_all(&a_dir).unwrap();
         write_manifest(&a_dir, "a", "1.0.0", &[("b", "1.0.0")]);
 
-        let b_dir = a_dir.join("lib").join("b@1.0.0");
+        let b_dir = a_dir.join(manifest::LIB_PATH).join("b@1.0.0");
         fs::create_dir_all(&b_dir).unwrap();
         write_manifest(&b_dir, "b", "1.0.0", &[("ghost", "3.0.0")]);
 

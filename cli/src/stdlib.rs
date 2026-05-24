@@ -6,6 +6,10 @@ use linker::LinkableFile;
 use crate::error::{CliError, CliResult};
 
 pub const STDLIB_PROJECT_NAME: &str = "std";
+pub const DEFAULT_TARGET: &str = "runtime";
+pub const COMPONENT_WASOME: &str = "wasome";
+pub const COMPONENT_BIN: &str = "bin";
+pub const OBJECT_EXTENSIONS: &[&str] = &["a", "o"];
 
 const DEFAULT_STDLIB_REL_PATH: &str = "std";
 
@@ -21,11 +25,11 @@ impl Target {
     }
 
     pub fn wasome_dir(&self) -> PathBuf {
-        self.root.join("wasome")
+        self.root.join(COMPONENT_WASOME)
     }
 
     pub fn bin_dir(&self) -> PathBuf {
-        self.root.join("bin")
+        self.root.join(COMPONENT_BIN)
     }
 
     pub fn is_valid(&self) -> bool {
@@ -60,8 +64,8 @@ impl Target {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() {
-                    if let Some(ext) = path.extension() {
-                        if ext == "a" || ext == "o" {
+                    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                        if OBJECT_EXTENSIONS.contains(&ext) {
                             let linkable = LinkableFile::from_path(&path)
                                 .map_err(|e| CliError::LinkFileError(path.clone(), e))?;
                             archives.push(linkable);

@@ -10,7 +10,7 @@ use crate::{
     error::{CliError, CliResult, ManifestError},
     manifest::{self},
     pipeline,
-    stdlib::StdlibResolver,
+    stdlib::{self, StdlibResolver},
     template::Template,
     workspace::Workspace,
 };
@@ -74,7 +74,7 @@ impl Executable for BuildArgs {
 
         let project_name = workspace.info().name().to_string();
 
-        let target = self.target.as_deref().unwrap_or("runtime");
+        let target = self.target.as_deref().unwrap_or(stdlib::DEFAULT_TARGET);
         let stdlib_paths = StdlibResolver::resolve(target, self.stdlib_path.as_deref())?;
 
         let output = pipeline::build(workspace, self.profile, &stdlib_paths, &self.link_files)?;
