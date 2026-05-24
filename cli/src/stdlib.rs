@@ -11,7 +11,7 @@ pub const COMPONENT_WASOME: &str = "wasome";
 pub const COMPONENT_BIN: &str = "bin";
 pub const OBJECT_EXTENSIONS: &[&str] = &["a", "o"];
 
-const DEFAULT_STDLIB_REL_PATH: &str = "std";
+const DEFAULT_STDLIB_REL_PATH: &str = "../std";
 
 /// Represents a specific compilation target and its configuration.
 pub(crate) struct Target {
