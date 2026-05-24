@@ -60,7 +60,13 @@ DOWNLOAD_ARCHIVE="wasome.tar.gz"
 echo "Downloading Wasome ${LATEST_RELEASE} from $DOWNLOAD_URL..."
 curl -L -o "$DOWNLOAD_ARCHIVE" "$DOWNLOAD_URL"
 
-echo "Installing to $WASOME_HOME..."
+if [ -d "$WASOME_HOME/bin" ]; then
+    echo "Updating existing installation at $WASOME_HOME..."
+    # Clean up old core directories to prevent stale files, but LEAVE lib/ intact!
+    rm -rf "$WASOME_HOME/bin" "$WASOME_HOME/std"
+else
+    echo "Installing to $WASOME_HOME..."
+fi
 mkdir -p "$WASOME_HOME"
 tar -xzf "$DOWNLOAD_ARCHIVE" -C "$WASOME_HOME"
 rm "$DOWNLOAD_ARCHIVE"
@@ -120,7 +126,7 @@ else
 fi
 
 echo ""
-echo "Wasome installed successfully!"
+echo "Wasome installed/updated successfully!"
 echo "Please restart your terminal or run the following command to start using Wasome:"
 if [ "$SHELL_NAME" = "fish" ]; then
     echo "source $PROFILE"

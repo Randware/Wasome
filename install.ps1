@@ -28,9 +28,21 @@ $ZipPath = Join-Path $env:TEMP "wasome.zip"
 Write-Host "Downloading Wasome $Version from $DownloadUrl..."
 Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath
 
-Write-Host "Installing to $WasomeHome..."
-if (!(Test-Path $WasomeHome)) {
-    New-Item -ItemType Directory -Force -Path $WasomeHome | Out-Null
+if (Test-Path (Join-Path $WasomeHome "bin")) {
+    Write-Host "Updating existing installation at $WasomeHome..."
+    # Clean up old core directories to prevent stale files, but LEAVE lib/ intact!
+    $DirsToClean = @("bin", "std")
+    foreach ($Dir in $DirsToClean) {
+        $DirPath = Join-Path $WasomeHome $Dir
+        if (Test-Path $DirPath) {
+            Remove-Item -Path $DirPath -Recurse -Force
+        }
+    }
+} else {
+    Write-Host "Installing to $WasomeHome..."
+    if (!(Test-Path $WasomeHome)) {
+        New-Item -ItemType Directory -Force -Path $WasomeHome | Out-Null
+    }
 }
 
 Expand-Archive -Path $ZipPath -DestinationPath $WasomeHome -Force
@@ -70,5 +82,5 @@ if ($UserPath -notlike "*$WasomeBin*") {
 }
 
 Write-Host ""
-Write-Host "Wasome installed successfully!"
+Write-Host "Wasome installed/updated successfully!"
 Write-Host "Please restart your PowerShell or Command Prompt terminal to start using the 'waso' command."
