@@ -6,6 +6,7 @@ mod wasome_string;
 mod wasome_vec;
 
 use crate::wasome_string::WasomeString;
+use alloc::boxed::Box;
 use alloc::string::String;
 use core::mem::forget;
 use core::panic::PanicInfo;
@@ -81,7 +82,7 @@ fn print(s: &str) {
     }
 }
 
-fn read_line() -> String {
+fn read_line_internal() -> String {
     let mut res = String::new();
     let mut curr_char: u32 = 0;
     loop {
@@ -99,7 +100,6 @@ fn read_line() -> String {
         if nwritten != 1 {
             panic!("Read failed! {nwritten}");
         }
-        drop(iovec);
         curr_char <<= 8;
         curr_char |= buf[0] as u32;
         if let Some(converted) = char::from_u32(curr_char) {
@@ -111,6 +111,13 @@ fn read_line() -> String {
         }
     }
     res
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn read_line() -> *mut WasomeString {
+    let wasome_string = Box::into_raw(Box::new(WasomeString::new()));
+    unsafe { WasomeString::update_from_string(wasome_string, read_line_internal()) }
+    wasome_string
 }
 
 fn exit(code: i32) {

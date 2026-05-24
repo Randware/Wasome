@@ -9,6 +9,12 @@ pub struct WasomeString {
     inner: WasomeVec<u8>,
 }
 
+impl Default for WasomeString {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WasomeString {
     #[must_use]
     pub fn new() -> Self {
@@ -171,8 +177,8 @@ pub unsafe extern "C" fn string_push_u64(mut_string: *mut WasomeString, to_push:
 ///
 /// `mut_string` must be a valid pointer.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn string_pop(mut_string: *mut WasomeString) -> char {
-    unsafe { WasomeString::pop(mut_string) }
+pub unsafe extern "C" fn string_pop(mut_string: *mut WasomeString) -> u32 {
+    (unsafe { WasomeString::pop(mut_string) }) as u32
 }
 
 /// # Safety
