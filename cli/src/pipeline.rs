@@ -86,7 +86,7 @@ pub fn build(
                 .message("Compilation failed")
                 .build()
                 .print()?;
-            Err(CliError::LinkingFailed)
+            Err(CliError::CompilationFailed)
         }
     }
 }

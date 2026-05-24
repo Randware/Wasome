@@ -42,12 +42,12 @@ impl Target {
 
         let manifest_path = wasome.join(crate::manifest::MANIFEST_FILE);
         let content = std::fs::read_to_string(&manifest_path)
-            .map_err(|_| CliError::StdlibNotFound(wasome.clone()))?;
+            .map_err(|_| CliError::MissingTargetComponent(manifest_path.clone()))?;
         crate::manifest::Manifest::parse(&content)
-            .map_err(|_| CliError::StdlibNotFound(wasome.clone()))?;
+            .map_err(|_| CliError::MissingTargetComponent(manifest_path.clone()))?;
 
         if !bin.exists() || !bin.is_dir() {
-            return Err(CliError::StdlibNotFound(bin));
+            return Err(CliError::MissingTargetComponent(bin));
         }
 
         Ok(())

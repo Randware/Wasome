@@ -31,14 +31,11 @@ pub enum CliError {
     #[error("Target '{0}' not available")]
     TargetNotFound(String),
 
-    #[error("Standard library not found at '{0}'")]
-    StdlibNotFound(std::path::PathBuf),
+    #[error("Target is missing component '{0}'")]
+    MissingTargetComponent(std::path::PathBuf),
 
     #[error("Could not read link file '{0}': {1}")]
     LinkFileError(std::path::PathBuf, io::Error),
-
-    #[error("Linking failed")]
-    LinkingFailed,
 }
 
 impl CliError {
@@ -126,37 +123,30 @@ impl CliError {
 
             CliError::CompilationFailed
             | CliError::FormattingFailed
-            | CliError::ProjectLoadingFailed
-            | CliError::LinkingFailed => {}
+            | CliError::ProjectLoadingFailed => {}
 
-            CliError::TargetNotFound(ref target) => {
+            CliError::TargetNotFound(_) => {
                 Diagnostic::builder()
                     .level(Level::Error)
-                    .message(format!("Target '{}' is not available", target))
+                    .message(self.to_string())
                     .help("Run `waso target list` to view available targets")
                     .build()
                     .print()?;
             }
 
-            CliError::StdlibNotFound(ref path) => {
+            CliError::MissingTargetComponent(_) => {
                 Diagnostic::builder()
                     .level(Level::Error)
-                    .message(format!(
-                        "Standard library not found at '{}'",
-                        path.display()
-                    ))
+                    .message(self.to_string())
+                    .help("Ensure the target was installed correctly and contains a 'wasome' project and a 'bin' directory")
                     .build()
                     .print()?;
             }
 
-            CliError::LinkFileError(ref path, ref err) => {
+            CliError::LinkFileError(_, _) => {
                 Diagnostic::builder()
                     .level(Level::Error)
-                    .message(format!(
-                        "Could not read link file '{}': {}",
-                        path.display(),
-                        err
-                    ))
+                    .message(self.to_string())
                     .build()
                     .print()?;
             }
