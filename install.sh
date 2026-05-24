@@ -3,7 +3,7 @@
 set -e
 
 # Configuration
-GITHUB_REPO="${WASOME_REPO:-Dari-OS/Wasome}"
+GITHUB_REPO="Dari-OS/Wasome"
 WASOME_HOME="${WASOME_HOME:-$HOME/.wasome}"
 WASOME_BIN="$WASOME_HOME/bin"
 

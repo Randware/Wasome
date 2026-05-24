@@ -3,10 +3,7 @@
 $ErrorActionPreference = "Stop"
 
 # Configuration
-$GithubRepo = $env:WASOME_REPO
-if ([string]::IsNullOrWhiteSpace($GithubRepo)) {
-    $GithubRepo = "Dari-OS/Wasome"
-}
+$GithubRepo = "Dari-OS/Wasome"
 
 $WasomeHome = $env:WASOME_HOME
 if ([string]::IsNullOrWhiteSpace($WasomeHome)) {
