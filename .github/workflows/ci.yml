@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest, macos-latest]
+        os: [ubuntu-24.04, windows-latest, macos-26, macos-26-intel]
         include:
           - os: ubuntu-24.04
             name: fedora-latest
@@ -71,11 +71,11 @@ jobs:
 
       # ── macOS ─────────────────────────────────────────────────────────────
       - name: Install LLVM 21 and LLD (macOS)
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos')
         run: brew install llvm@21 lld
 
       - name: Export LLVM Prefix (macOS)
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos')
         run: |
           LLVM_DIR=$(brew --prefix llvm@21)
 

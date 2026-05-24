@@ -45,11 +45,11 @@ jobs:
             builder: nix
 
           # --- MAC OS
-          - os: macos-14
+          - os: macos-26-intel
             target: x86_64-apple-darwin
             archive: tar.gz
             builder: cargo
-          - os: macos-14
+          - os: macos-26
             target: aarch64-apple-darwin
             archive: tar.gz
             builder: cargo
