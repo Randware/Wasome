@@ -156,7 +156,7 @@ jobs:
           fi
 
           cp -r stdlib/wasome/* release_pkg/std/runtime/wasome/
-          cp stdlib/rust/target/wasm32-wasip1/release/libstdlib.a release_pkg/std/runtime/lib/stdlib.a
+          cp stdlib/rust/target/wasm32-wasip1/release/libstd.a release_pkg/std/runtime/lib/libstd.a
 
           cd release_pkg
           tar -czvf ../wasome-${{ matrix.target }}.tar.gz *
@@ -172,7 +172,7 @@ jobs:
 
           Copy-Item cli\target\${{ matrix.target }}\release\waso.exe release_pkg\bin\waso.exe
           Copy-Item -Recurse stdlib\wasome\* release_pkg\std\runtime\wasome\
-          Copy-Item stdlib\rust\target\wasm32-wasip1\release\libstdlib.a release_pkg\std\runtime\lib\stdlib.a
+          Copy-Item stdlib\rust\target\wasm32-wasip1\release\libstd.a release_pkg\std\runtime\lib\libstd.a
 
           Compress-Archive -Path release_pkg\* -DestinationPath wasome-${{ matrix.target }}.zip
 
