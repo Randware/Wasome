@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn new_wasome_string_is_valid() {
         let ws = string_new();
-        assert_eq!(String::new(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!(String::new(), unsafe { WasomeString::as_string(ws) })
     }
 
     #[test]
@@ -210,7 +210,7 @@ mod tests {
             string_push_char(ws, b'm' as u32);
             string_push_char(ws, b'e' as u32);
         }
-        assert_eq!("Wasome".to_string(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!("Wasome".to_string(), unsafe { WasomeString::as_string(ws) })
     }
 
     #[test]
@@ -221,7 +221,7 @@ mod tests {
             WasomeString::update_from_string(to_push, "Wasome".to_string());
             string_push_string(ws, to_push);
         }
-        assert_eq!("Wasome".to_string(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!("Wasome".to_string(), unsafe { WasomeString::as_string(ws) })
     }
 
     #[test]
@@ -231,7 +231,7 @@ mod tests {
             let to_push = string_new();
             string_push_string(ws, to_push);
         }
-        assert_eq!(String::new(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!(String::new(), unsafe { WasomeString::as_string(ws) })
     }
 
     #[test]
@@ -240,7 +240,7 @@ mod tests {
         unsafe {
             string_push_s32(ws, -10);
         }
-        assert_eq!("-10".to_string(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!("-10".to_string(), unsafe { WasomeString::as_string(ws) })
     }
 
     #[test]
@@ -249,7 +249,9 @@ mod tests {
         unsafe {
             string_push_s64(ws, -1000000000000000);
         }
-        assert_eq!("-1000000000000000".to_string(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!("-1000000000000000".to_string(), unsafe {
+            WasomeString::as_string(ws)
+        })
     }
 
     #[test]
@@ -258,7 +260,7 @@ mod tests {
         unsafe {
             string_push_u64(ws, 150);
         }
-        assert_eq!("150".to_string(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!("150".to_string(), unsafe { WasomeString::as_string(ws) })
     }
 
     #[test]
@@ -267,7 +269,7 @@ mod tests {
         unsafe {
             string_push_f64(ws, 17.3);
         }
-        assert_eq!("17.3".to_string(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!("17.3".to_string(), unsafe { WasomeString::as_string(ws) })
     }
 
     #[test]
@@ -277,6 +279,6 @@ mod tests {
             string_push_f64(ws, 17.3);
             assert_eq!(b'3' as u32, string_pop(ws))
         }
-        assert_eq!("17.".to_string(), unsafe {WasomeString::as_string(ws)})
+        assert_eq!("17.".to_string(), unsafe { WasomeString::as_string(ws) })
     }
 }
