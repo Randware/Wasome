@@ -3,7 +3,10 @@ use error::diagnostic::{Diagnostic, Level};
 use std::path;
 
 use crate::{
-    command::{BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs},
+    command::{
+        BuildArgs, CheckArgs, Cli, Command, FmtArgs, NewArgs, TargetArgs, TargetCommand,
+        TargetListArgs,
+    },
     error::{CliError, CliResult, ManifestError},
     manifest::{self},
     pipeline,
@@ -29,6 +32,7 @@ impl Executable for Command {
             Command::Build(args) => args.execute(),
             Command::New(args) => args.execute(),
             Command::Fmt(args) => args.execute(),
+            Command::Target(args) => args.execute(),
         }
     }
 }
@@ -69,7 +73,9 @@ impl Executable for BuildArgs {
             .print()?;
 
         let project_name = workspace.info().name().to_string();
-        let stdlib_paths = StdlibResolver::resolve(self.stdlib_path.as_deref())?;
+
+        let target = self.target.as_deref().unwrap_or("runtime");
+        let stdlib_paths = StdlibResolver::resolve(target, self.stdlib_path.as_deref())?;
 
         let output = pipeline::build(workspace, self.profile, &stdlib_paths, &self.link_files)?;
 
@@ -138,6 +144,41 @@ impl Executable for FmtArgs {
         let program = pipeline::load(&mut workspace)?;
 
         pipeline::fmt(&mut workspace, &program)?;
+
+        Ok(())
+    }
+}
+
+impl Executable for TargetArgs {
+    fn execute(self) -> CliResult<()> {
+        match self.command {
+            TargetCommand::List(args) => args.execute(),
+        }
+    }
+}
+
+impl Executable for TargetListArgs {
+    fn execute(self) -> CliResult<()> {
+        let targets = StdlibResolver::list_targets()?;
+
+        if targets.is_empty() {
+            Diagnostic::builder()
+                .level(Level::Warning)
+                .message("No targets found")
+                .help("Make sure you installed the Wasome toolchain properly")
+                .build()
+                .print()?;
+        } else {
+            let mut list = String::from("Available targets:");
+            for target in targets {
+                list.push_str(&format!("\n  - {}", target));
+            }
+            Diagnostic::builder()
+                .level(Level::Info)
+                .message(list)
+                .build()
+                .print()?;
+        }
 
         Ok(())
     }
@@ -245,6 +286,7 @@ mod tests {
             profile: Default::default(),
             stdlib_path: None,
             link_files: vec![],
+            target: None,
         };
 
         let err = args.execute().unwrap_err();
@@ -260,9 +302,10 @@ mod tests {
             profile: Default::default(),
             stdlib_path: None,
             link_files: vec![],
+            target: Some("nonexistent_target".to_string()),
         };
         let err = args.execute().unwrap_err();
-        assert!(matches!(err, CliError::StdlibNotFound(_)));
+        assert!(matches!(err, CliError::TargetNotFound(_)));
     }
 
     #[test]

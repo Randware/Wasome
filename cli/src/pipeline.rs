@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::command::Profile;
 use crate::error::{CliError, CliResult};
 use crate::manifest;
-use crate::stdlib::{self, StdlibPaths, StdlibResolver};
+use crate::stdlib;
 use crate::workspace::Workspace;
 use driver::pipeline::Pipeline;
 use driver::program_information::{BinaryProgramInformation, Project};
@@ -54,13 +54,13 @@ pub fn load(workspace: &mut Workspace) -> CliResult<WasomeProgram> {
 pub fn build(
     workspace: Workspace,
     profile: Profile,
-    stdlib: &StdlibPaths,
+    target: &stdlib::Target,
     extra_paths: &[PathBuf],
 ) -> CliResult<LinkableFile> {
     let mut link_files = Vec::new();
 
-    // Load the pre-compiled stdlib archive
-    link_files.push(StdlibResolver::load_archive(stdlib)?);
+    // Load the pre-compiled stdlib archives
+    link_files.extend(target.load_archives()?);
 
     // Load any additional user-provided files
     for path in extra_paths {
@@ -71,7 +71,7 @@ pub fn build(
 
     let stdlib_project = Project::new(
         stdlib::STDLIB_PROJECT_NAME.to_string(),
-        stdlib.wasome.join(manifest::SRC_DIR),
+        target.wasome_dir().join(manifest::SRC_DIR),
     );
     let opt_level = profile.to_opt_level();
 

@@ -28,7 +28,10 @@ pub enum CliError {
     #[error("Could not load project")]
     ProjectLoadingFailed,
 
-    #[error("Stdlib not found at '{0}'")]
+    #[error("Target '{0}' not available")]
+    TargetNotFound(String),
+
+    #[error("Standard library not found at '{0}'")]
     StdlibNotFound(std::path::PathBuf),
 
     #[error("Could not read link file '{0}': {1}")]
@@ -126,11 +129,22 @@ impl CliError {
             | CliError::ProjectLoadingFailed
             | CliError::LinkingFailed => {}
 
+            CliError::TargetNotFound(ref target) => {
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message(format!("Target '{}' is not available", target))
+                    .help("Run `waso target list` to view available targets")
+                    .build()
+                    .print()?;
+            }
+
             CliError::StdlibNotFound(ref path) => {
                 Diagnostic::builder()
                     .level(Level::Error)
-                    .message(format!("Stdlib not found at '{}'", path.display()))
-                    .help("Use --stdlib to specify the stdlib location")
+                    .message(format!(
+                        "Standard library not found at '{}'",
+                        path.display()
+                    ))
                     .build()
                     .print()?;
             }

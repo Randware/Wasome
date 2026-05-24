@@ -32,17 +32,22 @@ pub(crate) struct BuildArgs {
     )]
     pub(crate) profile: Profile,
     #[arg(
-        long = "stdlib",
-        help = "Override the default stdlib location",
+        long = "std",
+        help = "Provide a custom standard library location",
         value_hint = ValueHint::DirPath
     )]
     pub(crate) stdlib_path: Option<PathBuf>,
     #[arg(
         long = "link",
-        help = "Additional files to link (e.g. .o or .a)",
+        help = "Provide additional linking objects (.o or .a files)",
         value_hint = ValueHint::FilePath
     )]
     pub(crate) link_files: Vec<PathBuf>,
+    #[arg(
+        long,
+        help = "Compilation target (maps to a standard library implementation)"
+    )]
+    pub(crate) target: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -59,6 +64,21 @@ pub(crate) struct FmtArgs {
     pub(crate) path: PathBuf,
 }
 
+#[derive(Args, Debug)]
+pub(crate) struct TargetArgs {
+    #[command(subcommand)]
+    pub(crate) command: TargetCommand,
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum TargetCommand {
+    #[command(about = "List available targets")]
+    List(TargetListArgs),
+}
+
+#[derive(Args, Debug)]
+pub(crate) struct TargetListArgs {}
+
 #[derive(Subcommand)]
 pub(crate) enum Command {
     #[command(about = "Check the project source for issues")]
@@ -69,6 +89,8 @@ pub(crate) enum Command {
     New(NewArgs),
     #[command(about = "Format the project source")]
     Fmt(FmtArgs),
+    #[command(about = "Manage compilation targets")]
+    Target(TargetArgs),
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Default)]
