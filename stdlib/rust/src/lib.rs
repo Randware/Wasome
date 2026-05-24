@@ -93,7 +93,7 @@ fn read_line_internal() -> String {
         };
         let mut nwritten: usize = 0;
         // SAFETY:
-        // FD 1 always exists
+        // FD 0 always exists
         unsafe {
             fd_read(0, &iovec, 1, &mut nwritten);
         }
