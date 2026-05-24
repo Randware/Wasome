@@ -144,6 +144,7 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           mkdir -p release_pkg/bin
+          mkdir -p release_pkg/lib
           mkdir -p release_pkg/std/runtime/lib
           mkdir -p release_pkg/std/runtime/wasome
 
@@ -165,6 +166,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release_pkg\bin
+          New-Item -ItemType Directory -Force -Path release_pkg\lib
           New-Item -ItemType Directory -Force -Path release_pkg\std\runtime\lib
           New-Item -ItemType Directory -Force -Path release_pkg\std\runtime\wasome
 
@@ -238,7 +240,7 @@ jobs:
             end
 
             def install
-              libexec.install "bin", "std"
+              libexec.install "bin", "lib", "std"
               bin.install_symlink libexec/"bin/waso"
             end
           end
