@@ -5,17 +5,26 @@ mod wasome_mem;
 mod wasome_string;
 mod wasome_vec;
 
+use crate::wasome_string::WasomeString;
 use alloc::string::String;
+use core::mem::forget;
 use core::panic::PanicInfo;
 
 #[link(wasm_import_module = "wasi_snapshot_preview1")]
 unsafe extern "C" {
     fn fd_write(fd: i32, iovs: *const Iovec, iovs_len: usize, nwritten: *mut usize) -> i32;
+    fn fd_read(fd: i32, iovs: *const MutIovec, iovs_len: usize, nwritten: *mut usize) -> i32;
     safe fn proc_exit(code: i32);
 }
 #[repr(C)]
 struct Iovec {
     buf: *const u8,
+    len: usize,
+}
+
+#[repr(C)]
+struct MutIovec {
+    buf: *mut u8,
     len: usize,
 }
 #[global_allocator]
@@ -28,6 +37,16 @@ pub unsafe extern "C" fn print_char(to_print: u32) {
     unsafe {
         print(String::from(char::from_u32_unchecked(to_print)).as_str());
     }
+}
+
+/// # Safety
+///
+/// The passed char must be a valid char
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn print_string(to_print: *mut WasomeString) {
+    let string = unsafe { WasomeString::as_string(to_print) };
+    print(&string);
+    forget(string)
 }
 
 #[unsafe(no_mangle)]
@@ -60,6 +79,38 @@ fn print(s: &str) {
     unsafe {
         fd_write(1, &iovec, 1, &mut nwritten);
     }
+}
+
+fn read_line() -> String {
+    let mut res = String::new();
+    let mut curr_char: u32 = 0;
+    loop {
+        let mut buf = [0_u8; 1];
+        let iovec = MutIovec {
+            buf: buf.as_mut_ptr(),
+            len: 1,
+        };
+        let mut nwritten: usize = 0;
+        // SAFETY:
+        // FD 1 always exists
+        unsafe {
+            fd_read(0, &iovec, 1, &mut nwritten);
+        }
+        if nwritten != 1 {
+            panic!("Read failed! {nwritten}");
+        }
+        drop(iovec);
+        curr_char <<= 8;
+        curr_char |= buf[0] as u32;
+        if let Some(converted) = char::from_u32(curr_char) {
+            if curr_char == b'\n' as u32 {
+                break;
+            }
+            res.push(converted);
+            curr_char = 0;
+        }
+    }
+    res
 }
 
 fn exit(code: i32) {
