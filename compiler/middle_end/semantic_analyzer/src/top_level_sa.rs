@@ -40,6 +40,8 @@ pub(crate) fn analyze_function(
 ) -> Result<ASTNode<Function<TypedAST>>, SemanticError> {
     let mut func_mapper = FunctionSymbolMapper::new();
 
+    func_mapper.set_current_function_return_type(symbol.return_type().cloned());
+
     for param_symbol in symbol.params().iter() {
         func_mapper
             .add_variable(
@@ -51,6 +53,20 @@ pub(crate) fn analyze_function(
                 kind: "Parameter".to_string(),
                 span: *context.ast_reference.inner().position(),
             })?;
+    }
+
+    if symbol.name() == "drop" || symbol.name() == "predrop" {
+        if symbol.return_type().is_some()
+            || !symbol.type_parameters().is_empty()
+            || symbol.params().iter().any(|p| p.name() != "self")
+        {
+            return Err(SemanticError::InvalidDropSignature {
+                message:
+                    "Drop methods cannot accept parameters, generics, or explicit return signatures"
+                        .to_string(),
+                span: *context.ast_reference.inner().position(),
+            });
+        }
     }
 
     let ft = match context.ast_reference.inner().function_type() {

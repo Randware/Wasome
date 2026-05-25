@@ -153,22 +153,24 @@ fn try_analyze_void_method_call(
     Ok(Some(typed_call))
 }
 
-/// Analyzes a variable assignment (re-assignment of an existing variable).
+/// Analyzes a variable declaration (creation of a new local variable).
 ///
-/// It checks if the variable exists in the current scope and if the type of the assigned value matches.
+/// It registers the new variable in the current scope and ensures the type of the
+/// initializer matches the declared type.
 ///
-/// # Type Checking
-/// Enforces strict type equality. Implicit casting (e.g., `s32` to `s64`) is **not** supported.
+/// # Shadowing
+/// Allows shadowing of variables defined in outer scopes, but forbids defining a variable
+/// with the same name in the same local scope.
 ///
 /// # Parameters
-/// * `to_analyze` - The untyped assignment node.
-/// * `function_symbol_mapper` - Used to look up the existing variable in the current scope.
+/// * `to_analyze` - The untyped variable declaration node.
 /// * `context` - The syntax context providing the scope and symbol resolution.
+/// * `function_symbol_mapper` - Used to add the new variable to the current local scope.
 /// * `span` - The source code span for error reporting.
 ///
 /// # Returns
-/// * `Ok(VariableAssignment<TypedAST>)` if the variable exists and types match.
-/// * `Err(SemanticError)` if the variable is not found or types mismatch.
+/// * `Ok(VariableDeclaration<TypedAST>)` if the declaration succeeds.
+/// * `Err(SemanticError)` if validation fails.
 fn analyze_variable_assignment(
     to_analyze: &VariableAssignment<UntypedAST>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
@@ -217,6 +219,7 @@ fn analyze_variable_assignment(
 /// # Returns
 /// * `Ok(VariableDeclaration<TypedAST>)` if the declaration succeeds.
 /// * `Err(SemanticError)` if validation fails.
+///
 fn analyze_variable_declaration(
     to_analyze: &VariableDeclaration<UntypedAST>,
     context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
@@ -683,9 +686,12 @@ fn analyze_codeblock(
         let count = context.ast_reference.amount_children();
 
         for i in 0..count {
+            // Unwrap:
+            // This can never panic as we never reach or exceed the length of child statements
             let sth = context.ast_reference.get_child(i).unwrap();
             let child_context = context.with_ast_reference(&sth);
             let child_position = *child_context.ast_reference.inner().position();
+            // Recursively analyze each statement
             let stmt = analyze_statement(&child_context, function_symbol_mapper)?;
             typed_statements.push(ASTNode::new(stmt, child_position));
         }
