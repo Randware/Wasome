@@ -173,7 +173,8 @@ impl<'a> SyntaxElementMap<'a> {
         &mut self,
         symbol: &StructSymbol<UntypedAST>,
     ) -> Option<impl Iterator<Item = StructImplementation<'a>>> {
-        self.structs.implementations_for_untyped_symbol(symbol)
+        self.structs
+            .implementations_for_untyped_symbol(symbol)
             .map(|implem| implem.map(|single| (single.0, single.1.into_inner())))
     }
 
@@ -184,11 +185,15 @@ impl<'a> SyntaxElementMap<'a> {
         self.structs.untyped_from_typed_symbol(typed)
     }
 
-    pub fn methods(&self, symbol: &StructSymbol<UntypedAST>,
-                          type_parameters: &[TypedTypeParameter]) -> Option<Vec<Rc<FunctionSymbol<UntypedAST>>>> {
-        let st = self.structs.get_typed_syntax_element(symbol, type_parameters)?;
+    pub fn methods(
+        &self,
+        symbol: &StructSymbol<UntypedAST>,
+        type_parameters: &[TypedTypeParameter],
+    ) -> Option<Vec<Rc<FunctionSymbol<UntypedAST>>>> {
+        let st = self
+            .structs
+            .get_typed_syntax_element(symbol, type_parameters)?;
         Some(st.subanalyzables().borrow().untyped_elements().collect())
-
     }
 }
 

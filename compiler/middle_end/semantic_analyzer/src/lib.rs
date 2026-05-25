@@ -63,5 +63,5 @@ pub(crate) fn symbol_by_name<'a>(
     from.find(|symbol| {
         symbol.0.as_ref().map(|mun| mun.name()) == prefix_name && symbol.1.name() == name
     })
-        .map(|symbol| symbol.1)
+    .map(|symbol| symbol.1)
 }

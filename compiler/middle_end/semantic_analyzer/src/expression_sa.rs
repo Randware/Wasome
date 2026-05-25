@@ -51,22 +51,9 @@ pub(crate) fn analyze_expression(
                 })?;
             Expression::FunctionCall(typed_call)
         }
-        Expression::Variable(inner) => match function_symbol_mapper.lookup_variable(inner) {
-            Some(variable_symbol) => Expression::Variable(variable_symbol),
-            None => {
-                if symbol_by_name(inner, context.ast_reference.symbols_available_at()).is_some() {
-                    return Err(SemanticError::InvalidUsage {
-                        message: format!("Symbol '{}' cannot be used as a standalone value", inner),
-                        span,
-                    });
-                }
-
-                return Err(SemanticError::UnknownSymbol {
-                    name: inner.to_string(),
-                    span,
-                });
-            }
-        },
+        Expression::Variable(inner) => {
+            analyze_variable_use(inner, context, function_symbol_mapper, span)?
+        }
         Expression::Literal(inner) => Expression::Literal(analyze_literal(inner, span)?),
         Expression::UnaryOp(inner) => Expression::UnaryOp(analyze_unary_op(
             inner,
@@ -116,17 +103,30 @@ pub(crate) fn analyze_non_void_function_call(
 
 fn analyze_variable_use(
     variable_name: &str,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
     span: Span,
 ) -> Result<Expression<TypedAST>, SemanticError> {
-    let typed_symbol: Rc<VariableSymbol<TypedAST>> = function_symbol_mapper
-        .lookup_variable(variable_name)
-        .ok_or_else(|| SemanticError::UnknownSymbol {
-            name: variable_name.to_string(),
-            span,
-        })?;
+    match function_symbol_mapper.lookup_variable(variable_name) {
+        Some(typed_symbol) => Ok(Expression::Variable(typed_symbol)),
+        None => {
+            if symbol_by_name(variable_name, context.ast_reference.symbols_available_at()).is_some()
+            {
+                return Err(SemanticError::InvalidUsage {
+                    message: format!(
+                        "Symbol '{}' cannot be used as a standalone value",
+                        variable_name
+                    ),
+                    span,
+                });
+            }
 
-    Ok(Expression::Variable(typed_symbol))
+            Err(SemanticError::UnknownSymbol {
+                name: variable_name.to_string(),
+                span,
+            })
+        }
+    }
 }
 
 fn analyze_literal(to_analyze: &str, span: Span) -> Result<Literal, SemanticError> {
@@ -183,17 +183,17 @@ fn analyze_unary_op(
 
     let postion = *expression.position();
 
-    let input_data_type = format!("{:?}", converted_input.data_type());
+    let input_data_type = converted_input.data_type();
 
     let analyzed = UnaryOp::<TypedAST>::new(
         converted_unary_op_type,
         ASTNode::new(converted_input, postion),
     )
-        .ok_or_else(|| SemanticError::UnsupportedUnaryOperation {
-            op: format!("{:?}", op_type),
-            target_type: input_data_type,
-            span,
-        })?;
+    .ok_or_else(|| SemanticError::UnsupportedUnaryOperation {
+        op: format!("{:?}", op_type),
+        target_type: format!("{:?}", input_data_type),
+        span,
+    })?;
 
     Ok(Box::new(analyzed))
 }
@@ -216,14 +216,14 @@ fn analyze_binary_op(
     let typed_left_node = ASTNode::new(converted_left, left_position);
     let typed_right_node = ASTNode::new(converted_right, right_position);
 
-    let left_dt = format!("{:?}", typed_left_node.data_type());
-    let right_dt = format!("{:?}", typed_right_node.data_type());
+    let left_dt = typed_left_node.data_type();
+    let right_dt = typed_right_node.data_type();
 
     let analyzed = BinaryOp::<TypedAST>::new(op_type, typed_left_node, typed_right_node)
         .ok_or_else(|| SemanticError::UnsupportedBinaryOperation {
             op: format!("{:?}", op_type),
-            left_type: left_dt,
-            right_type: right_dt,
+            left_type: format!("{:?}", left_dt),
+            right_type: format!("{:?}", right_dt),
             span,
         })?;
 
@@ -247,10 +247,10 @@ fn analyze_new_struct(
         &to_analyze.symbol().0,
         context.ast_reference.symbols_available_at(),
     )
-        .ok_or_else(|| SemanticError::UnknownSymbol {
-            name: to_analyze.symbol().0.clone(),
-            span,
-        })? {
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.symbol().0.clone(),
+        span,
+    })? {
         st
     } else {
         return Err(SemanticError::SymbolKindMismatch {
@@ -329,10 +329,10 @@ fn analyze_new_enum(
         &to_analyze.to_create().0,
         context.ast_reference.symbols_available_at(),
     )
-        .ok_or_else(|| SemanticError::UnknownSymbol {
-            name: to_analyze.to_create().0.clone(),
-            span,
-        })? {
+    .ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.to_create().0.clone(),
+        span,
+    })? {
         en
     } else {
         return Err(SemanticError::SymbolKindMismatch {
@@ -452,10 +452,10 @@ fn analyze_struct_field_access(
         ASTNode::new(source_expr, *to_analyze.of().position()),
         sf,
     )
-        .ok_or_else(|| SemanticError::Internal {
-            message: "Failed to create struct field access".to_string(),
-            span,
-        })?;
+    .ok_or_else(|| SemanticError::Internal {
+        message: "Failed to create struct field access".to_string(),
+        span,
+    })?;
 
     Ok(Box::new(analyzed))
 }

@@ -8,7 +8,7 @@ use ast::expression::{Expression, FunctionCall, MethodCall};
 use ast::symbol::{
     DirectlyAvailableSymbol, EnumSymbol, FunctionSymbol, StructSymbol, SymbolWithTypeParameter,
 };
-use ast::traversal::{HasSymbols};
+use ast::traversal::HasSymbols;
 use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::type_parameter::{TypedTypeParameter, UntypedTypeParameter};
 use ast::visibility::Visibility;
@@ -66,13 +66,11 @@ pub(crate) fn analyze_data_type<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
             )?;
             Ok(DataType::Enum(en))
         }
-        Some(_) => {
-            Err(SemanticError::SymbolKindMismatch {
-                name: to_analyze.name().to_string(),
-                expected: "type".to_string(),
-                span,
-            })
-        }
+        Some(_) => Err(SemanticError::SymbolKindMismatch {
+            name: to_analyze.name().to_string(),
+            expected: "type".to_string(),
+            span,
+        }),
         None => Err(SemanticError::UnknownType {
             name: to_analyze.name().to_string(),
             span,
@@ -85,45 +83,44 @@ fn analyze_primitive_data_type(
     span: source::types::Span,
 ) -> Result<DataType, SemanticError> {
     let name_lower = to_analyze.name().to_lowercase();
-    match name_lower.as_str() {
-        "char" | "u8" | "s8" | "u16" | "s16" | "u32" | "s32" | "u64" | "s64" | "bool" | "f32" | "f64" => {
-            if !to_analyze.type_parameters().is_empty() {
-                return Err(SemanticError::PrimitiveWithTypeParameters {
-                    type_name: to_analyze.name().to_string(),
-                    span,
-                });
-            }
 
-            if to_analyze.name() != name_lower {
-                return Err(SemanticError::UnknownType {
-                    name: to_analyze.name().to_string(),
-                    span,
-                });
-            }
-
-            match to_analyze.name() {
-                "char" => Ok(DataType::Char),
-                "u8" => Ok(DataType::U8),
-                "s8" => Ok(DataType::S8),
-                "u16" => Ok(DataType::U16),
-                "s16" => Ok(DataType::S16),
-                "u32" => Ok(DataType::U32),
-                "s32" => Ok(DataType::S32),
-                "u64" => Ok(DataType::U64),
-                "s64" => Ok(DataType::S64),
-                "bool" => Ok(DataType::Bool),
-                "f32" => Ok(DataType::F32),
-                "f64" => Ok(DataType::F64),
-                _ => unreachable!(),
-            }
+    let primitive_type = match name_lower.as_str() {
+        "char" => DataType::Char,
+        "u8" => DataType::U8,
+        "s8" => DataType::S8,
+        "u16" => DataType::U16,
+        "s16" => DataType::S16,
+        "u32" => DataType::U32,
+        "s32" => DataType::S32,
+        "u64" => DataType::U64,
+        "s64" => DataType::S64,
+        "bool" => DataType::Bool,
+        "f32" => DataType::F32,
+        "f64" => DataType::F64,
+        _ => {
+            return Err(SemanticError::UnknownType {
+                name: to_analyze.name().to_string(),
+                span,
+            });
         }
-        _ => Err(SemanticError::UnknownType {
+    };
+
+    if !to_analyze.type_parameters().is_empty() {
+        return Err(SemanticError::PrimitiveWithTypeParameters {
+            type_name: to_analyze.name().to_string(),
+            span,
+        });
+    }
+
+    if to_analyze.name() != name_lower {
+        return Err(SemanticError::UnknownType {
             name: to_analyze.name().to_string(),
             span,
-        }),
+        });
     }
-}
 
+    Ok(primitive_type)
+}
 pub(crate) fn analyze_struct_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
     to_analyze: &str,
     type_parameters: &[UntypedDataType],
@@ -455,9 +452,14 @@ pub(crate) fn analyze_method_call(
             message: "Could not find untyped struct symbol".to_string(),
             span,
         })?;
-    let methods = context.global_elements.methods(&untyped_struct_symbol, struct_symbol.type_parameters()).expect("We have a typed symbol but didn't translate it");
+    let methods = context
+        .global_elements
+        .methods(&untyped_struct_symbol, struct_symbol.type_parameters())
+        .expect("We have a typed symbol but didn't translate it");
 
-    let function_symbol = methods.into_iter().find(|method| method.name() == to_analyze.function().0)
+    let function_symbol = methods
+        .into_iter()
+        .find(|method| method.name() == to_analyze.function().0)
         .ok_or_else(|| SemanticError::UnknownSymbol {
             name: to_analyze.function().0.clone(),
             span,
@@ -529,18 +531,8 @@ pub(crate) fn check_struct_field_visibility(
     span: source::types::Span,
 ) -> Result<(), SemanticError> {
     if field_visibility == Visibility::Private {
-        let current_func = context.ast_reference.root_helper().inner().declaration();
-        let mut is_valid_access = false;
-
-        if let Some(first_param) = current_func.params().first() {
-            if first_param.name() == "self"
-                && first_param.data_type().name() == containing_struct.name()
-            {
-                is_valid_access = true;
-            }
-        }
-
-        if !is_valid_access {
+        let current_containing_struct = context.ast_reference.root_helper().containing_struct();
+        if current_containing_struct.as_ref().map(|rc| rc.as_ref()) != Some(containing_struct) {
             return Err(SemanticError::PrivateFieldAccess {
                 field: field_name.to_string(),
                 struct_name: containing_struct.name().to_string(),

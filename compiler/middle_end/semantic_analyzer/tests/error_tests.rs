@@ -5,7 +5,10 @@ mod tests {
     use tempfile::TempDir;
 
     use driver::parser_driver::generate_untyped_ast;
-    use driver::program_information::{ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation, ConcreteLoadInformation, Project};
+    use driver::program_information::{
+        ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation,
+        ConcreteLoadInformation, Project,
+    };
     use driver::source_collector::collect_program;
     use io::WasomeLoader;
     use semantic_analyzer::analyze;
@@ -35,13 +38,11 @@ mod tests {
             ConcreteLoadInformation::new(
                 "error_project".to_string(),
                 root.clone(),
-                vec![
-                    Project::new("app".to_string(), PathBuf::from("app")),
-                ]),
-            ConcreteBinaryProgramInformation::new(
-                "app".to_string(),
-                main_file)
-        ).expect("Failed to create ProgramInformation");
+                vec![Project::new("app".to_string(), PathBuf::from("app"))],
+            ),
+            ConcreteBinaryProgramInformation::new("app".to_string(), main_file),
+        )
+        .expect("Failed to create ProgramInformation");
 
         let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
 
@@ -49,7 +50,7 @@ mod tests {
             collect_program(&prog_info, &mut source_map).unwrap(),
             &mut source_map,
         )
-            .ok()
+        .ok()
         {
             Some(ast) => ast,
             None => {
@@ -83,20 +84,18 @@ mod tests {
             ConcreteLoadInformation::new(
                 "error_project".to_string(),
                 root.clone(),
-                vec![
-                    Project::new("app".to_string(), PathBuf::from("app")),
-                ]),
-            ConcreteBinaryProgramInformation::new(
-                "app".to_string(),
-                main_file)
-        ).expect("Failed to create ProgramInformation");
+                vec![Project::new("app".to_string(), PathBuf::from("app"))],
+            ),
+            ConcreteBinaryProgramInformation::new("app".to_string(), main_file),
+        )
+        .expect("Failed to create ProgramInformation");
 
         let mut source_map = SourceMap::<WasomeLoader>::with_default(root);
         let untyped_ast = generate_untyped_ast(
             collect_program(&prog_info, &mut source_map).unwrap(),
             &mut source_map,
         )
-            .expect("Parsing failed in smoke test (file not found or syntax error)");
+        .expect("Parsing failed in smoke test (file not found or syntax error)");
 
         match analyze(untyped_ast) {
             Ok(_) => {
@@ -411,11 +410,11 @@ mod tests {
                 vec![
                     Project::new("app".to_string(), PathBuf::from("app")),
                     Project::new("lib".to_string(), PathBuf::from("lib")),
-                ]),
-            ConcreteBinaryProgramInformation::new(
-                "app".to_string(),
-                main_file)
-        ).unwrap();
+                ],
+            ),
+            ConcreteBinaryProgramInformation::new("app".to_string(), main_file),
+        )
+        .unwrap();
 
         let mut sm = SourceMap::<WasomeLoader>::with_default(root);
         let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
