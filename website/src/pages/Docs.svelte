@@ -29,8 +29,8 @@
       ]
     },
     {
-      id: "variables-mutability",
-      title: "2. Variables & Mutability",
+      id: "variables",
+      title: "2. Variables",
       icon: Terminal,
       subsections: [
         { id: "declarations", title: "2.1 Declarations" },
@@ -87,8 +87,8 @@
       ]
     },
     {
-      id: "imports-modules",
-      title: "8. Imports & Modules",
+      id: "modules",
+      title: "8. Modules",
       icon: RefreshCw,
       subsections: [
         { id: "namespaces", title: "8.1 Namespaces" },
@@ -125,6 +125,12 @@
     if (e) e.preventDefault();
     activeSection = id;
     
+    // Update hash in URL quietly using the parent main category ID
+    if (typeof window !== "undefined") {
+      const mainId = parentMap[id];
+      window.history.pushState(null, "", `#${mainId}`);
+    }
+    
     const el = document.getElementById(id);
     if (el) {
       const y = el.getBoundingClientRect().top + window.pageYOffset - 100;
@@ -140,6 +146,11 @@
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           activeSection = entry.target.id;
+          // Sync URL hash on scroll using the parent main category ID
+          if (typeof window !== "undefined") {
+            const mainId = parentMap[entry.target.id];
+            window.history.replaceState(null, "", `#${mainId}`);
+          }
         }
       });
     }, {
@@ -155,6 +166,14 @@
         if (subEl) sectionObserver.observe(subEl);
       });
     });
+
+    // Check if there is an initial hash in the URL for deep linking
+    if (typeof window !== "undefined" && window.location.hash) {
+      const id = window.location.hash.substring(1);
+      setTimeout(() => {
+        scrollTo(id);
+      }, 100);
+    }
   });
 
   onDestroy(() => {
@@ -335,9 +354,9 @@ f64 normal_pi <- rough_pi as s64 as f64`, "wasome")}</code></pre>
       </div>
     </div>
 
-    <!-- 2. Variables & Mutability -->
-    <div id="variables-mutability" class="doc-section">
-      <h2>2. Variables & Mutability</h2>
+    <!-- 2. Variables -->
+    <div id="variables" class="doc-section">
+      <h2>2. Variables</h2>
 
       <div id="declarations" class="doc-subsection">
         <h3>2.1 Declarations</h3>
@@ -721,9 +740,9 @@ fn create() {
       </div>
     </div>
 
-    <!-- 8. Imports & Modules -->
-    <div id="imports-modules" class="doc-section">
-      <h2>8. Imports & Modules</h2>
+    <!-- 8. Modules -->
+    <div id="modules" class="doc-section">
+      <h2>8. Modules</h2>
 
       <div id="namespaces" class="doc-subsection">
         <h3>8.1 Namespaces</h3>
