@@ -268,6 +268,15 @@ The `<type-list>`, along with the brackets, can be omitted in case a variant doe
 
 Enums implement tagged-union semantics.
 
+Enums can be pattern-matched with the following syntax:
+
+`if let(<variable list>) <- <enum expression> <code block>`
+
+Where `variable list` is a list of variables with equal length and data types to the types of the enum
+and `enum expression` is an expression that produces the enum to pattern match.
+
+Should the enum have zero types, the parenthesis around `variable list` are omitted.
+
 ---
 
 ### Typecasting
