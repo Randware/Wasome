@@ -172,6 +172,7 @@ dependencies = [
  "codegen",
  "error",
  "io",
+ "linker",
  "ordered_hash_map",
  "parser",
  "semantic_analyzer",
