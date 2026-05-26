@@ -2,6 +2,31 @@
 # Wasome Installer
 set -e
 
+# Utility function to check if a command exists
+require_cmd() {
+    if ! command -v "$1" > /dev/null 2>&1; then
+        echo "Error: Required tool '$1' is missing. Please install it and try again."
+        exit 1
+    fi
+}
+
+# Ensure essential tools are available
+require_cmd grep
+require_cmd sed
+require_cmd tar
+
+# Fallback mechanism for curl vs wget
+if command -v curl > /dev/null 2>&1; then
+    DOWNLOAD_CMD="curl -sL -o"
+    API_CMD="curl -s"
+elif command -v wget > /dev/null 2>&1; then
+    DOWNLOAD_CMD="wget -qO"
+    API_CMD="wget -qO-"
+else
+    echo "Error: Neither 'curl' nor 'wget' were found. Please install one to download Wasome."
+    exit 1
+fi
+
 # Configuration
 GITHUB_REPO="Dari-OS/Wasome"
 WASOME_HOME="${WASOME_HOME:-$HOME/.wasome}"
@@ -49,7 +74,7 @@ echo "Detected Platform: $OS ($ARCH) -> $TARGET"
 
 # Fetch latest version
 echo "Fetching latest Wasome release from $GITHUB_REPO..."
-LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST_RELEASE=$($API_CMD "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 if [ -z "$LATEST_RELEASE" ]; then
     echo "Failed to fetch latest release. Check your internet connection or GitHub API limits."
     exit 1
@@ -59,7 +84,7 @@ DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_RELEA
 DOWNLOAD_ARCHIVE="wasome.tar.gz"
 
 echo "Downloading Wasome ${LATEST_RELEASE} from $DOWNLOAD_URL..."
-curl -L -o "$DOWNLOAD_ARCHIVE" "$DOWNLOAD_URL"
+$DOWNLOAD_CMD "$DOWNLOAD_ARCHIVE" "$DOWNLOAD_URL"
 
 mkdir -p "$WASOME_HOME"
 if [ -d "$WASOME_HOME/bin" ]; then
