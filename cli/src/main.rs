@@ -3,6 +3,8 @@ mod dependencies;
 mod error;
 mod execute;
 mod manifest;
+mod pipeline;
+mod stdlib;
 mod template;
 mod workspace;
 
@@ -15,7 +17,12 @@ fn main() -> io::Result<ExitCode> {
     let cli = Cli::parse();
 
     if let Err(err) = cli.execute() {
-        if !matches!(&err, CliError::CompilationFailed) {
+        if !matches!(
+            &err,
+            CliError::CompilationFailed
+                | CliError::FormattingFailed
+                | CliError::ProjectLoadingFailed
+        ) {
             err.print()?;
         }
 
