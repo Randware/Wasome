@@ -10,7 +10,7 @@ $Headless = $Yes -or $y
 $ErrorActionPreference = "Stop"
 
 # Configuration
-$GithubRepo = "Dari-OS/Wasome"
+$GithubRepo = "Randware/Wasome"
 
 $WasomeHome = $env:WASOME_HOME
 if ([string]::IsNullOrWhiteSpace($WasomeHome)) {
