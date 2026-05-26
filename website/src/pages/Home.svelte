@@ -13,18 +13,18 @@
     Github,
   } from "lucide-svelte";
 
-  const snippet = `struct User {
-    s32 id
-    bool is_active
+  const snippet = `fn main() {
+    char wasome <- showcase_if_conditionals()
 }
 
-fn main() -> s32 {
-    User u <- new User { id <- 42, is_active <- true }
-    
-    if (u.is_active) {
-        -> u.id * 2
+fn showcase_if_conditionals() -> char {
+    bool wasome_is_awesome <- true
+ 
+    if (wasome_is_awesome) {
+        -> '✨'
+    } else {
+        -> '🤥'   
     }
-    -> 0
 }`;
 
   let card;
