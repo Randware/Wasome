@@ -42,7 +42,7 @@
 
           postInstall = ''
             mkdir -p $out/lib
-            cp ${crossLlvm.lld}/bin/wasm-ld $out/lib/
+            cp -L ${crossLlvm.lld}/bin/wasm-ld $out/lib/
           '';
 
           preConfigure = ''
