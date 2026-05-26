@@ -297,7 +297,7 @@ impl TokenType {
             Extern => "extern".into(),
             Return => "->".into(),
             Assign => "<-".into(),
-            Break => "break".into()
+            Break => "break".into(),
         }
     }
 
