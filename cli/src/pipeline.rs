@@ -105,7 +105,9 @@ pub fn fmt(workspace: &mut Workspace, program: &WasomeProgram) -> CliResult<()> 
         dir.subdirs().iter().for_each(|d| collect(d, out));
     }
 
-    if let Some(src_dir) = source_directory
+    if source_directory.location().name() == manifest::SRC_DIR {
+        collect(source_directory, &mut files);
+    } else if let Some(src_dir) = source_directory
         .subdirs()
         .iter()
         .find(|d| d.location().name() == manifest::SRC_DIR)
