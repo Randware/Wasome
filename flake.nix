@@ -40,6 +40,10 @@
 
           postUnpack = "sourceRoot+=/cli";
 
+          postInstall = ''
+            cp ${crossLlvm.lld}/bin/wasm-ld $out/bin/
+          '';
+
           preConfigure = ''
             mkdir -p $PWD/fake-bin/bin
             cat << 'WRAPPER' > $PWD/fake-bin/bin/llvm-config

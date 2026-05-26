@@ -79,22 +79,6 @@ if (Test-Path $NewLib) {
 
 Remove-Item -Path $TempDir -Recurse -Force
 
-# ---------------------------------------------------------
-# TODO: Install precompiled LLVM/LLD binaries
-# ---------------------------------------------------------
-# The CD pipeline creates an empty `lib` folder.
-# Download your Windows LLVM/LLD binaries here 
-# and extract them into "$WasomeHome\lib".
-# 
-# Example:
-# Write-Host "Downloading LLVM binaries..."
-# $LlvmUrl = "https://your-llvm-source.com/llvm-${Target}.zip"
-# $LlvmZip = Join-Path $env:TEMP "llvm.zip"
-# Invoke-WebRequest -Uri $LlvmUrl -OutFile $LlvmZip
-# Expand-Archive -Path $LlvmZip -DestinationPath "$WasomeHome\lib" -Force
-# Remove-Item $LlvmZip
-# ---------------------------------------------------------
-
 # Setup Environment Variables
 Write-Host "Configuring Environment Variables..."
 

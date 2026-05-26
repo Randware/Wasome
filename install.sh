@@ -103,20 +103,6 @@ fi
 
 rm -rf "$TEMP_DIR"
 
-# ---------------------------------------------------------
-# TODO: Install precompiled LLVM/LLD binaries
-# ---------------------------------------------------------
-# The CD pipeline creates an empty `lib` folder.
-# Download your platform-specific LLVM/LLD binaries here 
-# and extract them into "$WASOME_HOME/lib".
-# 
-# Example:
-# echo "Downloading LLVM binaries..."
-# curl -L -o llvm.tar.gz "https://your-llvm-source.com/llvm-${TARGET}.tar.gz"
-# tar -xzf llvm.tar.gz -C "$WASOME_HOME/lib"
-# rm llvm.tar.gz
-# ---------------------------------------------------------
-
 # Setup PATH
 echo "Configuring PATH..."
 SHELL_NAME=$(basename "$SHELL")

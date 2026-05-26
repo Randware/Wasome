@@ -113,7 +113,7 @@ jobs:
         run: |
           $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
           echo "LLVM_SYS_211_PREFIX=$llvmDir" >> $env:GITHUB_ENV
-          echo "LLVM_SYS_211_PREFER_DYNAMIC=1" >> $env:GITHUB_ENV
+          echo "LLVM_SYS_211_PREFER_STATIC=1" >> $env:GITHUB_ENV
           echo "$llvmDir\bin" >> $env:GITHUB_PATH
 
       - name: Install LLVM 21 and LLD (macOS)
@@ -150,9 +150,11 @@ jobs:
 
           # Copy frontend based on build method
           if [ "${{ matrix.builder }}" == "nix" ]; then
-            cp result/bin/waso release_pkg/bin/waso
+            cp result/bin/* release_pkg/bin/
           else
             cp cli/target/${{ matrix.target }}/release/waso release_pkg/bin/waso
+            cp $(which wasm-ld) release_pkg/bin/wasm-ld
+            chmod +x release_pkg/bin/wasm-ld
           fi
 
           cp -r stdlib/wasome/* release_pkg/std/runtime/wasome/
@@ -171,6 +173,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path release_pkg\std\runtime\wasome
 
           Copy-Item cli\target\${{ matrix.target }}\release\waso.exe release_pkg\bin\waso.exe
+          $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
+          Copy-Item "$llvmDir\bin\wasm-ld.exe" release_pkg\bin\wasm-ld.exe
           Copy-Item -Recurse stdlib\wasome\* release_pkg\std\runtime\wasome\
           Copy-Item stdlib\rust\target\wasm32-wasip1\release\libstd.a release_pkg\std\runtime\lib\libstd.a
 
