@@ -27,14 +27,53 @@ else
     exit 1
 fi
 
+
+# Parse arguments
+HEADLESS=false
+for arg in "$@"; do
+    case $arg in
+        -y|--yes)
+            HEADLESS=true
+            shift
+            ;;
+    esac
+done
+
 # Configuration
 GITHUB_REPO="Dari-OS/Wasome"
 WASOME_HOME="${WASOME_HOME:-$HOME/.wasome}"
 WASOME_BIN="$WASOME_HOME/bin"
 
+
 # Detect OS and Architecture
 OS="$(uname -s)"
 ARCH="$(uname -m)"
+
+# Check for existing waso in PATH
+if command -v waso >/dev/null 2>&1; then
+    EXISTING_WASO=$(command -v waso)
+    if [ "$EXISTING_WASO" != "$WASOME_BIN/waso" ] && [ "$EXISTING_WASO" != "$WASOME_BIN/waso.exe" ]; then
+        if [ "$HEADLESS" = false ]; then
+            echo "Warning: Another 'waso' executable was found in your PATH at:"
+            echo "  $EXISTING_WASO"
+            echo "This installation will place Wasome in:"
+            echo "  $WASOME_BIN/waso"
+            printf "Do you want to continue? (y/N): "
+            read response
+            case "$response" in
+                [yY][eE][sS]|[yY]) 
+                    ;;
+                *)
+                    echo "Installation aborted by user."
+                    exit 0
+                    ;;
+            esac
+        else
+            echo "Warning: Another 'waso' executable was found at $EXISTING_WASO."
+            echo "Proceeding anyway due to headless mode (-y)."
+        fi
+    fi
+fi
 
 if [ "$OS" = "Linux" ]; then
     if [ "$ARCH" = "x86_64" ]; then

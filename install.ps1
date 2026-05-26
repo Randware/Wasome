@@ -1,3 +1,10 @@
+param (
+    [switch]$Yes,
+    [switch]$y
+)
+
+$Headless = $Yes -or $y
+
 # Wasome Installer for Windows
 
 $ErrorActionPreference = "Stop"
@@ -11,8 +18,30 @@ if ([string]::IsNullOrWhiteSpace($WasomeHome)) {
 }
 $WasomeBin = Join-Path $WasomeHome "bin"
 
+
 # Define Target
 $Target = "x86_64-pc-windows-msvc"
+
+# Check for existing waso in PATH
+$ExistingWaso = Get-Command "waso" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+if ($ExistingWaso) {
+    $ExpectedWaso = Join-Path $WasomeBin "waso.exe"
+    if ($ExistingWaso -ne $ExpectedWaso) {
+        if (-not $Headless) {
+            Write-Host "Warning: Another 'waso' executable was found in your PATH at:" -ForegroundColor Yellow
+            Write-Host "  $ExistingWaso"
+            Write-Host "This installation will place Wasome in:"
+            Write-Host "  $ExpectedWaso"
+            $Response = Read-Host "Do you want to continue? (y/N)"
+            if ($Response -notmatch "^[yY](es)?$") {
+                Write-Host "Installation aborted by user."
+                exit 0
+            }
+        } else {
+            Write-Host "Warning: Another 'waso' executable was found at $ExistingWaso. Proceeding anyway due to headless mode." -ForegroundColor Yellow
+        }
+    }
+}
 
 # Fetch latest version
 Write-Host "Fetching latest Wasome release from $GithubRepo..."
