@@ -31,10 +31,12 @@ pub fn find_lld() -> Result<PathBuf, io::Error> {
         }
     }
 
-    // Option 2: wasm-ld is next to the wasome bin
+    // Option 2: wasm-ld is in the lib directory (../lib/wasm-ld relative to the executable)
     if let Ok(mut current_dir) = std::env::current_exe() {
-        current_dir.pop();
-        current_dir.push(&target_bin);
+        current_dir.pop(); // ./bin/waso -> ../bin/
+        current_dir.pop(); // ./bin/ -> ./
+        current_dir.push("lib"); // ./ -> ./lib/
+        current_dir.push(&target_bin);  // ./lib/ -> ./lib/waso
 
         if check_lld(&current_dir).is_ok() {
             return Ok(current_dir);

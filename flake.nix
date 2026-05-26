@@ -41,7 +41,8 @@
           postUnpack = "sourceRoot+=/cli";
 
           postInstall = ''
-            cp ${crossLlvm.lld}/bin/wasm-ld $out/bin/
+            mkdir -p $out/lib
+            cp ${crossLlvm.lld}/bin/wasm-ld $out/lib/
           '';
 
           preConfigure = ''
