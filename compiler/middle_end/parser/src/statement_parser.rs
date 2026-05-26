@@ -12,6 +12,7 @@ use ast::statement::{
 };
 use ast::symbol::VariableSymbol;
 use ast::{ASTNode, UntypedAST};
+use chumsky::container::Seq;
 use chumsky::extra::Full;
 use chumsky::prelude::*;
 use chumsky::span::WrappingSpan;
@@ -256,6 +257,8 @@ pub fn statement_parser<'src>()
                     .unwrap()
                     .make_wrapped(CodeBlock::new(block.into_iter().collect()))
             });
+
+        let break_stmt = token_parser(TokenType::Break);
         choice((
             variable_assignment.map(|var_assign| map(var_assign, Statement::VariableAssignment)),
             struct_field_assignment
@@ -282,6 +285,7 @@ pub fn statement_parser<'src>()
                 let pos: ParserSpan = (*expr.position()).into();
                 pos.make_wrapped(Statement::Expression(expr))
             }),
+            break_stmt.map(|tok| ASTNode::new(Statement::Break, tok.span)),
         ))
         .map(|statement| ASTNode::new(statement.inner, statement.span.into()))
         .boxed()
