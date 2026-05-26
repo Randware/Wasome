@@ -1,7 +1,7 @@
 export const steps = [
   {
     title: "Welcome to Wasome",
-    content: "Hi there! I'm Bit, your guide to Wasome! 🌟 Wasome is a simple, fun language designed to compile straight to WebAssembly.\n\nOur journey starts with the `main` function—the entry point of every program. Notice the curly brackets `{}` enclosing our block, and `//` for comments. They're just for us humans!",
+    content: "Hi there! I'm Bit, your guide to Wasome! Wasome is a simple, fun language designed to compile straight to WebAssembly.\n\nOur journey starts with the `main` function—the entry point of every program. Notice the curly brackets `{}` enclosing our block, and `//` for comments. They're just for us humans!",
     code: `fn main() {
     // Hello! This is a comment.
     // Our journey begins here!
