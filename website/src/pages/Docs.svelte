@@ -326,9 +326,12 @@
         <p>
           If a converted value does not fit into the target target type, the value will overflow or underflow.
         </p>
-        <pre><code>{@html highlight(`s32 a <- 255
-u8 b <- a as u8
-f64 c <- b as f64`, "wasome")}</code></pre>
+        <p>
+          Direct conversions between types of different bit-widths (such as <code>f64</code> to <code>s32</code>) are not supported. Casting must be chained sequentially using an intermediate type:
+        </p>
+        <pre><code>{@html highlight(`f64 precise_pi <- 3.14159
+s32 rough_pi <- precise_pi as s64 as s32
+f64 normal_pi <- rough_pi as s64 as f64`, "wasome")}</code></pre>
       </div>
     </div>
 
@@ -640,6 +643,9 @@ fn initialize() {
         <p>
           Methods are regular functions declared within a struct block. All methods implicitly have a special <code>self</code> variable in scope, which is a mutable reference to the struct instance itself. The <code>self</code> parameter does not have to be explicitly specified in the parameter list.
         </p>
+        <p>
+          To invoke a method on a struct instance, the instance expression must be enclosed in parentheses (e.g., <code>(instance).method()</code>). Otherwise, the dot accessor is parsed strictly as a field reference.
+        </p>
         <pre><code>{@html highlight(`struct Rectangle {
     f32 width
     f32 height
@@ -647,6 +653,11 @@ fn initialize() {
     fn area() -> f32 {
         -> self.width * self.height
     }
+}
+
+fn calculate() {
+    Rectangle rect <- new Rectangle { width <- 10.0, height <- 20.0 }
+    f32 a <- (rect).area()
 }`, "wasome")}</code></pre>
       </div>
 
@@ -697,16 +708,15 @@ fn initialize() {
       <div id="option-result" class="doc-subsection">
         <h3>7.2 Option[T] and Result[T, E]</h3>
         <p>
-          Option and Result patterns represent optional values and fallible operations via generic enums.
+          Option and Result patterns represent optional values and fallible operations via generic enums. When instantiating a variant of a generic enum, concrete type parameters must be explicitly specified:
         </p>
         <pre><code>{@html highlight(`enum Option[T] {
     Some(T)
     None
 }
 
-enum Result[T, E] {
-    Ok(T)
-    Err(E)
+fn create() {
+    Option[s32] wrapped <- Option[s32]::Some(42)
 }`, "wasome")}</code></pre>
       </div>
     </div>
