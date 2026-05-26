@@ -15,16 +15,16 @@
 
     if (platform.includes("win") || userAgent.includes("windows")) {
       os = "windows";
-      installCommand = "iwr https://get.wasome.org/install.ps1 | iex";
+      installCommand = "irm https://get.wasome.dev | iex";
     } else if (platform.includes("linux") || userAgent.includes("linux")) {
       os = "linux";
-      installCommand = "curl -fsSL https://get.wasome.org/install.sh | sh";
+      installCommand = "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
     } else if (platform.includes("mac") || userAgent.includes("mac")) {
       os = "mac";
-      installCommand = "curl -fsSL https://get.wasome.org/install.sh | sh";
+      installCommand = "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
     } else {
       os = "linux"; // Default
-      installCommand = "curl -fsSL https://get.wasome.org/install.sh | sh";
+      installCommand = "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
     }
   });
 
@@ -40,9 +40,11 @@
 
   function setOS(newOS) {
     os = newOS;
-    if (os === "windows")
-      installCommand = "iwr https://get.wasome.org/install.ps1 | iex";
-    else installCommand = "curl -fsSL https://get.wasome.org/install.sh | sh";
+    if (os === "windows") {
+      installCommand = "irm https://get.wasome.dev | iex";
+    } else {
+      installCommand = "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
+    }
   }
 </script>
 
