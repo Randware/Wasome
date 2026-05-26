@@ -73,14 +73,14 @@ impl Executable for BuildArgs {
             .print()?;
 
         let project_name = workspace.info().name().to_string();
+        let project_root = workspace.info().path().to_path_buf();
 
         let target = self.target.as_deref().unwrap_or(stdlib::DEFAULT_TARGET);
         let stdlib_paths = StdlibResolver::resolve(target, self.stdlib_path.as_deref())?;
 
         let output = pipeline::build(workspace, self.profile, &stdlib_paths, &self.link_files)?;
 
-        let output_dir = path.join(manifest::OUTPUT_DIR);
-
+        let output_dir = project_root.join(manifest::OUTPUT_DIR);
         std::fs::create_dir_all(&output_dir)?;
         let output_file =
             output_dir.join(format!("{}.{}", project_name, manifest::OUTPUT_EXTENSION));
