@@ -10,12 +10,23 @@ use crate::{
 
 pub struct DependencyResolver {
     project_root: PathBuf,
+    workspace_root: PathBuf,
     // NOTE: We could add a global cache location here later
 }
 
 impl DependencyResolver {
     pub fn new(project_root: PathBuf) -> Self {
-        Self { project_root }
+        Self {
+            workspace_root: project_root.clone(),
+            project_root,
+        }
+    }
+
+    fn with_workspace_root(project_root: PathBuf, workspace_root: PathBuf) -> Self {
+        Self {
+            project_root,
+            workspace_root,
+        }
     }
 
     /// Recursively resolve all dependencies defined in the given manifest.
@@ -71,9 +82,9 @@ impl DependencyResolver {
         for (name, version) in deps {
             let dep_id = version_str(name, version);
 
-            let dep_path = self.locate(name, version).ok_or_else(|| {
-                ManifestError::MissingDependency(dep_id.clone(), chain.join("/"))
-            })?;
+            let dep_path = self
+                .locate(name, version)
+                .ok_or_else(|| ManifestError::MissingDependency(dep_id.clone(), chain.join("/")))?;
 
             let file_id = source.load_file(dep_path.join(manifest::MANIFEST_FILE))?;
             let content = source.get_file(&file_id).unwrap().content();
@@ -84,7 +95,7 @@ impl DependencyResolver {
             };
 
             let dep_root_path = dep_path
-                .strip_prefix(&self.project_root)
+                .strip_prefix(&self.workspace_root)
                 .unwrap_or(&dep_path)
                 .to_path_buf()
                 .join(manifest::SRC_DIR);
@@ -101,7 +112,10 @@ impl DependencyResolver {
                 &dep_manifest.project.version,
             ));
 
-            let resolver = DependencyResolver::new(dep_path.clone());
+            let resolver = DependencyResolver::with_workspace_root(
+                dep_path.clone(),
+                self.workspace_root.clone(),
+            );
             resolver.resolve_recursive(&dep_manifest, source, acc, next_chain)?;
         }
 
@@ -140,7 +154,9 @@ version = "{version}"
     }
 
     fn create_dep(root: &Path, name: &str, version: &str, deps: &[(&str, &str)]) {
-        let dep_dir = root.join(manifest::LIB_PATH).join(version_str(name, version));
+        let dep_dir = root
+            .join(manifest::LIB_PATH)
+            .join(version_str(name, version));
         fs::create_dir_all(&dep_dir).unwrap();
         write_manifest(&dep_dir, name, version, deps);
     }
@@ -274,6 +290,8 @@ version = "{version}"
         assert!(names.contains(&"a@1.0.0"));
         assert!(names.contains(&"b@1.0.0"));
         assert!(names.contains(&"c@1.0.0"));
+        assert!(projects.iter().any(|p| p.name() == "b@1.0.0"
+            && p.path() == Path::new("lib/a@1.0.0/lib/b@1.0.0").join(manifest::SRC_DIR)));
     }
 
     #[test]
