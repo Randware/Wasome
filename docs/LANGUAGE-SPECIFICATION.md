@@ -372,6 +372,10 @@ import "<path>"
    - `<project-name>/` - project-relative
    - `std/` - standard-library relative
 
+`project-name` follows the following pattern:
+
+`<name>@<version>`
+
 2. **Directories** - zero or more directory segments.
 
 After import, the element is usable like any local element.
