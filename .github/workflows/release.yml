@@ -154,7 +154,7 @@ jobs:
             cp result/lib/* release_pkg/lib/
           else
             cp cli/target/${{ matrix.target }}/release/waso release_pkg/bin/waso
-            cp -L "$LLVM_SYS_211_PREFIX/bin/wasm-ld" release_pkg/lib/wasm-ld
+            cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
             chmod +x release_pkg/lib/wasm-ld
           fi
 
