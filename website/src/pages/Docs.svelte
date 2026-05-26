@@ -425,7 +425,6 @@ value <- 100`, "wasome")}</code></pre>
                 <span class="operator-item"><code>|</code> Bitwise OR</span>
                 <span class="operator-item"><code>&amp;</code> Bitwise AND</span>
                 <span class="operator-item"><code>^</code> Bitwise XOR</span>
-                <span class="operator-item"><code>~</code> Bitwise NOT</span>
               </div>
               <p class="operator-note">Shifting an unsigned integer performs a logical shift. Shifting a signed integer performs an arithmetic shift.</p>
             </div>
@@ -466,7 +465,7 @@ value <- 100`, "wasome")}</code></pre>
           Operator evaluation priority is defined by the following precedence levels, ordered from highest to lowest. Binary operators are left-associative unless otherwise specified:
         </p>
         <ul>
-          <li><strong>Level 1</strong>: <code>-</code> (unary), <code>!</code>, <code>~</code></li>
+          <li><strong>Level 1</strong>: <code>-</code> (unary), <code>!</code></li>
           <li><strong>Level 2</strong>: <code>*</code>, <code>/</code>, <code>%</code> (left-associative)</li>
           <li><strong>Level 3</strong>: <code>+</code>, <code>-</code> (left-associative)</li>
           <li><strong>Level 4</strong>: <code>&lt;&lt;</code>, <code>&gt;&gt;</code> (left-associative)</li>
@@ -630,9 +629,9 @@ loop (s32 i <- 0; i < 10; i <- i + 1) {
           Struct declarations specify the struct name in PascalCase and a block containing member fields and methods.
         </p>
         <pre><code>{@html highlight(`struct Vector3 {
-    f32 x
-    f32 y
-    f32 z
+    f64 x
+    f64 y
+    f64 z
 }`, "wasome")}</code></pre>
         <p>
           Instantiation allocates memory on the heap and returns a reference. Instantiations are written using the <code>new</code> keyword followed by the struct name and a field initialization block:
@@ -666,17 +665,17 @@ fn initialize() {
           To invoke a method on a struct instance, the instance expression must be enclosed in parentheses (e.g., <code>(instance).method()</code>). Otherwise, the dot accessor is parsed strictly as a field reference.
         </p>
         <pre><code>{@html highlight(`struct Rectangle {
-    f32 width
-    f32 height
+    f64 width
+    f64 height
 
-    fn area() -> f32 {
+    fn area() -> f64 {
         -> self.width * self.height
     }
 }
 
 fn calculate() {
     Rectangle rect <- new Rectangle { width <- 10.0, height <- 20.0 }
-    f32 a <- (rect).area()
+    f64 a <- (rect).area()
 }`, "wasome")}</code></pre>
       </div>
 
