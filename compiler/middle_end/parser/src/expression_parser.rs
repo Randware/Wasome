@@ -184,19 +184,21 @@ pub fn expression_parser<'src>()
                 )
             });
 
-        let sfa =
-            base.clone()
-                .then_ignore(token_parser(TokenType::Dot))
-                .then(identifier_parser())
-                .map(|(struct_expr, field)| {
-                    let pos = struct_expr.position().merge(field.span.into()).unwrap();
-                    ASTNode::new(
-                        Expression::StructFieldAccess(Box::new(
-                            StructFieldAccess::<UntypedAST>::new(struct_expr, field.inner),
-                        )),
-                        pos,
-                    )
-                });
+        let sfa = base.clone().foldl(
+            token_parser(TokenType::Dot)
+                .ignore_then(identifier_parser())
+                .repeated(),
+            |struct_expr, field| {
+                let pos = struct_expr.position().merge(field.span.into()).unwrap();
+                ASTNode::new(
+                    Expression::StructFieldAccess(Box::new(StructFieldAccess::<UntypedAST>::new(
+                        struct_expr,
+                        field.inner,
+                    ))),
+                    pos,
+                )
+            },
+        );
 
         let simple_combined = choice((method_call, sfa, base));
 
