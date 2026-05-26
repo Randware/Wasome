@@ -18,13 +18,16 @@
       installCommand = "irm https://get.wasome.dev | iex";
     } else if (platform.includes("linux") || userAgent.includes("linux")) {
       os = "linux";
-      installCommand = "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
+      installCommand =
+        "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
     } else if (platform.includes("mac") || userAgent.includes("mac")) {
       os = "mac";
-      installCommand = "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
+      installCommand =
+        "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
     } else {
       os = "linux"; // Default
-      installCommand = "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
+      installCommand =
+        "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
     }
   });
 
@@ -43,7 +46,8 @@
     if (os === "windows") {
       installCommand = "irm https://get.wasome.dev | iex";
     } else {
-      installCommand = "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
+      installCommand =
+        "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
     }
   }
 </script>
@@ -148,7 +152,7 @@
       <div class="step-card">
         <h3><Rocket size={18} color="var(--primary)" /> Next Steps</h3>
         <p>Once installed, verify the installation by running:</p>
-        <div class="mini-code">wasome --version</div>
+        <div class="mini-code">waso --version</div>
       </div>
       <div class="step-card">
         <h3><BookOpen size={18} color="var(--primary)" /> Documentation</h3>
