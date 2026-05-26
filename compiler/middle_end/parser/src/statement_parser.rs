@@ -285,7 +285,7 @@ pub fn statement_parser<'src>()
                 let pos: ParserSpan = (*expr.position()).into();
                 pos.make_wrapped(Statement::Expression(expr))
             }),
-            break_stmt.map(|tok| ASTNode::new(Statement::Break, tok.span)),
+            break_stmt.map(|stmt| map(stmt, |_| Statement::Break)),
         ))
         .map(|statement| ASTNode::new(statement.inner, statement.span.into()))
         .boxed()
