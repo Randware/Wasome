@@ -379,11 +379,8 @@ import "<path>"
 1. **Root** - where lookup begins:
    - `./` - current file location
    - `<project-name>/` - project-relative
+     - Pattern: `<name>@<version>`
    - `std/` - standard-library relative
-
-`project-name` follows the following pattern:
-
-`<name>@<version>`
 
 2. **Directories** - zero or more directory segments.
 
