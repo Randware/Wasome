@@ -220,7 +220,7 @@ irm https://get.wasome.dev | iex
 ### NixOS
 NixOS users can install Wasome natively using the provided flake:
 ```sh
-nix profile install github:Dari-OS/Wasome
+nix profile add github:Randware/Wasome
 ```
 
 <br/>
