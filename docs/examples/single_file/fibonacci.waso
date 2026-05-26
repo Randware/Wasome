@@ -1,0 +1,11 @@
+fn fibonacci(u8 n) -> u64 {
+    u64 curr <- 1 as u32 as u64
+    u64 prev <- 0 as u32 as u64
+    loop (n > 0) {
+        u64 temp <- curr
+        curr <- curr + prev
+        prev <- temp
+        n <- n - 1 as u32 as u16 as u8
+    }
+    -> curr
+}

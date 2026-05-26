@@ -1,0 +1,3 @@
+fn new() -> Vector2D {
+  -> new Vector2D { x <- -10, y <- 15 }
+}

@@ -1,0 +1,48 @@
+pub extern fn print_char(char to_print)
+
+pub extern fn vec_new[T]() -> Vec[T]
+
+extern fn vec_push[T](Vec[T] vec, T to_push)
+extern fn vec_pop[T](Vec[T] vec) -> T
+extern fn vec_get[T](Vec[T] vec, u32 index) -> T
+extern fn vec_set[T](Vec[T] vec, u32 index, T new_val) -> T
+extern fn vec_remove[T](Vec[T] vec, u32 index) -> T
+extern fn vec_drop[T](Vec[T] vec)
+
+pub struct Vec[T] {
+    u32 prt
+    u32 cnt
+    u32 cap
+
+    pub fn push(T val) {
+        vec_push[T](self, val)
+    }
+
+    pub fn pop() -> T {
+        -> vec_pop[T](self)
+    }
+
+    pub fn get(u32 index) -> T {
+        -> vec_get[T](self, index)
+    }
+
+    pub fn set(u32 index, T val) -> T {
+        -> vec_set[T](self, index, val)
+    }
+
+    pub fn remove(u32 index) -> T {
+        -> vec_remove[T](self, index)
+    }
+
+    pub fn len() -> u32 {
+        -> (self).cnt
+    }
+
+    fn drop() {
+        // Drop the contents first to prevent memory leaks
+        loop (self.cnt != 0 as u32) {
+            (self).pop()
+        }
+        vec_drop(self)
+    }
+}

@@ -1,0 +1,13 @@
+enum Status {
+    Ok,
+    Err(s32)
+}
+
+struct Point {
+    s32 x
+    s32 y
+};
+
+pub fn create_point(s32 x, s32 y) -> Point {
+    return new Point { x <- x, y <- y }
+}

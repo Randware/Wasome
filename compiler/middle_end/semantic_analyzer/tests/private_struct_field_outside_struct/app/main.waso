@@ -1,0 +1,8 @@
+import "lib" as d
+
+fn main() {
+    // Create the tail of the list
+    d.LinkedList[s32] tail <- new d.LinkedList[s32] { value <- 10, next <- d.Option[d.LinkedList[s32]]::None }
+
+    tail.value
+}

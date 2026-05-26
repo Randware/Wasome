@@ -5,102 +5,99 @@ fn test_all_keywords() {
     let input = r#"
     fn if else loop
     struct -> <- enum as pub new :: . ; ,
+    extern
     "#;
 
     let expected_tokens = vec![
         Token {
             kind: TokenType::StatementSeparator,
-            line: 0,
             span: 0..1,
         },
         Token {
             kind: TokenType::Function,
-            line: 1,
-            span: 4..6,
+            span: 5..7,
         },
         Token {
             kind: TokenType::If,
-            line: 1,
-            span: 7..9,
+            span: 8..10,
         },
         Token {
             kind: TokenType::Else,
-            line: 1,
-            span: 10..14,
+            span: 11..15,
         },
         Token {
             kind: TokenType::Loop,
-            line: 1,
-            span: 15..19,
+            span: 16..20,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 1,
-            span: 19..20,
+            span: 20..21,
         },
         Token {
             kind: TokenType::Struct,
-            line: 2,
-            span: 4..10,
+            span: 25..31,
         },
         Token {
             kind: TokenType::Return,
-            line: 2,
-            span: 11..13,
+            span: 32..34,
         },
         Token {
             kind: TokenType::Assign,
-            line: 2,
-            span: 14..16,
+            span: 35..37,
         },
         Token {
             kind: TokenType::Enum,
-            line: 2,
-            span: 17..21,
+            span: 38..42,
         },
         Token {
             kind: TokenType::As,
-            line: 2,
-            span: 22..24,
+            span: 43..45,
         },
         Token {
             kind: TokenType::Public,
-            line: 2,
-            span: 25..28,
+            span: 46..49,
         },
         Token {
             kind: TokenType::New,
-            line: 2,
-            span: 29..32,
+            span: 50..53,
         },
         Token {
             kind: TokenType::PathSeparator,
-            line: 2,
-            span: 33..35,
+            span: 54..56,
         },
         Token {
             kind: TokenType::Dot,
-            line: 2,
-            span: 36..37,
+            span: 57..58,
         },
         Token {
             kind: TokenType::Semicolon,
-            line: 2,
-            span: 38..39,
+            span: 59..60,
         },
         Token {
             kind: TokenType::ArgumentSeparator,
-            line: 2,
-            span: 40..41,
+            span: 61..62,
         },
         Token {
             kind: TokenType::StatementSeparator,
-            line: 2,
-            span: 41..42,
+            span: 62..63,
+        },
+        Token {
+            kind: TokenType::Extern,
+            span: 67..73,
         },
     ];
 
-    let tokens: Vec<_> = lex(input).filter_map(|result| result.ok()).collect();
+    // Lexing, panics if met with an error
+    let actual_tokens: Vec<Token> = lex(input)
+        .map(|res| res.expect("Lexer failed with error"))
+        .collect();
 
-    assert_eq!(tokens, expected_tokens);
+    // Comparing
+    for (i, (got, want)) in actual_tokens.iter().zip(expected_tokens.iter()).enumerate() {
+        assert_eq!(
+            got, want,
+            "\nMismatch at Token #{}:\n   Got: {:?}\n  Want: {:?}\n",
+            i, got, want
+        );
+    }
 }

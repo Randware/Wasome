@@ -1,0 +1,10 @@
+struct Box[T] {
+    pub T inner
+}
+
+fn main() {
+
+    Box[Box[char]] box <- new Box[Box[char]] { inner <- new Box[char] { inner <- 'X' } }
+
+    box.inner.inner
+}
