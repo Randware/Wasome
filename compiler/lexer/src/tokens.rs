@@ -178,6 +178,8 @@ pub enum TokenType {
     Let,
     #[token("extern")]
     Extern,
+    #[token("break")]
+    Break,
 
     // Symbols
     #[token("->")]
@@ -295,6 +297,7 @@ impl TokenType {
             Extern => "extern".into(),
             Return => "->".into(),
             Assign => "<-".into(),
+            Break => "break".into()
         }
     }
 
