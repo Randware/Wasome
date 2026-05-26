@@ -255,5 +255,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/wasome.rb
-          git commit -m "Update Wasome to ${VERSION}"
-          git push
+          
+          if git diff --cached --quiet; then
+            echo "No changes to commit; Homebrew formula is already up to date."
+          else
+            git commit -m "Update Wasome to ${VERSION}"
+            git push
+          fi

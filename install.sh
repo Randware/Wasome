@@ -17,8 +17,8 @@ require_cmd tar
 
 # Fallback mechanism for curl vs wget
 if command -v curl > /dev/null 2>&1; then
-    DOWNLOAD_CMD="curl -sL -o"
-    API_CMD="curl -s"
+    DOWNLOAD_CMD="curl -sSfL -o"
+    API_CMD="curl -sSf"
 elif command -v wget > /dev/null 2>&1; then
     DOWNLOAD_CMD="wget -qO"
     API_CMD="wget -qO-"

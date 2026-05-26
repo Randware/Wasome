@@ -240,7 +240,7 @@ curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh -s -- -y
 
 **Windows:**
 ```powershell
-irm https://get.wasome.dev | iex ; install.ps1 -y
+& ([ScriptBlock]::Create((irm https://get.wasome.dev))) -y
 ```
 </details>
 
