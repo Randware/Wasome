@@ -205,17 +205,67 @@ Install the Wasome toolchain with a single command:
 
 <br/>
 
-<div align="center">
-
+### Linux, macOS, & FreeBSD
+Open your terminal and run:
 ```sh
-curl -fsSL https://get.wasome.dev/install | sh
+curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh
 ```
 
-</div>
+### Windows
+Open PowerShell and run:
+```powershell
+irm https://get.wasome.dev | iex
+```
+
+### NixOS
+NixOS users can install Wasome natively using the provided flake:
+```sh
+nix profile add github:Randware/Wasome
+```
 
 <br/>
 
-Then verify everything is working:
+### Advanced Installation Options
+
+<details>
+<summary><b>Headless Installation</b></summary>
+<br/>
+
+If you are installing Wasome in a CI/CD pipeline or automated script, you can pass the `-y` (or `--yes`) flag to bypass all interactive prompts (such as confirming the overwrite of an existing `waso` binary).
+
+**Unix:**
+```sh
+curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh -s -- -y
+```
+
+**Windows:**
+```powershell
+& ([ScriptBlock]::Create((irm https://get.wasome.dev))) -y
+```
+</details>
+
+<details>
+<summary><b>Custom Install Directory (<code>WASOME_HOME</code>)</b></summary>
+<br/>
+
+By default, Wasome installs to `~/.wasome` (or `%USERPROFILE%\.wasome` on Windows). You can override this by setting the `WASOME_HOME` environment variable before running the installer. The installer will automatically write this path into your shell configuration file.
+
+**Unix:**
+```sh
+export WASOME_HOME="/opt/my_custom_folder"
+curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh
+```
+
+**Windows:**
+```powershell
+$env:WASOME_HOME = "C:\my_custom_folder"
+irm https://get.wasome.dev | iex
+```
+</details>
+
+<br/>
+
+Then restart your terminal and verify everything is working:
 
 ```sh
 waso --version
