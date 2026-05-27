@@ -64,13 +64,11 @@ pub(crate) fn analyze_statement(
             {
                 Ok(Statement::VoidFunctionCall(void_method))
             } else {
-                match analyze_expression(inner, context, function_symbol_mapper) {
-                    Ok(typed_expr) => Ok(Statement::Expression(ASTNode::new(
-                        typed_expr,
-                        *inner.position(),
-                    ))),
-                    Err(e) => Err(e),
-                }
+                let typed_expr = analyze_expression(inner, context, function_symbol_mapper)?;
+                Ok(Statement::Expression(ASTNode::new(
+                    typed_expr,
+                    *inner.position(),
+                )))
             }
         }
         Statement::Return(inner) => {

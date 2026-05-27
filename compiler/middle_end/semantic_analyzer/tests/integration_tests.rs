@@ -11,14 +11,17 @@ use ast::symbol::{
 use ast::top_level::{Function, FunctionType, Import, ImportRoot};
 use ast::type_parameter::TypedTypeParameter;
 use ast::visibility::Visibility;
-use ast::{ASTNode, SemanticEq, TypedAST, AST};
+use ast::{AST, ASTNode, SemanticEq, TypedAST};
 use driver::parser_driver::generate_untyped_ast;
-use driver::program_information::{ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation, ConcreteLoadInformation, Project};
+use driver::program_information::{
+    ConcreteBinaryProgramInformation, ConcreteLoadBinaryProgramInformation,
+    ConcreteLoadInformation, Project,
+};
 use driver::source_collector::collect_program;
 use io::WasomeLoader;
 use semantic_analyzer::analyze;
-use source::types::{BytePos, FileID, Span};
 use source::SourceMap;
+use source::types::{BytePos, FileID, Span};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -73,11 +76,11 @@ fn test_multi_project_program() {
             vec![
                 Project::new("app".to_string(), PathBuf::from("app")),
                 Project::new("lib".to_string(), PathBuf::from("lib")),
-            ]),
-        ConcreteBinaryProgramInformation::new(
-            "app".to_string(),
-            main_file)
-    ).unwrap();
+            ],
+        ),
+        ConcreteBinaryProgramInformation::new("app".to_string(), main_file),
+    )
+    .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
 
@@ -105,7 +108,10 @@ fn test_multi_project_program() {
     let op_function = ASTNode::new(
         Function::new(
             op_symbol.clone(),
-            FunctionType::Regular(ASTNode::new(Statement::Codeblock(CodeBlock::new(vec![])), dummy_span())),
+            FunctionType::Regular(ASTNode::new(
+                Statement::Codeblock(CodeBlock::new(vec![])),
+                dummy_span(),
+            )),
             Visibility::Public,
         ),
         dummy_span(),
@@ -206,11 +212,11 @@ fn test_multi_project_generics() {
             vec![
                 Project::new("app".to_string(), PathBuf::from("app")),
                 Project::new("lib".to_string(), PathBuf::from("lib")),
-            ]),
-        ConcreteBinaryProgramInformation::new(
-            "app".to_string(),
-            main_file)
-    ).unwrap();
+            ],
+        ),
+        ConcreteBinaryProgramInformation::new("app".to_string(), main_file),
+    )
+    .unwrap();
 
     let mut sm = SourceMap::<WasomeLoader>::with_default(root);
     let ast = generate_untyped_ast(collect_program(&prog_info, &mut sm).unwrap(), &mut sm)
