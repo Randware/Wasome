@@ -7,7 +7,7 @@ use std::{env, io, path::PathBuf, process::Command};
 ///
 /// 1. **Explicit Override:** Checks the `WASOME_LINKER` environment variable.
 ///    if the user wants to override the linker for whatever reason.
-/// 2. **Bundled LLD:** Looks for `wasm-ld` in the exact same directory
+/// 2. **Bundled LLD:** Looks for `wasm-ld` in the `./lib/` directory relative to the installation root.
 ///    Looks for the Wasome's bundled LLD.
 /// 3. **System PATH:** Checks if `wasm-ld` or the generic `lld` are available
 ///    in the operating system path.
@@ -31,10 +31,12 @@ pub fn find_lld() -> Result<PathBuf, io::Error> {
         }
     }
 
-    // Option 2: wasm-ld is next to the wasome bin
+    // Option 2: wasm-ld is in the lib directory (../lib/wasm-ld relative to the executable)
     if let Ok(mut current_dir) = std::env::current_exe() {
-        current_dir.pop();
-        current_dir.push(&target_bin);
+        current_dir.pop(); // Remove the executable name (waso) -> ../bin/
+        current_dir.pop(); // Remove the bin directory -> ./
+        current_dir.push("lib"); // Enter lib directory -> ./lib/
+        current_dir.push(&target_bin);  // Append target_bin -> ./lib/wasm-ld
 
         if check_lld(&current_dir).is_ok() {
             return Ok(current_dir);

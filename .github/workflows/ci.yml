@@ -18,30 +18,30 @@ jobs:
     # I could not find why this is the case, but I guess it builts LLVM from scratch, even though we are downloading precompiled bins,
     # and linkin it correctly. I tried to solve this issue for way too long and i just switched distro
     # Idk why but when using a fedora container ontop of ubuntu it magically works. So I just leave it that way...
-    container: ${{ matrix.os == 'ubuntu-latest' && 'fedora:latest' || '' }}
+    container: ${{ matrix.os == 'ubuntu-24.04' && 'fedora:latest' || '' }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-24.04, windows-latest, macos-26, macos-26-intel]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             name: fedora-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
-      # ── Fedora (runs on ubuntu-latest runner inside fedora container) ─────
+      # ── Fedora (runs on ubuntu-24.04 runner inside fedora container) ─────
       - name: Install dependencies (Fedora)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           dnf install -y rust cargo clang lld llvm21-devel cmake git \
             libffi-devel zlib-devel libxml2-devel
 
       - name: Export LLVM Prefix (Fedora)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: |
           echo "LLVM_SYS_211_PREFIX=$(llvm-config-21 --prefix)" >> $GITHUB_ENV
-          echo "RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
+          echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS=-C link-arg=-fuse-ld=lld" >> $GITHUB_ENV
 
       # ── Windows ───────────────────────────────────────────────────────────
       - name: Cache LLVM 21 (Windows)
@@ -66,15 +66,16 @@ jobs:
         run: |
           $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
           echo "LLVM_SYS_211_PREFIX=$llvmDir" >> $env:GITHUB_ENV
+          echo "LLVM_SYS_211_PREFER_STATIC=1" >> $env:GITHUB_ENV
           echo "$llvmDir\bin" >> $env:GITHUB_PATH
 
       # ── macOS ─────────────────────────────────────────────────────────────
       - name: Install LLVM 21 and LLD (macOS)
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos')
         run: brew install llvm@21 lld
 
       - name: Export LLVM Prefix (macOS)
-        if: matrix.os == 'macos-latest'
+        if: startsWith(matrix.os, 'macos')
         run: |
           LLVM_DIR=$(brew --prefix llvm@21)
 
@@ -110,7 +111,7 @@ jobs:
 
   test-freebsd:
     name: FreeBSD
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Test on FreeBSD
@@ -138,7 +139,7 @@ jobs:
 
   test-devcontainer:
     name: Devcontainer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -165,7 +166,7 @@ jobs:
 
   test-nix:
     name: Nix Flake
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -179,10 +180,11 @@ jobs:
 
       - name: Run Nix Flake Check and Tests
         id: nix
-        working-directory: ./compiler
         run: |
           nix flake check
-          nix develop --command cargo test --workspace
+          nix develop --command cargo test --workspace --manifest-path compiler/Cargo.toml
+          nix develop --command cargo test --workspace --manifest-path cli/Cargo.toml
+          nix develop --command cargo test --workspace --manifest-path formatter/Cargo.toml
 
       - name: Save Result
         if: always()
@@ -196,17 +198,11 @@ jobs:
 
   test-nix-cross:
     name: Nix Cross (${{ matrix.target }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - target: aarch64-linux
-            pkgsCross: aarch64-multiplatform
-          - target: armv7l-linux
-            pkgsCross: armv7l-hf-multiplatform
-          - target: riscv64-linux
-            pkgsCross: riscv64
+        target: [aarch64-linux, armv7l-linux, i686-linux, riscv64-linux, x86_64-freebsd]
     steps:
       - uses: actions/checkout@v4
 
@@ -220,7 +216,6 @@ jobs:
 
       - name: Cross-compile for ${{ matrix.target }}
         id: cross
-        working-directory: ./compiler
         run: nix build .#packages.${{ matrix.target }}.default
 
       - name: Save Result
@@ -234,7 +229,7 @@ jobs:
           path: result_nix_cross_*.txt
   test-wasm:
     name: WebAssembly (WASM)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -255,7 +250,7 @@ jobs:
     needs:
       [test-standard, test-freebsd, test-devcontainer, test-nix, test-nix-cross]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
         with:

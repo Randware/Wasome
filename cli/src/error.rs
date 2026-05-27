@@ -21,6 +21,21 @@ pub enum CliError {
 
     #[error("Could not compile project")]
     CompilationFailed,
+
+    #[error("Could not format project")]
+    FormattingFailed,
+
+    #[error("Could not load project")]
+    ProjectLoadingFailed,
+
+    #[error("Target '{0}' not available")]
+    TargetNotFound(String),
+
+    #[error("Target is missing component '{0}'")]
+    MissingTargetComponent(std::path::PathBuf),
+
+    #[error("Could not read link file '{0}': {1}")]
+    LinkFileError(std::path::PathBuf, io::Error),
 }
 
 impl CliError {
@@ -106,7 +121,35 @@ impl CliError {
                     .print()?;
             }
 
-            CliError::CompilationFailed => {}
+            CliError::CompilationFailed
+            | CliError::FormattingFailed
+            | CliError::ProjectLoadingFailed => {}
+
+            CliError::TargetNotFound(_) => {
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message(self.to_string())
+                    .help("Run `waso target list` to view available targets")
+                    .build()
+                    .print()?;
+            }
+
+            CliError::MissingTargetComponent(_) => {
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message(self.to_string())
+                    .help("Ensure the target was installed correctly and contains a 'wasome' project and a 'bin' directory")
+                    .build()
+                    .print()?;
+            }
+
+            CliError::LinkFileError(_, _) => {
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message(self.to_string())
+                    .build()
+                    .print()?;
+            }
         }
 
         Ok(())

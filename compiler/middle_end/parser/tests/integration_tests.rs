@@ -10,9 +10,10 @@ use ast::statement::{
 };
 use ast::symbol::{
     EnumSymbol, EnumVariantSymbol, FunctionSymbol, ModuleUsageNameSymbol, StructFieldSymbol,
-    StructSymbol, VariableSymbol,
+    StructSymbol, UntypedTypeParameterSymbol, VariableSymbol,
 };
 use ast::top_level::{Function, FunctionType, Import, ImportRoot};
+use ast::type_parameter::UntypedTypeParameter;
 use ast::visibility::Visibility;
 use ast::{ASTNode, SemanticEq, UntypedAST};
 use parser::{FileInformation, parse};
@@ -85,6 +86,8 @@ const SUBDIR_IMPORT_MAIN: &'static str =
     include_str!("test_programs/single_project/subdir_import/main.waso");
 const SUBDIR_IMPORT_MATH: &'static str =
     include_str!("test_programs/single_project/subdir_import/math/main.waso");
+const NESTED_STRUCT_FIELD_ACCESS: &'static str =
+    include_str!("test_programs/single_file/nexted_struct_field_access.waso");
 
 #[test]
 fn test_parse_generics() {
@@ -2589,5 +2592,109 @@ fn test_parse_subdir_import() {
         Vec::new(),
     );
 
+    assert!(parsed.semantic_eq(&expected));
+}
+
+#[test]
+fn test_parse_nested_struct_field_access() {
+    let (sm, id) = setup_source_map(NESTED_STRUCT_FIELD_ACCESS);
+    let to_parse = FileInformation::new(id, "test", &sm).unwrap();
+    let parsed = parse(&to_parse).expect("Parsing failed");
+
+    let t_tp = UntypedTypeParameter::new(Rc::new(UntypedTypeParameterSymbol::new("T".to_string())));
+    let struct_symbol = Rc::new(StructSymbol::new("Box".to_string(), vec![t_tp]));
+    let inner_field = wrap(StructField::new(
+        Rc::new(StructFieldSymbol::new(
+            "inner".to_string(),
+            UntypedDataType::new("T".to_string(), Vec::new()),
+        )),
+        Visibility::Public,
+    ));
+
+    let point_struct = wrap(Struct::new(
+        struct_symbol.clone(),
+        Vec::new(),
+        vec![inner_field],
+        Visibility::Private,
+    ));
+
+    let main_symbol = Rc::new(FunctionSymbol::new(
+        "main".to_string(),
+        None,
+        vec![],
+        Vec::new(),
+    ));
+
+    // Box[Box[char]] box <- new Box[Box[char]] { inner <- new Box[char] { inner <- 'X' } }
+    let box_var = Rc::new(VariableSymbol::new(
+        "box".to_string(),
+        UntypedDataType::new(
+            "Box".to_string(),
+            vec![UntypedDataType::new(
+                "Box".to_string(),
+                vec![UntypedDataType::new("char".to_string(), vec![])],
+            )],
+        ),
+    ));
+    let new_box_expr = wrap(Expression::NewStruct(Box::new(
+        NewStruct::<UntypedAST>::new(
+            (
+                "Box".to_string(),
+                vec![UntypedDataType::new(
+                    "Box".to_string(),
+                    vec![UntypedDataType::new("char".to_string(), vec![])],
+                )],
+            ),
+            vec![(
+                wrap("inner".to_string()),
+                wrap(Expression::NewStruct(Box::new(
+                    NewStruct::<UntypedAST>::new(
+                        (
+                            "Box".to_string(),
+                            vec![UntypedDataType::new("char".to_string(), vec![])],
+                        ),
+                        vec![(
+                            wrap("inner".to_string()),
+                            wrap(Expression::Literal("\'X\'".to_string())),
+                        )],
+                    ),
+                ))),
+            )],
+        ),
+    )));
+    let stmt1 = wrap(Statement::VariableDeclaration(VariableDeclaration::<
+        UntypedAST,
+    >::new(
+        box_var.clone(),
+        new_box_expr,
+    )));
+
+    // box.inner.inner
+    let first_sfa = wrap(Expression::StructFieldAccess(Box::new(
+        StructFieldAccess::<UntypedAST>::new(
+            wrap(Expression::Variable("box".to_string())),
+            "inner".to_string(),
+        ),
+    )));
+    let second_sfa = wrap(Expression::StructFieldAccess(Box::new(
+        StructFieldAccess::<UntypedAST>::new(first_sfa, "inner".to_string()),
+    )));
+
+    let stmt2 = wrap(Statement::Expression(second_sfa));
+
+    let main_body = wrap(Statement::Codeblock(CodeBlock::new(vec![stmt1, stmt2])));
+    let main_func = wrap(Function::new(
+        main_symbol,
+        FunctionType::Regular(main_body),
+        Visibility::Private,
+    ));
+
+    let expected = ast::file::File::new(
+        "main".to_string(),
+        Vec::new(),
+        vec![main_func],
+        Vec::new(),
+        vec![point_struct],
+    );
     assert!(parsed.semantic_eq(&expected));
 }

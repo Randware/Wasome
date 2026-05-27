@@ -12,9 +12,12 @@ path = "src/main.rs"
 
 [dependencies]
 driver = { path = "../compiler/driver/" }
+linker = { path = "../compiler/linker/" }
+codegen = { path = "../compiler/codegen/" }
 error = { path = "../compiler/error/" }
 io = { path = "../compiler/io/" }
 source = { path = "../compiler/source/" }
+formatter = { path = "../formatter/" }
 clap = { version = "4.5.57", features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.0.1"

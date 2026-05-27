@@ -10,12 +10,23 @@ use crate::{
 
 pub struct DependencyResolver {
     project_root: PathBuf,
+    workspace_root: PathBuf,
     // NOTE: We could add a global cache location here later
 }
 
 impl DependencyResolver {
     pub fn new(project_root: PathBuf) -> Self {
-        Self { project_root }
+        Self {
+            workspace_root: project_root.clone(),
+            project_root,
+        }
+    }
+
+    fn with_workspace_root(project_root: PathBuf, workspace_root: PathBuf) -> Self {
+        Self {
+            project_root,
+            workspace_root,
+        }
     }
 
     /// Recursively resolve all dependencies defined in the given manifest.
@@ -71,9 +82,9 @@ impl DependencyResolver {
         for (name, version) in deps {
             let dep_id = version_str(name, version);
 
-            let dep_path = self.locate(name, version).ok_or_else(|| {
-                ManifestError::MissingDependency(dep_id.clone(), chain.join("/"))
-            })?;
+            let dep_path = self
+                .locate(name, version)
+                .ok_or_else(|| ManifestError::MissingDependency(dep_id.clone(), chain.join("/")))?;
 
             let file_id = source.load_file(dep_path.join(manifest::MANIFEST_FILE))?;
             let content = source.get_file(&file_id).unwrap().content();
@@ -84,13 +95,16 @@ impl DependencyResolver {
             };
 
             let dep_root_path = dep_path
-                .strip_prefix(&self.project_root)
+                .strip_prefix(&self.workspace_root)
                 .unwrap_or(&dep_path)
-                .to_path_buf();
+                .to_path_buf()
+                .join(manifest::SRC_DIR);
 
-            let unique_name = format!("{}/{}", chain.join("/"), dep_id);
+            let unique_name = dep_id.clone();
 
-            acc.push(Project::new(unique_name, dep_root_path.clone()));
+            if !acc.iter().any(|p| p.name() == unique_name) {
+                acc.push(Project::new(unique_name, dep_root_path.clone()));
+            }
 
             let mut next_chain = chain.clone();
             next_chain.push(version_str(
@@ -98,7 +112,10 @@ impl DependencyResolver {
                 &dep_manifest.project.version,
             ));
 
-            let resolver = DependencyResolver::new(dep_path.clone());
+            let resolver = DependencyResolver::with_workspace_root(
+                dep_path.clone(),
+                self.workspace_root.clone(),
+            );
             resolver.resolve_recursive(&dep_manifest, source, acc, next_chain)?;
         }
 
@@ -137,7 +154,9 @@ version = "{version}"
     }
 
     fn create_dep(root: &Path, name: &str, version: &str, deps: &[(&str, &str)]) {
-        let dep_dir = root.join("lib").join(version_str(name, version));
+        let dep_dir = root
+            .join(manifest::LIB_PATH)
+            .join(version_str(name, version));
         fs::create_dir_all(&dep_dir).unwrap();
         write_manifest(&dep_dir, name, version, deps);
     }
@@ -153,7 +172,7 @@ version = "{version}"
     #[test]
     fn test_locate_found_in_local_lib() {
         let root = tempdir().unwrap();
-        let dep_dir = root.path().join("lib").join("math@1.0.0");
+        let dep_dir = root.path().join(manifest::LIB_PATH).join("math@1.0.0");
         fs::create_dir_all(&dep_dir).unwrap();
         write_manifest(&dep_dir, "math", "1.0.0", &[]);
 
@@ -175,7 +194,7 @@ version = "{version}"
     #[test]
     fn test_locate_folder_exists_but_no_manifest() {
         let root = tempdir().unwrap();
-        let dep_dir = root.path().join("lib").join("math@1.0.0");
+        let dep_dir = root.path().join(manifest::LIB_PATH).join("math@1.0.0");
         fs::create_dir_all(&dep_dir).unwrap();
 
         let resolver = DependencyResolver::new(root.path().to_path_buf());
@@ -202,7 +221,7 @@ version = "{version}"
         let projects = load_and_resolve(root.path()).unwrap();
 
         assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].name(), "my_app@0.1.0/math@1.0.0");
+        assert_eq!(projects[0].name(), "math@1.0.0");
     }
 
     #[test]
@@ -222,16 +241,16 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 3);
-        assert!(names.contains(&"my_app@0.1.0/math@1.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/io@2.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/net@0.5.0"));
+        assert!(names.contains(&"math@1.0.0"));
+        assert!(names.contains(&"io@2.0.0"));
+        assert!(names.contains(&"net@0.5.0"));
     }
 
     #[test]
     fn test_resolve_all_transitive_dependencies() {
         let root = tempdir().unwrap();
 
-        let math_dir = root.path().join("lib").join("math@1.0.0");
+        let math_dir = root.path().join(manifest::LIB_PATH).join("math@1.0.0");
         fs::create_dir_all(&math_dir).unwrap();
         write_manifest(&math_dir, "math", "1.0.0", &[("core", "0.1.0")]);
         create_dep(&math_dir, "core", "0.1.0", &[]);
@@ -242,23 +261,23 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 2);
-        assert!(names.contains(&"my_app@0.1.0/math@1.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/math@1.0.0/core@0.1.0"));
+        assert!(names.contains(&"math@1.0.0"));
+        assert!(names.contains(&"core@0.1.0"));
     }
 
     #[test]
     fn test_resolve_all_deep_transitive_chain() {
         let root = tempdir().unwrap();
 
-        let a_dir = root.path().join("lib").join("a@1.0.0");
+        let a_dir = root.path().join(manifest::LIB_PATH).join("a@1.0.0");
         fs::create_dir_all(&a_dir).unwrap();
         write_manifest(&a_dir, "a", "1.0.0", &[("b", "1.0.0")]);
 
-        let b_dir = a_dir.join("lib").join("b@1.0.0");
+        let b_dir = a_dir.join(manifest::LIB_PATH).join("b@1.0.0");
         fs::create_dir_all(&b_dir).unwrap();
         write_manifest(&b_dir, "b", "1.0.0", &[("c", "1.0.0")]);
 
-        let c_dir = b_dir.join("lib").join("c@1.0.0");
+        let c_dir = b_dir.join(manifest::LIB_PATH).join("c@1.0.0");
         fs::create_dir_all(&c_dir).unwrap();
         write_manifest(&c_dir, "c", "1.0.0", &[]);
 
@@ -268,9 +287,11 @@ version = "{version}"
         let names: Vec<&str> = projects.iter().map(|p| p.name()).collect();
 
         assert_eq!(projects.len(), 3);
-        assert!(names.contains(&"my_app@0.1.0/a@1.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/a@1.0.0/b@1.0.0"));
-        assert!(names.contains(&"my_app@0.1.0/a@1.0.0/b@1.0.0/c@1.0.0"));
+        assert!(names.contains(&"a@1.0.0"));
+        assert!(names.contains(&"b@1.0.0"));
+        assert!(names.contains(&"c@1.0.0"));
+        assert!(projects.iter().any(|p| p.name() == "b@1.0.0"
+            && p.path() == Path::new("lib/a@1.0.0/lib/b@1.0.0").join(manifest::SRC_DIR)));
     }
 
     #[test]
@@ -293,7 +314,7 @@ version = "{version}"
     fn test_resolve_all_transitive_missing_dependency_error() {
         let root = tempdir().unwrap();
 
-        let math_dir = root.path().join("lib").join("math@1.0.0");
+        let math_dir = root.path().join(manifest::LIB_PATH).join("math@1.0.0");
         fs::create_dir_all(&math_dir).unwrap();
         write_manifest(&math_dir, "math", "1.0.0", &[("core", "0.1.0")]);
 
@@ -315,11 +336,11 @@ version = "{version}"
     fn test_resolve_all_deep_transitive_missing_error() {
         let root = tempdir().unwrap();
 
-        let a_dir = root.path().join("lib").join("a@1.0.0");
+        let a_dir = root.path().join(manifest::LIB_PATH).join("a@1.0.0");
         fs::create_dir_all(&a_dir).unwrap();
         write_manifest(&a_dir, "a", "1.0.0", &[("b", "1.0.0")]);
 
-        let b_dir = a_dir.join("lib").join("b@1.0.0");
+        let b_dir = a_dir.join(manifest::LIB_PATH).join("b@1.0.0");
         fs::create_dir_all(&b_dir).unwrap();
         write_manifest(&b_dir, "b", "1.0.0", &[("ghost", "3.0.0")]);
 

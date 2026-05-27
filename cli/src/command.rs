@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Args, Parser, Subcommand, ValueHint};
+use clap::{Args, Parser, Subcommand, ValueEnum, ValueHint};
 
 #[derive(Parser)]
 #[command(
@@ -23,6 +23,31 @@ pub(crate) struct CheckArgs {
 pub(crate) struct BuildArgs {
     #[arg(help = "Path of project to compile [default: Current directory]", value_hint = ValueHint::DirPath, default_value = ".", hide_default_value = true)]
     pub(crate) path: PathBuf,
+    #[arg(
+        long,
+        help = "Optimization profile for compilation",
+        default_value = "default",
+        value_enum,
+        ignore_case = true
+    )]
+    pub(crate) profile: Profile,
+    #[arg(
+        long = "std",
+        help = "Provide a custom standard library location",
+        value_hint = ValueHint::DirPath
+    )]
+    pub(crate) stdlib_path: Option<PathBuf>,
+    #[arg(
+        long = "link",
+        help = "Provide additional linking objects (.o or .a files)",
+        value_hint = ValueHint::FilePath
+    )]
+    pub(crate) link_files: Vec<PathBuf>,
+    #[arg(
+        long,
+        help = "Compilation target (maps to a standard library implementation)"
+    )]
+    pub(crate) target: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -39,6 +64,21 @@ pub(crate) struct FmtArgs {
     pub(crate) path: PathBuf,
 }
 
+#[derive(Args, Debug)]
+pub(crate) struct TargetArgs {
+    #[command(subcommand)]
+    pub(crate) command: TargetCommand,
+}
+
+#[derive(Subcommand, Debug)]
+pub(crate) enum TargetCommand {
+    #[command(about = "List available targets")]
+    List(TargetListArgs),
+}
+
+#[derive(Args, Debug)]
+pub(crate) struct TargetListArgs {}
+
 #[derive(Subcommand)]
 pub(crate) enum Command {
     #[command(about = "Check the project source for issues")]
@@ -49,4 +89,60 @@ pub(crate) enum Command {
     New(NewArgs),
     #[command(about = "Format the project source")]
     Fmt(FmtArgs),
+    #[command(about = "Manage compilation targets")]
+    Target(TargetArgs),
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub(crate) enum Profile {
+    #[value(
+        name = "debug",
+        alias = "O0",
+        help = "(O0) No optimization, lowest compile time, best for debugging"
+    )]
+    Debug,
+    #[value(
+        name = "basic",
+        alias = "O1",
+        help = "(O1) Basic optimizations, no significant compile time cost"
+    )]
+    Basic,
+    #[default]
+    #[value(
+        name = "default",
+        alias = "O2",
+        help = "(O2) Fast execution, good compile time, recommended in most cases"
+    )]
+    Default,
+    #[value(
+        name = "max",
+        alias = "O3",
+        help = "(O3) Maximum speed, significantly increased binary size"
+    )]
+    Max,
+    #[value(
+        name = "size",
+        alias = "Os",
+        help = "(Os) Optimize for binary size, no significant performance cost"
+    )]
+    Size,
+    #[value(
+        name = "size-min",
+        alias = "Oz",
+        help = "(Oz) Minimum binary size at all costs, significant performance cost"
+    )]
+    SizeMin,
+}
+
+impl Profile {
+    pub(crate) fn to_opt_level(self) -> codegen::OptLevel {
+        match self {
+            Self::Debug => codegen::OptLevel::O0,
+            Self::Basic => codegen::OptLevel::O1,
+            Self::Default => codegen::OptLevel::O2,
+            Self::Max => codegen::OptLevel::O3,
+            Self::Size => codegen::OptLevel::Os,
+            Self::SizeMin => codegen::OptLevel::Oz,
+        }
+    }
 }

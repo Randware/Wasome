@@ -199,7 +199,7 @@ mod import_parser {
     /// Creates a parser for [`parse_import_path`]
     fn import_path_parser<'src>() -> impl Parser<'src, &'src str, (ImportRoot, Vec<String>)> {
         let current_module = just("./");
-        let path_element = regex("[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]|[a-zA-Z0-9]");
+        let path_element = regex("[a-zA-Z0-9][a-zA-Z0-9_\\-@.]*[a-zA-Z0-9]|[a-zA-Z0-9]");
 
         let path_elements = path_element
             .map(|elem: &str| elem.to_owned())

@@ -1,4 +1,6 @@
-extern fn print_char(u32)
+pub extern fn print_char(char to_print)
+pub extern fn print_string(String to_print)
+pub extern fn read_line() -> String
 
 pub extern fn vec_new[T]() -> Vec[T]
 
@@ -46,3 +48,52 @@ pub struct Vec[T] {
         vec_drop(self)
     }
 }
+
+pub extern fn string_new() -> String
+
+extern fn string_push_char(String string, char to_push)
+extern fn string_push_s32(String string, s32 to_push)
+extern fn string_push_s64(String string, s64 to_push)
+extern fn string_push_u64(String string, u64 to_push)
+extern fn string_push_f64(String string, s64 to_push)
+extern fn string_push_string(String string, String to_push)
+extern fn string_pop(String string) -> char
+extern fn string_drop(String string)
+
+pub struct String {
+    u32 prt
+    u32 cnt
+    u32 cap
+
+    pub fn push_char(char to_push) {
+        string_push_char(self, to_push)
+    }
+    pub fn push_s32(s32 to_push) {
+        string_push_s32(self, to_push)
+    }
+    pub fn push_s64(s64 to_push) {
+        string_push_s64(self, to_push)
+    }
+    pub fn push_u64(u64 to_push) {
+        string_push_u64(self, to_push)
+    }
+    pub fn push_f64(s64 to_push) {
+        string_push_f64(self, to_push)
+    }
+    pub fn push_string(String to_push) {
+        string_push_string(self, to_push)
+    }
+
+    pub fn pop() -> char {
+        -> string_pop(self)
+    }
+
+    pub fn len() -> u32 {
+        -> (self).cnt
+    }
+
+    fn drop() {
+        string_drop(self)
+    }
+}
+

@@ -1,0 +1,130 @@
+param (
+    [switch]$Yes,
+    [switch]$y
+)
+
+$Headless = $Yes -or $y
+
+# Wasome Installer for Windows
+
+$ErrorActionPreference = "Stop"
+
+# Configuration
+$GithubRepo = "Randware/Wasome"
+
+$WasomeHome = $env:WASOME_HOME
+if ([string]::IsNullOrWhiteSpace($WasomeHome)) {
+    $WasomeHome = Join-Path $env:USERPROFILE ".wasome"
+}
+$WasomeBin = Join-Path $WasomeHome "bin"
+
+
+# Define Target
+$Target = "x86_64-pc-windows-msvc"
+
+# Check for existing waso in PATH
+$ExistingWaso = Get-Command "waso" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+if ($ExistingWaso) {
+    $ExpectedWaso = Join-Path $WasomeBin "waso.exe"
+    if ($ExistingWaso -ne $ExpectedWaso) {
+        if (-not $Headless) {
+            Write-Host "Warning: Another 'waso' executable was found in your PATH at:" -ForegroundColor Yellow
+            Write-Host "  $ExistingWaso"
+            Write-Host "This installation will place Wasome in:"
+            Write-Host "  $ExpectedWaso"
+            $Response = Read-Host "Do you want to continue? (y/N)"
+            if ($Response -notmatch "^[yY](es)?$") {
+                Write-Host "Installation aborted by user."
+                exit 0
+            }
+        } else {
+            Write-Host "Warning: Another 'waso' executable was found at $ExistingWaso. Proceeding anyway due to headless mode." -ForegroundColor Yellow
+        }
+    }
+}
+
+# Fetch latest version
+Write-Host "Fetching latest Wasome release from $GithubRepo..."
+try {
+    $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$GithubRepo/releases/latest"
+    $Version = $Release.tag_name
+} catch {
+    Write-Error "Failed to fetch latest release. Please check your internet connection or GitHub API limits."
+    exit 1
+}
+
+$DownloadUrl = "https://github.com/$GithubRepo/releases/download/$Version/wasome-$Target.zip"
+$ZipPath = Join-Path $env:TEMP "wasome.zip"
+
+Write-Host "Downloading Wasome $Version from $DownloadUrl..."
+Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath
+
+if (!(Test-Path $WasomeHome)) {
+    New-Item -ItemType Directory -Force -Path $WasomeHome | Out-Null
+}
+
+if (Test-Path (Join-Path $WasomeHome "bin")) {
+    Write-Host "Updating existing installation at $WasomeHome..."
+} else {
+    Write-Host "Installing to $WasomeHome..."
+}
+
+$TempDir = Join-Path $env:TEMP "wasome_update_$([guid]::NewGuid().ToString().Substring(0,8))"
+New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+Expand-Archive -Path $ZipPath -DestinationPath $TempDir -Force
+Remove-Item $ZipPath
+
+# Safely replace bin
+$NewBin = Join-Path $TempDir "bin"
+$OldBin = Join-Path $WasomeHome "bin"
+if (Test-Path $NewBin) {
+    if (Test-Path $OldBin) { Remove-Item -Path $OldBin -Recurse -Force }
+    Move-Item -Path $NewBin -Destination $WasomeHome
+}
+
+# Dynamically replace std contents without removing user's custom stds
+$NewStd = Join-Path $TempDir "std"
+$OldStd = Join-Path $WasomeHome "std"
+if (Test-Path $NewStd) {
+    if (!(Test-Path $OldStd)) { New-Item -ItemType Directory -Force -Path $OldStd | Out-Null }
+    Get-ChildItem -Path $NewStd | ForEach-Object {
+        $TargetItem = Join-Path $OldStd $_.Name
+        if (Test-Path $TargetItem) { Remove-Item -Path $TargetItem -Recurse -Force }
+        Move-Item -Path $_.FullName -Destination $OldStd
+    }
+}
+
+# Safely merge lib (preserving existing user-downloaded LLVM binaries)
+$NewLib = Join-Path $TempDir "lib"
+$OldLib = Join-Path $WasomeHome "lib"
+if (Test-Path $NewLib) {
+    if (!(Test-Path $OldLib)) { New-Item -ItemType Directory -Force -Path $OldLib | Out-Null }
+    Get-ChildItem -Path $NewLib | ForEach-Object {
+        $TargetItem = Join-Path $OldLib $_.Name
+        if (Test-Path $TargetItem) { Remove-Item -Path $TargetItem -Recurse -Force }
+        Move-Item -Path $_.FullName -Destination $OldLib
+    }
+}
+
+Remove-Item -Path $TempDir -Recurse -Force
+
+# Setup Environment Variables
+Write-Host "Configuring Environment Variables..."
+
+# Set WASOME_HOME
+[Environment]::SetEnvironmentVariable("WASOME_HOME", $WasomeHome, [EnvironmentVariableTarget]::User)
+Write-Host "Set WASOME_HOME to $WasomeHome"
+
+# Update PATH
+$UserPath = [Environment]::GetEnvironmentVariable("PATH", [EnvironmentVariableTarget]::User)
+if ($UserPath -notlike "*$WasomeBin*") {
+    $NewPath = "$UserPath;$WasomeBin"
+    [Environment]::SetEnvironmentVariable("PATH", $NewPath, [EnvironmentVariableTarget]::User)
+    Write-Host "Added $WasomeBin to your user PATH"
+} else {
+    Write-Host "WASOME_HOME\bin is already in your PATH."
+}
+
+Write-Host ""
+Write-Host "Wasome installed/updated successfully!"
+Write-Host "Please restart your PowerShell or Command Prompt terminal to start using the 'waso' command."
