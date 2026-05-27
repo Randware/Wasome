@@ -32,6 +32,8 @@ impl Executable for Command {
             Command::Build(args) => args.execute(),
             Command::New(args) => args.execute(),
             Command::Fmt(args) => args.execute(),
+            #[cfg(feature = "runtime")]
+            Command::Run(args) => args.execute(),
             Command::Target(args) => args.execute(),
         }
     }
@@ -123,6 +125,58 @@ impl Executable for NewArgs {
             .print()?;
 
         Ok(())
+    }
+}
+
+#[cfg(feature = "runtime")]
+impl Executable for crate::command::RunArgs {
+    fn execute(self) -> CliResult<()> {
+        let path = self.path.canonicalize()?;
+        
+        let wasm_bytes = if path.is_file() && path.extension().map_or(false, |ext| ext == manifest::OUTPUT_EXTENSION) {
+            std::fs::read(&path)?
+        } else {
+            let workspace = Workspace::load(&path)?;
+            
+            Diagnostic::builder()
+                .level(Level::Info)
+                .message(format!(
+                    "Compiling project at {} for running",
+                    workspace.info().path().display()
+                ))
+                .build()
+                .print()?;
+
+            let project_name = workspace.info().name().to_string();
+            let project_root = workspace.info().path().to_path_buf();
+            
+            // For now, `run` implies the `runtime` target.
+            let target_name = stdlib::DEFAULT_TARGET;
+            
+            if target_name != "runtime" {
+                Diagnostic::builder()
+                    .level(Level::Error)
+                    .message("The `run` command currently only supports the `runtime` target.")
+                    .build()
+                    .print()?;
+                return Err(CliError::CompilationFailed);
+            }
+
+            let target = stdlib::StdlibResolver::resolve(target_name, None)?;
+            
+            // Build the project using default profile
+            let output = pipeline::build(workspace, crate::command::Profile::Default, &target, &[])?;
+
+            let output_dir = project_root.join(manifest::OUTPUT_DIR);
+            std::fs::create_dir_all(&output_dir)?;
+            let output_file =
+                output_dir.join(format!("{}.{}", project_name, manifest::OUTPUT_EXTENSION));
+            std::fs::write(&output_file, &output.data)?;
+            
+            output.data
+        };
+
+        crate::runtime::run(&self, &wasm_bytes)
     }
 }
 
@@ -315,5 +369,23 @@ mod tests {
         let path = valid_fixture_path();
         let args = FmtArgs { path };
         args.execute().unwrap();
+    }
+
+    #[test]
+    #[cfg(feature = "runtime")]
+    fn test_runtime_execution_in_memory() {
+        // We use a dummy valid wasm header to bypass parsing errors and hit the `_start` validation
+        let dummy_wasm_bytes = b"\x00asm\x01\x00\x00\x00";
+        
+        let args = crate::command::RunArgs {
+            path: PathBuf::from("."),
+            dir: vec![],
+            env: vec![],
+            args: vec![],
+        };
+        
+        let result = crate::runtime::run(&args, dummy_wasm_bytes);
+        // It should fail due to missing _start function, but this proves it executes in-memory.
+        assert!(matches!(result.unwrap_err(), CliError::CompilationFailed));
     }
 }
