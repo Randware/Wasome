@@ -129,12 +129,12 @@ fn main() {
 </tr>
 <tr>
 <td width="8%" align="center">🔀</td>
-<td width="22%"><b>Generics</b></td>
+<td width="22%"><a href="https://wasome.dev/docs#structs"><b>Generics</b></a></td>
 <td width="70%">Reusable abstractions across functions, structs, and enums.</td>
 </tr>
 <tr>
 <td width="8%" align="center">📦</td>
-<td width="22%"><b>Modules & Imports</b></td>
+<td width="22%"><a href="https://wasome.dev/docs#modules"><b>Modules & Imports</b></a></td>
 <td width="70%">Organize code cleanly across files and projects.</td>
 </tr>
 <tr>

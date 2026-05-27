@@ -13,18 +13,18 @@
     Github,
   } from "lucide-svelte";
 
-  const snippet = `struct User {
-    s32 id
-    bool is_active
+  const snippet = `fn main() {
+    char wasome <- showcase_if_conditionals()
 }
 
-fn main() -> s32 {
-    User u <- new User { id <- 42, is_active <- true }
-    
-    if (u.is_active) {
-        -> u.id * 2
+fn showcase_if_conditionals() -> char {
+    bool wasome_is_awesome <- true
+ 
+    if (wasome_is_awesome) {
+        -> '✨'
+    } else {
+        -> '🤥'   
     }
-    -> 0
 }`;
 
   let card;
@@ -88,8 +88,6 @@ fn main() -> s32 {
   <div class="content container">
     <div class="hero-grid">
       <div class="hero-text">
-        <div class="badge">✨ Alpha coming soon</div>
-
         <h1>
           <span class="desktop-text">
             The <span class="gradient-text">WebAssembly</span><br />
@@ -212,8 +210,8 @@ fn main() -> s32 {
     <div class="animate-on-scroll" style="animation-delay: 0.15s">
       <h3><Wrench size={24} color="var(--primary)" /> Tooling that Works</h3>
       <p>
-        Built-in formatter, syntax checker, and package manager. The Wasome
-        ecosystem is designed to get you up and running in seconds.
+        Built-in formatter, syntax checker, and runtime. The Wasome ecosystem is
+        designed to get you up and running in seconds.
       </p>
     </div>
     <div class="animate-on-scroll" style="animation-delay: 0.2s">

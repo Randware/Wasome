@@ -5,8 +5,19 @@
   import CodeEditor from "../components/CodeEditor.svelte";
   import { Play } from "lucide-svelte";
 
-  let currentStepIndex = $state(0);
-  let code = $state(steps[0].code);
+  let initialStep = 0;
+  if (typeof window !== "undefined") {
+    const stored = sessionStorage.getItem("wasome_tour_step");
+    if (stored !== null) {
+      const idx = parseInt(stored, 10);
+      if (idx >= 0 && idx < steps.length) {
+        initialStep = idx;
+      }
+    }
+  }
+
+  let currentStepIndex = $state(initialStep);
+  let code = $state(steps[initialStep].code);
   let output = $state("Waiting to run...");
   let isTalking = $state(false);
   let isRunning = $state(false);
@@ -16,6 +27,12 @@
   $effect(() => {
     code = currentStep.code;
     output = "Waiting to run...";
+  });
+
+  $effect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("wasome_tour_step", currentStepIndex.toString());
+    }
   });
 
   function handleTyping(typing) {
