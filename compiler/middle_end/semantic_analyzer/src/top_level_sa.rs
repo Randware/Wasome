@@ -41,34 +41,7 @@ pub(crate) fn analyze_function(
     let mut func_mapper = FunctionSymbolMapper::new();
 
     func_mapper.set_current_function_return_type(symbol.return_type().cloned());
-
-    for param_symbol in symbol.params().iter() {
-        func_mapper
-            .add_variable(
-                param_symbol.clone(),
-                *context.ast_reference.inner().position(),
-            )
-            .map_err(|_| SemanticError::AlreadyDeclared {
-                name: param_symbol.name().to_string(),
-                kind: "Parameter".to_string(),
-                span: *context.ast_reference.inner().position(),
-            })?;
-    }
-
-    if symbol.name() == "drop" || symbol.name() == "predrop" {
-        if symbol.return_type().is_some()
-            || !symbol.type_parameters().is_empty()
-            || symbol.params().iter().any(|p| p.name() != "self")
-        {
-            return Err(SemanticError::InvalidDropSignature {
-                message:
-                    "Drop methods cannot accept parameters, generics, or explicit return signatures"
-                        .to_string(),
-                span: *context.ast_reference.inner().position(),
-            });
-        }
-    }
-
+    
     let ft = match context.ast_reference.inner().function_type() {
         FunctionType::Regular(implementation) => {
             let sth = context.ast_reference.ref_to_implementation().map_err(|_| {

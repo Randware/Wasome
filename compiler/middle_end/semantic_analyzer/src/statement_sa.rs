@@ -69,9 +69,6 @@ pub(crate) fn analyze_statement(
                         typed_expr,
                         *inner.position(),
                     ))),
-                    Err(SemanticError::UnknownSymbol { name, span }) if name == "break" => {
-                        analyze_break(context, span)
-                    }
                     Err(e) => Err(e),
                 }
             }
