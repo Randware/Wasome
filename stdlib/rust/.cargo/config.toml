@@ -1,4 +1,4 @@
 [target.wasm32-wasip1]
 runner = "wasmtime"
-[build]
-target = "wasm32-wasip1"
+#[build]
+#target = "wasm32-wasip1"

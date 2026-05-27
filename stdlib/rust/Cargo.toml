@@ -10,6 +10,13 @@ crate-type = ["staticlib"]
 
 [dependencies]
 dlmalloc = { version = "0.2.14", features = ["global"] }
+wasm-bindgen = { version = "0.2", optional = true }
+
+
+[features]
+runtime = []
+web = ["wasm-bindgen"]
+
 
 [profile.release]
 panic = "abort"
