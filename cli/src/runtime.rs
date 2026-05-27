@@ -46,8 +46,15 @@ pub fn run(args: &RunArgs, wasm_bytes: &[u8]) -> CliResult<()> {
     })?;
 
     let mut builder = WasiCtxBuilder::new();
-    builder.inherit_stdio();
-    builder.inherit_network(); // Basic network access (future proof)
+    
+    if !args.no_stdio {
+        builder.inherit_stdio();
+    }
+    
+    if args.net {
+        builder.inherit_network();
+        builder.allow_ip_name_lookup(true);
+    }
 
     for arg in &args.args {
         builder.arg(arg);
@@ -79,7 +86,9 @@ pub fn run(args: &RunArgs, wasm_bytes: &[u8]) -> CliResult<()> {
     }
 
     // Default permission: access to current directory
-    let _ = builder.preopened_dir(".", ".", DirPerms::all(), FilePerms::all());
+    if !args.no_cwd {
+        let _ = builder.preopened_dir(".", ".", DirPerms::all(), FilePerms::all());
+    }
 
     let mut store = Store::new(
         &engine,
@@ -119,6 +128,7 @@ pub fn run(args: &RunArgs, wasm_bytes: &[u8]) -> CliResult<()> {
                     .message(format!("WASM program exited with code: {}", exit_code.0))
                     .build()
                     .print();
+                return Err(crate::error::CliError::CompilationFailed);
             }
         } else {
             let _ = Diagnostic::builder()
@@ -126,6 +136,7 @@ pub fn run(args: &RunArgs, wasm_bytes: &[u8]) -> CliResult<()> {
                 .message(format!("Execution failed: {}", e))
                 .build()
                 .print();
+            return Err(crate::error::CliError::CompilationFailed);
         }
     }
 

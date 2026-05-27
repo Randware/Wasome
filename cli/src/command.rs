@@ -73,6 +73,12 @@ pub(crate) struct RunArgs {
     pub(crate) dir: Vec<String>,
     #[arg(long, help = "Pass environment variables to the program (e.g. KEY=VALUE)", value_name = "KEY=VALUE")]
     pub(crate) env: Vec<String>,
+    #[arg(long, help = "Allow basic network access (TCP/UDP, IP name lookup)")]
+    pub(crate) net: bool,
+    #[arg(long, help = "Disable inheriting standard I/O (stdin, stdout, stderr)")]
+    pub(crate) no_stdio: bool,
+    #[arg(long, help = "Disable pre-opening the current working directory (.)")]
+    pub(crate) no_cwd: bool,
     #[arg(last = true, help = "Arguments to pass to the WebAssembly program")]
     pub(crate) args: Vec<String>,
 }
@@ -103,7 +109,7 @@ pub(crate) enum Command {
     #[command(about = "Format the project source")]
     Fmt(FmtArgs),
     #[cfg(feature = "runtime")]
-    #[command(about = "Build and run the project, or run a compiled WASM file")]
+    #[command(about = "Build and run the project, or run a compiled WASM file (grants access to stdio and current directory by default)")]
     Run(RunArgs),
     #[command(about = "Manage compilation targets")]
     Target(TargetArgs),

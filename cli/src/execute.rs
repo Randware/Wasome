@@ -381,6 +381,9 @@ mod tests {
             path: PathBuf::from("."),
             dir: vec![],
             env: vec![],
+            net: false,
+            no_stdio: false,
+            no_cwd: false,
             args: vec![],
         };
         
