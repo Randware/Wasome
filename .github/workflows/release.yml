@@ -163,13 +163,31 @@ jobs:
             
             # Bundle dynamic libraries for standalone wasm-ld
             if [[ "${{ matrix.os }}" == macos* ]]; then
+              cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
+              
+              # Homebrew binaries often reference core LLVM dylibs via @rpath instead of absolute paths.
+              # Explicitly copy the core LLVM libraries first to ensure they are included.
               LLVM_DIR=$(brew --prefix llvm@21)
-              cp -L "$LLVM_DIR"/bin/wasm-ld release_pkg/lib/wasm-ld
               cp -L "$LLVM_DIR"/lib/liblld*.dylib release_pkg/lib/ 2>/dev/null || true
               cp -L "$LLVM_DIR"/lib/libLLVM*.dylib release_pkg/lib/ 2>/dev/null || true
               cp -L "$LLVM_DIR"/lib/libc++*.dylib release_pkg/lib/ 2>/dev/null || true
               
-              # Add @loader_path to the rpath of every binary and change absolute homebrew paths to use @rpath
+              # Automatically find and copy all other Homebrew dylib dependencies (compute full closure)
+              while true; do
+                  new_libs=0
+                  deps=$(otool -L release_pkg/lib/wasm-ld release_pkg/lib/*.dylib 2>/dev/null | awk '{print $1}' | grep -E '^/opt/homebrew|^/usr/local' | sort -u || true)
+                  for dep in $deps; do
+                      if [ ! -f "release_pkg/lib/$(basename "$dep")" ]; then
+                          cp -L "$dep" release_pkg/lib/ 2>/dev/null || true
+                          new_libs=1
+                      fi
+                  done
+                  if [ "$new_libs" -eq 0 ]; then
+                      break
+                  fi
+              done
+              
+              # Add @loader_path to the rpath of every binary and change absolute/rpath dependencies to use @rpath
               for file in release_pkg/lib/wasm-ld release_pkg/lib/*.dylib; do
                   [ -f "$file" ] || continue
                   
