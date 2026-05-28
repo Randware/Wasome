@@ -163,11 +163,19 @@ jobs:
             
             # Bundle dynamic libraries for standalone wasm-ld
             if [[ "${{ matrix.os }}" == macos* ]]; then
-              LLVM_DIR=$(brew --prefix llvm@21)
-              cp -L "$LLVM_DIR"/bin/wasm-ld release_pkg/lib/wasm-ld
-              cp -L "$LLVM_DIR"/lib/liblld*.dylib release_pkg/lib/ 2>/dev/null || true
-              cp -L "$LLVM_DIR"/lib/libLLVM*.dylib release_pkg/lib/ 2>/dev/null || true
-              cp -L "$LLVM_DIR"/lib/libc++*.dylib release_pkg/lib/ 2>/dev/null || true
+              cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
+              
+              # Automatically find and copy all Homebrew dylib dependencies (2 passes to catch dependencies of dependencies like libLLVM)
+              for i in 1 2; do
+                  for file in release_pkg/lib/wasm-ld release_pkg/lib/*.dylib; do
+                      [ -f "$file" ] || continue
+                      otool -L "$file" | awk 'NR>1 {print $1}' | grep -E '^/opt/homebrew|^/usr/local' | while read -r dep; do
+                          if [ ! -f "release_pkg/lib/$(basename "$dep")" ]; then
+                              cp -L "$dep" release_pkg/lib/ 2>/dev/null || true
+                          fi
+                      done
+                  done
+              done
               
               # Add @loader_path to the rpath of every binary and change absolute homebrew paths to use @rpath
               for file in release_pkg/lib/wasm-ld release_pkg/lib/*.dylib; do
