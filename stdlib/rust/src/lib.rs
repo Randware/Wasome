@@ -1,33 +1,19 @@
 #![no_std]
-
 extern crate alloc;
+//extern crate core;
+
+mod plattform;
 mod wasome_mem;
 mod wasome_string;
 mod wasome_vec;
 
+use crate::plattform::{exit, print_str, read_line_internal};
 use crate::wasome_string::WasomeString;
 use alloc::boxed::Box;
 use alloc::string::String;
 use core::mem::forget;
 use core::panic::PanicInfo;
 
-#[link(wasm_import_module = "wasi_snapshot_preview1")]
-unsafe extern "C" {
-    fn fd_write(fd: i32, iovs: *const Iovec, iovs_len: usize, nwritten: *mut usize) -> i32;
-    fn fd_read(fd: i32, iovs: *const MutIovec, iovs_len: usize, nwritten: *mut usize) -> i32;
-    safe fn proc_exit(code: i32);
-}
-#[repr(C)]
-struct Iovec {
-    buf: *const u8,
-    len: usize,
-}
-
-#[repr(C)]
-struct MutIovec {
-    buf: *mut u8,
-    len: usize,
-}
 #[global_allocator]
 static A: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
 /// # Safety
@@ -36,7 +22,7 @@ static A: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn print_char(to_print: u32) {
     unsafe {
-        print(String::from(char::from_u32_unchecked(to_print)).as_str());
+        print_str(String::from(char::from_u32_unchecked(to_print)).as_str());
     }
 }
 
@@ -46,7 +32,7 @@ pub unsafe extern "C" fn print_char(to_print: u32) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn print_string(to_print: *mut WasomeString) {
     let string = unsafe { WasomeString::as_string(to_print) };
-    print(&string);
+    print_str(&string);
     forget(string)
 }
 
@@ -69,50 +55,6 @@ impl WasomeComposite {
     }
 }
 
-fn print(s: &str) {
-    let iovec = Iovec {
-        buf: s.as_ptr(),
-        len: s.len(),
-    };
-    let mut nwritten: usize = 0;
-    // SAFETY:
-    // FD 1 always exists
-    unsafe {
-        fd_write(1, &iovec, 1, &mut nwritten);
-    }
-}
-
-fn read_line_internal() -> String {
-    let mut res = String::new();
-    let mut curr_char: u32 = 0;
-    loop {
-        let mut buf = [0_u8; 1];
-        let iovec = MutIovec {
-            buf: buf.as_mut_ptr(),
-            len: 1,
-        };
-        let mut nwritten: usize = 0;
-        // SAFETY:
-        // FD 0 always exists
-        unsafe {
-            fd_read(0, &iovec, 1, &mut nwritten);
-        }
-        if nwritten != 1 {
-            panic!("Read failed! {nwritten}");
-        }
-        curr_char <<= 8;
-        curr_char |= buf[0] as u32;
-        if let Some(converted) = char::from_u32(curr_char) {
-            if curr_char == b'\n' as u32 {
-                break;
-            }
-            res.push(converted);
-            curr_char = 0;
-        }
-    }
-    res
-}
-
 #[unsafe(no_mangle)]
 pub extern "C" fn read_line() -> *mut WasomeString {
     let wasome_string = Box::into_raw(Box::new(WasomeString::new()));
@@ -120,24 +62,13 @@ pub extern "C" fn read_line() -> *mut WasomeString {
     wasome_string
 }
 
-fn exit(code: i32) {
-    proc_exit(code)
-}
-
-// Prevent errors
-#[cfg(not(test))]
-#[panic_handler]
-fn rust_panic(info: &PanicInfo) -> ! {
-    panic_internal(info.message().as_str())
-}
-
 fn panic_internal(msg: Option<&str>) -> ! {
-    print("\nPANIC!\n");
+    print_str("\nPANIC!\n");
     if let Some(msg) = msg {
-        print(msg);
-        print("\n");
+        print_str(msg);
+        print_str("\n");
     }
-    print("\n");
+    print_str("\n");
     exit(1);
     #[cfg(target_arch = "wasm32")]
     core::arch::wasm32::unreachable();
@@ -145,6 +76,12 @@ fn panic_internal(msg: Option<&str>) -> ! {
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::empty_loop)]
     loop {}
+}
+
+#[cfg(not(test))]
+#[panic_handler]
+fn rust_panic(info: &PanicInfo) -> ! {
+    panic_internal(info.message().as_str())
 }
 
 #[cfg(test)]

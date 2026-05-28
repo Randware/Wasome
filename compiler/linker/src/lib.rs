@@ -111,7 +111,18 @@ impl Linker<Ready> {
         };
 
         let mut output = Command::new(lld);
-        output.args(["-flavor", "wasm"]);
+        output.args(["-flavor", "wasm", "--export-if-defined=__externref_table_alloc",
+            "--export-if-defined=__wbindgen_describe___wbg___wbindgen_throw_1506f2235d1bdba0",
+            "--export-if-defined=__wbindgen_describe___wbg_print_str_65ceab8bbf81d4ae",
+            "--export-if-defined=__wbindgen_describe___wbg_read_line_internal_6c842bcd91b36a7e",
+            "--export-if-defined=print_string",
+            "--export-if-defined=read_line_internal",
+            "--export-if-defined=__wbindgen_describe_main",
+            "--export-if-defined=__wbindgen_malloc",
+            "--export-if-defined=__externref_table_dealloc",
+            "--export-if-defined=main"
+
+        ]);
 
         for (index, o_file) in self.get_files().iter().enumerate() {
             let path = tempdir.path().join(format!("wasome_input_{}.o", index));
