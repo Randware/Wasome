@@ -164,7 +164,7 @@ jobs:
             # Bundle dynamic libraries for standalone wasm-ld
             if [[ "${{ matrix.os }}" == macos* ]]; then
               cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
-              
+
               # Homebrew binaries often reference core LLVM dylibs via @rpath instead of absolute paths.
               # Explicitly copy the core LLVM libraries first to ensure they are included.
               LLVM_DIR=$(brew --prefix llvm@21)
