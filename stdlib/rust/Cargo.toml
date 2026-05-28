@@ -22,4 +22,4 @@ web = ["wasm-bindgen"]
 panic = "abort"
 strip = true
 # Makes the binary size smaller
-#lto = true
+lto = true
