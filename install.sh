@@ -59,7 +59,7 @@ if command -v waso >/dev/null 2>&1; then
             echo "This installation will place Wasome in:"
             echo "  $WASOME_BIN/waso"
             printf "Do you want to continue? (y/N): "
-            read response
+            read response < /dev/tty || true
             case "$response" in
                 [yY][eE][sS]|[yY]) 
                     ;;
