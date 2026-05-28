@@ -113,8 +113,8 @@ impl Linker<Ready> {
         let mut output = Command::new(lld);
         output.args(["-flavor", "wasm", "--export-if-defined=__externref_table_alloc",
             "--export-if-defined=__wbindgen_describe___wbg___wbindgen_throw_1506f2235d1bdba0",
-            "--export=__wbindgen_describe___wbg_print_str_65ceab8bbf81d4ae",
-            "--export=print_string",
+            "--export-if-defined=__wbindgen_describe___wbg_print_str_65ceab8bbf81d4ae",
+            "--export-if-defined=print_string",
             "--export-if-defined=__wbindgen_describe_main",
             "--export-if-defined=__externref_table_dealloc",
             "--export-if-defined=main"
