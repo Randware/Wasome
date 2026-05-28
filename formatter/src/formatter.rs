@@ -147,6 +147,7 @@ impl Formatter {
     }
 
     fn prepare_layout(&mut self, curr: &TokenType, tokens: &[Token], index: usize) {
+        self.ensure_blank_line_before_top_level_definitions(curr, tokens, index);
         if matches!(self.current_scope(), Some(ScopeKind::StructDef)) {
             self.ensure_newline_before_struct_field(curr, tokens, index);
             self.ensure_blank_line_before_method(curr, tokens, index);
@@ -723,12 +724,6 @@ impl Formatter {
         }
 
         // Joins `import "path" as name` into one line.
-        if matches!(prev, Some(TokenType::String(_)))
-            && matches!(prev_prev, Some(TokenType::Import))
-        {
-            return true;
-        }
-
         if matches!(prev, Some(TokenType::String(_))) && matches!(next, Some(TokenType::As)) {
             return true;
         }
@@ -968,6 +963,10 @@ impl Formatter {
         if matches!(self.tokens.prev_kind, Some(TokenType::Comment(_))) {
             return;
         }
+        // `pub u32 age` — the datatype follows `pub` on the same line.
+        if matches!(self.tokens.prev_kind, Some(TokenType::Public)) {
+            return;
+        }
         if matches!(self.next_significant(tokens, index), Some(TokenType::OpenParen)) {
             return;
         }
@@ -1092,6 +1091,80 @@ impl Formatter {
         if self.output.at_line_start && self.output.pending_empty_lines == 0 {
             self.output.pending_empty_lines = 1;
         }
+     }
+
+    fn ensure_blank_line_before_top_level_definitions(
+        &mut self,
+        curr: &TokenType,
+        tokens: &[Token],
+        index: usize,
+    ) {
+        // Never fire inside generic brackets or parens.
+        if self.depth.generic_depth > 0 || self.depth.paren_depth > 0 {
+            return;
+        }
+
+        // Inside a struct definition, methods or fields are handled by their own spacing rules.
+        if matches!(self.current_scope(), Some(ScopeKind::StructDef)) {
+            return;
+        }
+
+        let is_top_level = self.scope.indent_level == 0;
+        if !is_top_level {
+            return;
+        }
+
+        let is_definition = match curr {
+            TokenType::Struct
+            | TokenType::Enum
+            | TokenType::Function
+            | TokenType::Import
+            | TokenType::Extern
+            | TokenType::Public => true,
+            TokenType::Comment(_) => {
+                // If it is a comment, only treat it as a top-level definition start if it precedes one.
+                self.next_significant(tokens, index)
+                    .is_some_and(|t| {
+                        matches!(
+                            t,
+                            TokenType::Struct
+                                | TokenType::Enum
+                                | TokenType::Function
+                                | TokenType::Import
+                                | TokenType::Extern
+                                | TokenType::Public
+                        )
+                    })
+            }
+            _ => false,
+        };
+
+        if !is_definition {
+            return;
+        }
+
+        // Avoid adding blank lines between modifiers in the same definition header (e.g. `pub extern fn`).
+        if matches!(
+            self.tokens.prev_kind,
+            Some(TokenType::Public | TokenType::Extern)
+        ) {
+            return;
+        }
+
+        // If nothing has been written yet, we don't need a blank line.
+        if !self.output.has_content {
+            return;
+        }
+
+        // Avoid adding a blank line between a comment and the definition it precedes.
+        if matches!(curr, TokenType::Struct | TokenType::Enum | TokenType::Function | TokenType::Import | TokenType::Extern | TokenType::Public)
+            && matches!(self.tokens.prev_kind, Some(TokenType::Comment(_)))
+        {
+            return;
+        }
+
+        self.ensure_newline();
+        self.output.pending_empty_lines = self.output.pending_empty_lines.max(1);
     }
 
     fn current_scope(&self) -> Option<&ScopeKind> {

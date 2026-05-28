@@ -8,7 +8,7 @@ use crate::error::{CliError, CliResult};
 pub const STDLIB_PROJECT_NAME: &str = "std";
 pub const DEFAULT_TARGET: &str = "runtime";
 pub const COMPONENT_WASOME: &str = "wasome";
-pub const COMPONENT_BIN: &str = "bin";
+pub const COMPONENT_LIB: &str = "lib";
 pub const OBJECT_EXTENSIONS: &[&str] = &["a", "o"];
 
 const DEFAULT_STDLIB_REL_PATH: &str = "../std";
@@ -29,7 +29,7 @@ impl Target {
     }
 
     pub fn bin_dir(&self) -> PathBuf {
-        self.root.join(COMPONENT_BIN)
+        self.root.join(COMPONENT_LIB)
     }
 
     pub fn is_valid(&self) -> bool {
