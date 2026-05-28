@@ -253,7 +253,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-wasip1
+          targets: wasm32-unknown-unknown
 
       - name: Run Tests in WASM
         working-directory: stdlib/rust
