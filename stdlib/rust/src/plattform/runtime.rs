@@ -1,6 +1,4 @@
-use crate::panic_internal;
 use alloc::string::String;
-use core::panic::PanicInfo;
 
 #[link(wasm_import_module = "wasi_snapshot_preview1")]
 unsafe extern "C" {
