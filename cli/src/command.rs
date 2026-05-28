@@ -64,6 +64,25 @@ pub(crate) struct FmtArgs {
     pub(crate) path: PathBuf,
 }
 
+#[cfg(feature = "runtime")]
+#[derive(Args, Debug)]
+pub(crate) struct RunArgs {
+    #[arg(help = "Path of project to build and run, or path to a compiled WASM file [default: Current directory]", value_hint = ValueHint::AnyPath, default_value = ".", hide_default_value = true)]
+    pub(crate) path: PathBuf,
+    #[arg(long, help = "Allow access to read/write directories (e.g. '.', '/tmp')", value_name = "DIR")]
+    pub(crate) dir: Vec<String>,
+    #[arg(long, help = "Pass environment variables to the program (e.g. KEY=VALUE)", value_name = "KEY=VALUE")]
+    pub(crate) env: Vec<String>,
+    #[arg(long, help = "Allow basic network access (TCP/UDP, IP name lookup)")]
+    pub(crate) net: bool,
+    #[arg(long, help = "Disable inheriting standard I/O (stdin, stdout, stderr)")]
+    pub(crate) no_stdio: bool,
+    #[arg(long, help = "Disable pre-opening the current working directory (.)")]
+    pub(crate) no_cwd: bool,
+    #[arg(last = true, help = "Arguments to pass to the WebAssembly program")]
+    pub(crate) args: Vec<String>,
+}
+
 #[derive(Args, Debug)]
 pub(crate) struct TargetArgs {
     #[command(subcommand)]
@@ -89,6 +108,9 @@ pub(crate) enum Command {
     New(NewArgs),
     #[command(about = "Format the project source")]
     Fmt(FmtArgs),
+    #[cfg(feature = "runtime")]
+    #[command(about = "Build and run the project, or run a compiled WASM file (grants access to stdio and current directory by default)")]
+    Run(RunArgs),
     #[command(about = "Manage compilation targets")]
     Target(TargetArgs),
 }
@@ -144,5 +166,32 @@ impl Profile {
             Self::Size => codegen::OptLevel::Os,
             Self::SizeMin => codegen::OptLevel::Oz,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    #[cfg(not(feature = "runtime"))]
+    fn test_run_command_disabled_without_runtime_feature() {
+        // When the runtime feature is disabled, parsing "run" should fail
+        // because the Run variant is compiled out.
+        let result = Cli::try_parse_from(vec!["waso", "run"]);
+        match result {
+            Err(e) => assert_eq!(e.kind(), clap::error::ErrorKind::InvalidSubcommand),
+            Ok(_) => panic!("Expected error due to invalid subcommand"),
+        }
+    }
+    
+    #[test]
+    #[cfg(feature = "runtime")]
+    fn test_run_command_enabled_with_runtime_feature() {
+        // When the runtime feature is enabled, parsing "run" should succeed 
+        // if valid arguments are passed.
+        let result = Cli::try_parse_from(vec!["waso", "run"]);
+        assert!(result.is_ok());
     }
 }

@@ -4,6 +4,8 @@ mod error;
 mod execute;
 mod manifest;
 mod pipeline;
+#[cfg(feature = "runtime")]
+mod runtime;
 mod stdlib;
 mod template;
 mod workspace;
