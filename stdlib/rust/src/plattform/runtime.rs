@@ -1,4 +1,3 @@
-#![no_std]
 use alloc::string::String;
 use core::panic::PanicInfo;
 use crate::panic_internal;
@@ -21,7 +20,7 @@ struct MutIovec {
     len: usize,
 }
 
-pub fn print(s: &str) {
+pub fn print_str(s: &str) {
     let iovec = Iovec {
         buf: s.as_ptr(),
         len: s.len(),
@@ -69,9 +68,3 @@ pub fn exit(code: i32) {
     proc_exit(code)
 }
 
-// Prevent errors
-#[cfg(not(test))]
-#[panic_handler]
-fn rust_panic(info: &PanicInfo) -> ! {
-    panic_internal(info.message().as_str())
-}

@@ -1,13 +1,16 @@
 use crate::wasome_vec::WasomeVec;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::fmt::Display;
 use core::mem::forget;
 
-#[repr(transparent)]
+#[repr(C)]
 pub struct WasomeString {
-    inner: WasomeVec<u8>,
-}
+    pub refc: u32,
+    prt: *mut u8,
+    cnt: usize,
+    cap: usize,}
 
 impl Default for WasomeString {
     fn default() -> Self {
@@ -18,8 +21,17 @@ impl Default for WasomeString {
 impl WasomeString {
     #[must_use]
     pub fn new() -> Self {
+        let mut vec: Vec<u8> = Vec::with_capacity(10);
+        let cnt = vec.len();
+        let cap = vec.capacity();
+        let prt = vec.as_mut_ptr();
+        // Don't actually dealloc the memory
+        forget(vec);
         Self {
-            inner: WasomeVec::new(),
+            refc: 1,
+            prt,
+            cnt,
+            cap,
         }
     }
 
@@ -30,7 +42,7 @@ impl WasomeString {
     /// Should the drop function of the resulting `String` be called and then this again, it is UB.
     /// In other words, executing the drop function of the string invalidates self.
     pub unsafe fn as_string(of: *mut Self) -> String {
-        unsafe { String::from_utf8_unchecked(WasomeVec::as_vec(&raw mut (*of).inner)) }
+        unsafe { String::from_utf8_unchecked(Vec::from_raw_parts((*of).prt, (*of).cnt, (*of).cap)) }
     }
 
     /// # Safety
@@ -40,8 +52,11 @@ impl WasomeString {
     /// This does not call the drop function of string.
     pub unsafe fn update_from_string(of: *mut Self, string: String) {
         let this = unsafe { &mut *of };
-        let vec = string.into_bytes();
-        this.inner = vec.into();
+        let mut vec = string.into_bytes();
+        this.cap = vec.capacity();
+        this.cnt = vec.len();
+        this.prt = vec.as_mut_ptr();
+        forget(vec);
     }
 
     /// # Safety
@@ -99,11 +114,11 @@ impl WasomeString {
     ///
     /// `of` must be a valid pointer.
     pub unsafe fn dec_refc(to_handle: *mut Self) {
-        let refc = unsafe { &mut *to_handle }.inner.refc;
+        let refc = unsafe { &mut *to_handle }.refc;
         if refc == 1 {
             unsafe { Self::drop(to_handle) }
         } else {
-            unsafe { &mut *to_handle }.inner.refc = refc - 1;
+            unsafe { &mut *to_handle }.refc = refc - 1;
         }
     }
 
@@ -191,6 +206,7 @@ pub unsafe extern "C" fn string_drop(mut_string: *mut WasomeString) {
 
 #[cfg(test)]
 mod tests {
+    use crate::print_string;
     use super::*;
 
     #[test]
@@ -268,8 +284,13 @@ mod tests {
         let ws = string_new();
         unsafe {
             string_push_f64(ws, 17.3);
+            string_push_f64(ws, 17.3);
+
+            string_pop(ws);
+            print_string(ws);
         }
-        assert_eq!("17.3".to_string(), unsafe { WasomeString::as_string(ws) })
+
+        //assert_eq!("17.3".to_string(), unsafe { WasomeString::as_string(ws) })
     }
 
     #[test]

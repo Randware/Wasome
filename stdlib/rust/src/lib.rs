@@ -1,4 +1,4 @@
-
+#![no_std]
 extern crate alloc;
 extern crate core;
 
@@ -11,7 +11,8 @@ use crate::wasome_string::WasomeString;
 use alloc::boxed::Box;
 use alloc::string::String;
 use core::mem::forget;
-use crate::plattform::{exit, print, read_line_internal};
+use core::panic::PanicInfo;
+use crate::plattform::{exit, print_str, read_line_internal};
 
 #[global_allocator]
 static A: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
@@ -21,7 +22,7 @@ static A: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn print_char(to_print: u32) {
     unsafe {
-        print(String::from(char::from_u32_unchecked(to_print)).as_str());
+        print_str(String::from(char::from_u32_unchecked(to_print)).as_str());
     }
 }
 
@@ -31,7 +32,7 @@ pub unsafe extern "C" fn print_char(to_print: u32) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn print_string(to_print: *mut WasomeString) {
     let string = unsafe { WasomeString::as_string(to_print) };
-    print(&string);
+    print_str(&string);
     forget(string)
 }
 
@@ -62,12 +63,12 @@ pub extern "C" fn read_line() -> *mut WasomeString {
 }
 
 fn panic_internal(msg: Option<&str>) -> ! {
-    print("\nPANIC!\n");
+    print_str("\nPANIC!\n");
     if let Some(msg) = msg {
-        print(msg);
-        print("\n");
+        print_str(msg);
+        print_str("\n");
     }
-    print("\n");
+    print_str("\n");
     exit(1);
     #[cfg(target_arch = "wasm32")]
     core::arch::wasm32::unreachable();
@@ -75,6 +76,12 @@ fn panic_internal(msg: Option<&str>) -> ! {
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::empty_loop)]
     loop {}
+}
+
+#[cfg(not(test))]
+#[panic_handler]
+fn rust_panic(info: &PanicInfo) -> ! {
+    panic_internal(info.message().as_str())
 }
 
 #[cfg(test)]

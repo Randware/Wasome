@@ -3,7 +3,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
 extern "C" {
-    pub fn print(s: &str);
+    // Don't name it print to prevent name collisions
+    pub fn print_str(s: &str);
     pub fn read_line_internal() -> String;
 }
 

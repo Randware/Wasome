@@ -10,7 +10,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 dlmalloc = { version = "0.2.14", features = ["global"] }
-wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen = { version = "0.2", optional = true, default-features = false }
 
 
 [features]
@@ -22,4 +22,4 @@ web = ["wasm-bindgen"]
 panic = "abort"
 strip = true
 # Makes the binary size smaller
-lto = true
+#lto = true
