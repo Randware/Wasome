@@ -1392,3 +1392,59 @@ fn main() {
 }",
     );
 }
+
+#[test]
+fn pub_field_stays_on_one_line() {
+    assert_fmt(
+        "struct User {\n    pub u32 age\n    pub bool glasses\n}",
+        "\
+struct User {
+    pub u32 age
+    pub bool glasses
+}",
+    );
+}
+
+#[test]
+fn import_string_does_not_join_next_item() {
+    assert_fmt(
+        "import \"std\"\n\nstruct User {\n    pub u32 age\n    pub bool glasses\n}",
+        "\
+import \"std\"
+
+struct User {
+    pub u32 age
+    pub bool glasses
+}",
+    );
+}
+
+#[test]
+fn import_string_and_struct_on_same_line_split_with_blank_line() {
+    assert_fmt(
+        "import \"std\" struct User {\n    pub \n    u32 age\n    pub \n    bool glasses\n}\n\nfn main() {\n    s32 sum <- add(2, 3)\n\n    User user <- new User { age <- 10 as u32, glasses <- true }\n\n    std.String str <- std.string_new()\n\n    loop(s32 c <- 0; c < 10 ; c <- c + 1) {\n        (str).push_s32(c)\n    }\n}\n\nfn add(s32 num1, s32 num2) -> s32 {\n    -> num1 + num2\n}",
+        "\
+import \"std\"
+
+struct User {
+    pub u32 age
+    pub bool glasses
+}
+
+fn main() {
+    s32 sum <- add(2, 3)
+
+    User user <- new User { age <- 10 as u32, glasses <- true }
+
+    std.String str <- std.string_new()
+
+    loop (s32 c <- 0; c < 10; c <- c + 1) {
+        (str).push_s32(c)
+    }
+}
+
+fn add(s32 num1, s32 num2) -> s32 {
+    -> num1 + num2
+}",
+    );
+}
