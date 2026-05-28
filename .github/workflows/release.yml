@@ -67,7 +67,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}, wasm32-wasip1
+          targets: ${{ matrix.target }}, wasm32-wasip1, wasm32-unknown-unknown
 
       # --- NIX INSTALLATION
       - name: Install Nix
@@ -137,7 +137,10 @@ jobs:
         run: nix build .#packages.${{ matrix.nix_target }}.default
 
       - name: Build Standard Library (WASI)
-        run: cargo build --release --target wasm32-wasip1 --manifest-path stdlib/rust/Cargo.toml
+        run: cargo build --release --target wasm32-wasip1 --manifest-path stdlib/rust/Cargo.toml --features "runtime"
+
+      - name: Build Standard Library (Web)
+        run: cargo build --release --target wasm32-unknown-unknown --manifest-path stdlib/rust/Cargo.toml --features "web"
 
       # --- PACKAGING
       - name: Package (Unix)
@@ -147,6 +150,8 @@ jobs:
           mkdir -p release_pkg/lib
           mkdir -p release_pkg/std/runtime/lib
           mkdir -p release_pkg/std/runtime/wasome
+          mkdir -p release_pkg/std/web/lib
+          mkdir -p release_pkg/std/web/wasome
 
           # Copy frontend based on build method
           if [ "${{ matrix.builder }}" == "nix" ]; then
@@ -160,6 +165,8 @@ jobs:
 
           cp -r stdlib/wasome/* release_pkg/std/runtime/wasome/
           cp stdlib/rust/target/wasm32-wasip1/release/libstd.a release_pkg/std/runtime/lib/libstd.a
+          cp -r stdlib/wasome/* release_pkg/std/web/wasome/
+          cp stdlib/rust/target/wasm32-unknown-unknown/release/libstd.a release_pkg/std/web/lib/libstd.a
 
           cd release_pkg
           tar -czvf ../wasome-${{ matrix.target }}.tar.gz *
@@ -172,12 +179,16 @@ jobs:
           New-Item -ItemType Directory -Force -Path release_pkg\lib
           New-Item -ItemType Directory -Force -Path release_pkg\std\runtime\lib
           New-Item -ItemType Directory -Force -Path release_pkg\std\runtime\wasome
+          New-Item -ItemType Directory -Force -Path release_pkg\std\web\lib
+          New-Item -ItemType Directory -Force -Path release_pkg\std\web\wasome
 
           Copy-Item cli\target\${{ matrix.target }}\release\waso.exe release_pkg\bin\waso.exe
           $llvmDir = (Get-ChildItem "C:\llvm" -Directory | Select-Object -First 1).FullName
           Copy-Item "$llvmDir\bin\wasm-ld.exe" release_pkg\lib\wasm-ld.exe
           Copy-Item -Recurse stdlib\wasome\* release_pkg\std\runtime\wasome\
           Copy-Item stdlib\rust\target\wasm32-wasip1\release\libstd.a release_pkg\std\runtime\lib\libstd.a
+          Copy-Item -Recurse stdlib\wasome\* release_pkg\std\web\wasome\
+          Copy-Item stdlib\rust\target\wasm32-unknown-unknown\release\libstd.a release_pkg\std\web\lib\libstd.a
 
           Compress-Archive -Path release_pkg\* -DestinationPath wasome-${{ matrix.target }}.zip
 
