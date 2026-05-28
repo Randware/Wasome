@@ -43,6 +43,16 @@
           postInstall = ''
             mkdir -p $out/lib
             cp -L ${crossLlvm.lld}/bin/wasm-ld $out/lib/
+            cp -L ${crossLlvm.lld}/lib/liblld*.so* $out/lib/ 2>/dev/null || true
+            cp -L ${crossLlvm.libllvm.lib}/lib/libLLVM*.so* $out/lib/ 2>/dev/null || true
+            chmod -R +w $out/lib/
+            
+            # Patch all copied shared objects and the wasm-ld binary
+            for f in $out/lib/*; do
+              if [ -f "$f" ]; then
+                ${pkgs.patchelf}/bin/patchelf --set-rpath '$ORIGIN' "$f" || true
+              fi
+            done
           '';
 
           preConfigure = ''
@@ -55,9 +65,7 @@
             export LLVM_SYS_211_PREFIX=$PWD/fake-bin
           '';
 
-          cargoLock = {
-            lockFile = ./cli/Cargo.lock;
-          };
+          cargoHash = "sha256-Ys9KURsmX5tjoGn3WoYs6uhBZH6d82Mv5c9wkEBtM74=";
 
           nativeBuildInputs = with pkgs; [
             pkg-config

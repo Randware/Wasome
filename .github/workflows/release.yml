@@ -160,6 +160,34 @@ jobs:
           else
             cp cli/target/${{ matrix.target }}/release/waso release_pkg/bin/waso
             cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
+            
+            # Bundle dynamic libraries for standalone wasm-ld
+            if [[ "${{ matrix.os }}" == macos* ]]; then
+              LLVM_DIR=$(brew --prefix llvm@21)
+              cp -L "$LLVM_DIR"/lib/liblld*.dylib release_pkg/lib/ 2>/dev/null || true
+              cp -L "$LLVM_DIR"/lib/libLLVM*.dylib release_pkg/lib/ 2>/dev/null || true
+              cp -L "$LLVM_DIR"/lib/libc++*.dylib release_pkg/lib/ 2>/dev/null || true
+              
+              # Change the install name (ID) of all dylibs to be relative
+              for lib in release_pkg/lib/*.dylib; do
+                  install_name_tool -id "@loader_path/$(basename "$lib")" "$lib" || true
+              done
+
+              # Change the dependency paths in wasm-ld and all dylibs
+              for file in release_pkg/lib/wasm-ld release_pkg/lib/*.dylib; do
+                  otool -L "$file" | grep "$LLVM_DIR" | awk '{print $1}' | while read -r dep; do
+                      install_name_tool -change "$dep" "@loader_path/$(basename "$dep")" "$file" || true
+                  done
+              done
+            elif [[ "${{ matrix.os }}" == ubuntu* ]]; then
+              cp -L /usr/lib/llvm-21/lib/libLLVM*.so* release_pkg/lib/ 2>/dev/null || true
+              cp -L /usr/lib/llvm-21/lib/liblld*.so* release_pkg/lib/ 2>/dev/null || true
+              
+              # Ensure wasm-ld and its libraries look for dependencies in their own directory
+              sudo apt-get update && sudo apt-get install -y patchelf
+              find release_pkg/lib -type f \( -name "wasm-ld" -o -name "*.so*" \) -exec patchelf --set-rpath '$ORIGIN' {} \; || true
+            fi
+            
             chmod +x release_pkg/lib/wasm-ld
           fi
 
