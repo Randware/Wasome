@@ -13,7 +13,6 @@ use ast::symbol::{DirectlyAvailableSymbol, SymbolTable};
 use ast::traversal::directory_traversal::DirectoryTraversalHelper;
 use ast::{AST, TypedAST, UntypedAST};
 use error::diagnostic::Diagnostic;
-// Diagnostic importiert
 use std::ops::Deref;
 
 /// Analyzes the untyped AST and returns a fully typed AST or a Diagnostic.

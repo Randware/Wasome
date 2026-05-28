@@ -35,93 +35,137 @@ pub(crate) fn analyze_data_type<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
     context: &SyntaxContext<&T>,
     span: source::types::Span,
 ) -> Result<DataType, SemanticError> {
-    let resolved_type = analyze_primitive_data_type(to_analyze, span)
-        .ok()
-        .or_else(|| {
-            analyze_type_parameter(to_analyze.name(), context, span)
-                .ok()
-                .map(|tp| tp.data_type().clone())
-        })
-        .or_else(|| {
-            analyze_struct_usage(
-                to_analyze.name(),
-                to_analyze.type_parameters(),
-                context,
-                span,
-            )
-            .ok()
-            .map(DataType::Struct)
-        })
-        .or_else(|| {
-            analyze_enum_usage(
-                to_analyze.name(),
-                to_analyze.type_parameters(),
-                context,
-                span,
-            )
-            .ok()
-            .map(DataType::Enum)
-        });
-
-    resolved_type.ok_or_else(|| SemanticError::UnknownType {
-        name: to_analyze.name().to_string(),
-        span,
-    })
-}
-
-fn analyze_primitive_data_type(
-    to_analyze: &UntypedDataType,
-    span: source::types::Span,
-) -> Result<DataType, SemanticError> {
-    if !to_analyze.type_parameters().is_empty() {
-        return Err(SemanticError::InvalidUsage {
-            message: "Primitives cannot have type parameters".to_string(),
-            span,
-        });
+    match analyze_primitive_data_type(to_analyze, span) {
+        Ok(primitive) => return Ok(primitive),
+        Err(SemanticError::PrimitiveWithTypeParameters { type_name, span }) => {
+            return Err(SemanticError::PrimitiveWithTypeParameters { type_name, span });
+        }
+        _ => {}
     }
-    match to_analyze.name() {
-        "char" => Ok(DataType::Char),
-        "u8" => Ok(DataType::U8),
-        "s8" => Ok(DataType::S8),
-        "u16" => Ok(DataType::U16),
-        "s16" => Ok(DataType::S16),
-        "u32" => Ok(DataType::U32),
-        "s32" => Ok(DataType::S32),
-        "u64" => Ok(DataType::U64),
-        "s64" => Ok(DataType::S64),
-        "bool" => Ok(DataType::Bool),
-        "f32" => Ok(DataType::F32),
-        "f64" => Ok(DataType::F64),
-        _ => Err(SemanticError::UnknownType {
+
+    if let Ok(tp) = analyze_type_parameter(to_analyze.name(), context, span) {
+        return Ok(tp.data_type().clone());
+    }
+
+    match symbol_by_name(to_analyze.name(), context.ast_reference.symbols()) {
+        Some(DirectlyAvailableSymbol::Struct(_)) => {
+            let st = analyze_struct_usage(
+                to_analyze.name(),
+                to_analyze.type_parameters(),
+                context,
+                span,
+            )?;
+            Ok(DataType::Struct(st))
+        }
+        Some(DirectlyAvailableSymbol::Enum(_)) => {
+            let en = analyze_enum_usage(
+                to_analyze.name(),
+                to_analyze.type_parameters(),
+                context,
+                span,
+            )?;
+            Ok(DataType::Enum(en))
+        }
+        Some(_) => Err(SemanticError::SymbolKindMismatch {
+            name: to_analyze.name().to_string(),
+            expected: "type".to_string(),
+            span,
+        }),
+        None => Err(SemanticError::UnknownType {
             name: to_analyze.name().to_string(),
             span,
         }),
     }
 }
 
+fn analyze_primitive_data_type(
+    to_analyze: &UntypedDataType,
+    span: source::types::Span,
+) -> Result<DataType, SemanticError> {
+    let name_lower = to_analyze.name().to_lowercase();
+
+    let primitive_type = match name_lower.as_str() {
+        "char" => DataType::Char,
+        "u8" => DataType::U8,
+        "s8" => DataType::S8,
+        "u16" => DataType::U16,
+        "s16" => DataType::S16,
+        "u32" => DataType::U32,
+        "s32" => DataType::S32,
+        "u64" => DataType::U64,
+        "s64" => DataType::S64,
+        "bool" => DataType::Bool,
+        "f32" => DataType::F32,
+        "f64" => DataType::F64,
+        _ => {
+            return Err(SemanticError::UnknownType {
+                name: to_analyze.name().to_string(),
+                span,
+            });
+        }
+    };
+
+    if !to_analyze.type_parameters().is_empty() {
+        return Err(SemanticError::PrimitiveWithTypeParameters {
+            type_name: to_analyze.name().to_string(),
+            span,
+        });
+    }
+
+    if to_analyze.name() != name_lower {
+        return Err(SemanticError::UnknownType {
+            name: to_analyze.name().to_string(),
+            span,
+        });
+    }
+
+    Ok(primitive_type)
+}
 pub(crate) fn analyze_struct_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
     to_analyze: &str,
     type_parameters: &[UntypedDataType],
     context: &SyntaxContext<&T>,
     span: source::types::Span,
 ) -> Result<Rc<StructSymbol<TypedAST>>, SemanticError> {
-    let untyped_symbol =
-        symbol_by_name(to_analyze, context.ast_reference.symbols()).ok_or_else(|| {
-            SemanticError::UnknownSymbol {
-                name: to_analyze.to_string(),
-                span,
+    let untyped_symbol_opt = symbol_by_name(to_analyze, context.ast_reference.symbols());
+
+    if untyped_symbol_opt.is_none() && to_analyze.contains('.') {
+        let parts: Vec<&str> = to_analyze.split('.').collect();
+        if parts.len() == 2 {
+            let module_prefix = parts[0];
+            if symbol_by_name(module_prefix, context.ast_reference.symbols()).is_some() {
+                return Err(SemanticError::PrivateSymbolAccess {
+                    name: to_analyze.to_string(),
+                    span,
+                });
             }
-        })?;
+        }
+    }
+
+    let untyped_symbol = untyped_symbol_opt.ok_or_else(|| SemanticError::UnknownSymbol {
+        name: to_analyze.to_string(),
+        span,
+    })?;
 
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Struct(st) => st,
         _ => {
-            return Err(SemanticError::InvalidUsage {
-                message: format!("'{}' is not a struct", to_analyze),
+            return Err(SemanticError::SymbolKindMismatch {
+                name: to_analyze.to_string(),
+                expected: "struct".to_string(),
                 span,
             });
         }
     };
+
+    if untyped_symbol.type_parameters().len() != type_parameters.len() {
+        return Err(SemanticError::GenericArgumentCountMismatch {
+            name: to_analyze.to_string(),
+            expected: untyped_symbol.type_parameters().len(),
+            found: type_parameters.len(),
+            span,
+        });
+    }
 
     let type_parameters = analyze_type_parameters_providing(
         untyped_symbol.type_parameters(),
@@ -157,8 +201,9 @@ pub(crate) fn analyze_struct_usage_from_typed_type_parameters<
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Struct(st) => st,
         _ => {
-            return Err(SemanticError::InvalidUsage {
-                message: format!("'{}' is not a struct", to_analyze),
+            return Err(SemanticError::SymbolKindMismatch {
+                name: to_analyze.to_string(),
+                expected: "struct".to_string(),
                 span,
             });
         }
@@ -188,12 +233,22 @@ pub(crate) fn analyze_enum_usage<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
     let untyped_symbol = match untyped_symbol {
         DirectlyAvailableSymbol::Enum(st) => st,
         _ => {
-            return Err(SemanticError::InvalidUsage {
-                message: format!("'{}' is not an enum", to_analyze),
+            return Err(SemanticError::SymbolKindMismatch {
+                name: to_analyze.to_string(),
+                expected: "enum".to_string(),
                 span,
             });
         }
     };
+
+    if untyped_symbol.type_parameters().len() != type_parameters.len() {
+        return Err(SemanticError::GenericArgumentCountMismatch {
+            name: to_analyze.to_string(),
+            expected: untyped_symbol.type_parameters().len(),
+            found: type_parameters.len(),
+            span,
+        });
+    }
 
     let type_parameters = analyze_type_parameters_providing(
         untyped_symbol.type_parameters(),
@@ -236,9 +291,20 @@ pub(crate) fn analyze_type_parameters_declaration<'a, T: Clone + HasSymbols<'a, 
     to_analyze: impl Iterator<Item = &'a UntypedTypeParameter>,
     span: source::types::Span,
 ) -> Result<Vec<TypedTypeParameter>, SemanticError> {
-    to_analyze
-        .map(|tp| analyze_type_parameter_full(tp, context, span).cloned())
-        .collect::<Result<Vec<_>, _>>()
+    use std::collections::HashSet;
+    let mut seen_params = HashSet::new();
+    let mut typed_params = Vec::new();
+
+    for tp in to_analyze {
+        let name = tp.inner().name().to_string();
+        if !seen_params.insert(name.clone()) {
+            return Err(SemanticError::DuplicateTypeParameter { name, span });
+        }
+        let typed_param = analyze_type_parameter_full(tp, context, span)?.clone();
+        typed_params.push(typed_param);
+    }
+
+    Ok(typed_params)
 }
 
 pub(crate) fn analyze_type_parameter_providing<'a, T: Clone + HasSymbols<'a, UntypedAST>>(
@@ -282,7 +348,31 @@ pub(crate) fn analyze_function_call(
     let call_name = to_analyze.function();
     let name = &call_name.0;
 
+    if name.contains('.') {
+        let parts: Vec<&str> = name.split('.').collect();
+        if parts.len() == 2 {
+            let prefix = parts[0];
+            if let Some(variable_symbol) = mapper.lookup_variable(prefix) {
+                if !matches!(variable_symbol.data_type(), DataType::Struct(_)) {
+                    return Err(SemanticError::MethodOnNonStruct {
+                        type_name: format!("{:?}", variable_symbol.data_type()),
+                        span,
+                    });
+                }
+            }
+        }
+    }
+
     let untyped_func_symbol = analyze_function_usage(context, name, span)?;
+
+    if untyped_func_symbol.type_parameters().len() != to_analyze.function().1.len() {
+        return Err(SemanticError::GenericArgumentCountMismatch {
+            name: name.to_string(),
+            expected: untyped_func_symbol.type_parameters().len(),
+            found: to_analyze.function().1.len(),
+            span,
+        });
+    }
 
     let type_parameters = analyze_type_parameters_providing(
         untyped_func_symbol.type_parameters(),
@@ -329,8 +419,9 @@ fn analyze_function_usage<'a>(
     let untyped_func_symbol = match found_symbol {
         DirectlyAvailableSymbol::Function(f) => f,
         _ => {
-            return Err(SemanticError::InvalidUsage {
-                message: format!("'{}' is not a function", name),
+            return Err(SemanticError::SymbolKindMismatch {
+                name: name.to_string(),
+                expected: "function".to_string(),
                 span,
             });
         }
@@ -349,8 +440,8 @@ pub(crate) fn analyze_method_call(
     let struct_symbol = if let DataType::Struct(st) = struct_expr.data_type() {
         st
     } else {
-        return Err(SemanticError::InvalidUsage {
-            message: "Method called on non-struct type".to_string(),
+        return Err(SemanticError::MethodOnNonStruct {
+            type_name: format!("{:?}", struct_expr.data_type()),
             span: *to_analyze.struct_source().position(),
         });
     };
@@ -361,14 +452,27 @@ pub(crate) fn analyze_method_call(
             message: "Could not find untyped struct symbol".to_string(),
             span,
         })?;
-    let methods = context.global_elements.methods(&untyped_struct_symbol, struct_symbol.type_parameters()).expect("We have a typed symbol but didn't translate it");
+    let methods = context
+        .global_elements
+        .methods(&untyped_struct_symbol, struct_symbol.type_parameters())
+        .expect("We have a typed symbol but didn't translate it");
 
+    let function_symbol = methods
+        .into_iter()
+        .find(|method| method.name() == to_analyze.function().0)
+        .ok_or_else(|| SemanticError::UnknownSymbol {
+            name: to_analyze.function().0.clone(),
+            span,
+        })?;
 
-    let function_symbol = methods.into_iter().find(|method| method.name() == to_analyze.function().0)
-    .ok_or_else(|| SemanticError::UnknownSymbol {
-        name: to_analyze.function().0.clone(),
-        span,
-    })?;
+    if function_symbol.type_parameters().len() != to_analyze.function().1.len() {
+        return Err(SemanticError::GenericArgumentCountMismatch {
+            name: to_analyze.function().0.clone(),
+            expected: function_symbol.type_parameters().len(),
+            found: to_analyze.function().1.len(),
+            span,
+        });
+    }
 
     let typed_type_parameters = analyze_type_parameters_providing(
         function_symbol.type_parameters(),

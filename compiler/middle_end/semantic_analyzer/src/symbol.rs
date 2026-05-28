@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use crate::error_sa::SemanticError;
 use crate::mics_sa::{
     analyze_data_type, analyze_struct_usage_from_typed_type_parameters,
@@ -20,6 +19,7 @@ use ast::traversal::struct_traversal::StructTraversalHelper;
 use ast::type_parameter::TypedTypeParameter;
 use ast::visibility::Visibility;
 use ast::{ASTNode, ASTType, TypedAST, UntypedAST};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub mod function_symbol_mapper;
@@ -347,7 +347,10 @@ fn convert_method_symbol(
         .type_parameter_context
         .parent
         .as_ref()
-        .unwrap()
+        .ok_or_else(|| SemanticError::Internal {
+            message: "Method analysis started without parent struct context".to_string(),
+            span,
+        })?
         .current_owned();
 
     let mut typed_params = Vec::new();
@@ -374,6 +377,27 @@ fn convert_method_symbol(
         untyped.type_parameters().iter(),
         span,
     )?;
+
+    if untyped.name() == "drop" {
+        if return_type.is_some() {
+            return Err(SemanticError::InvalidDropSignature {
+                message: "drop methods must not return a value".to_string(),
+                span,
+            });
+        }
+        if !typed_type_params.is_empty() {
+            return Err(SemanticError::InvalidDropSignature {
+                message: "drop methods must not have generic type parameters".to_string(),
+                span,
+            });
+        }
+        if typed_params.len() > 1 {
+            return Err(SemanticError::InvalidDropSignature {
+                message: "drop methods must not take any arguments except 'self'".to_string(),
+                span,
+            });
+        }
+    }
 
     Ok(Rc::new(FunctionSymbol::new(
         untyped.name().to_string(),

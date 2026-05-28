@@ -45,13 +45,15 @@ pub(crate) fn analyze_expression(
             typed_call
                 .function()
                 .return_type()
-                .ok_or_else(|| SemanticError::InvalidUsage {
-                    message: format!("Method '{}' does not return a value", inner.function().0),
+                .ok_or_else(|| SemanticError::VoidUsedAsValue {
+                    name: inner.function().0.clone(),
                     span,
                 })?;
             Expression::FunctionCall(typed_call)
         }
-        Expression::Variable(inner) => analyze_variable_use(inner, function_symbol_mapper, span)?,
+        Expression::Variable(inner) => {
+            analyze_variable_use(inner, context, function_symbol_mapper, span)?
+        }
         Expression::Literal(inner) => Expression::Literal(analyze_literal(inner, span)?),
         Expression::UnaryOp(inner) => Expression::UnaryOp(analyze_unary_op(
             inner,
@@ -92,11 +94,8 @@ pub(crate) fn analyze_non_void_function_call(
     typed_call
         .function()
         .return_type()
-        .ok_or_else(|| SemanticError::InvalidUsage {
-            message: format!(
-                "Function '{}' does not return a value",
-                to_analyze.function().0
-            ),
+        .ok_or_else(|| SemanticError::VoidUsedAsValue {
+            name: to_analyze.function().0.clone(),
             span,
         })?;
     Ok(typed_call)
@@ -104,17 +103,30 @@ pub(crate) fn analyze_non_void_function_call(
 
 fn analyze_variable_use(
     variable_name: &str,
+    context: &SyntaxContext<&StatementTraversalHelper<UntypedAST>>,
     function_symbol_mapper: &mut FunctionSymbolMapper,
     span: Span,
 ) -> Result<Expression<TypedAST>, SemanticError> {
-    let typed_symbol: Rc<VariableSymbol<TypedAST>> = function_symbol_mapper
-        .lookup_variable(variable_name)
-        .ok_or_else(|| SemanticError::UnknownSymbol {
-            name: variable_name.to_string(),
-            span,
-        })?;
+    match function_symbol_mapper.lookup_variable(variable_name) {
+        Some(typed_symbol) => Ok(Expression::Variable(typed_symbol)),
+        None => {
+            if symbol_by_name(variable_name, context.ast_reference.symbols_available_at()).is_some()
+            {
+                return Err(SemanticError::InvalidUsage {
+                    message: format!(
+                        "Symbol '{}' cannot be used as a standalone value",
+                        variable_name
+                    ),
+                    span,
+                });
+            }
 
-    Ok(Expression::Variable(typed_symbol))
+            Err(SemanticError::UnknownSymbol {
+                name: variable_name.to_string(),
+                span,
+            })
+        }
+    }
 }
 
 fn analyze_literal(to_analyze: &str, span: Span) -> Result<Literal, SemanticError> {
@@ -142,8 +154,8 @@ fn analyze_literal(to_analyze: &str, span: Span) -> Result<Literal, SemanticErro
         return Ok(Literal::S32(s32_val));
     }
 
-    Err(SemanticError::InvalidUsage {
-        message: format!("Invalid literal '{}'", to_analyze),
+    Err(SemanticError::InvalidLiteralFormat {
+        value: to_analyze.to_string(),
         span,
     })
 }
@@ -171,12 +183,15 @@ fn analyze_unary_op(
 
     let postion = *expression.position();
 
+    let input_data_type = converted_input.data_type();
+
     let analyzed = UnaryOp::<TypedAST>::new(
         converted_unary_op_type,
         ASTNode::new(converted_input, postion),
     )
-    .ok_or_else(|| SemanticError::InvalidUsage {
-        message: "Invalid unary operation".to_string(),
+    .ok_or_else(|| SemanticError::UnsupportedUnaryOperation {
+        op: format!("{:?}", op_type),
+        target_type: format!("{:?}", input_data_type),
         span,
     })?;
 
@@ -201,9 +216,14 @@ fn analyze_binary_op(
     let typed_left_node = ASTNode::new(converted_left, left_position);
     let typed_right_node = ASTNode::new(converted_right, right_position);
 
+    let left_dt = typed_left_node.data_type();
+    let right_dt = typed_right_node.data_type();
+
     let analyzed = BinaryOp::<TypedAST>::new(op_type, typed_left_node, typed_right_node)
-        .ok_or_else(|| SemanticError::InvalidUsage {
-            message: "Invalid binary operation".to_string(),
+        .ok_or_else(|| SemanticError::UnsupportedBinaryOperation {
+            op: format!("{:?}", op_type),
+            left_type: format!("{:?}", left_dt),
+            right_type: format!("{:?}", right_dt),
             span,
         })?;
 
@@ -233,8 +253,9 @@ fn analyze_new_struct(
     })? {
         st
     } else {
-        return Err(SemanticError::InvalidUsage {
-            message: format!("'{}' is not a struct", to_analyze.symbol().0),
+        return Err(SemanticError::SymbolKindMismatch {
+            name: to_analyze.symbol().0.clone(),
+            expected: "struct".to_string(),
             span,
         });
     };
@@ -255,8 +276,9 @@ fn analyze_new_struct(
                 .iter()
                 .map(|field| &field.0)
                 .find(|field| param.0.deref() == field.name())
-                .ok_or_else(|| SemanticError::InvalidUsage {
-                    message: format!("Field '{}' not found in struct", param.0.deref()),
+                .ok_or_else(|| SemanticError::MissingOrInvalidStructField {
+                    struct_name: to_analyze.symbol().0.clone(),
+                    field_name: param.0.deref().to_string(),
                     span: *param.0.position(),
                 })?
                 .clone();
@@ -280,8 +302,8 @@ fn analyze_new_struct(
 
     let types_ok = all_struct_fields_exist_dt_match && parameter.len() == struct_fields.len();
     if !types_ok {
-        return Err(SemanticError::InvalidUsage {
-            message: "Struct initialization parameters do not match fields".to_string(),
+        return Err(SemanticError::StructInitializationMismatch {
+            struct_name: to_analyze.symbol().0.clone(),
             span,
         });
     }
@@ -313,8 +335,9 @@ fn analyze_new_enum(
     })? {
         en
     } else {
-        return Err(SemanticError::InvalidUsage {
-            message: format!("'{}' is not an enum", to_analyze.to_create().0),
+        return Err(SemanticError::SymbolKindMismatch {
+            name: to_analyze.to_create().0.clone(),
+            expected: "enum".to_string(),
             span,
         });
     };
@@ -330,8 +353,9 @@ fn analyze_new_enum(
     let enum_variant = enum_variants
         .iter()
         .find(|var| var.name() == to_analyze.variant())
-        .ok_or_else(|| SemanticError::InvalidUsage {
-            message: format!("Variant '{}' not found in enum", to_analyze.variant()),
+        .ok_or_else(|| SemanticError::UnknownEnumVariant {
+            enum_name: to_analyze.to_create().0.clone(),
+            variant_name: to_analyze.variant().to_string(),
             span,
         })?;
 
@@ -349,8 +373,13 @@ fn analyze_new_enum(
         .zip(enum_variant.fields().iter())
         .all(|(found, expected)| &found.data_type() == expected)
     {
-        return Err(SemanticError::InvalidUsage {
-            message: "Enum variant initialization parameters do not match fields".to_string(),
+        return Err(SemanticError::VariantPayloadMismatch {
+            variant_name: to_analyze.variant().to_string(),
+            expected_types: format!("{:?}", enum_variant.fields()),
+            found_types: format!(
+                "{:?}",
+                parameter.iter().map(|p| p.data_type()).collect::<Vec<_>>()
+            ),
             span,
         });
     }
@@ -377,8 +406,8 @@ fn analyze_struct_field_access(
     let source_symbol = if let DataType::Struct(st) = source_expr.data_type() {
         st
     } else {
-        return Err(SemanticError::InvalidUsage {
-            message: "Field access on non-struct type".to_string(),
+        return Err(SemanticError::FieldAccessOnNonStruct {
+            type_name: format!("{:?}", source_expr.data_type()),
             span: *to_analyze.of().position(),
         });
     };
@@ -403,8 +432,9 @@ fn analyze_struct_field_access(
     let field_info = sfs
         .iter()
         .find(|(sf, _)| sf.name() == to_analyze.field())
-        .ok_or_else(|| SemanticError::InvalidUsage {
-            message: format!("Field '{}' not found", to_analyze.field()),
+        .ok_or_else(|| SemanticError::UnknownField {
+            struct_name: source_symbol.name().to_string(),
+            field_name: to_analyze.field().to_string(),
             span,
         })?;
 

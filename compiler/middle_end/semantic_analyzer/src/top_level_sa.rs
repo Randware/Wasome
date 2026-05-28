@@ -4,11 +4,13 @@ use crate::symbol::SyntaxContext;
 use crate::symbol::function_symbol_mapper::FunctionSymbolMapper;
 use ast::composite::{Enum, EnumVariant};
 use ast::statement::{ControlStructure, Statement};
-use ast::symbol::{EnumSymbol, EnumVariantSymbol, FunctionSymbol, SymbolWithTypeParameter};
-use ast::top_level::{Function, FunctionType};
+use ast::symbol::{
+    DirectlyAvailableSymbol, EnumSymbol, EnumVariantSymbol, FunctionSymbol, SymbolWithTypeParameter,
+};
+use ast::top_level::Function;
+use ast::top_level::FunctionType;
 use ast::traversal::enum_traversal::EnumTraversalHelper;
 use ast::traversal::function_traversal::FunctionTraversalHelper;
-use ast::traversal::statement_traversal::StatementTraversalHelper;
 use ast::visibility::Visible;
 use ast::{ASTNode, TypedAST, UntypedAST};
 use std::ops::Deref;
@@ -37,6 +39,7 @@ pub(crate) fn analyze_function(
     context: &SyntaxContext<&FunctionTraversalHelper<UntypedAST>>,
 ) -> Result<ASTNode<Function<TypedAST>>, SemanticError> {
     let mut func_mapper = FunctionSymbolMapper::new();
+
     func_mapper.set_current_function_return_type(symbol.return_type().cloned());
 
     for param_symbol in symbol.params().iter() {
@@ -54,9 +57,14 @@ pub(crate) fn analyze_function(
 
     let ft = match context.ast_reference.inner().function_type() {
         FunctionType::Regular(implementation) => {
-            let sth = StatementTraversalHelper::new_root(context.ast_reference).unwrap();
-            let new_context = context.with_ast_reference(&sth);
+            let sth = context.ast_reference.ref_to_implementation().map_err(|_| {
+                SemanticError::Internal {
+                    message: "Failed to initialize statement traversal helper".to_string(),
+                    span: *implementation.position(),
+                }
+            })?;
 
+            let new_context = context.with_ast_reference(&sth);
             let typed_implementation_statement = analyze_statement(&new_context, &mut func_mapper)?;
 
             if symbol.return_type().is_some() && !always_return(&typed_implementation_statement) {
@@ -69,7 +77,7 @@ pub(crate) fn analyze_function(
             let code_area = *implementation.position();
             FunctionType::Regular(ASTNode::new(typed_implementation_statement, code_area))
         }
-        FunctionType::External => FunctionType::External
+        FunctionType::External => FunctionType::External,
     };
 
     let to_analyze = &context.ast_reference;
