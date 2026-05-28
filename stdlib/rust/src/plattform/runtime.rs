@@ -1,6 +1,6 @@
+use crate::panic_internal;
 use alloc::string::String;
 use core::panic::PanicInfo;
-use crate::panic_internal;
 
 #[link(wasm_import_module = "wasi_snapshot_preview1")]
 unsafe extern "C" {
@@ -67,4 +67,3 @@ pub fn read_line_internal() -> String {
 pub fn exit(code: i32) {
     proc_exit(code)
 }
-

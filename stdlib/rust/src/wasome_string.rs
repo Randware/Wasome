@@ -1,4 +1,3 @@
-use crate::wasome_vec::WasomeVec;
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -10,7 +9,8 @@ pub struct WasomeString {
     pub refc: u32,
     prt: *mut u8,
     cnt: usize,
-    cap: usize,}
+    cap: usize,
+}
 
 impl Default for WasomeString {
     fn default() -> Self {
@@ -206,8 +206,8 @@ pub unsafe extern "C" fn string_drop(mut_string: *mut WasomeString) {
 
 #[cfg(test)]
 mod tests {
-    use crate::print_string;
     use super::*;
+    use crate::print_string;
 
     #[test]
     fn new_wasome_string_is_valid() {

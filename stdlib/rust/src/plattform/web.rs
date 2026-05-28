@@ -21,7 +21,9 @@ pub fn exit(_code: i32) {
 
 #[wasm_bindgen]
 pub fn main() {
-    unsafe {_start();}
+    unsafe {
+        _start();
+    }
 }
 
 unsafe extern "C" {
