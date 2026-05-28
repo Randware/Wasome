@@ -1,6 +1,6 @@
 #![no_std]
 extern crate alloc;
-extern crate core;
+//extern crate core;
 
 mod wasome_mem;
 mod wasome_string;
