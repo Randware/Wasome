@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - fix/release
     tags:
       - "**[0-9]+.[0-9]+.[0-9]+*"
 
@@ -214,6 +216,9 @@ jobs:
                   otool -L "$file" | awk 'NR>1 {print $1}' | grep -E '^/opt/homebrew|^/usr/local|^@rpath' | while read -r dep; do
                       install_name_tool -change "$dep" "@rpath/$(basename "$dep")" "$file" || true
                   done
+                  
+                  # Re-sign the binary, as install_name_tool invalidates the code signature on macOS
+                  codesign --force -s - "$file" || true
               done
             elif [[ "${{ matrix.os }}" == ubuntu* ]]; then
               cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
@@ -268,16 +273,47 @@ jobs:
 
           Compress-Archive -Path release_pkg\* -DestinationPath wasome-${{ matrix.target }}.zip
 
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasome-${{ matrix.target }}
+          path: wasome-${{ matrix.target }}.${{ matrix.archive }}
+
       - name: Upload Artifact to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: wasome-${{ matrix.target }}.${{ matrix.archive }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  test-macos-release:
+    name: Test macOS Standalone Release
+    needs: build-and-release
+    runs-on: macos-latest
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wasome-aarch64-apple-darwin
+          path: download
+      - name: Run Test
+        run: |
+          mkdir -p ~/.wasome
+          tar -xzf download/wasome-aarch64-apple-darwin.tar.gz -C ~/.wasome
+          export PATH="$HOME/.wasome/bin:$PATH"
+          waso --version
+          
+          mkdir -p test-proj/src
+          cd test-proj
+          echo -e '[package]\nname="test-proj"\nversion="0.1.0"\n' > waso.toml
+          echo 'fn main() { println("Hello from compiled wasm!"); }' > src/main.waso
+          waso run
+
   publish-homebrew:
     name: Publish Homebrew Formula
     needs: build-and-release
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     steps:
       - name: Get version
