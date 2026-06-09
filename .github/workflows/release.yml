@@ -2,8 +2,6 @@ name: Release
 
 on:
   push:
-    branches:
-      - fix/release
     tags:
       - "**[0-9]+.[0-9]+.[0-9]+*"
 
@@ -276,82 +274,16 @@ jobs:
 
           Compress-Archive -Path release_pkg\* -DestinationPath wasome-${{ matrix.target }}.zip
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasome-${{ matrix.target }}
-          path: wasome-${{ matrix.target }}.${{ matrix.archive }}
-
       - name: Upload Artifact to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: wasome-${{ matrix.target }}.${{ matrix.archive }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  test-macos-release:
-    name: Test macOS Standalone Release
-    needs: build-and-release
-    runs-on: macos-latest
-    steps:
-      - name: Download Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: wasome-aarch64-apple-darwin
-          path: download
-      - name: Run Test
-        run: |
-          mkdir -p ~/.wasome
-          tar -xzf download/wasome-aarch64-apple-darwin.tar.gz -C ~/.wasome
-          export PATH="$HOME/.wasome/bin:$PATH"
-          waso --version
-          
-          echo "Testing wasm-ld directly..."
-          ~/.wasome/lib/wasm-ld --version || echo "wasm-ld failed with exit code $?"
-          
-          waso new test-proj
-          cd test-proj
-          waso run
-
-  test-homebrew-local:
-    name: Test Homebrew Install
-    needs: build-and-release
-    runs-on: macos-latest
-    steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Generate and Test Formula
-        run: |
-          ARM_TAR=$(find artifacts -name "wasome-aarch64-apple-darwin.tar.gz" | head -n 1)
-          ARM_SHA=$(shasum -a 256 "$ARM_TAR" | awk '{print $1}')
-          
-          cat << EOF > wasome.rb
-          class Wasome < Formula
-            desc "The WebAssembly Language for Everyone"
-            homepage "https://wasome.dev/"
-            version "9.9.9-test"
-            url "file://$PWD/$ARM_TAR"
-            sha256 "$ARM_SHA"
-            def install
-              libexec.install "bin", "lib", "std"
-              bin.install_symlink libexec/"bin/waso"
-            end
-          end
-          EOF
-          
-          # Homebrew now requires formulae to be in a tap
-          brew tap-new randware/local-tap
-          cp wasome.rb $(brew --repository randware/local-tap)/Formula/
-          brew install randware/local-tap/wasome
-          waso --version
-
   publish-homebrew:
     name: Publish Homebrew Formula
     needs: build-and-release
-    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     steps:
       - name: Get version
