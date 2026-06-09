@@ -342,7 +342,10 @@ jobs:
           end
           EOF
           
-          brew install --build-from-source ./wasome.rb
+          # Homebrew now requires formulae to be in a tap
+          brew tap-new randware/local-tap
+          cp wasome.rb $(brew --repository randware/local-tap)/Formula/
+          brew install randware/local-tap/wasome
           waso --version
 
   publish-homebrew:
