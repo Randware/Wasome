@@ -169,9 +169,11 @@ jobs:
 
               # Homebrew binaries often reference core LLVM dylibs via @rpath instead of absolute paths.
               # Explicitly copy the core LLVM libraries first to ensure they are included.
-              LLVM_DIR=$(brew --prefix llvm@21)
-              LLD_DIR=$(brew --prefix lld)
-              for f in "$LLVM_DIR"/lib/liblld*.dylib "$LLVM_DIR"/lib/libLLVM*.dylib "$LLVM_DIR"/lib/libc++*.dylib "$LLD_DIR"/lib/liblld*.dylib; do
+              # Find the exact lib directory matching the wasm-ld binary to avoid version mismatches.
+              WASM_LD_REAL=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$(which wasm-ld)")
+              WASM_LD_LIB_DIR="$(dirname "$WASM_LD_REAL")/../lib"
+
+              for f in "$WASM_LD_LIB_DIR"/liblld*.dylib "$WASM_LD_LIB_DIR"/libLLVM*.dylib "$WASM_LD_LIB_DIR"/libc++*.dylib; do
                   [ -f "$f" ] || continue
                   real=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$f")
                   base=$(basename "$f")
