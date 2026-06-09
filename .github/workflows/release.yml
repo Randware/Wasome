@@ -304,10 +304,11 @@ jobs:
           export PATH="$HOME/.wasome/bin:$PATH"
           waso --version
           
-          mkdir -p test-proj/src
+          echo "Testing wasm-ld directly..."
+          ~/.wasome/lib/wasm-ld --version || echo "wasm-ld failed with exit code $?"
+          
+          waso new test-proj
           cd test-proj
-          echo -e '[package]\nname="test-proj"\nversion="0.1.0"\n' > waso.toml
-          echo 'fn main() { println("Hello from compiled wasm!"); }' > src/main.waso
           waso run
 
   publish-homebrew:
