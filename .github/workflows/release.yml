@@ -167,18 +167,23 @@ jobs:
 
               # Homebrew binaries often reference core LLVM dylibs via @rpath instead of absolute paths.
               # Explicitly copy the core LLVM libraries first to ensure they are included.
-              LLVM_DIR=$(brew --prefix llvm@21)
-              for f in "$LLVM_DIR"/lib/liblld*.dylib "$LLVM_DIR"/lib/libLLVM*.dylib "$LLVM_DIR"/lib/libc++*.dylib; do
+              # Find the exact lib directory matching the wasm-ld binary to avoid version mismatches.
+              WASM_LD_REAL=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$(which wasm-ld)")
+              WASM_LD_LIB_DIR="$(dirname "$WASM_LD_REAL")/../lib"
+
+              for f in "$WASM_LD_LIB_DIR"/liblld*.dylib "$WASM_LD_LIB_DIR"/libLLVM*.dylib "$WASM_LD_LIB_DIR"/libc++*.dylib; do
                   [ -f "$f" ] || continue
                   real=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$f")
                   base=$(basename "$f")
                   real_base=$(basename "$real")
-                  cp "$real" "release_pkg/lib/$real_base" 2>/dev/null || true
-                  if [ "$base" != "$real_base" ]; then
+                  if [ ! -f "release_pkg/lib/$real_base" ]; then
+                      cp "$real" "release_pkg/lib/$real_base" 2>/dev/null || continue
+                  fi
+                  if [ "$base" != "$real_base" ] && [ ! -e "release_pkg/lib/$base" ]; then
                       ln -sf "$real_base" "release_pkg/lib/$base"
                   fi
               done
-              
+
               # Automatically find and copy all other Homebrew dylib dependencies (compute full closure)
               while true; do
                   new_libs=0
@@ -188,10 +193,11 @@ jobs:
                       base=$(basename "$dep")
                       real_base=$(basename "$real")
                       if [ ! -f "release_pkg/lib/$real_base" ]; then
-                          cp "$real" "release_pkg/lib/$real_base" 2>/dev/null || true
-                          new_libs=1
+                          if cp "$real" "release_pkg/lib/$real_base" 2>/dev/null; then
+                              new_libs=1
+                          fi
                       fi
-                      if [ "$base" != "$real_base" ] && [ ! -e "release_pkg/lib/$base" ]; then
+                      if [ "$base" != "$real_base" ] && [ -e "release_pkg/lib/$real_base" ] && [ ! -e "release_pkg/lib/$base" ]; then
                           ln -sf "$real_base" "release_pkg/lib/$base"
                       fi
                   done
@@ -199,39 +205,44 @@ jobs:
                       break
                   fi
               done
-              
+
               # Add @loader_path to the rpath of every binary and change absolute/rpath dependencies to use @rpath
               for file in release_pkg/lib/wasm-ld release_pkg/lib/*.dylib; do
                   [ -f "$file" ] || continue
                   [ -L "$file" ] && continue # Skip symlinks for install_name_tool
-                  
+
                   if [[ "$file" == *.dylib ]]; then
                       install_name_tool -id "@rpath/$(basename "$file")" "$file" || true
                   fi
-                  
+
                   install_name_tool -add_rpath "@loader_path" "$file" 2>/dev/null || true
-                  
+
                   otool -L "$file" | awk 'NR>1 {print $1}' | grep -E '^/opt/homebrew|^/usr/local|^@rpath' | while read -r dep; do
                       install_name_tool -change "$dep" "@rpath/$(basename "$dep")" "$file" || true
                   done
+
+                  # Re-sign the binary, as install_name_tool invalidates the code signature on macOS
+                  codesign --force -s - "$file" || true
               done
             elif [[ "${{ matrix.os }}" == ubuntu* ]]; then
               cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
-              
+
               for f in /usr/lib/llvm-21/lib/libLLVM*.so* /usr/lib/llvm-21/lib/liblld*.so*; do
                   [ -f "$f" ] || continue
                   real=$(readlink -f "$f")
                   base=$(basename "$f")
                   real_base=$(basename "$real")
-                  cp "$real" "release_pkg/lib/$real_base" 2>/dev/null || true
-                  if [ "$base" != "$real_base" ]; then
+                  if [ ! -f "release_pkg/lib/$real_base" ]; then
+                      cp "$real" "release_pkg/lib/$real_base" 2>/dev/null || continue
+                  fi
+                  if [ "$base" != "$real_base" ] && [ ! -e "release_pkg/lib/$base" ]; then
                       ln -sf "$real_base" "release_pkg/lib/$base"
                   fi
               done
-              
+
               # Ensure wasm-ld and its libraries look for dependencies in their own directory
               sudo apt-get update && sudo apt-get install -y patchelf
-              find release_pkg/lib -type f \( -name "wasm-ld" -o -name "*.so*" \) ! -type l -exec patchelf --set-rpath '$ORIGIN' {} \; || true
+              find release_pkg/lib -type f \( -name "wasm-ld" -o -name "*.so*" \) -exec patchelf --set-rpath '$ORIGIN' {} \; || true
             else
               cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
             fi
