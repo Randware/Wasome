@@ -123,8 +123,14 @@ impl StdlibResolver {
     }
 
     /// Computes the default stdlib path relative to the current binary.
+    ///
+    /// We canonicalize the exe path to resolve symlinks (e.g., Homebrew creates a
+    /// symlink at `/opt/homebrew/bin/waso` → `.../libexec/bin/waso`). Without this,
+    /// `current_exe()` may return the symlink path, causing `../std` to resolve
+    /// relative to the wrong directory.
     fn default_stdlib_path() -> CliResult<PathBuf> {
         let exe = env::current_exe()?;
+        let exe = exe.canonicalize().unwrap_or(exe);
         let bin_dir = exe
             .parent()
             .expect("Binary should always have a parent directory");
