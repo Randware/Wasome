@@ -23,7 +23,7 @@
     } else if (platform.includes("mac") || userAgent.includes("mac")) {
       os = "mac";
       installCommand =
-        "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
+        "brew install Randware/tap/wasome";
     } else {
       os = "linux"; // Default
       installCommand =
@@ -45,6 +45,8 @@
     os = newOS;
     if (os === "windows") {
       installCommand = "irm https://get.wasome.dev | iex";
+    } else if (os === "mac") {
+      installCommand = "brew install Randware/tap/wasome";
     } else {
       installCommand =
         "curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh";
