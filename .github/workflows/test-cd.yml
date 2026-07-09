@@ -1,0 +1,368 @@
+name: Test CD Pipeline
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - ".github/workflows/test-cd.yml"
+      - "install.sh"
+      - "cli/**"
+      - "compiler/**"
+      - "stdlib/**"
+
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Step 1: Build the macOS release package (same as the real release workflow)
+  # ──────────────────────────────────────────────────────────────────────────────
+  build-macos:
+    name: Build macOS (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-26
+            target: aarch64-apple-darwin
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}, wasm32-wasip1, wasm32-unknown-unknown
+
+      - name: Install LLVM 21 and LLD (macOS)
+        run: brew install llvm@21 lld
+
+      - name: Export LLVM Prefix (macOS)
+        run: |
+          LLVM_DIR=$(brew --prefix llvm@21)
+          echo "LLVM_SYS_211_PREFIX=$LLVM_DIR" >> $GITHUB_ENV
+          echo "$LLVM_DIR/bin" >> $GITHUB_PATH
+
+      - name: Build Compiler
+        run: cargo build --release --target ${{ matrix.target }} --manifest-path cli/Cargo.toml
+
+      - name: Build Standard Library (WASI)
+        run: cargo build --release --target wasm32-wasip1 --manifest-path stdlib/rust/Cargo.toml --features "runtime"
+
+      - name: Build Standard Library (Web)
+        run: cargo build --release --target wasm32-unknown-unknown --manifest-path stdlib/rust/Cargo.toml --features "web"
+
+      - name: Package (macOS)
+        run: |
+          mkdir -p release_pkg/bin
+          mkdir -p release_pkg/lib
+          mkdir -p release_pkg/std/runtime/lib
+          mkdir -p release_pkg/std/runtime/wasome
+          mkdir -p release_pkg/std/web/lib
+          mkdir -p release_pkg/std/web/wasome
+
+          cp cli/target/${{ matrix.target }}/release/waso release_pkg/bin/waso
+
+          # Bundle dynamic libraries for standalone wasm-ld
+          cp -L "$(which wasm-ld)" release_pkg/lib/wasm-ld
+
+          # Homebrew binaries often reference core LLVM dylibs via @rpath instead of absolute paths.
+          # Explicitly copy the core LLVM libraries first to ensure they are included.
+          # Find the exact lib directory matching the wasm-ld binary to avoid version mismatches.
+          WASM_LD_REAL=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$(which wasm-ld)")
+          WASM_LD_LIB_DIR="$(dirname "$WASM_LD_REAL")/../lib"
+
+          for f in "$WASM_LD_LIB_DIR"/liblld*.dylib "$WASM_LD_LIB_DIR"/libLLVM*.dylib "$WASM_LD_LIB_DIR"/libc++*.dylib; do
+              [ -f "$f" ] || continue
+              real=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$f")
+              base=$(basename "$f")
+              real_base=$(basename "$real")
+              if [ ! -f "release_pkg/lib/$real_base" ]; then
+                  cp "$real" "release_pkg/lib/$real_base" 2>/dev/null || continue
+              fi
+              if [ "$base" != "$real_base" ] && [ ! -e "release_pkg/lib/$base" ]; then
+                  ln -sf "$real_base" "release_pkg/lib/$base"
+              fi
+          done
+
+          # Automatically find and copy all other Homebrew dylib dependencies (compute full closure)
+          while true; do
+              new_libs=0
+              deps=$(otool -L release_pkg/lib/wasm-ld release_pkg/lib/*.dylib 2>/dev/null | awk '{print $1}' | grep -E '^/opt/homebrew|^/usr/local' | sort -u || true)
+              for dep in $deps; do
+                  real=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$dep")
+                  base=$(basename "$dep")
+                  real_base=$(basename "$real")
+                  if [ ! -f "release_pkg/lib/$real_base" ]; then
+                      if cp "$real" "release_pkg/lib/$real_base" 2>/dev/null; then
+                          new_libs=1
+                      fi
+                  fi
+                  if [ "$base" != "$real_base" ] && [ -e "release_pkg/lib/$real_base" ] && [ ! -e "release_pkg/lib/$base" ]; then
+                      ln -sf "$real_base" "release_pkg/lib/$base"
+                  fi
+              done
+              if [ "$new_libs" -eq 0 ]; then
+                  break
+              fi
+          done
+
+          # Add @loader_path to the rpath of every binary and change absolute/rpath dependencies to use @rpath
+          for file in release_pkg/lib/wasm-ld release_pkg/lib/*.dylib; do
+              [ -f "$file" ] || continue
+              [ -L "$file" ] && continue # Skip symlinks for install_name_tool
+
+              if [[ "$file" == *.dylib ]]; then
+                  install_name_tool -id "@rpath/$(basename "$file")" "$file" || true
+              fi
+
+              install_name_tool -add_rpath "@loader_path" "$file" 2>/dev/null || true
+
+              otool -L "$file" | awk 'NR>1 {print $1}' | grep -E '^/opt/homebrew|^/usr/local|^@rpath' | while read -r dep; do
+                  install_name_tool -change "$dep" "@rpath/$(basename "$dep")" "$file" || true
+              done
+
+              # Re-sign the binary, as install_name_tool invalidates the code signature on macOS
+              codesign --force -s - "$file" || true
+          done
+
+          cp -r stdlib/wasome/* release_pkg/std/runtime/wasome/
+          cp stdlib/rust/target/wasm32-wasip1/release/libstd.a release_pkg/std/runtime/lib/libstd.a
+          cp -r stdlib/wasome/* release_pkg/std/web/wasome/
+          cp stdlib/rust/target/wasm32-unknown-unknown/release/libstd.a release_pkg/std/web/lib/libstd.a
+
+          cd release_pkg
+          tar -czvf ../wasome-${{ matrix.target }}.tar.gz *
+
+      - name: Inspect release package structure
+        run: |
+          echo "=== Release Package Layout ==="
+          find release_pkg -type f -o -type l | sort
+          echo ""
+          echo "=== File sizes ==="
+          du -sh release_pkg/bin/* release_pkg/lib/* 2>/dev/null || true
+          echo ""
+          echo "=== wasm-ld dependencies ==="
+          otool -L release_pkg/lib/wasm-ld || true
+          echo ""
+          echo "=== waso binary dependencies ==="
+          otool -L release_pkg/bin/waso || true
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasome-${{ matrix.target }}
+          path: wasome-${{ matrix.target }}.tar.gz
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Step 2: Test Homebrew-style installation on macOS
+  # ──────────────────────────────────────────────────────────────────────────────
+  test-homebrew-install:
+    name: Test Homebrew Install (macOS)
+    needs: build-macos
+    runs-on: macos-26
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wasome-aarch64-apple-darwin
+
+      - name: Simulate Homebrew installation layout
+        run: |
+          # Homebrew formula does:
+          #   libexec.install "bin", "lib", "std"
+          #   bin.install_symlink libexec/"bin/waso"
+          #
+          # This creates the following layout:
+          #   /opt/homebrew/Cellar/wasome/<ver>/libexec/bin/waso   (real binary)
+          #   /opt/homebrew/Cellar/wasome/<ver>/libexec/lib/...    (wasm-ld + dylibs)
+          #   /opt/homebrew/Cellar/wasome/<ver>/libexec/std/...    (stdlib)
+          #   /opt/homebrew/bin/waso -> ../Cellar/wasome/<ver>/libexec/bin/waso  (symlink)
+
+          BREW_PREFIX="$HOME/fake_homebrew"
+          CELLAR="$BREW_PREFIX/Cellar/wasome/0.0.0-test"
+          LIBEXEC="$CELLAR/libexec"
+
+          mkdir -p "$LIBEXEC"
+          mkdir -p "$BREW_PREFIX/bin"
+
+          # Extract release archive into libexec (simulating libexec.install "bin", "lib", "std")
+          tar -xzf wasome-aarch64-apple-darwin.tar.gz -C "$LIBEXEC"
+
+          echo "=== Libexec layout ==="
+          find "$LIBEXEC" -type f -o -type l | head -30
+
+          # Create symlink (simulating bin.install_symlink libexec/"bin/waso")
+          ln -sf "$LIBEXEC/bin/waso" "$BREW_PREFIX/bin/waso"
+
+          echo ""
+          echo "=== Symlink ==="
+          ls -la "$BREW_PREFIX/bin/waso"
+          echo ""
+          echo "=== Symlink target resolves to ==="
+          readlink -f "$BREW_PREFIX/bin/waso" || python3 -c "import os; print(os.path.realpath('$BREW_PREFIX/bin/waso'))"
+
+          # Add to PATH
+          echo "$BREW_PREFIX/bin" >> $GITHUB_PATH
+
+      - name: "Test: waso --version (Homebrew)"
+        run: |
+          echo "--- Running via the Homebrew-style symlink ---"
+          which waso
+          waso --version
+
+      - name: "Test: waso target list (Homebrew)"
+        run: |
+          echo "--- Verifying stdlib discovery ---"
+          waso target list
+
+      - name: "Test: waso new + build (Homebrew)"
+        run: |
+          cd /tmp
+          waso new brew_test_project
+          cd brew_test_project
+          waso build
+          echo "--- Build output ---"
+          ls -la out/ || true
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Step 3: Test curl-based install.sh on macOS
+  # ──────────────────────────────────────────────────────────────────────────────
+  test-curl-install:
+    name: Test Curl Install (macOS)
+    needs: build-macos
+    runs-on: macos-26
+    steps:
+      - name: Checkout code (for install.sh)
+        uses: actions/checkout@v4
+
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wasome-aarch64-apple-darwin
+
+      - name: Start a local HTTP server for the release artifact
+        run: |
+          # Create a fake "GitHub releases" directory structure
+          SERVE_DIR="$HOME/fake_releases"
+          VERSION="0.0.0-test"
+          RELEASE_DIR="$SERVE_DIR/Randware/Wasome/releases/download/$VERSION"
+          mkdir -p "$RELEASE_DIR"
+          cp wasome-aarch64-apple-darwin.tar.gz "$RELEASE_DIR/"
+
+          # Also create a redirect endpoint for /releases/latest
+          LATEST_DIR="$SERVE_DIR/Randware/Wasome/releases"
+          mkdir -p "$LATEST_DIR"
+
+          # Start Python HTTP server in background
+          cd "$SERVE_DIR"
+          python3 -m http.server 8888 &
+          echo "HTTP_PID=$!" >> $GITHUB_ENV
+          sleep 1
+
+          echo "=== Local server files ==="
+          find "$SERVE_DIR" -type f
+
+      - name: Simulate curl-based installation
+        run: |
+          # Instead of running install.sh against a real GitHub URL,
+          # we manually simulate the same steps install.sh would do:
+          #   1. Download the tarball
+          #   2. Extract to ~/.wasome
+          #   3. Setup PATH
+          
+          export WASOME_HOME="$HOME/.wasome_test"
+          
+          mkdir -p "$WASOME_HOME"
+          
+          # Replicate install.sh logic: move bin, std, lib
+          mkdir -p /tmp/wasome_extract_tmp
+          tar -xzf wasome-aarch64-apple-darwin.tar.gz -C /tmp/wasome_extract_tmp
+          
+          # bin
+          rm -rf "$WASOME_HOME/bin"
+          mv /tmp/wasome_extract_tmp/bin "$WASOME_HOME/"
+          
+          # std (smart merge)
+          if [ -d /tmp/wasome_extract_tmp/std ]; then
+            mkdir -p "$WASOME_HOME/std"
+            for item in /tmp/wasome_extract_tmp/std/*; do
+              if [ -e "$item" ]; then
+                basename_item=$(basename "$item")
+                rm -rf "$WASOME_HOME/std/$basename_item"
+                mv "$item" "$WASOME_HOME/std/"
+              fi
+            done
+          fi
+          
+          # lib (smart merge)
+          if [ -d /tmp/wasome_extract_tmp/lib ]; then
+            mkdir -p "$WASOME_HOME/lib"
+            for item in /tmp/wasome_extract_tmp/lib/*; do
+              if [ -e "$item" ]; then
+                basename_item=$(basename "$item")
+                rm -rf "$WASOME_HOME/lib/$basename_item"
+                mv "$item" "$WASOME_HOME/lib/"
+              fi
+            done
+          fi
+          
+          rm -rf /tmp/wasome_extract_tmp
+          
+          echo "=== Installed layout ==="
+          find "$WASOME_HOME" -type f -o -type l | sort | head -30
+          
+          echo ""
+          echo "=== Adding to PATH ==="
+          echo "$WASOME_HOME/bin" >> $GITHUB_PATH
+          echo "WASOME_HOME=$WASOME_HOME" >> $GITHUB_ENV
+
+      - name: "Test: waso --version (curl install)"
+        run: |
+          echo "--- Running via the curl-style installation ---"
+          which waso
+          waso --version
+
+      - name: "Test: waso target list (curl install)"
+        run: |
+          echo "--- Verifying stdlib discovery ---"
+          waso target list
+
+      - name: "Test: waso new + build (curl install)"
+        run: |
+          cd /tmp
+          waso new curl_test_project
+          cd curl_test_project
+          waso build
+          echo "--- Build output ---"
+          ls -la out/ || true
+
+      - name: Cleanup HTTP server
+        if: always()
+        run: kill $HTTP_PID 2>/dev/null || true
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Step 4: Report
+  # ──────────────────────────────────────────────────────────────────────────────
+  report:
+    name: CD Test Report
+    needs: [test-homebrew-install, test-curl-install]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report Results
+        run: |
+          echo "## CD Pipeline Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Homebrew Install (macOS) | ${{ needs.test-homebrew-install.result == 'success' && '✅ PASS' || '❌ FAIL' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Curl Install (macOS) | ${{ needs.test-curl-install.result == 'success' && '✅ PASS' || '❌ FAIL' }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for Failures
+        if: needs.test-homebrew-install.result != 'success' || needs.test-curl-install.result != 'success'
+        run: |
+          echo "::error::One or more CD tests failed."
+          exit 1
