@@ -213,6 +213,36 @@ jobs:
           which waso
           waso --version
 
+      - name: "Debug: path resolution (Homebrew)"
+        run: |
+          echo "=== which waso ==="
+          WASO_PATH=$(which waso)
+          echo "$WASO_PATH"
+          echo ""
+          echo "=== is it a symlink? ==="
+          file "$WASO_PATH"
+          ls -la "$WASO_PATH"
+          echo ""
+          echo "=== readlink ==="
+          python3 -c "import os; print('realpath:', os.path.realpath('$WASO_PATH'))"
+          echo ""
+          RESOLVED=$(python3 -c "import os; print(os.path.realpath('$WASO_PATH'))")
+          BIN_DIR=$(dirname "$RESOLVED")
+          INSTALL_ROOT=$(dirname "$BIN_DIR")
+          echo "=== Resolved binary: $RESOLVED ==="
+          echo "=== Binary dir: $BIN_DIR ==="
+          echo "=== Install root: $INSTALL_ROOT ==="
+          echo ""
+          echo "=== Contents of $BIN_DIR/../std/ ==="
+          ls -laR "$BIN_DIR/../std/" 2>&1 | head -40 || echo "MISSING"
+          echo ""
+          echo "=== Contents of $INSTALL_ROOT/lib/ ==="
+          ls -la "$INSTALL_ROOT/lib/" 2>&1 | head -20 || echo "MISSING"
+          echo ""
+          echo "=== Full tree ==="
+          find "$INSTALL_ROOT" -type f -o -type l | sort
+
+
       - name: "Test: waso target list (Homebrew)"
         run: |
           echo "--- Verifying stdlib discovery ---"
@@ -289,7 +319,7 @@ jobs:
           if [ -d /tmp/wasome_extract_tmp/std ]; then
             mkdir -p "$WASOME_HOME/std"
             for item in /tmp/wasome_extract_tmp/std/*; do
-              if [ -e "$item" ]; then
+              if [ -e "$item" ] || [ -L "$item" ]; then
                 basename_item=$(basename "$item")
                 rm -rf "$WASOME_HOME/std/$basename_item"
                 mv "$item" "$WASOME_HOME/std/"
@@ -301,7 +331,7 @@ jobs:
           if [ -d /tmp/wasome_extract_tmp/lib ]; then
             mkdir -p "$WASOME_HOME/lib"
             for item in /tmp/wasome_extract_tmp/lib/*; do
-              if [ -e "$item" ]; then
+              if [ -e "$item" ] || [ -L "$item" ]; then
                 basename_item=$(basename "$item")
                 rm -rf "$WASOME_HOME/lib/$basename_item"
                 mv "$item" "$WASOME_HOME/lib/"
@@ -324,6 +354,23 @@ jobs:
           echo "--- Running via the curl-style installation ---"
           which waso
           waso --version
+
+      - name: "Debug: verify lib symlinks (curl install)"
+        run: |
+          echo "=== All files and symlinks in lib ==="
+          ls -la "$WASOME_HOME/lib/"
+          echo ""
+          echo "=== Verify symlinks resolve ==="
+          for f in "$WASOME_HOME/lib/"*; do
+            if [ -L "$f" ]; then
+              target=$(readlink "$f")
+              if [ -e "$f" ]; then
+                echo "OK   symlink: $(basename $f) -> $target"
+              else
+                echo "BROKEN symlink: $(basename $f) -> $target"
+              fi
+            fi
+          done
 
       - name: "Test: waso target list (curl install)"
         run: |
