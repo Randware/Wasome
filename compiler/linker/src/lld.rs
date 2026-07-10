@@ -32,7 +32,9 @@ pub fn find_lld() -> Result<PathBuf, io::Error> {
     }
 
     // Option 2: wasm-ld is in the lib directory (../lib/wasm-ld relative to the executable)
-    if let Ok(mut current_dir) = std::env::current_exe() {
+    // We canonicalize to resolve symlinks (e.g. Homebrew's bin/waso symlink).
+    if let Ok(exe) = std::env::current_exe() {
+        let mut current_dir = exe.canonicalize().unwrap_or(exe);
         current_dir.pop(); // Remove the executable name (waso) -> ../bin/
         current_dir.pop(); // Remove the bin directory -> ./
         current_dir.push("lib"); // Enter lib directory -> ./lib/

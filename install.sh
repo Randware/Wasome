@@ -113,9 +113,15 @@ echo "Detected Platform: $OS ($ARCH) -> $TARGET"
 
 # Fetch latest version
 echo "Fetching latest Wasome release from $GITHUB_REPO..."
-LATEST_RELEASE=$($API_CMD "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+if command -v curl > /dev/null 2>&1; then
+    LATEST_RELEASE=$(curl -sS -I "https://github.com/${GITHUB_REPO}/releases/latest" | grep -i '^location:' | awk -F'/' '{print $NF}' | tr -d '\r')
+else
+    # wget fallback
+    LATEST_RELEASE=$(wget -qO /dev/null --max-redirect=0 "https://github.com/${GITHUB_REPO}/releases/latest" 2>&1 | grep -i '^location:' | awk -F'/' '{print $NF}' | tr -d '\r')
+fi
+
 if [ -z "$LATEST_RELEASE" ]; then
-    echo "Failed to fetch latest release. Check your internet connection or GitHub API limits."
+    echo "Failed to fetch latest release. Check your internet connection."
     exit 1
 fi
 
@@ -145,7 +151,7 @@ mv "$TEMP_DIR/bin" "$WASOME_HOME/"
 if [ -d "$TEMP_DIR/std" ]; then
     mkdir -p "$WASOME_HOME/std"
     for item in "$TEMP_DIR/std"/*; do
-        if [ -e "$item" ]; then
+        if [ -e "$item" ] || [ -L "$item" ]; then
             basename_item=$(basename "$item")
             rm -rf "$WASOME_HOME/std/$basename_item"
             mv "$item" "$WASOME_HOME/std/"
@@ -157,7 +163,7 @@ fi
 if [ -d "$TEMP_DIR/lib" ]; then
     mkdir -p "$WASOME_HOME/lib"
     for item in "$TEMP_DIR/lib"/*; do
-        if [ -e "$item" ]; then
+        if [ -e "$item" ] || [ -L "$item" ]; then
             basename_item=$(basename "$item")
             rm -rf "$WASOME_HOME/lib/$basename_item"
             mv "$item" "$WASOME_HOME/lib/"

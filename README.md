@@ -211,6 +211,11 @@ Open your terminal and run:
 curl --proto '=https' --tlsv1.2 -sSfL https://get.wasome.dev | sh
 ```
 
+### macOS (Homebrew)
+```sh
+brew install Randware/tap/wasome
+```
+
 ### Windows
 Open PowerShell and run:
 ```powershell
