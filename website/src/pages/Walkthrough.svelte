@@ -128,8 +128,17 @@
     const compilerLogs = [];
     let compiledSuccess = false;
 
+    const compileFiles = { 
+      "src/main.waso": code,
+      "waso.toml": `[project]\nname = "tour"\nversion = "0.1.0"\nentry = "src/main.waso"\n`
+    };
+
+    if (code.includes('import "./math"')) {
+      compileFiles["src/math/main.waso"] = `pub fn double(s32 x) -> s32 {\n    -> x * 2\n}\n`;
+    }
+
     await compileViaWebSocket({
-      files: { "src/main.waso": code },
+      files: compileFiles,
       entry: "src/main.waso",
       turnstileToken: token,
       onLog(data) {

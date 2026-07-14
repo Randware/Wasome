@@ -1,7 +1,7 @@
 export const steps = [
   {
     title: "Welcome to Wasome",
-    content: "Hi there! I'm Bit, your guide to Wasome! Wasome is a simple, fun language designed to compile straight to WebAssembly.\n\nOur journey starts with the `main` function—the entry point of every program. Notice the curly brackets `{}` enclosing our block, and `//` for comments. They're just for us humans!",
+    content: "Hi there! I'm Bit, your guide to Wasome! Wasome is a simple, fun language designed to compile straight to WebAssembly.\n\nOur journey starts with the `main` function, which is the entry point of every program. Notice the curly brackets `{}` enclosing our block, and `//` for comments. They're just for us humans!",
     code: `fn main() {
     // Hello! This is a comment.
     // Our journey begins here!
@@ -20,7 +20,7 @@ export const steps = [
   },
   {
     title: "Typecasting",
-    content: "Sometimes numbers want to wear a different hat! In Wasome, convert one numerical type to another using the `as` keyword.\n\nNote that you cannot cast directly between types of different bit-widths (like `f64` to `s32`)—you must take small steps by casting to an intermediate size like `s64` first! Narrowing chops off decimals and can overflow.",
+    content: "Sometimes numbers want to wear a different hat! In Wasome, convert one numerical type to another using the `as` keyword.\n\nNote that you cannot cast directly between types of different bit-widths (like `f64` to `s32`), meaning you must take small steps by casting to an intermediate size like `s64` first! Narrowing chops off decimals and can overflow.",
     code: `fn main() {
     f64 precise_pi <- 3.14159
     s32 rough_pi <- precise_pi as s64 as s32
@@ -40,7 +40,7 @@ fn main() {
   },
   {
     title: "Loops",
-    content: "Need to repeat actions? Wasome keeps loops simple with just one keyword: `loop`!\n\nThere are no separate while or for keywords—just pass a condition in parentheses. The code repeats as long as it is true. Exit instantly at any time using `break`!",
+    content: "Need to repeat actions? Wasome keeps loops simple with just one keyword: `loop`!\n\nThere are no separate while or for keywords, instead, just pass a condition in parentheses. The code repeats as long as it is true. Exit instantly at any time using `break`!",
     code: `fn main() {
     s32 i <- 0
     loop (i < 5) {
@@ -63,7 +63,7 @@ fn main() {
   },
   {
     title: "Methods & Self",
-    content: "Structs aren't just data bags—they can also have their own functions, called methods!\n\nMethods declared inside a struct automatically get a special, implicit parameter called `self`. Note that to call a method, you must enclose the instance in parentheses, like `(tracker).increment()`, otherwise it would be parsed as a field access!",
+    content: "Structs aren't just data bags, because they can also have their own functions, called methods!\n\nMethods declared inside a struct automatically get a special, implicit parameter called `self`. Note that to call a method, you must enclose the instance in parentheses, like `(tracker).increment()`, otherwise it would be parsed as a field access!",
     code: `struct Counter {
     s32 count
     
@@ -79,7 +79,7 @@ fn main() {
   },
   {
     title: "Generics & Enums",
-    content: "Let's add some serious flexibility! Generics let structs and enums accept type parameters in square brackets, like `struct Box[T]`.\n\nMeanwhile, enums are tagged unions—each variant can carry different data payloads! When constructing a variant of a generic enum, you must provide the type parameter, like `Option[s32]::Some(value)`.",
+    content: "Let's add some serious flexibility! Generics let structs and enums accept type parameters in square brackets, like `struct Box[T]`.\n\nMeanwhile, enums are tagged unions, where each variant can carry different data payloads! When constructing a variant of a generic enum, you must provide the type parameter, like `Option[s32]::Some(value)`.",
     code: `enum Option[T] {
     Some(T)
     None
@@ -104,6 +104,25 @@ fn main() {
     // pub fn double(s32 x) -> s32 { -> x * 2 }
     
     s32 doubled <- m.double(5)
+}`
+  },
+  {
+    title: "Beyond the Stars",
+    content: "And so, you have learned the language of the stars.\n\nYou started with a single `main` entry point, a quiet spark in the dark, and learned to structure, loop, build, and organize your thoughts into WebAssembly. The code you write is no longer just text; it is a pattern of logic that runs anywhere, floating across the web.\n\nBut this is not the end, traveler. It is only the beginning of your creation.\n\nGo forth and build things that wow, things that solve, and things that bring joy. If you ever get lost, find a bug, or want to add your own light to this project, come find us on GitHub to open an issue or pull request. We are always waiting to build together.\n\nThank you for exploring with me.\n\nYou are the creator. Play on.",
+    code: `import "std" as std
+
+fn main() {
+    // Thank you for taking the tour!
+    // The universe is waiting for your code.
+    std.print_char('H')
+    std.print_char('A')
+    std.print_char('V')
+    std.print_char('E')
+    std.print_char(' ')
+    std.print_char('F')
+    std.print_char('U')
+    std.print_char('N')
+    std.print_char('!')
 }`
   }
 ];
