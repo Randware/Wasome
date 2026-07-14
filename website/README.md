@@ -110,6 +110,9 @@ The Rust backend has an attack detection engine that tracks malicious events (ra
 * **`BIND_ADDR`**
   * **Description**: Port and network interface host mapping of the backend server.
   * **Default**: `0.0.0.0:3000`
+* **`PORT`**
+  * **Description**: The port number exposed on the host machine mapping to the Svelte frontend container's HTTP server (port 80 inside the container). Change this if the default port `8080` is already in use by another service on your system.
+  * **Default**: `8080`
 
 ---
 
@@ -139,7 +142,9 @@ Follow these steps to deploy the playground securely on your production server:
 
 ### Step 1: Install gVisor on the Host OS
 Since sandboxes are spawned as sibling containers on the host, the **Host OS** must have gVisor installed and configured in Docker.
-Run the following commands on your host server:
+
+#### Option A: Debian / Ubuntu (APT)
+Run the following commands if your host system uses the APT package manager:
 ```bash
 sudo apt-get update
 sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
@@ -155,6 +160,52 @@ sudo apt-get update && sudo apt-get install -y runsc
 sudo runsc install
 sudo systemctl restart docker
 ```
+
+#### Option B: Arch Linux (AUR / Pacman)
+On Arch Linux, gVisor's `runsc` can be built and installed via the AUR package `gvisor-bin`. Alternatively, download the static binaries directly and register them:
+```bash
+# Clone the AUR repository and build
+git clone https://aur.archlinux.org/gvisor-bin.git
+cd gvisor-bin
+makepkg -si
+
+# Register the runsc runtime inside Docker and restart
+sudo runsc install
+sudo systemctl restart docker
+```
+
+#### Option C: Alpine Linux (APK)
+Since Alpine runs with `musl` libc, gVisor's statically compiled binaries are used since they are fully self-contained and run on any Linux kernel.
+```bash
+# Download the self-contained static binary
+sudo wget -O /usr/local/bin/runsc https://storage.googleapis.com/gvisor/releases/release/latest/x86_64/runsc
+sudo chmod a+rx /usr/local/bin/runsc
+
+# Register the runsc runtime inside Docker and restart
+sudo /usr/local/bin/runsc install
+sudo service docker restart
+```
+
+#### Option D: Universal Manual Binary (RedHat, CentOS, Rocky, Alma, SUSE, NixOS, etc.)
+If your host system does not use `apt` or you want a package manager independent installation, install from static binaries directly:
+```bash
+# Download the runsc binary and its checksum
+curl -LO https://storage.googleapis.com/gvisor/releases/release/latest/x86_64/runsc
+curl -LO https://storage.googleapis.com/gvisor/releases/release/latest/x86_64/runsc.sha256
+
+# Verify the download checksum
+sha256sum -c runsc.sha256
+
+# Move runsc to your bin path and make it executable
+chmod a+rx runsc
+sudo mv runsc /usr/local/bin/
+
+# Register the runsc runtime inside Docker daemon and restart
+sudo /usr/local/bin/runsc install
+sudo systemctl restart docker
+```
+
+*(Note for NixOS: Add `virtualisation.docker.extraOptions = "--add-runtime runsc=${pkgs.gvisor}/bin/runsc";` to your `/etc/nixos/configuration.nix` and run `sudo nixos-rebuild switch` instead of running commands manually).*
 
 ### Step 2: Configure Production Environment Variables
 Create a production `.env` file and customize the following settings:
