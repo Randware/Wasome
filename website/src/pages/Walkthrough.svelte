@@ -218,7 +218,26 @@
 
     <div class="content-area">
       <h3>{currentStep.title}</h3>
-      <Typewriter text={currentStep.content} onTyping={handleTyping} />
+      {#if currentStepIndex === steps.length - 1}
+        <div class="completion-message">
+          <p>Congratulations! You have completed the Wasome language tour!</p>
+          <p>We have covered everything from basic variables and functions to structs, generics, modules, and the standard library. You now have the tools to write and compile code for WebAssembly.</p>
+          
+          <div class="next-steps-section">
+            <span class="next-title">What's next?</span>
+            <ul class="next-steps-list">
+              <li>Explore the full language details on the <a href="/docs" class="inline-link">Docs page</a>.</li>
+              <li>Check out the <a href="/examples" class="inline-link">Examples tab</a> to see larger solvers.</li>
+              <li>Open the <a href="/playground" class="inline-link">Playground</a> to start writing your own code.</li>
+            </ul>
+          </div>
+          
+          <p>If you find a bug, have a suggestion, or want to contribute to the compiler, come say hello on our <a href="https://github.com/Randware/Wasome" target="_blank" class="inline-link">GitHub repository</a>. We are always happy to collaborate!</p>
+          <p class="final-wish">Thank you for exploring with me. Happy coding!</p>
+        </div>
+      {:else}
+        <Typewriter text={currentStep.content} onTyping={handleTyping} />
+      {/if}
     </div>
 
     <div class="controls">
@@ -510,5 +529,58 @@
       min-height: 200px;
       flex: none;
     }
+  }
+
+  .completion-message p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .next-steps-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+  }
+
+  .next-title {
+    display: block;
+    color: var(--text-main);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  .next-steps-list {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: var(--text-secondary);
+  }
+
+  .next-steps-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+    font-size: 0.9rem;
+  }
+
+  .inline-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .inline-link:hover {
+    color: var(--primary-dim);
+    text-decoration: underline;
+  }
+
+  .final-wish {
+    margin-top: 1.5rem;
+    font-weight: 500;
+    color: var(--text-main) !important;
   }
 </style>
