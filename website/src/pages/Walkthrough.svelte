@@ -87,8 +87,9 @@
     output = "";
 
     if (!hasValidSession) {
-      const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
-      if (siteKey === "1x00000000000000000000AA") {
+      const rawSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
+      const isDummy = !rawSiteKey || rawSiteKey === "1x00000000000000000000AA" || rawSiteKey === "undefined" || rawSiteKey === "null" || rawSiteKey === "";
+      if (isDummy) {
         await doCompile("dummy-bypass");
         return;
       }
@@ -102,8 +103,9 @@
       }
       return;
     }
-    const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
-    const token = siteKey === "1x00000000000000000000AA" ? "dummy-bypass" : null;
+    const rawSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
+    const isDummy = !rawSiteKey || rawSiteKey === "1x00000000000000000000AA" || rawSiteKey === "undefined" || rawSiteKey === "null" || rawSiteKey === "";
+    const token = isDummy ? "dummy-bypass" : null;
     await doCompile(token);
   }
 
@@ -335,6 +337,7 @@
   }
 
   .turnstile-modal {
+    box-sizing: border-box;
     background: rgba(18, 18, 18, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
@@ -344,6 +347,10 @@
     text-align: center;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
     animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .turnstile-modal * {
+    box-sizing: border-box;
   }
 
   .modal-title {
