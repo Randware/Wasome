@@ -11,12 +11,18 @@
     FolderOpen,
   } from "lucide-svelte";
   import { onMount } from "svelte";
+  import { Turnstile } from "svelte-turnstile";
+  import { compileViaWebSocket } from "../lib/ws-compile.js";
+  import { createWasiShim, WasiExit } from "../lib/wasi-shim.js";
+  function stripAnsi(str) {
+    return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+  }
 
   const DEFAULT_MAIN = `fn main() {
     // Write your Wasome code here
     s32 x <- 10
     s32 y <- 20
-    -> x + y
+    s32 z <- x + y
 }`;
 
   const DEFAULT_TOML = `[project]
@@ -25,10 +31,7 @@ version = "0.1.0"
 
 [bin]
 bin = "test"
-entry = "src/main.waso"
-
-[dependencies]
-math = "1.0.1"`;
+entry = "src/main.waso"`;
 
   function createDefaultTree() {
     return [
@@ -88,7 +91,13 @@ math = "1.0.1"`;
   let openTabs = $state(saved ? saved.openTabs : []);
   let activeTabPath = $state(saved ? saved.activeTabPath : null);
   let output = $state("// Output will appear here...");
+  let hasValidSession = $state(false);
+  let turnstileToken = $state(null);
+  let turnstileRef = $state(null);
   let isRunning = $state(false);
+  let compilationEnabled = $state(true);
+  let maintenanceMode = $state(false);
+  let statusLoaded = $state(false);
 
   $effect(() => {
     // Access all reactive state to track changes
@@ -99,7 +108,7 @@ math = "1.0.1"`;
     saveState();
   });
 
-  // ── Modal state ──
+  // Modal state
   let modal = $state({
     open: false,
     type: "prompt", // "prompt" | "confirm"
@@ -176,7 +185,7 @@ math = "1.0.1"`;
     activeTabPath ? detectLang(activeTabPath.split("/").pop()) : "wasome",
   );
 
-  // ── Helpers ──
+  // Helpers
   function sortItems(items) {
     return [...items].sort((a, b) => {
       if (a.type === "dir" && b.type !== "dir") return -1;
@@ -211,7 +220,7 @@ math = "1.0.1"`;
     return check(tree);
   }
 
-  // ── Tree actions ──
+  // Tree actions
   function toggleDir(node) {
     node.expanded = !node.expanded;
     tree = [...tree];
@@ -242,8 +251,27 @@ math = "1.0.1"`;
     activeTabPath = path;
   }
 
-  // ── Create (with custom modal) ──
+  // Create
+  function getTotalFiles(nodes) {
+    let count = 0;
+    for (const n of nodes) {
+      if (n.type === "file") count++;
+      if (n.children) count += getTotalFiles(n.children);
+    }
+    return count;
+  }
+
+  function getDepth(path) {
+    if (!path) return 0;
+    return path.split("/").length;
+  }
+
   function createFileAt(parentPath, parentList) {
+    if (getTotalFiles(tree) >= 30) {
+      modal.error = "Max file limit (30) reached.";
+      modal.open = true;
+      return;
+    }
     showPrompt("New File", "e.g. utils.waso", (name) => {
       const filePath = parentPath ? parentPath + "/" + name : name;
       if (pathExists(filePath)) {
@@ -260,6 +288,11 @@ math = "1.0.1"`;
   }
 
   function createFolderAt(parentPath, parentList) {
+    if (getDepth(parentPath) >= 5) {
+      modal.error = "Max folder depth (5) reached.";
+      modal.open = true;
+      return;
+    }
     showPrompt("New Folder", "e.g. lib", (name) => {
       if (parentList.find((n) => n.name === name && n.type === "dir")) {
         modal.error = "A folder with that name already exists.";
@@ -307,7 +340,7 @@ math = "1.0.1"`;
     files = { ...files };
   }
 
-  // ── Toolbar ──
+  // Toolbar
   function resetProject() {
     showConfirm(
       "Reset Project",
@@ -327,29 +360,161 @@ math = "1.0.1"`;
   }
 
   async function runCode() {
+    if (maintenanceMode) {
+      output = "Playground is under maintenance. Please try again later.";
+      return;
+    }
+    if (!compilationEnabled) {
+      output = "Compilation is currently disabled.";
+      return;
+    }
     if (!activeContent && activeContent !== "") {
       output = "No file is open. Select a file to run.";
       return;
     }
     isRunning = true;
-    output = "Compiling...";
-    setTimeout(() => {
-      const code = files[activeTabPath] || "";
-      const lines = code.split("\n").length;
-      output = `[wasome] Compiling ${activeTabPath}...\n[wasome] ${lines} lines compiled successfully.\n\n> Output:\n(Backend compiler not yet available — code will execute here once the Wasome runtime is live.)`;
-      isRunning = false;
-    }, 800);
+    output = "";
+
+    if (!hasValidSession) {
+      const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
+      if (siteKey === "1x00000000000000000000AA") {
+        await doCompile("dummy-bypass");
+        return;
+      }
+      if (turnstileRef) {
+        turnstileRef.reset();
+      } else {
+        output = "Security check unavailable.";
+        isRunning = false;
+      }
+      return;
+    }
+    const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
+    const token = siteKey === "1x00000000000000000000AA" ? "dummy-bypass" : null;
+    await doCompile(token);
+  }
+
+  function handleTurnstileCallback(e) {
+    turnstileToken = e.detail.token;
+    if (isRunning) {
+      doCompile(turnstileToken);
+    }
+  }
+
+  function handleTurnstileError() {
+    output = "Security check failed.";
+    isRunning = false;
+  }
+
+  async function doCompile(token) {
+    let dotCount = 0;
+    output = "Compiling";
+    
+    const intervalId = setInterval(() => {
+      dotCount = (dotCount + 1) % 4;
+      output = "Compiling" + ".".repeat(dotCount);
+    }, 500);
+
+    const compilerLogs = [];
+    let compiledSuccess = false;
+
+    await compileViaWebSocket({
+      files: $state.snapshot(files),
+      entry: "src/main.waso",
+      turnstileToken: token,
+      onLog(data) {
+        compilerLogs.push(stripAnsi(data));
+      },
+      onWasm(wasmBytes) {
+        clearInterval(intervalId);
+        compiledSuccess = true;
+        output = "";
+        executeWasm(wasmBytes);
+      },
+      onError(message, status) {
+        clearInterval(intervalId);
+        if (status === 401 || status === 403) {
+          hasValidSession = false;
+          if (turnstileRef) turnstileRef.reset();
+          output = "Security check failed. Please try again.\n";
+        } else if (status === 429) {
+          output = "Too many requests. Please slow down.\n";
+        } else {
+          output = stripAnsi(message) + "\n";
+        }
+      },
+      onDone(success) {
+        clearInterval(intervalId);
+        if (success) {
+          hasValidSession = true;
+        } else {
+          if (!compiledSuccess) {
+            const cleanLogs = compilerLogs.filter(line => 
+              !line.includes("Compiling project at /workspace") && 
+              !line.includes("Built /workspace")
+            );
+            output = cleanLogs.join('\n');
+          }
+        }
+        if (turnstileRef) turnstileRef.reset();
+        isRunning = false;
+      }
+    });
+
+    clearInterval(intervalId);
+    isRunning = false;
+  }
+
+  async function executeWasm(wasmBytes) {
+    output = "";
+    const wasi = createWasiShim();
+    try {
+      const module = await WebAssembly.compile(wasmBytes);
+      const instance = await WebAssembly.instantiate(module, wasi.imports);
+      if (instance.exports.memory) wasi.setMemory(instance.exports.memory);
+      try {
+        instance.exports._start();
+      } catch (e) {
+        if (!(e instanceof WasiExit)) throw e;
+      }
+      const result = wasi.getOutput();
+      if (result.stdout) output += result.stdout;
+      if (result.stderr) output += "\n[stderr] " + result.stderr;
+      if (result.exitCode !== null && result.exitCode !== 0) {
+        output += "\n[Process exited with code " + result.exitCode + "]";
+      }
+    } catch (e) {
+      if (!(e instanceof WasiExit)) {
+        output += "[WASM execution error] " + e.message + "\n";
+      }
+    }
   }
 
   onMount(() => {
-    // Only auto-open main.waso if no saved state
     if (!saved) {
       openFile({ name: "main.waso", path: "src/main.waso" });
     }
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(data => {
+        compilationEnabled = data.compilation_enabled;
+        maintenanceMode = data.maintenance_mode;
+        statusLoaded = true;
+      })
+      .catch(() => { statusLoaded = true; });
   });
 </script>
 
-<!-- ═══ Modal Overlay ═══ -->
+{#if statusLoaded && !compilationEnabled}
+  <div class="disabled-notice page-animate">
+    <div class="disabled-inner">
+      <img src="/logo.png" alt="Wasome" class="disabled-logo" />
+      <h2>Playground Unavailable</h2>
+      <p>The playground is currently disabled. Please check back later.</p>
+    </div>
+  </div>
+{:else}
+<!-- Modal Overlay -->
 {#if modal.open}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -392,7 +557,7 @@ math = "1.0.1"`;
   </div>
 {/if}
 
-<!-- ═══ Main Layout ═══ -->
+<!-- Main Layout -->
 <div class="playground-container page-animate">
   <div class="toolbar">
     <div class="title">Wasome Playground</div>
@@ -489,6 +654,16 @@ math = "1.0.1"`;
                     title="New File in {item.name}"
                   >
                     <FilePlus size={12} />
+                  </button>
+                  <button
+                    class="row-action-btn"
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      createFolderAt(item.path, item.children || []);
+                    }}
+                    title="New Folder in {item.name}"
+                  >
+                    <FolderPlus size={12} />
                   </button>
                   <button
                     class="row-action-btn delete"
@@ -675,6 +850,17 @@ math = "1.0.1"`;
   </div>
 </div>
 
+<Turnstile
+  siteKey={import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+  theme="dark"
+  size="compact"
+  appearance="interaction-only"
+  on:callback={handleTurnstileCallback}
+  on:error={handleTurnstileError}
+  bind:this={turnstileRef}
+/>
+{/if}
+
 <style>
   .playground-container {
     height: calc(100vh - var(--header-height));
@@ -683,7 +869,7 @@ math = "1.0.1"`;
     background: #000;
   }
 
-  /* ── Toolbar ── */
+  /* Toolbar */
   .toolbar {
     height: 50px;
     background: #0a0a0a;
@@ -766,7 +952,7 @@ math = "1.0.1"`;
     }
   }
 
-  /* ── Layout ── */
+  /* Layout */
   .editor-layout {
     flex: 1;
     display: grid;
@@ -774,7 +960,7 @@ math = "1.0.1"`;
     overflow: hidden;
   }
 
-  /* ── Sidebar ── */
+  /* Sidebar */
   .sidebar {
     background: #111;
     border-right: 1px solid var(--border-light);
@@ -827,7 +1013,7 @@ math = "1.0.1"`;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
   }
 
-  /* ── Tree items ── */
+  /* Tree items */
   .tree-item-row {
     display: flex;
     align-items: center;
@@ -929,7 +1115,7 @@ math = "1.0.1"`;
     height: 22px;
   }
 
-  /* ── Main area ── */
+  /* Main area */
   .main-area {
     display: flex;
     flex-direction: column;
@@ -950,7 +1136,7 @@ math = "1.0.1"`;
     overflow: hidden;
   }
 
-  /* ── Tab bar ── */
+  /* Tab bar */
   .tab-bar {
     display: flex;
     background: #151515;
@@ -1036,7 +1222,7 @@ math = "1.0.1"`;
     color: var(--text-main);
   }
 
-  /* ── Output pane ── */
+  /* Output pane */
   .output-pane {
     min-height: 160px;
     max-height: 220px;
@@ -1071,7 +1257,7 @@ math = "1.0.1"`;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
   }
 
-  /* ── Welcome ── */
+  /* Welcome */
   .welcome {
     flex: 1;
     display: flex;
@@ -1102,7 +1288,7 @@ math = "1.0.1"`;
     font-size: 0.95rem;
   }
 
-  /* ── Modal ── */
+  /* Modal */
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1252,7 +1438,7 @@ math = "1.0.1"`;
     background: var(--primary-dim);
   }
 
-  /* ── Mobile ── */
+  /* Mobile */
   @media (max-width: 768px) {
     .playground-container {
       height: auto;
@@ -1282,5 +1468,37 @@ math = "1.0.1"`;
     .output-pane {
       min-height: 150px;
     }
+  }
+
+  /* Disabled notice */
+  .disabled-notice {
+    height: calc(100vh - var(--header-height));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+  }
+
+  .disabled-inner {
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  .disabled-logo {
+    width: 64px;
+    height: 64px;
+    opacity: 0.2;
+    margin-bottom: 2rem;
+  }
+
+  .disabled-notice h2 {
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .disabled-notice p {
+    font-size: 1rem;
+    color: var(--text-muted);
   }
 </style>

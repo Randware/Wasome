@@ -304,7 +304,7 @@
       <div class="rate-limit-banner">
         <AlertTriangle size={16} />
         <span
-          >GitHub API rate limit reached — cached content is still available.
+          >GitHub API rate limit reached, cached content is still available.
           Limits reset hourly.</span
         >
       </div>

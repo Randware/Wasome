@@ -4,6 +4,13 @@
   import Typewriter from "../components/Typewriter.svelte";
   import CodeEditor from "../components/CodeEditor.svelte";
   import { Play } from "lucide-svelte";
+  import { Turnstile } from "svelte-turnstile";
+  import { onMount } from "svelte";
+  import { compileViaWebSocket } from "../lib/ws-compile.js";
+  import { createWasiShim, WasiExit } from "../lib/wasi-shim.js";
+  function stripAnsi(str) {
+    return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+  }
 
   let initialStep = 0;
   if (typeof window !== "undefined") {
@@ -21,6 +28,11 @@
   let output = $state("Waiting to run...");
   let isTalking = $state(false);
   let isRunning = $state(false);
+  let hasValidSession = $state(false);
+  let turnstileToken = $state(null);
+  let turnstileRef = $state(null);
+  let compilationEnabled = $state(true);
+  let maintenanceMode = $state(false);
 
   let currentStep = $derived(steps[currentStepIndex]);
 
@@ -51,14 +63,150 @@
     }
   }
 
+  onMount(() => {
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(data => {
+        compilationEnabled = data.compilation_enabled;
+        maintenanceMode = data.maintenance_mode;
+      })
+      .catch(() => {});
+  });
+
   async function runCode() {
+    if (maintenanceMode) {
+      output = "Walkthrough is under maintenance. Please try again later.";
+      return;
+    }
+    if (!compilationEnabled) {
+      output = "Compilation is currently disabled.";
+      return;
+    }
     isRunning = true;
-    output = "Compiling...";
-    setTimeout(() => {
-      isRunning = false;
-      output =
-        "Error: Wasome Compiler Backend is offline.\n(This is a placeholder for the tour)";
-    }, 1000);
+    output = "";
+
+    if (!hasValidSession) {
+      const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
+      if (siteKey === "1x00000000000000000000AA") {
+        await doCompile("dummy-bypass");
+        return;
+      }
+      if (turnstileRef) {
+        turnstileRef.reset();
+      } else {
+        output = "Security check unavailable.";
+        isRunning = false;
+      }
+      return;
+    }
+    const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
+    const token = siteKey === "1x00000000000000000000AA" ? "dummy-bypass" : null;
+    await doCompile(token);
+  }
+
+  function handleTurnstileCallback(e) {
+    turnstileToken = e.detail.token;
+    if (isRunning) {
+      doCompile(turnstileToken);
+    }
+  }
+
+  function handleTurnstileError() {
+    output = "Security check failed.";
+    isRunning = false;
+  }
+
+  async function doCompile(token) {
+    let dotCount = 0;
+    output = "Compiling";
+    
+    const intervalId = setInterval(() => {
+      dotCount = (dotCount + 1) % 4;
+      output = "Compiling" + ".".repeat(dotCount);
+    }, 500);
+
+    const compilerLogs = [];
+    let compiledSuccess = false;
+
+    const compileFiles = { 
+      "src/main.waso": code,
+      "waso.toml": `[project]\nname = "tour"\nversion = "0.1.0"\nentry = "src/main.waso"\n`
+    };
+
+    if (code.includes('import "./math"')) {
+      compileFiles["src/math/main.waso"] = `pub fn double(s32 x) -> s32 {\n    -> x * 2\n}\n`;
+    }
+
+    await compileViaWebSocket({
+      files: compileFiles,
+      entry: "src/main.waso",
+      turnstileToken: token,
+      onLog(data) {
+        compilerLogs.push(stripAnsi(data));
+      },
+      onWasm(wasmBytes) {
+        clearInterval(intervalId);
+        compiledSuccess = true;
+        output = "";
+        executeWasm(wasmBytes);
+      },
+      onError(message, status) {
+        clearInterval(intervalId);
+        if (status === 401 || status === 403) {
+          hasValidSession = false;
+          if (turnstileRef) turnstileRef.reset();
+          output = "Security check failed. Please try again.\n";
+        } else if (status === 429) {
+          output = "Too many requests. Please slow down.\n";
+        } else {
+          output = stripAnsi(message) + "\n";
+        }
+      },
+      onDone(success) {
+        clearInterval(intervalId);
+        if (success) {
+          hasValidSession = true;
+        } else {
+          if (!compiledSuccess) {
+            const cleanLogs = compilerLogs.filter(line => 
+              !line.includes("Compiling project at /workspace") && 
+              !line.includes("Built /workspace")
+            );
+            output = cleanLogs.join('\n');
+          }
+        }
+        if (turnstileRef) turnstileRef.reset();
+        isRunning = false;
+      }
+    });
+
+    clearInterval(intervalId);
+    isRunning = false;
+  }
+
+  async function executeWasm(wasmBytes) {
+    output = "";
+    const wasi = createWasiShim();
+    try {
+      const module = await WebAssembly.compile(wasmBytes);
+      const instance = await WebAssembly.instantiate(module, wasi.imports);
+      if (instance.exports.memory) wasi.setMemory(instance.exports.memory);
+      try {
+        instance.exports._start();
+      } catch (e) {
+        if (!(e instanceof WasiExit)) throw e;
+      }
+      const result = wasi.getOutput();
+      if (result.stdout) output += result.stdout;
+      if (result.stderr) output += "\n[stderr] " + result.stderr;
+      if (result.exitCode !== null && result.exitCode !== 0) {
+        output += "\n[Process exited with code " + result.exitCode + "]";
+      }
+    } catch (e) {
+      if (!(e instanceof WasiExit)) {
+        output += "[WASM execution error] " + e.message + "\n";
+      }
+    }
   }
 </script>
 
@@ -70,7 +218,26 @@
 
     <div class="content-area">
       <h3>{currentStep.title}</h3>
-      <Typewriter text={currentStep.content} onTyping={handleTyping} />
+      {#if currentStepIndex === steps.length - 1}
+        <div class="completion-message">
+          <p>Congratulations! You have completed the Wasome language tour!</p>
+          <p>We have covered everything from basic variables and functions to structs, generics, modules, and the standard library. You now have the tools to write and compile code for WebAssembly.</p>
+          
+          <div class="next-steps-section">
+            <span class="next-title">What's next?</span>
+            <ul class="next-steps-list">
+              <li>Explore the full language details on the <a href="/docs" class="inline-link">Docs page</a>.</li>
+              <li>Check out the <a href="/examples" class="inline-link">Examples tab</a> to see larger solvers.</li>
+              <li>Open the <a href="/playground" class="inline-link">Playground</a> to start writing your own code.</li>
+            </ul>
+          </div>
+          
+          <p>If you find a bug, have a suggestion, or want to contribute to the compiler, come say hello on our <a href="https://github.com/Randware/Wasome" target="_blank" class="inline-link">GitHub repository</a>. We are always happy to collaborate!</p>
+          <p class="final-wish">Thank you for exploring with me. Happy coding!</p>
+        </div>
+      {:else}
+        <Typewriter text={currentStep.content} onTyping={handleTyping} />
+      {/if}
     </div>
 
     <div class="controls">
@@ -96,13 +263,15 @@
   <main class="editor-panel">
     <div class="editor-header">
       <div class="filename">tour.waso</div>
-      <button class="run-btn" onclick={runCode} disabled={isRunning}>
-        {#if isRunning}
-          <span class="spinner"></span> Running...
-        {:else}
-          <Play size={14} /> Run Code
-        {/if}
-      </button>
+      {#if compilationEnabled}
+        <button class="run-btn" onclick={runCode} disabled={isRunning}>
+          {#if isRunning}
+            <span class="spinner"></span> Running...
+          {:else}
+            <Play size={14} /> Run Code
+          {/if}
+        </button>
+      {/if}
     </div>
     <div class="editor-body">
       <CodeEditor bind:code />
@@ -113,6 +282,16 @@
     </div>
   </main>
 </div>
+
+<Turnstile
+  siteKey={import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+  theme="dark"
+  size="compact"
+  appearance="interaction-only"
+  on:callback={handleTurnstileCallback}
+  on:error={handleTurnstileError}
+  bind:this={turnstileRef}
+/>
 
 <style>
   .walkthrough-container {
@@ -350,5 +529,58 @@
       min-height: 200px;
       flex: none;
     }
+  }
+
+  .completion-message p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .next-steps-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+  }
+
+  .next-title {
+    display: block;
+    color: var(--text-main);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  .next-steps-list {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: var(--text-secondary);
+  }
+
+  .next-steps-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+    font-size: 0.9rem;
+  }
+
+  .inline-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .inline-link:hover {
+    color: var(--primary-dim);
+    text-decoration: underline;
+  }
+
+  .final-wish {
+    margin-top: 1.5rem;
+    font-weight: 500;
+    color: var(--text-main) !important;
   }
 </style>

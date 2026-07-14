@@ -94,6 +94,17 @@
         { id: "namespaces", title: "8.1 Namespaces" },
         { id: "aliasing", title: "8.2 Aliasing" }
       ]
+    },
+    {
+      id: "stdlib",
+      title: "9. Standard Library",
+      icon: BookOpen,
+      subsections: [
+        { id: "std-io", title: "9.1 Console I/O" },
+        { id: "std-vectors", title: "9.2 Vectors (Vec[T])" },
+        { id: "std-strings", title: "9.3 Strings (String)" },
+        { id: "std-targets", title: "9.4 Targets & Customization" }
+      ]
     }
   ];
 
@@ -746,32 +757,33 @@ fn create() {
       <div id="namespaces" class="doc-subsection">
         <h3>8.1 Namespaces</h3>
         <p>
-          The <code>import</code> statement specifies a path referencing directories and files.
+          The <code>import</code> statement specifies a path referencing a target <strong>directory</strong>. In Wasome, you can only import entire directories; importing individual source files directly is not supported.
         </p>
-        <pre><code>{@html highlight(`import "<path>"`, "wasome")}</code></pre>
+        <pre><code>{@html highlight(`import "<directory-path>"`, "wasome")}</code></pre>
         <p>
           Import paths are <code>/</code>-separated and begin with one of the following root designators:
         </p>
         <ul>
-          <li><code>./</code>: Relative to the current directory (default)</li>
+          <li><code>./</code>: Relative to the importing file's directory (default)</li>
           <li><code>&lt;project-name&gt;/</code>: Project root relative</li>
           <li><code>std/</code>: Standard library relative</li>
         </ul>
         <p>
-          Importing a file namespaces its public elements under the file's base name.
+          Importing a directory namespaces all of its public elements (marked with the <code>pub</code> keyword) under the directory's base name. The compiler resolves the import by scanning the directory and compiling all of its source files together.
         </p>
         <div class="dependent-code-container">
           <div class="threaded-top-wrapper">
-            <div class="code-file-label">main.waso</div>
-            <pre class="threaded-pre-top"><code>{@html highlight(`import "./math"
+            <div class="code-file-label">src/main.waso</div>
+            <pre class="threaded-pre-top"><code>{@html highlight(`import "./utils" as u
 
 fn evaluate() -> s32 {
-    -> math.add(10, 5)
+    // Accesses public functions from the src/utils directory
+    -> u.add(10, 5)
 }`, "wasome")}</code></pre>
           </div>
 
-          <div class="code-file-label threaded-label-bottom">/math/add.waso</div>
-          <pre class="threaded-pre-bottom"><code>{@html highlight(`// The pub keyword is required to export the function for external use
+          <div class="code-file-label threaded-label-bottom">src/utils/math.waso</div>
+          <pre class="threaded-pre-bottom"><code>{@html highlight(`// The pub keyword is required to export functions from files within the directory
 pub fn add(s32 a, s32 b) -> s32 {
     -> a + b
 }`, "wasome")}</code></pre>
@@ -788,6 +800,147 @@ pub fn add(s32 a, s32 b) -> s32 {
 fn build() {
     col.List[s32] items <- col.create_list[s32]()
 }`, "wasome")}</code></pre>
+      </div>
+    </div>
+
+    <!-- 9. Standard Library -->
+    <div id="stdlib" class="doc-section">
+      <h2>9. Standard Library</h2>
+      <p>
+        Wasome provides a standard library containing fundamental utilities for Console I/O, dynamic arrays, and string manipulation. To use standard library utilities, import the standard library using the special <code>"std"</code> identifier:
+      </p>
+      <pre><code>{@html highlight(`import "std" as std`, "wasome")}</code></pre>
+
+      <div id="std-io" class="doc-subsection">
+        <h3>9.1 Console I/O</h3>
+        <p>
+          The standard library exposes standard input/output functions to interact with the console terminal:
+        </p>
+        <ul>
+          <li><code>pub fn print_char(char to_print)</code>: Prints a single character to standard output.</li>
+          <li><code>pub fn print_string(String to_print)</code>: Prints a <code>String</code> object to standard output.</li>
+          <li><code>pub fn read_line() -> String</code>: Reads a line of text from standard input, returning it as a new <code>String</code>.</li>
+        </ul>
+        <pre><code>{@html highlight(`import "std" as std
+
+fn main() {
+    std.print_char('H')
+    std.print_char('i')
+    std.print_char('\\n')
+}`, "wasome")}</code></pre>
+      </div>
+
+      <div id="std-vectors" class="doc-subsection">
+        <h3>9.2 Vectors (Vec[T])</h3>
+        <p>
+          Vectors (<code>Vec[T]</code>) are generic, dynamically-sized heap-allocated arrays. When a vector is dropped, it automatically frees all of its elements to prevent memory leaks.
+        </p>
+        <p>
+          Construct a new empty vector using:
+        </p>
+        <pre><code>{@html highlight(`pub fn vec_new[T]() -> Vec[T]`, "wasome")}</code></pre>
+        <p>
+          The <code>Vec[T]</code> struct exposes the following public methods:
+        </p>
+        <ul>
+          <li><code>pub fn push(T val)</code>: Appends an element to the end of the vector.</li>
+          <li><code>pub fn pop() -> T</code>: Removes and returns the last element from the vector.</li>
+          <li><code>pub fn get(u32 index) -> T</code>: Retrieves a reference to the element at the specified index.</li>
+          <li><code>pub fn set(u32 index, T val) -> T</code>: Replaces the element at the specified index, returning the old value.</li>
+          <li><code>pub fn remove(u32 index) -> T</code>: Removes and returns the element at the specified index, shifting subsequent elements.</li>
+          <li><code>pub fn len() -> u32</code>: Returns the number of elements currently stored in the vector.</li>
+        </ul>
+        <pre><code>{@html highlight(`import "std" as std
+
+fn main() {
+    std.Vec[s32] list <- std.vec_new[s32]()
+    (list).push(10)
+    (list).push(20)
+
+    s32 element <- (list).get(0) // 10
+    s32 length <- (list).len()   // 2
+}`, "wasome")}</code></pre>
+      </div>
+
+      <div id="std-strings" class="doc-subsection">
+        <h3>9.3 Strings (String)</h3>
+        <p>
+          The <code>String</code> struct is a reference-counted, heap-allocated character buffer. It can dynamically grow as new values are appended.
+        </p>
+        <p>
+          Construct a new empty string using:
+        </p>
+        <pre><code>{@html highlight(`pub fn string_new() -> String`, "wasome")}</code></pre>
+        <p>
+          The <code>String</code> struct exposes the following public methods:
+        </p>
+        <ul>
+          <li><code>pub fn push_char(char to_push)</code>: Appends a single Unicode character to the string.</li>
+          <li><code>pub fn push_s32(s32 to_push)</code>: Appends a signed 32-bit integer formatted as a text string.</li>
+          <li><code>pub fn push_s64(s64 to_push)</code>: Appends a signed 64-bit integer formatted as a text string.</li>
+          <li><code>pub fn push_u64(u64 to_push)</code>: Appends an unsigned 64-bit integer formatted as a text string.</li>
+          <li><code>pub fn push_f64(s64 to_push)</code>: Appends a float (cast as 64-bit integer) formatted as a text string.</li>
+          <li><code>pub fn push_string(String to_push)</code>: Appends another <code>String</code> to this string.</li>
+          <li><code>pub fn pop() -> char</code>: Removes and returns the last character from the string.</li>
+          <li><code>pub fn len() -> u32</code>: Returns the length (number of characters) of the string.</li>
+        </ul>
+        <pre><code>{@html highlight(`import "std" as std
+
+fn main() {
+    std.String message <- std.string_new()
+    (message).push_string(std.read_line())
+    (message).push_char('!')
+
+    std.print_string(message)
+}`, "wasome")}</code></pre>
+      </div>
+
+      <div id="std-targets" class="doc-subsection">
+        <h3>9.4 Targets & Customization</h3>
+        <p>
+          The Wasome compiler lists and resolves targets dynamically by scanning subdirectories inside the standard library root directory (default location is <code>&lt;binary_dir&gt;/../std/</code>, which can be overridden via the <code>--std &lt;path&gt;</code> flag).
+        </p>
+        <p>
+          By default, Wasome ships with two pre-configured compilation targets:
+        </p>
+        <ul>
+          <li><strong>runtime</strong>: The default target used for native CLI command executions. It links to a debug build of the standard library runtime.</li>
+          <li><strong>web</strong>: Optimized for web browser environments. It compiles programs with size-min profiles and links to a release build of the standard library runtime.</li>
+        </ul>
+        <p>
+          Each target folder inside the standard library root must follow a specific directory structure to be recognized as a valid target:
+        </p>
+        <pre><code>std/&lt;target-name&gt;/
+├── wasome/
+│   ├── waso.toml       # Standard library project manifest
+│   └── src/
+│       └── lib.waso    # Public standard library constructs and declarations
+└── bin/                # Pre-compiled static archives (.a) or object files (.o) (or "lib/")
+    └── libstd.a        # Compiled native implementation of the runtime target</code></pre>
+        <p>
+          You can list all currently recognized targets by running the target list command:
+        </p>
+        <pre><code>waso target list</code></pre>
+        
+        <h4>Creating a Custom Target</h4>
+        <p>
+          You can implement your own custom standard library target by adding a new directory inside the standard library path and building it:
+        </p>
+        <ul>
+          <li>Create a target directory: <code>std/my-target/</code>.</li>
+          <li>Place your public Wasome declarations under <code>std/my-target/wasome/src/lib.waso</code> and standard library project configuration in <code>std/my-target/wasome/waso.toml</code>.</li>
+          <li>Write the native implementation in a compiled language capable of exporting to WebAssembly static archives (like Rust). Inside the Rust project's <code>Cargo.toml</code>, specify:
+            <pre><code>[lib]
+crate-type = ["staticlib"]</code></pre>
+          </li>
+          <li>Build the static archive using the WebAssembly target:
+            <pre><code>cargo build --release --target wasm32-wasip1</code></pre>
+          </li>
+          <li>Copy the generated archive (e.g., <code>libstd.a</code>) into the target bin folder: <code>std/my-target/bin/libstd.a</code>.</li>
+          <li>Build your application linking to the custom target:
+            <pre><code>waso build --target my-target</code></pre>
+          </li>
+        </ul>
       </div>
     </div>
   </article>
