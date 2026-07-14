@@ -55,3 +55,10 @@ rust-project.json
 # Nix
 result
 result-*
+
+# Playground and Testing
+.playwright-mcp/
+test-proj/
+website/test-proj/
+website/replace.js
+website/replace_walkthrough.js

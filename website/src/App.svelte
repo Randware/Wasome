@@ -29,6 +29,8 @@
     }
   });
 
+  let compilationEnabled = $state(true);
+
   $effect(() => {
     $route;
     if (typeof window !== "undefined") {
@@ -38,6 +40,10 @@
 
   onMount(() => {
     const cleanup = route.init();
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(data => { compilationEnabled = data.compilation_enabled; })
+      .catch(() => {});
     return cleanup;
   });
 </script>

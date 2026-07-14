@@ -1,5 +1,6 @@
 # Logs
 logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -25,3 +26,11 @@ src/data/generated
 *.njsproj
 *.sln
 *.sw?
+
+# AI planning/context files
+PLAN.md
+GEMINI.md
+
+# Rust backend target and logs
+backend/target/
+backend/logs/
