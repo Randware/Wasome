@@ -55,7 +55,7 @@ Cloudflare Turnstile provides frictionless bot protection for playground runs.
     3. Click **Add Site**.
     4. Fill in the Site Name, enter your Domain (e.g. `localhost` for local development, or your production domain), and select **Widget Type** (e.g. *Managed* or *Invisible*).
     5. Click **Create** to receive your credentials. Use the **Site Key** here.
-  * **Default/Local Testing**: `1x0000000000000000000001` (dummy bypass key).
+  * **Default/Local Testing**: `1x00000000000000000000AA` (dummy bypass key).
 
 * **`TURNSTILE_SECRET_KEY`**
   * **Description**: The secret key loaded by the Rust backend to verify Turnstile challenge tokens server-side.
@@ -229,3 +229,19 @@ Verify the backend container logs to ensure the compiler installs successfully:
 ```bash
 docker compose logs -f backend
 ```
+
+---
+
+### Admin API Management
+
+You can toggle `compilation_enabled` and `maintenance_mode` at runtime without restarting any services by calling the `POST /api/admin/toggle` endpoint. This endpoint requires you to pass your configured `ADMIN_SECRET` in the `X-Admin-Secret` header.
+
+#### cURL Example
+To turn off compilation and activate maintenance mode:
+```bash
+curl -X POST http://localhost:8080/api/admin/toggle \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Secret: your_secret_here" \
+  -d '{"compilation_enabled": false, "maintenance_mode": true}'
+```
+

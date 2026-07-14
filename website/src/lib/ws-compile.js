@@ -25,7 +25,8 @@ export function compileViaWebSocket({ files, entry, turnstileToken, onLog, onWas
           else if (msg.type === 'status') onLog?.(msg.message);
           else if (msg.type === 'error') onError?.(msg.message, msg.status);
           else if (msg.type === 'session' && msg.cookie) {
-            document.cookie = msg.cookie.replace(/HttpOnly;?/i, '');
+            const cookie = msg.cookie.replace(/;\s*HttpOnly\b/i, '');
+            document.cookie = location.protocol === 'https:' ? `${cookie}; Secure` : cookie;
           }
           else if (msg.type === 'done') onDone?.(msg.success, wasmBytes);
         } catch {

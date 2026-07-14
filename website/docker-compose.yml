@@ -11,10 +11,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
-      - HOST_WASOME_DIR=website_wasome-compiler-cache
+      - HOST_WASOME_DIR=${HOST_WASOME_DIR:-website_wasome-compiler-cache}
       - WASOME_HOME=/opt/wasome
       - DOCKER_RUNTIME=${DOCKER_RUNTIME:-runsc}
       - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}

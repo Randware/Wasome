@@ -49,6 +49,8 @@ struct WsMessage {
     success: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     cookie: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    status: Option<u16>,
 }
 
 fn hash_ip(ip: IpAddr) -> String {
@@ -161,52 +163,62 @@ async fn run_docker(
         ])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
         .spawn()
         .map_err(|e| format!("Failed to start Docker: {}", e))?;
 
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
 
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
+
+    let tx_out = tx.clone();
     if let Some(stdout) = stdout {
-        let mut lines = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
-            let msg = serde_json::to_string(&WsMessage {
-                msg_type: "log",
-                data: Some(line),
-                message: None,
-                success: None,
-                cookie: None,
-            })
-            .unwrap_or_default();
-            let _ = ws.send(Message::Text(msg.into())).await;
-        }
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if tx_out.send(line).await.is_err() {
+                    break;
+                }
+            }
+        });
     }
 
-    let mut stderr_output = String::new();
+    let tx_err = tx.clone();
     if let Some(stderr) = stderr {
-        let mut lines = BufReader::new(stderr).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
-            stderr_output.push_str(&line);
-            stderr_output.push('\n');
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if tx_err.send(line).await.is_err() {
+                    break;
+                }
+            }
+        });
+    }
+
+    drop(tx);
+
+    let compile_result = tokio::time::timeout(DOCKER_TIMEOUT, async {
+        while let Some(line) = rx.recv().await {
             let msg = serde_json::to_string(&WsMessage {
                 msg_type: "log",
                 data: Some(line),
                 message: None,
                 success: None,
                 cookie: None,
+                status: None,
             })
             .unwrap_or_default();
             let _ = ws.send(Message::Text(msg.into())).await;
         }
-    }
+        child.wait().await
+    })
+    .await;
 
-    match tokio::time::timeout(DOCKER_TIMEOUT, child.wait()).await {
+    match compile_result {
         Ok(Ok(status)) => Ok(status.success()),
         Ok(Err(e)) => Err(format!("Docker process error: {}", e)),
-        Err(_) => {
-            let _ = child.kill().await;
-            Err("Compilation timed out".into())
-        }
+        Err(_) => Err("Compilation timed out".into()),
     }
 }
 
@@ -249,6 +261,7 @@ async fn handle_ws_connection(
                 data: None,
                 success: None,
                 cookie: None,
+                status: Some(403),
             },
         )
         .await;
@@ -265,6 +278,7 @@ async fn handle_ws_connection(
                 data: None,
                 success: None,
                 cookie: None,
+                status: Some(503),
             },
         )
         .await;
@@ -281,6 +295,7 @@ async fn handle_ws_connection(
                 data: None,
                 success: None,
                 cookie: None,
+                status: Some(403),
             },
         )
         .await;
@@ -297,6 +312,7 @@ async fn handle_ws_connection(
                 data: None,
                 success: None,
                 cookie: None,
+                status: Some(429),
             },
         )
         .await;
@@ -320,6 +336,7 @@ async fn handle_ws_connection(
                     data: None,
                     success: None,
                     cookie: None,
+                    status: Some(400),
                 },
             )
             .await;
@@ -339,6 +356,7 @@ async fn handle_ws_connection(
                     data: None,
                     success: None,
                     cookie: None,
+                    status: Some(400),
                 },
             )
             .await;
@@ -368,6 +386,7 @@ async fn handle_ws_connection(
                         data: None,
                         success: None,
                         cookie: None,
+                        status: Some(401),
                     },
                 )
                 .await;
@@ -384,6 +403,7 @@ async fn handle_ws_connection(
                 message: None,
                 data: None,
                 success: None,
+                status: None,
             },
         )
         .await;
@@ -405,6 +425,7 @@ async fn handle_ws_connection(
                     data: None,
                     success: None,
                     cookie: None,
+                    status: Some(500),
                 },
             )
             .await;
@@ -432,6 +453,7 @@ async fn handle_ws_connection(
             data: None,
             success: None,
             cookie: None,
+            status: None,
         },
     )
     .await;
@@ -447,6 +469,7 @@ async fn handle_ws_connection(
                     data: None,
                     success: None,
                     cookie: None,
+                    status: Some(500),
                 },
             )
             .await;
@@ -476,6 +499,7 @@ async fn handle_ws_connection(
             message: None,
             data: None,
             cookie: None,
+            status: None,
         },
     )
     .await;

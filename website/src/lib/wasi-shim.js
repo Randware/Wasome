@@ -53,7 +53,7 @@ export function createWasiShim() {
     },
     __wbindgen_placeholder__: new Proxy({}, {
       get(target, prop) {
-        if (prop.startsWith('__wbg_print_str')) {
+        if (typeof prop === 'string' && prop.startsWith('__wbg_print_str')) {
           return (ptr, len) => {
             if (!memory) return;
             const bytes = new Uint8Array(memory.buffer, ptr, len);
