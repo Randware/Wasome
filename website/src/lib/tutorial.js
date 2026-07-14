@@ -30,44 +30,28 @@ export const steps = [
   {
     title: "Functions",
     content: "Functions are the primary building blocks of reusable logic! We declare them with the `fn` keyword, followed by the function name and its typed parameter list.\n\nIf a function returns a value, put the return type after the arrow `->` next to the parameters. Inside, use the return statement `-> <expression>` to pass the result back!",
-    code: `import "std" as std
-
-fn double(s32 number) -> s32 {
+    code: `fn double(s32 number) -> s32 {
     -> number * 2
 }
 
 fn main() {
     s32 result <- double(21)
-    
-    // Create a String, format the integer result (42), and print it
-    std.String message <- std.string_new()
-    (message).push_s32(result)
-    std.print_string(message)
 }`
   },
   {
     title: "Loops",
     content: "Need to repeat actions? Wasome keeps loops simple with just one keyword: `loop`!\n\nThere are no separate while or for keywords, instead, just pass a condition in parentheses. The code repeats as long as it is true. Exit instantly at any time using `break`!",
-    code: `import "std" as std
-
-fn main() {
+    code: `fn main() {
     s32 i <- 0
     loop (i < 5) {
         i <- i + 1
     }
-    
-    // Format and print the final loop counter value (5)
-    std.String message <- std.string_new()
-    (message).push_s32(i)
-    std.print_string(message)
 }`
   },
   {
     title: "Structs",
     content: "Bundle related data together into custom types using the `struct` keyword!\n\nCreate a new instance using the `new` keyword followed by field assignments in curly braces. Once created, you can access and modify fields instantly using dot `.` notation!",
-    code: `import "std" as std
-
-struct Point {
+    code: `struct Point {
     s32 x
     s32 y
 }
@@ -75,19 +59,12 @@ struct Point {
 fn main() {
     Point p <- new Point { x <- 10, y <- 20 }
     p.x <- p.x + 5
-    
-    // Format and print the updated x coordinate (15)
-    std.String message <- std.string_new()
-    (message).push_s32(p.x)
-    std.print_string(message)
 }`
   },
   {
     title: "Methods & Self",
     content: "Structs aren't just data bags, because they can also have their own functions, called methods!\n\nMethods declared inside a struct automatically get a special, implicit parameter called `self`. Note that to call a method, you must enclose the instance in parentheses, like `(tracker).increment()`, otherwise it would be parsed as a field access!",
-    code: `import "std" as std
-
-struct Counter {
+    code: `struct Counter {
     s32 count
     
     fn increment() {
@@ -98,19 +75,12 @@ struct Counter {
 fn main() {
     Counter tracker <- new Counter { count <- 10 }
     (tracker).increment()
-    
-    // Format and print the incremented counter count (11)
-    std.String message <- std.string_new()
-    (message).push_s32(tracker.count)
-    std.print_string(message)
 }`
   },
   {
     title: "Generics & Enums",
     content: "Let's add some serious flexibility! Generics let structs and enums accept type parameters in square brackets, like `struct Box[T]`.\n\nMeanwhile, enums are tagged unions, where each variant can carry different data payloads! When constructing a variant of a generic enum, you must provide the type parameter, like `Option[s32]::Some(value)`.",
-    code: `import "std" as std
-
-enum Option[T] {
+    code: `enum Option[T] {
     Some(T)
     None
 }
@@ -122,29 +92,63 @@ struct Box[T] {
 fn main() {
     Option[s32] wrapped <- Option[s32]::Some(42)
     Box[s32] container <- new Box[s32] { item <- 100 }
-    
-    // Format and print the item inside the generic Box (100)
-    std.String message <- std.string_new()
-    (message).push_s32(container.item)
-    std.print_string(message)
 }`
   },
   {
     title: "Modules",
     content: "As your program grows, split it into files and import them using the `import` statement!\n\nTo share a function or struct with other files, export it by prefixing its declaration with `pub`. You can then import it and use `as` to give the module a neat, custom alias!",
     code: `import "./math" as m
-import "std" as std
 
 fn main() {
     // imported code:
     // pub fn double(s32 x) -> s32 { -> x * 2 }
     
     s32 doubled <- m.double(5)
+}`
+  },
+  {
+    title: "Standard Library: Strings",
+    content: "Welcome to the standard library! Wasome provides a mutable, heap-allocated `String` type.\n\nCreate a new string using `std.string_new()`. You can push characters using `.push_char()`, append other Strings with `.push_string()`, or format integers into strings using `.push_s32()`! Note that standard library methods require parenthesizing the instance when calling them, like `(my_string).push_char('A')`.",
+    code: `import "std" as std
+
+fn main() {
+    std.String greeting <- std.string_new()
+    (greeting).push_char('H')
+    (greeting).push_char('i')
+}`
+  },
+  {
+    title: "Standard Library: Printing",
+    content: "Let's make our output visible! The standard library provides basic printing functions.\n\nUse `std.print_char()` to output a single ASCII character, or `std.print_string()` to output an entire `std.String` buffer. Combining `std.String` building with `std.print_string()` is the standard way to print numbers, variables, and complex text logs to the terminal!",
+    code: `import "std" as std
+
+fn main() {
+    // Print a single character
+    std.print_char('W')
     
-    // Format and print the result calculated by our imported module (10)
+    // Print a dynamic string
     std.String message <- std.string_new()
-    (message).push_s32(doubled)
+    (message).push_char('o')
+    (message).push_char('r')
+    (message).push_char('l')
+    (message).push_char('d')
+    (message).push_char('!')
     std.print_string(message)
+}`
+  },
+  {
+    title: "Standard Library: Vectors",
+    content: "Dynamic arrays in Wasome are managed by the `Vec` container!\n\nDeclare a vector with a generic type parameter in square brackets, like `std.Vec[s32]`, and initialize it using `std.vec_new[s32]()`. Add items to the end with `.push()`, retrieve them by index using `.get(index)`, or inspect the size with `.len()`!",
+    code: `import "std" as std
+
+fn main() {
+    // Create a vector of integers (Vec)
+    std.Vec[s32] numbers <- std.vec_new[s32]()
+    (numbers).push(10)
+    (numbers).push(20)
+    
+    // Retrieve the first element (10)
+    s32 first <- (numbers).get(0 as u32)
 }`
   },
   {
