@@ -28,6 +28,7 @@
   let output = $state("Waiting to run...");
   let isTalking = $state(false);
   let isRunning = $state(false);
+  let isVerifying = $state(false);
   let hasValidSession = $state(false);
   let turnstileToken = $state(null);
   let turnstileRef = $state(null);
@@ -86,32 +87,38 @@
     output = "";
 
     if (!hasValidSession) {
-      const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
-      if (siteKey === "1x00000000000000000000AA") {
+      const rawSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
+      const isDummy = !rawSiteKey || rawSiteKey === "1x00000000000000000000AA" || rawSiteKey === "undefined" || rawSiteKey === "null" || rawSiteKey === "";
+      if (isDummy) {
         await doCompile("dummy-bypass");
         return;
       }
+      isVerifying = true;
       if (turnstileRef) {
         turnstileRef.reset();
       } else {
-        output = "Security check unavailable.";
-        isRunning = false;
+        setTimeout(() => {
+          if (turnstileRef) turnstileRef.reset();
+        }, 100);
       }
       return;
     }
-    const siteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA";
-    const token = siteKey === "1x00000000000000000000AA" ? "dummy-bypass" : null;
+    const rawSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
+    const isDummy = !rawSiteKey || rawSiteKey === "1x00000000000000000000AA" || rawSiteKey === "undefined" || rawSiteKey === "null" || rawSiteKey === "";
+    const token = isDummy ? "dummy-bypass" : null;
     await doCompile(token);
   }
 
   function handleTurnstileCallback(e) {
     turnstileToken = e.detail.token;
+    isVerifying = false;
     if (isRunning) {
       doCompile(turnstileToken);
     }
   }
 
   function handleTurnstileError() {
+    isVerifying = false;
     output = "Security check failed.";
     isRunning = false;
   }
@@ -154,7 +161,14 @@
         clearInterval(intervalId);
         if (status === 401 || status === 403) {
           hasValidSession = false;
-          if (turnstileRef) turnstileRef.reset();
+          isVerifying = true;
+          if (turnstileRef) {
+            turnstileRef.reset();
+          } else {
+            setTimeout(() => {
+              if (turnstileRef) turnstileRef.reset();
+            }, 100);
+          }
           output = "Security check failed. Please try again.\n";
         } else if (status === 429) {
           output = "Too many requests. Please slow down.\n";
@@ -283,17 +297,116 @@
   </main>
 </div>
 
-<Turnstile
-  siteKey={import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-  theme="dark"
-  size="compact"
-  appearance="interaction-only"
-  on:callback={handleTurnstileCallback}
-  on:error={handleTurnstileError}
-  bind:this={turnstileRef}
-/>
+{#if isVerifying}
+  <div class="turnstile-overlay">
+    <div class="turnstile-modal">
+      <h3 class="modal-title">Security Check</h3>
+      <p class="modal-desc">Please complete the verification below to build and run your project.</p>
+      <div class="turnstile-widget">
+        <Turnstile
+          siteKey={import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+          theme="dark"
+          size="normal"
+          appearance="interaction-only"
+          on:callback={handleTurnstileCallback}
+          on:error={handleTurnstileError}
+          bind:this={turnstileRef}
+        />
+      </div>
+      <button class="cancel-button" onclick={() => { isRunning = false; isVerifying = false; }}>
+        Cancel
+      </button>
+    </div>
+  </div>
+{/if}
 
 <style>
+  .turnstile-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .turnstile-modal {
+    box-sizing: border-box;
+    background: rgba(18, 18, 18, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 380px;
+    max-width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .turnstile-modal * {
+    box-sizing: border-box;
+  }
+
+  .modal-title {
+    color: var(--text-primary, #fff);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .modal-desc {
+    color: var(--text-muted, #999);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    margin-bottom: 1.5rem;
+  }
+
+  .turnstile-widget {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .cancel-button {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text-secondary, #ccc);
+    padding: 0.5rem 1.5rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .cancel-button:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes scaleIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  @media (max-width: 400px) {
+    .turnstile-modal {
+      padding: 1.5rem 1rem;
+      max-width: 95%;
+    }
+  }
+
   .walkthrough-container {
     display: flex;
     height: calc(100vh - var(--header-height));
