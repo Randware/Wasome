@@ -102,6 +102,7 @@ The Rust backend has an attack detection engine that tracks malicious events (ra
   * **How to use**: Pass this key as an `x-admin-secret` HTTP header when making requests to endpoints like `POST /api/admin/toggle` to toggle compiler activity.
 * **`HOST_WASOME_DIR`**
   * **Description**: The name of the Docker volume (or host path) containing the pre-compiled waso toolchain. This is mounted read-only into sandbox containers to allow compilation.
+    * *Production Note*: Docker Compose prefixes volume names with the directory/project name (e.g. `<project-name>_wasome-compiler-cache`). If your production folder name or Compose project name is not `website`, update this variable to match the exact volume name (e.g. `prod-deployment_wasome-compiler-cache`). Run `docker volume ls` on your server to verify the volume name.
   * **Default**: `website_wasome-compiler-cache`
 * **`DOCKER_RUNTIME`**
   * **Description**: The container runtime to spawn sandboxes with.
