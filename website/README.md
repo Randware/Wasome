@@ -1,6 +1,6 @@
 # Wasome Website Architecture & Deployment
 
-This directory contains the Wasome frontend website (SvelteKit/Vite) and the highly secure Rust backend compiler API (`/backend`).
+This directory contains the Wasome frontend website (Svelte/Vite) and the highly secure Rust backend compiler API (`/backend`).
 
 ## Security Architecture
 
@@ -30,22 +30,85 @@ sudo runsc install
 sudo systemctl restart docker
 ```
 
-If you do not install `runsc` on your host machine, the backend will fail to start the compilation containers because the `--runtime=runsc` flag will be missing from your Docker daemon.
+If you do not install `runsc` on your host machine, you must set `DOCKER_RUNTIME=runc` in your `.env` for local testing (this runs sandboxes with standard Docker runtimes, which lacks syscall interception and should not be used in production).
 
 ---
 
-## 2. Environment Variables & Cloudflare Turnstile
+## 2. Environment Variables Reference
 
-The website requires environment variables to configure Cloudflare Turnstile bot protection.
+Copy `.env.example` to `.env` to configure the application:
+```bash
+cp .env.example .env
+```
 
-1. Copy the `.env.example` file to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-2. For **local testing**, leave the default dummy keys (they are guaranteed to pass validation without user interaction).
-3. For **production**, sign up at [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile), register your domain, and replace the keys:
-   - `PUBLIC_TURNSTILE_SITE_KEY` goes in the `.env` (loaded by Vite for the browser).
-   - `TURNSTILE_SECRET_KEY` goes in the `.env` (loaded by the backend Rust API).
+Below is the complete configuration guide for every environment variable supported by the system.
+
+### Cloudflare Turnstile Config (Bot Protection)
+
+Cloudflare Turnstile provides frictionless bot protection for playground runs.
+
+* **`PUBLIC_TURNSTILE_SITE_KEY`**
+  * **Description**: The public key loaded by Svelte for rendering the Turnstile widget in the browser.
+  * **Where to find**:
+    1. Log in to your [Cloudflare Dashboard](https://dash.cloudflare.com/).
+    2. Click **Turnstile** in the left-hand sidebar menu.
+    3. Click **Add Site**.
+    4. Fill in the Site Name, enter your Domain (e.g. `localhost` for local development, or your production domain), and select **Widget Type** (e.g. *Managed* or *Invisible*).
+    5. Click **Create** to receive your credentials. Use the **Site Key** here.
+  * **Default/Local Testing**: `1x0000000000000000000001` (dummy bypass key).
+
+* **`TURNSTILE_SECRET_KEY`**
+  * **Description**: The secret key loaded by the Rust backend to verify Turnstile challenge tokens server-side.
+  * **Where to find**: Retrieved from the same Turnstile Site settings page in the Cloudflare Dashboard (step 5 above). Use the **Secret Key** here.
+  * **Default/Local Testing**: `1x0000000000000000000000000000000AA` (dummy bypass key).
+
+---
+
+### Rate Limiting
+
+The backend uses a Token Bucket rate limiter per IP address to prevent brute-force compilation attempts.
+
+* **`RATE_LIMIT_MAX_TOKENS`**
+  * **Description**: Maximum number of compilation requests allowed in a burst before the IP gets rate-limited.
+  * **Default**: `10`
+* **`RATE_LIMIT_REFILL_PERIOD`**
+  * **Description**: The duration (in seconds) it takes to refill the bucket back to full capacity.
+  * **Default**: `900` (15 minutes)
+
+---
+
+### Security Alerts & Webhooks (Discord Integration)
+
+The Rust backend has an attack detection engine that tracks malicious events (rate limit hits, path traversal attempts, payload overflows). When an IP's threat score exceeds thresholds, it automatically triggers a ban and fires notifications.
+
+* **`DISCORD_WEBHOOK_ALERT`**
+  * **Description**: Discord webhook URL for Warning-level events (IP threat score >= 50).
+* **`DISCORD_WEBHOOK_CRITICAL`**
+  * **Description**: Discord webhook URL for Critical-level events and 1-hour IP bans (threat score >= 100).
+* **`DISCORD_WEBHOOK_EMERGENCY`**
+  * **Description**: Discord webhook URL for Emergency-level events and 24-hour IP bans (threat score >= 200).
+* **Where to find Webhook URLs**:
+  1. Open your Discord server.
+  2. Right-click the target text channel and select **Edit Channel**.
+  3. Go to **Integrations** -> **Webhooks** -> **New Webhook**.
+  4. Copy the Webhook URL and paste it into the respective `.env` variable. Leave blank to disable alerts.
+
+---
+
+### Admin & Compiler Paths
+
+* **`ADMIN_SECRET`**
+  * **Description**: Token header secret used to authenticate administrative requests.
+  * **How to use**: Pass this key as an `x-admin-secret` HTTP header when making requests to endpoints like `POST /api/admin/toggle` to toggle compiler activity.
+* **`HOST_WASOME_DIR`**
+  * **Description**: The name of the Docker volume (or host path) containing the pre-compiled waso toolchain. This is mounted read-only into sandbox containers to allow compilation.
+  * **Default**: `website_wasome-compiler-cache`
+* **`DOCKER_RUNTIME`**
+  * **Description**: The container runtime to spawn sandboxes with.
+  * **Default**: `runsc` (gVisor). Change to `runc` ONLY for local debugging if gVisor is not installed on the host.
+* **`BIND_ADDR`**
+  * **Description**: Port and network interface host mapping of the backend server.
+  * **Default**: `0.0.0.0:3000`
 
 ---
 
@@ -54,12 +117,7 @@ The website requires environment variables to configure Cloudflare Turnstile bot
 To test the frontend and backend locally with Docker Compose:
 
 1. Make sure your host has `runsc` installed (see step 1) and your `.env` file exists.
-2. We need the actual `wasome/compiler` image. If it isn't built yet, ensure your local Docker registry has an image tagged `wasome/compiler:latest`. Since the backend runs Debian Bookworm, it requires an image with compatible glibc. If you don't have it, create a dummy tag for testing:
-   ```bash
-   docker pull debian:bookworm-slim
-   docker tag debian:bookworm-slim wasome/compiler:latest
-   ```
-3. Run `docker-compose`:
+2. Run `docker-compose`:
    ```bash
    docker-compose up --build
    ```
@@ -67,7 +125,7 @@ To test the frontend and backend locally with Docker Compose:
 **What happens?**
 * The `website` container runs Nginx, serving the Svelte frontend on port `8080`.
 * The `backend` container runs the Rust API on port `3000`. Nginx automatically reverse-proxies `/api/` traffic to the backend.
-* The backend spawns background jobs every 2 hours to update the compiler locally via `/app/install.sh`.
-* When a user runs code, the `backend` mounts the `waso` binaries directly into an ephemeral `runsc` container and executes it safely.
+* The backend downloads and installs the toolchain locally via `/app/install.sh` on startup, storing it inside the shared volume.
+* When a user runs code, the `backend` mounts the shared volume directly into an ephemeral `runsc` sandbox container and executes it safely.
 
 You can now visit `http://localhost:8080/playground` to interact with the system safely!
