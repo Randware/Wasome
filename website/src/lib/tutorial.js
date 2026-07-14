@@ -153,7 +153,7 @@ fn main() {
   },
   {
     title: "Beyond the Stars",
-    content: "And so, you have learned the language of the stars.\n\nYou started with a single `main` entry point, a quiet spark in the dark, and learned to structure, loop, build, and organize your thoughts into WebAssembly. The code you write is no longer just text; it is a pattern of logic that runs anywhere, floating across the web.\n\nBut this is not the end, traveler. It is only the beginning of your creation.\n\nGo forth and build things that wow, things that solve, and things that bring joy. If you ever get lost, find a bug, or want to add your own light to this project, come find us on GitHub to open an issue or pull request. We are always waiting to build together.\n\nThank you for exploring with me.\n\nYou are the creator. Play on.",
+    content: "Congratulations! You have completed the Wasome language tour!\n\nWe have covered everything from basic variables and functions to structs, generics, modules, and the standard library. You now have all the tools you need to write and compile code for WebAssembly.\n\nWhat's next?\n* Head over to the Docs page to explore the full language specification.\n* Check out the Examples tab to see larger solvers (like Fibonacci or modular arithmetic).\n* Open the Playground to start writing your own programs.\n\nIf you find a bug, have a suggestion, or want to contribute to the compiler, come say hello and open an issue on our GitHub repository. We are always happy to collaborate!\n\nThank you for taking the time to explore Wasome. Happy coding!",
     code: `import "std" as std
 
 fn main() {
