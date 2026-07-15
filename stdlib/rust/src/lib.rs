@@ -4,17 +4,17 @@ extern crate alloc;
 
 mod plattform;
 mod wasome_mem;
+mod wasome_option;
 mod wasome_string;
 mod wasome_vec;
-mod wasome_option;
 
 use crate::plattform::{exit, print_str, read_line_internal};
+use crate::wasome_option::WasomeOption;
 use crate::wasome_string::WasomeString;
 use alloc::boxed::Box;
 use alloc::string::String;
 use core::mem::forget;
 use core::panic::PanicInfo;
-use crate::wasome_option::WasomeOption;
 
 #[global_allocator]
 static A: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
