@@ -223,13 +223,18 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         let dest_size = cast.target().size_bytes();
         use DataType as D;
         match (src_dt, cast.target()) {
-            (src, dest) if src.is_int() && dest.is_int() => {
-                let op = if src_size == dest_size {
+            // Int arm
+            // Bools are just 1-bit ints in LLVM
+            // We allow more casts than the AST (e.g.: bool -> s16), but that's fine
+            (src, dest) if (src.is_int() || src == &DataType::Bool) && (dest.is_int() || dest == &DataType::Bool) => {
+                // Bools are 1-bit ints in LLVM
+                let op = if src_size == dest_size && !src.is_bool() && dest.is_bool() {
                     Self::int_bit_cast
                 } else if src_size < dest_size {
                     if src.is_sint() {
                         Builder::build_int_s_extend::<IntValue<'ctx>>
                     } else {
+                        // Bools also land here
                         Builder::build_int_z_extend
                     }
                 } else {
@@ -289,9 +294,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 .build_float_trunc(to_cast.into_float_value(), self.context.f32_type(), "cast")
                 .unwrap()
                 .as_basic_value_enum(),
-            (D::Bool, D::U8 | D::S8)
-            | (D::U8 | D::S8, D::Bool)
-            | (D::Char, D::U32)
+            (D::Char, D::U32)
             | (D::U32, D::Char) => llvm_context
                 .builder()
                 .build_bit_cast(
