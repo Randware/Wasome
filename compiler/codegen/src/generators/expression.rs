@@ -294,8 +294,7 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 .build_float_trunc(to_cast.into_float_value(), self.context.f32_type(), "cast")
                 .unwrap()
                 .as_basic_value_enum(),
-            (D::Char, D::U32)
-            | (D::U32, D::Char) => llvm_context
+            (D::Char, D::U32) => llvm_context
                 .builder()
                 .build_bit_cast(
                     to_cast.into_int_value(),
