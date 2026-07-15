@@ -383,7 +383,12 @@ entry = "src/main.waso"`;
         await doCompile("dummy-bypass");
         return;
       }
+      if (turnstileToken) {
+        await doCompile(turnstileToken);
+        return;
+      }
       isVerifying = true;
+      turnstileToken = null;
       if (turnstileRef) {
         turnstileRef.reset();
       } else {
@@ -443,6 +448,7 @@ entry = "src/main.waso"`;
         clearInterval(intervalId);
         if (status === 401 || status === 403) {
           hasValidSession = false;
+          turnstileToken = null;
           isVerifying = true;
           if (turnstileRef) {
             turnstileRef.reset();
@@ -865,28 +871,33 @@ entry = "src/main.waso"`;
   </div>
 </div>
 
-{#if isVerifying}
-  <div class="turnstile-overlay">
-    <div class="turnstile-modal">
-      <h3 class="modal-title">Security Check</h3>
-      <p class="modal-desc">Please complete the verification below to build and run your project.</p>
-      <div class="turnstile-widget">
-        <Turnstile
-          siteKey={import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
-          theme="dark"
-          size="normal"
-          appearance="interaction-only"
-          on:callback={handleTurnstileCallback}
-          on:error={handleTurnstileError}
-          bind:this={turnstileRef}
-        />
-      </div>
-      <button class="cancel-button" onclick={() => { isRunning = false; isVerifying = false; }}>
-        Cancel
-      </button>
+<div 
+  class="turnstile-overlay" 
+  class:visible={isVerifying}
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="turnstile-title"
+  aria-describedby="turnstile-desc"
+>
+  <div class="turnstile-modal">
+    <h3 id="turnstile-title" class="modal-title">Security Check</h3>
+    <p id="turnstile-desc" class="modal-desc">Please complete the verification below to build and run your project.</p>
+    <div class="turnstile-widget">
+      <Turnstile
+        siteKey={import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"}
+        theme="dark"
+        size="normal"
+        appearance="interaction-only"
+        on:callback={handleTurnstileCallback}
+        on:error={handleTurnstileError}
+        bind:this={turnstileRef}
+      />
     </div>
+    <button class="cancel-button" onclick={() => { isRunning = false; isVerifying = false; }}>
+      Cancel
+    </button>
   </div>
-{/if}
+</div>
 {/if}
 
 <style>
@@ -902,7 +913,16 @@ entry = "src/main.waso"`;
     display: flex;
     justify-content: center;
     align-items: center;
-    animation: fadeIn 0.2s ease-out;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease-out, visibility 0.2s ease-out;
+  }
+
+  .turnstile-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
   }
 
   .turnstile-modal {
@@ -915,7 +935,12 @@ entry = "src/main.waso"`;
     max-width: 90%;
     text-align: center;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-    animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: scale(0.95);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .turnstile-overlay.visible .turnstile-modal {
+    transform: scale(1);
   }
 
   .turnstile-modal * {
@@ -959,15 +984,6 @@ entry = "src/main.waso"`;
     border-color: rgba(255, 255, 255, 0.3);
   }
 
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  @keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-  }
 
   @media (max-width: 400px) {
     .turnstile-modal {
