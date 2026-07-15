@@ -20,11 +20,14 @@ export const steps = [
   },
   {
     title: "Typecasting",
-    content: "Sometimes numbers want to wear a different hat! In Wasome, convert one numerical type to another using the `as` keyword.\n\nNote that you cannot cast directly between types of different bit-widths (like `f64` to `s32`)—you must take small steps by casting to an intermediate size like `s64` first! Narrowing chops off decimals and can overflow.",
+    content: "Sometimes numbers want to wear a different hat! In Wasome, convert one numerical type to another using the `as` keyword.\n\nYou can cast between any two numeric types directly—no need for an intermediate size (like `f64` to `s32` in one go)! Narrowing chops off decimals and can overflow.\n\nYou can also convert `bool` to/from `u8`/`s8` (0 is false, 1 is true; when casting into `bool` only the least significant bit matters, so casting values greater than 1 or less than 0 into a `bool` is discouraged). And a `char` can be cast to `u32` using UTF-8, padding shorter chars with zeros.",
     code: `fn main() {
     f64 precise_pi <- 3.14159
-    s32 rough_pi <- precise_pi as s64 as s32
-    f64 normal_pi <- rough_pi as s64 as f64
+    s32 rough_pi <- precise_pi as s32
+    f64 normal_pi <- rough_pi as f64
+
+    u8 flag <- 1
+    bool active <- flag as bool
 }`
   },
   {
