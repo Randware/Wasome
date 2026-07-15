@@ -6,6 +6,7 @@ mod plattform;
 mod wasome_mem;
 mod wasome_string;
 mod wasome_vec;
+mod wasome_option;
 
 use crate::plattform::{exit, print_str, read_line_internal};
 use crate::wasome_string::WasomeString;
@@ -13,6 +14,7 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use core::mem::forget;
 use core::panic::PanicInfo;
+use crate::wasome_option::WasomeOption;
 
 #[global_allocator]
 static A: dlmalloc::GlobalDlmalloc = dlmalloc::GlobalDlmalloc;
@@ -60,6 +62,11 @@ pub extern "C" fn read_line() -> *mut WasomeString {
     let wasome_string = Box::into_raw(Box::new(WasomeString::new()));
     unsafe { WasomeString::update_from_string(wasome_string, read_line_internal()) }
     wasome_string
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn u32_to_char(val: u32) -> WasomeOption<char> {
+    char::from_u32(val).into()
 }
 
 fn panic_internal(msg: Option<&str>) -> ! {

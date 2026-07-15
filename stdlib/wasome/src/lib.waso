@@ -1,6 +1,12 @@
+pub enum Option[T] {
+    None
+    Some(T)
+}
+
 pub extern fn print_char(char to_print)
 pub extern fn print_string(String to_print)
 pub extern fn read_line() -> String
+pub extern fn u32_to_char(u32 to_convert) -> Option[char]
 
 pub extern fn vec_new[T]() -> Vec[T]
 
