@@ -4,3 +4,42 @@ services:
     ports:
       - "${PORT:-8080}:80"
     restart: always
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    expose:
+      - "3000"
+    environment:
+      - HOST_WASOME_DIR=${WASOME_COMPILER_VOLUME:-website_wasome-compiler-cache}
+      - WASOME_HOME=/opt/wasome
+      - DOCKER_RUNTIME=${DOCKER_RUNTIME:-runsc}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
+      - DISCORD_WEBHOOK_ALERT=${DISCORD_WEBHOOK_ALERT:-}
+      - DISCORD_WEBHOOK_CRITICAL=${DISCORD_WEBHOOK_CRITICAL:-}
+      - DISCORD_WEBHOOK_EMERGENCY=${DISCORD_WEBHOOK_EMERGENCY:-}
+      - COMPILATION_ENABLED=${COMPILATION_ENABLED:-true}
+      - MAINTENANCE_MODE=${MAINTENANCE_MODE:-false}
+      - ADMIN_SECRET=${ADMIN_SECRET:-}
+      - RATE_LIMIT_MAX_TOKENS=${RATE_LIMIT_MAX_TOKENS:-10}
+      - RATE_LIMIT_REFILL_PERIOD=${RATE_LIMIT_REFILL_PERIOD:-900}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/wasome-workspaces:/tmp/wasome-workspaces
+      - wasome-compiler-cache:/opt/wasome
+      - ../install.sh:/app/install.sh:ro
+      - ./logs:/app/logs
+    restart: always
+
+  compiler-sandbox:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.sandbox
+    image: wasome-compiler-sandbox:latest
+
+volumes:
+  wasome-compiler-cache:
+
