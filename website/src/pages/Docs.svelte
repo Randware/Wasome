@@ -349,19 +349,25 @@
           The <code>as</code> expression evaluates to the value converted to the target type if the conversion is defined. The <code>as</code> syntax is an expression. The following conversions are permitted:
         </p>
         <ul>
-          <li><strong>Widening conversions:</strong> From a smaller to a larger integer or floating-point type, or from integer to floating-point.</li>
-          <li><strong>Narrowing conversions:</strong> From a larger to a smaller type, or from floating-point to integer.</li>
-          <li><strong>Signed and unsigned conversions:</strong> Conversions between signed and unsigned integer types.</li>
+          <li><strong>Numeric conversions:</strong> Any numeric type can be converted directly to any other numeric type. This includes widening (smaller to larger integer or floating-point type, or integer to floating-point), narrowing (larger to smaller type, or floating-point to integer), and signed/unsigned conversions.</li>
+          <li><strong>Boolean conversions:</strong> Conversions between <code>bool</code> and <code>u8</code>/<code>s8</code> are permitted. A value of <code>0</code> is <code>false</code> and <code>1</code> is <code>true</code>. When casting into <code>bool</code>, only the least significant bit is considered (e.g. <code>10</code> becomes <code>false</code>, <code>11</code> becomes <code>true</code>). Casting any value greater than <code>1</code> or less than <code>0</code> into a <code>bool</code> is discouraged.</li>
+          <li><strong>Character conversions:</strong> A <code>char</code> can be converted to <code>u32</code>. It uses UTF-8, padding chars shorter than 4 bytes. The reverse conversion (<code>u32</code> to <code>char</code>) is provided by the standard library.</li>
         </ul>
         <p>
           If a converted value does not fit into the target target type, the value will overflow or underflow.
         </p>
         <p>
-          Direct conversions between types of different bit-widths (such as <code>f64</code> to <code>s32</code>) are not supported. Casting must be chained sequentially using an intermediate type:
+          Numeric conversions are performed directly, without needing an intermediate type:
         </p>
         <pre><code>{@html highlight(`f64 precise_pi <- 3.14159
-s32 rough_pi <- precise_pi as s64 as s32
-f64 normal_pi <- rough_pi as s64 as f64`, "wasome")}</code></pre>
+s32 rough_pi <- precise_pi as s32
+f64 normal_pi <- rough_pi as f64`, "wasome")}</code></pre>
+        <p>
+          Boolean conversions follow the same <code>as</code> syntax:
+        </p>
+        <pre><code>{@html highlight(`u8 flag <- 1
+bool active <- flag as bool
+u8 back <- active as u8`, "wasome")}</code></pre>
       </div>
     </div>
 

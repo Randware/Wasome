@@ -40,6 +40,20 @@ pub struct GlobalRegistry<'ctx> {
     /// Restores the stack to a previously saved position. Used after loop body execution
     /// to clean up stack allocations made within the loop.
     stackrestore: FunctionValue<'ctx>,
+    /// Declaration of the `llvm.fptoui.sat.*` intrinsic.
+    ///
+    /// Converts a floating-point number to an unsigned integer and saturates on
+    /// over/underflow.
+    ///
+    /// As this is an overloaded intrinsic, this is the generic variant
+    fptoui_sat: Intrinsic,
+    /// Declaration of the `llvm.fptoui.sat.*` intrinsic.
+    ///
+    /// Converts a floating-point number to a signed integer and saturates on
+    /// over/underflow.
+    ///
+    /// As this is an overloaded intrinsic, this is the generic variant
+    fptosi_sat: Intrinsic,
     /// The function type for `drop` functions: `void (ptr)`.
     ///
     /// All `drop` functions for structs and enums conform to this signature.
@@ -92,7 +106,10 @@ impl<'ctx> GlobalRegistry<'ctx> {
         let stacksave = stacksave_intrinsic
             .get_declaration(module, &[ptr_type])
             .unwrap();
-
+        let fptosi_intrinsic =
+            Intrinsic::find("llvm.fptosi.sat").expect("Hardcoded intrinsic should exist");
+        let fptoui_intrinsic =
+            Intrinsic::find("llvm.fptoui.sat").expect("Hardcoded intrinsic should exist");
         let stackrestore_intrinsic =
             Intrinsic::find("llvm.stackrestore").expect("Hardcoded intrinsic should exist");
         let stackrestore = stackrestore_intrinsic
@@ -125,6 +142,8 @@ impl<'ctx> GlobalRegistry<'ctx> {
             base_heap_allocated,
             stacksave,
             stackrestore,
+            fptoui_sat: fptoui_intrinsic,
+            fptosi_sat: fptosi_intrinsic,
             drop,
             malloc,
             free,
@@ -146,6 +165,14 @@ impl<'ctx> GlobalRegistry<'ctx> {
 
     pub const fn stackrestore(&self) -> FunctionValue<'ctx> {
         self.stackrestore
+    }
+
+    pub fn fptoui_sat(&self) -> Intrinsic {
+        self.fptoui_sat
+    }
+
+    pub fn fptosi_sat(&self) -> Intrinsic {
+        self.fptosi_sat
     }
 
     pub const fn drop(&self) -> FunctionType<'ctx> {

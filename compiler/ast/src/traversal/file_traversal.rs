@@ -8,7 +8,7 @@ use crate::traversal::directory_traversal::DirectoryTraversalHelper;
 use crate::traversal::enum_traversal::EnumTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
 use crate::traversal::struct_traversal::StructTraversalHelper;
-use crate::traversal::{FunctionContainer, MaybeHasStructSymbol, HasSymbols};
+use crate::traversal::{FunctionContainer, HasSymbols, MaybeHasStructSymbol};
 use crate::{ASTNode, ASTType};
 use source::types::FileID;
 use std::iter;

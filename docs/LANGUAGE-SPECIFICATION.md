@@ -292,9 +292,9 @@ Cast syntax:
 
 Valid conversions:
 
-- Widening conversions (from a smaller to a larger integer or floating-point type, or from integer to floating-point) are allowed.
-- Narrowing conversions (from a larger to a smaller type, or from floating-point to integer) are allowed.
-- Signed and unsigned conversions are allowed.
+- Numeric conversions between any two numeric types are allowed (widening, narrowing, signed/unsigned and float ↔ int).
+- Boolean conversions between `bool` and `u8`/`s8` are allowed. `0` is `false`, `1` is `true`. When casting into `bool`, only the least significant bit is considered (e.g. `10` becomes `false`, `11` becomes `true`).
+- Char to `u32` conversion is allowed. It uses UTF-8, padding chars shorter than 4 bytes. The reverse (`u32` to `char`) is provided by the standard library.
 
 If a conversion does not fit into the target type, the value will overflow or underflow.
 

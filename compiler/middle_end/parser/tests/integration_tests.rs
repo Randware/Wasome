@@ -891,7 +891,7 @@ fn test_parse_simple_program() {
         UntypedDataType::new("u64".to_string(), Vec::new()),
     ));
 
-    // u64 curr <- 1 as u32 as u64
+    // u64 curr <- 1 as u64
     let curr_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
@@ -901,17 +901,11 @@ fn test_parse_simple_program() {
                 "u64".to_string(),
                 Vec::new(),
             ))),
-            wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                UnaryOpType::Typecast(Typecast::new(UntypedDataType::new(
-                    "u32".to_string(),
-                    Vec::new(),
-                ))),
-                wrap(Expression::Literal("1".to_string())),
-            )))),
+            wrap(Expression::Literal("1".to_string())),
         )))),
     )));
 
-    // u64 prev <- 0 as u32 as u64
+    // u64 prev <- 0 as u64
     let prev_decl = wrap(Statement::VariableDeclaration(VariableDeclaration::<
         UntypedAST,
     >::new(
@@ -921,13 +915,7 @@ fn test_parse_simple_program() {
                 "u64".to_string(),
                 Vec::new(),
             ))),
-            wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                UnaryOpType::Typecast(Typecast::new(UntypedDataType::new(
-                    "u32".to_string(),
-                    Vec::new(),
-                ))),
-                wrap(Expression::Literal("0".to_string())),
-            )))),
+            wrap(Expression::Literal("0".to_string())),
         )))),
     )));
 
@@ -967,7 +955,7 @@ fn test_parse_simple_program() {
         wrap(Expression::Variable("temp".to_string())),
     )));
 
-    // n <- n - 1 as u32 as u16 as u8
+    // n <- n - 1 as u8
     let n_assign = wrap(Statement::VariableAssignment(VariableAssignment::<
         UntypedAST,
     >::new(
@@ -980,19 +968,7 @@ fn test_parse_simple_program() {
                     "u8".to_string(),
                     Vec::new(),
                 ))),
-                wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                    UnaryOpType::Typecast(Typecast::new(UntypedDataType::new(
-                        "u16".to_string(),
-                        Vec::new(),
-                    ))),
-                    wrap(Expression::UnaryOp(Box::new(UnaryOp::<UntypedAST>::new(
-                        UnaryOpType::Typecast(Typecast::new(UntypedDataType::new(
-                            "u32".to_string(),
-                            Vec::new(),
-                        ))),
-                        wrap(Expression::Literal("1".to_string())),
-                    )))),
-                )))),
+                wrap(Expression::Literal("1".to_string())),
             )))),
         )))),
     )));

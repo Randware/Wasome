@@ -354,10 +354,7 @@ impl<'ctx> Codegen<'ctx> {
             let prev = llvm_context
                 .type_registry_mut()
                 .register_function(symbol, lowered);
-            debug_assert!(
-                prev
-                    .is_none()
-            );
+            debug_assert!(prev.is_none());
         });
     }
 
@@ -386,10 +383,7 @@ impl<'ctx> Codegen<'ctx> {
             let prev = llvm_context
                 .type_registry_mut()
                 .register_enum(symbol, EnumInformation::new(drop));
-            debug_assert!(
-                prev
-                    .is_none()
-            );
+            debug_assert!(prev.is_none());
         });
     }
 
@@ -427,10 +421,7 @@ impl<'ctx> Codegen<'ctx> {
             let prev = llvm_context
                 .type_registry_mut()
                 .register_struct(symbol, StructInformation::new(lowered, drop));
-            debug_assert!(
-                prev
-                    .is_none()
-            );
+            debug_assert!(prev.is_none());
         });
     }
 

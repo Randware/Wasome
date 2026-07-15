@@ -664,7 +664,7 @@ impl<Type: ASTType> Loop<Type> {
     pub const fn to_loop_on_index(&self) -> usize {
         match self.loop_type {
             LoopType::Infinite | LoopType::While(_) => 0,
-            LoopType::For { .. } => 1
+            LoopType::For { .. } => 1,
         }
     }
 }
