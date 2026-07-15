@@ -9,7 +9,7 @@ use ast::expression::{
 };
 use ast::symbol::VariableSymbol;
 use inkwell::builder::{Builder, BuilderError};
-use inkwell::types::{IntType, StructType};
+use inkwell::types::{BasicType, IntType, StructType};
 use inkwell::values::{BasicValue, BasicValueEnum, FloatValue, IntValue, PointerValue};
 use inkwell::{FloatPredicate, IntPredicate};
 
@@ -219,8 +219,66 @@ impl<'ctx, 'fc> Codegen<'ctx> {
         to_cast: BasicValueEnum<'ctx>,
         cast: &Typecast<TypedAST>,
     ) -> BasicValueEnum<'ctx> {
+        let src_size = src_dt.size_bytes();
+        let dest_size = cast.target().size_bytes();
         use DataType as D;
         match (src_dt, cast.target()) {
+            (src, dest) if src.is_int() && dest.is_int() => {
+                let op = if src_size == dest_size {
+                    Self::int_bit_cast
+                } else if src_size < dest_size {
+                    if src.is_sint() {
+                        Builder::build_int_s_extend::<IntValue<'ctx>>
+                    } else {
+                        Builder::build_int_z_extend
+                    }
+                } else {
+                    Builder::build_int_truncate
+                };
+                let dest = self.int_dt_to_llvm_dt(dest);
+                op(
+                    llvm_context.builder(),
+                    to_cast.into_int_value(),
+                    dest,
+                    "cast",
+                )
+                .unwrap()
+                .as_basic_value_enum()
+            }
+            (src, dest) if src.is_float() && dest.is_int() => {
+                let op = if dest.is_uint() {
+                    llvm_context.global_registry().fptoui_sat()
+                } else {
+                    llvm_context.global_registry().fptosi_sat()
+                };
+                let op_func = op
+                    .get_declaration(
+                        llvm_context.module(),
+                        &[llvm_context.lower_type(dest), llvm_context.lower_type(src)],
+                    )
+                    .expect("Intrinsic should exist!");
+                llvm_context
+                    .builder()
+                    .build_call(op_func, &[to_cast.into()], "cast_call")
+                    .expect("Call should work")
+                    .try_as_basic_value()
+                    .expect_basic("Should be a basic val")
+            }
+            (src, dest) if src.is_int() && dest.is_float() => {
+                let op = if dest.is_uint() {
+                    Builder::build_unsigned_int_to_float
+                } else {
+                    Builder::build_signed_int_to_float
+                };
+                op(
+                    llvm_context.builder(),
+                    to_cast.into_int_value(),
+                    llvm_context.lower_type(dest).into_float_type(),
+                    "cast",
+                )
+                .expect("Cast should work")
+                .as_basic_value_enum()
+            }
             (D::F32, D::F64) => llvm_context
                 .builder()
                 .build_float_ext(to_cast.into_float_value(), self.context.f64_type(), "cast")
@@ -231,52 +289,31 @@ impl<'ctx, 'fc> Codegen<'ctx> {
                 .build_float_trunc(to_cast.into_float_value(), self.context.f32_type(), "cast")
                 .unwrap()
                 .as_basic_value_enum(),
-            (D::S8, D::U8)
-            | (D::U8, D::S8)
-            | (D::S16, D::U16)
-            | (D::U16, D::S16)
-            | (D::S32, D::U32)
-            | (D::U32, D::S32)
-            | (D::S64, D::U64)
-            | (D::U64, D::S64) => {
-                let target = self.int_dt_to_llvm_dt(cast.target());
-                let val = llvm_context
-                    .builder()
-                    .build_bit_cast(to_cast.into_int_value(), target, "cast")
-                    .unwrap()
-                    .into_int_value();
-                val.as_basic_value_enum()
-            }
-            (D::S8 | D::U8, D::S16 | D::U16 | D::S32 | D::U32 | D::S64 | D::U64)
-            | (D::S16 | D::U16, D::S32 | D::U32 | D::S64 | D::U64)
-            | (D::S32 | D::U32, D::S64 | D::U64) => {
-                let target = self.int_dt_to_llvm_dt(cast.target());
-                let op = if cast.target().is_sint() {
-                    Builder::build_int_s_extend::<IntValue<'ctx>>
-                } else {
-                    Builder::build_int_z_extend
-                };
-                op(
-                    llvm_context.builder(),
+            (D::Bool, D::U8 | D::S8)
+            | (D::U8 | D::S8, D::Bool)
+            | (D::Char, D::U32)
+            | (D::U32, D::Char) => llvm_context
+                .builder()
+                .build_bit_cast(
                     to_cast.into_int_value(),
-                    target,
+                    llvm_context.lower_type(cast.target()),
                     "cast",
                 )
                 .unwrap()
-                .as_basic_value_enum()
-            }
-            (D::S16 | D::U16, D::S8 | D::U8)
-            | (D::S32 | D::U32, D::S16 | D::U16)
-            | (D::S64 | D::U64, D::S32 | D::U32) => {
-                let target = self.int_dt_to_llvm_dt(cast.target());
-                let trunc = llvm_context
-                    .builder()
-                    .build_int_truncate(to_cast.into_int_value(), target, "cast")
-                    .unwrap();
-                trunc.as_basic_value_enum()
-            }
+                .as_basic_value_enum(),
             _ => unreachable!(),
         }
+    }
+
+    fn int_bit_cast(
+        builder: &Builder<'ctx>,
+        to_cast: IntValue<'ctx>,
+        target: IntType<'ctx>,
+        name: &str,
+    ) -> Result<IntValue<'ctx>, BuilderError> {
+        builder
+            .build_bit_cast(to_cast, target, name)
+            .map(move |res| res.into_int_value())
     }
 
     /// Compiles a binary operation, dispatching to arithmetic, shift, bitwise, or comparison

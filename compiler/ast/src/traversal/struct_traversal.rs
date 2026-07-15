@@ -2,7 +2,7 @@ use crate::composite::Struct;
 use crate::symbol::{DirectlyAvailableSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable};
 use crate::traversal::file_traversal::FileTraversalHelper;
 use crate::traversal::function_traversal::FunctionTraversalHelper;
-use crate::traversal::{FunctionContainer, MaybeHasStructSymbol, HasSymbols};
+use crate::traversal::{FunctionContainer, HasSymbols, MaybeHasStructSymbol};
 use crate::{ASTNode, ASTType};
 use std::rc::Rc;
 

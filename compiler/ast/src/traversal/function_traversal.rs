@@ -2,10 +2,10 @@ use crate::symbol::{
     DirectlyAvailableSymbol, ModuleUsageNameSymbol, StructSymbol, SymbolTable, VariableSymbol,
 };
 use crate::top_level::Function;
-use crate::traversal::{FunctionScope, HasSymbols};
 use crate::traversal::statement_traversal::{
     StatementTraversalHelper, StatementTraversalHelperCreationError,
 };
+use crate::traversal::{FunctionScope, HasSymbols};
 use crate::{ASTNode, ASTType};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;

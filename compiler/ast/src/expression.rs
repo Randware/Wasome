@@ -287,19 +287,15 @@ impl Typecast<TypedAST> {
     /// - None if there is no cast available
     #[must_use]
     pub fn result_type(&self, to_process: &DataType) -> Option<DataType> {
-        match (to_process, &self.target) {
-            (DataType::S8 | DataType::U16, DataType::U8)
-            | (DataType::U8 | DataType::S16, DataType::S8)
-            | (DataType::S16 | DataType::U32 | DataType::U8, DataType::U16)
-            | (DataType::U16 | DataType::S32 | DataType::S8, DataType::S16)
-            | (DataType::S32 | DataType::U64 | DataType::U16, DataType::U32)
-            | (DataType::U32 | DataType::S64 | DataType::S16 | DataType::F32, DataType::S32)
-            | (DataType::S64 | DataType::U32, DataType::U64)
-            | (DataType::U64 | DataType::S32 | DataType::F64, DataType::S64)
-            | (DataType::S32 | DataType::F64, DataType::F32)
-            | (DataType::S64 | DataType::F32, DataType::F64) => Some(self.target.clone()),
-            _ => None,
+        if self.target.is_number() && to_process.is_number() && &self.target != to_process
+            || (self.target == DataType::Bool && matches!(to_process, DataType::U8 | DataType::S8))
+            || (to_process == &DataType::Bool && matches!(self.target, DataType::U8 | DataType::S8))
+            || (self.target == DataType::Char && matches!(to_process, DataType::U32))
+            || (to_process == &DataType::Char && matches!(self.target(), DataType::U32))
+        {
+            return Some(self.target.clone());
         }
+        None
     }
 }
 
@@ -1204,7 +1200,7 @@ mod tests {
             Some(DataType::U16),
             typecast_u16.result_type(&DataType::S16)
         );
-        assert_eq!(None, typecast_u16.result_type(&DataType::F32));
+        assert_eq!(Some(DataType::U16), typecast_u16.result_type(&DataType::F32));
 
         let typecast_s64 = Typecast::new(DataType::S64);
         assert_eq!(
@@ -1215,7 +1211,7 @@ mod tests {
             Some(DataType::S64),
             typecast_s64.result_type(&DataType::S32)
         );
-        assert_eq!(None, typecast_s64.result_type(&DataType::F32));
+        assert_eq!(Some(DataType::S64), typecast_s64.result_type(&DataType::F32));
     }
 
     #[test]
@@ -1401,7 +1397,7 @@ mod tests {
         let tc_s32 = UnaryOpType::Typecast(Typecast::new(DataType::S32));
         assert_eq!(Some(DataType::S32), tc_s32.result_type(&DataType::F32));
         assert_eq!(Some(DataType::S32), tc_s32.result_type(&DataType::S64));
-        assert_eq!(None, tc_s32.result_type(&DataType::U64));
+        assert_eq!(Some(DataType::S32), tc_s32.result_type(&DataType::U64));
         assert_eq!(None, tc_s32.result_type(&DataType::S32));
         assert_eq!(None, tc_s32.result_type(&DataType::Bool)); // Should NOT work
         assert_eq!(None, tc_s32.result_type(&DataType::Char)); // Should NOT work
@@ -1416,7 +1412,7 @@ mod tests {
             Some(DataType::S32),
             typecast_s32.result_type(&DataType::F32)
         );
-        assert_eq!(None, typecast_s32.result_type(&DataType::F64));
+        assert_eq!(Some(DataType::S32), typecast_s32.result_type(&DataType::F64));
 
         // S32 conversion of same type should fail
         assert_eq!(None, typecast_s32.result_type(&DataType::S32));
@@ -1424,13 +1420,13 @@ mod tests {
         // Test boundaries for integer casts between adjacent sizes
         let tc_u16 = Typecast::new(DataType::U16);
         assert_eq!(Some(DataType::U16), tc_u16.result_type(&DataType::U32));
-        assert_eq!(None, tc_u16.result_type(&DataType::S32));
-        assert_eq!(None, tc_u16.result_type(&DataType::F32)); // Float to int should fail
+        assert_eq!(Some(DataType::U16), tc_u16.result_type(&DataType::S32));
+        assert_eq!(Some(DataType::U16), tc_u16.result_type(&DataType::F32)); // Float to int should fail
 
         let tc_s8 = Typecast::new(DataType::S8);
         assert_eq!(Some(DataType::S8), tc_s8.result_type(&DataType::S16));
-        assert_eq!(None, tc_s8.result_type(&DataType::U16));
-        assert_eq!(None, tc_s8.result_type(&DataType::F32));
+        assert_eq!(Some(DataType::S8), tc_s8.result_type(&DataType::U16));
+        assert_eq!(Some(DataType::S8), tc_s8.result_type(&DataType::F32));
     }
 
     #[test]

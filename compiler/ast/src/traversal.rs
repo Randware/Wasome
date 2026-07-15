@@ -1,6 +1,6 @@
+use crate::ASTType;
 use crate::symbol::{StructSymbol, SymbolTable};
 use crate::traversal::function_traversal::FunctionTraversalHelper;
-use crate::ASTType;
 use std::fmt::Debug;
 use std::rc::Rc;
 

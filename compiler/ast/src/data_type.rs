@@ -30,52 +30,57 @@ pub enum DataType {
 impl DataType {
     pub fn is_float(&self) -> bool {
         match self {
-            DataType::F32 |
-            DataType::F64 => true,
-            _ => false
+            DataType::F32 | DataType::F64 => true,
+            _ => false,
         }
     }
 
     pub fn is_sint(&self) -> bool {
         match self {
-            DataType::S8 |
-            DataType::S16 |
-            DataType::S32 |
-            DataType::S64 => true,
-            _ => false
+            DataType::S8 | DataType::S16 | DataType::S32 | DataType::S64 => true,
+            _ => false,
         }
+    }
+
+    pub fn is_uint(&self) -> bool {
+        match self {
+            DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_int(&self) -> bool {
+        self.is_sint() || self.is_uint()
+    }
+
+    pub fn is_number(&self) -> bool {
+        self.is_int() || self.is_float()
     }
 
     pub fn is_bool(&self) -> bool {
         match self {
             DataType::Bool => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_prt(&self) -> bool {
         match self {
             DataType::Struct(_) | DataType::Enum(_) => true,
-            _ => false
+            _ => false,
         }
     }
-    
+
     pub fn size_bytes(&self) -> usize {
         match self {
-            DataType::Bool |
-            DataType::U8 |
-            DataType::S8 => 1,
-            DataType::U16 |
-            DataType::S16 => 2,
-            DataType::Char |
-            DataType::U32 |
-            DataType::S32 |
-            DataType::F32 => 4,
-            DataType::U64 |
-            DataType::S64 |
-            DataType::F64 |
-            DataType::Struct(_) |
-            DataType::Enum(_) => 4
+            DataType::Bool | DataType::U8 | DataType::S8 => 1,
+            DataType::U16 | DataType::S16 => 2,
+            DataType::Char | DataType::U32 | DataType::S32 | DataType::F32 => 4,
+            DataType::U64
+            | DataType::S64
+            | DataType::F64
+            | DataType::Struct(_)
+            | DataType::Enum(_) => 4,
         }
     }
 }
