@@ -411,7 +411,7 @@ async fn handle_ws_connection(
 
     let start = Instant::now();
 
-    let work_dir = std::path::Path::new("/tmp/wasome-workspaces");
+    let work_dir = std::path::Path::new("/var/lib/wasome-workspaces");
     let _ = tokio::fs::create_dir_all(work_dir).await;
 
     let temp_dir = match Builder::new().tempdir_in(work_dir) {
@@ -583,7 +583,7 @@ pub async fn http_compile_handler(
 
     let start = Instant::now();
 
-    let work_dir = std::path::Path::new("/tmp/wasome-workspaces");
+    let work_dir = std::path::Path::new("/var/lib/wasome-workspaces");
     let _ = tokio::fs::create_dir_all(work_dir).await;
     let temp_dir = match Builder::new().tempdir_in(work_dir) {
         Ok(d) => d,

@@ -28,7 +28,7 @@ services:
       - RATE_LIMIT_REFILL_PERIOD=${RATE_LIMIT_REFILL_PERIOD:-900}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp/wasome-workspaces:/tmp/wasome-workspaces
+      - /var/lib/wasome-workspaces:/var/lib/wasome-workspaces
       - wasome-compiler-cache:/opt/wasome
       - ../install.sh:/app/install.sh:ro
       - ./logs:/app/logs
