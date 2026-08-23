@@ -319,7 +319,7 @@
         siteKey={import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
         theme="dark"
         size="normal"
-        appearance="interaction-only"
+        appearance="always"
         on:callback={handleTurnstileCallback}
         on:error={handleTurnstileError}
         bind:this={turnstileRef}
