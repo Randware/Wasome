@@ -412,7 +412,21 @@ async fn handle_ws_connection(
     let start = Instant::now();
 
     let work_dir = std::path::Path::new("/var/lib/wasome-workspaces");
-    let _ = tokio::fs::create_dir_all(work_dir).await;
+    if tokio::fs::create_dir_all(work_dir).await.is_err() {
+        send_ws_json(
+            &mut ws,
+            &WsMessage {
+                msg_type: "error",
+                message: Some("Failed to prepare workspace directory".into()),
+                data: None,
+                success: None,
+                cookie: None,
+                status: Some(500),
+            },
+        )
+        .await;
+        return;
+    }
 
     let temp_dir = match Builder::new().tempdir_in(work_dir) {
         Ok(d) => d,
@@ -584,7 +598,13 @@ pub async fn http_compile_handler(
     let start = Instant::now();
 
     let work_dir = std::path::Path::new("/var/lib/wasome-workspaces");
-    let _ = tokio::fs::create_dir_all(work_dir).await;
+    if tokio::fs::create_dir_all(work_dir).await.is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to prepare workspace directory",
+        )
+            .into_response();
+    }
     let temp_dir = match Builder::new().tempdir_in(work_dir) {
         Ok(d) => d,
         Err(_) => {
