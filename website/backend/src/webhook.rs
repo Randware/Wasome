@@ -79,7 +79,7 @@ impl WebhookSender {
                 AlertLevel::Emergency => "SECURITY EMERGENCY",
             };
 
-            let timestamp = chrono::Utc::now().to_rfc3339();
+            let timestamp = jiff::Timestamp::now().to_string();
 
             let body = serde_json::json!({
                 "embeds": [{

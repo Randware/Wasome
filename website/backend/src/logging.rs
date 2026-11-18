@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use chrono::Local;
+use jiff::Zoned;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 
@@ -55,7 +55,7 @@ impl Logger {
     }
 
     async fn write_line(&self, level: &str, module: &str, message: &str) {
-        let ts = Local::now().format("%Y-%m-%d %H:%M:%S");
+        let ts = Zoned::now().strftime("%Y-%m-%d %H:%M:%S").to_string();
         let line = format!("[{}] [{}] [{}] {}\n", ts, level, module, message);
         let mut w = self.main_writer.lock().await;
         let _ = w.write_all(line.as_bytes());
@@ -148,7 +148,7 @@ impl Logger {
 }
 
 fn compress_and_remove(source: &Path, log_dir: &Path, is_code: bool) {
-    let date = Local::now().format("%Y-%m-%d").to_string();
+    let date = Zoned::now().strftime("%Y-%m-%d").to_string();
     let suffix = if is_code { "-code" } else { "" };
 
     let mut n = 1u32;

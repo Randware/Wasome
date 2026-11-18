@@ -2,6 +2,7 @@ mod compile;
 mod config;
 mod logging;
 mod rate_limit;
+mod sandbox;
 mod security;
 mod session;
 mod webhook;
@@ -16,6 +17,7 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::Router;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Semaphore;
 
 use config::Config;
 use logging::Logger;
@@ -29,6 +31,7 @@ pub struct AppState {
     pub sessions: Arc<SessionStore>,
     pub security: Arc<SecurityEngine>,
     pub rate_limiter: Arc<RateLimiter>,
+    pub compile_slots: Arc<Semaphore>,
     pub logger: Arc<Logger>,
 }
 
@@ -163,6 +166,7 @@ async fn main() {
         sessions,
         security,
         rate_limiter,
+        compile_slots: Arc::new(Semaphore::new(4)),
         logger: Arc::clone(&logger),
     });
 

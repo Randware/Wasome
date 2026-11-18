@@ -1,7 +1,7 @@
 FROM rust:bookworm AS builder
 WORKDIR /app
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --locked
 
 FROM debian:bookworm-slim
 # Install dependencies for docker, and curl/tar/wget for install.sh
