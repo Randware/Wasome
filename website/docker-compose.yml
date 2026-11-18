@@ -11,6 +11,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    depends_on:
+      compiler-sandbox:
+        condition: service_completed_successfully
     expose:
       - "3000"
     environment:
@@ -28,7 +31,6 @@ services:
       - RATE_LIMIT_REFILL_PERIOD=${RATE_LIMIT_REFILL_PERIOD:-900}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /var/lib/wasome-workspaces:/var/lib/wasome-workspaces
       - wasome-compiler-cache:/opt/wasome
       - ../install.sh:/app/install.sh:ro
       - ./logs:/app/logs
@@ -38,7 +40,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.sandbox
-    image: wasome-compiler-sandbox:latest
+    image: wasome-compiler-sandbox:bounded
+    entrypoint: ["/bin/true"]
 
 volumes:
   wasome-compiler-cache:

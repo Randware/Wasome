@@ -1,13 +1,13 @@
 # Wasome Website Architecture & Deployment
 
-This directory contains the Wasome frontend website (Svelte/Vite) and the highly secure Rust backend compiler API (`/backend`).
+This directory contains the Wasome frontend website (Svelte/Vite) and the Rust backend compiler API (`/backend`).
 
 ## Security Architecture
 
 The backend compiler service is hardened using a three-tier security model:
 1. **Frontend DoS Prevention:** Invisible Cloudflare Turnstile token flow.
-2. **Backend Gateway:** Payload size limits (100KB), strict path validation, file limit boundaries.
-3. **Execution Sandbox:** The backend spawns sibling Docker containers via the mounted Docker socket (`/var/run/docker.sock`). These sandbox containers use **gVisor (`runsc`)** to intercept all syscalls and prevent kernel exploits. They have zero network access, read-only filesystems, and strict CPU/Memory quotas.
+2. **Backend Gateway:** Both endpoints limit submission size and file count. The backend allows up to four compiler jobs at a time.
+3. **Execution Sandbox:** The backend uses the Docker socket (`/var/run/docker.sock`) to start one **gVisor (`runsc`)** container per job. The sandbox runs as a non-root user with no network, no extra capabilities, a read-only root filesystem, and CPU, memory and PID limits. The toolchain mounts read-only. The backend sends input over stdin, bounds the logs and WebAssembly returned over the output streams, and removes the container on completion or timeout. Each workspace lives on a sandbox-local tmpfs.
 
 ---
 
@@ -130,9 +130,10 @@ To test the frontend and backend locally with Docker Compose:
 * The `website` container runs Nginx, serving the Svelte frontend on port `8080`.
 * The `backend` container runs the Rust API on port `3000`. Nginx automatically reverse-proxies `/api/` traffic to the backend.
 * The backend downloads and installs the toolchain locally via `/app/install.sh` on startup, storing it inside the shared volume.
-* When a user runs code, the `backend` mounts the shared volume directly into an ephemeral `runsc` sandbox container and executes it safely.
+* When a user runs code, the backend compiles it in an ephemeral `runsc` container. The browser executes the returned WebAssembly.
+* Rebuild the backend and `compiler-sandbox` together when deploying an update to the compiler transport.
 
-You can now visit `http://localhost:8080/playground` to interact with the system safely!
+Open `http://localhost:8080/playground` to test local compilation.
 
 ---
 

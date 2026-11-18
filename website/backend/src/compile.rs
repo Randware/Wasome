@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use axum::extract::ws::{Message, WebSocket};
@@ -10,18 +10,19 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tempfile::Builder;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
 
+use crate::AppState;
+use crate::sandbox::{self, CompileError, CompileJob};
 use crate::security::ThreatEvent;
 use crate::session;
-use crate::AppState;
 
 const MAX_FILES: usize = 30;
 const MAX_TOTAL_SIZE: usize = 50 * 1024;
 const MAX_PATH_DEPTH: usize = 5;
-const DOCKER_TIMEOUT: Duration = Duration::from_secs(20);
+// JSON escapes can use six bytes per byte of decoded source.
+const MAX_WS_PAYLOAD_SIZE: usize = 384 * 1024;
+const WS_PAYLOAD_TIMEOUT: Duration = Duration::from_secs(15);
+const WS_SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Deserialize)]
 pub struct CompilePayload {
@@ -85,7 +86,12 @@ fn validate_payload(
         if path.contains('\0') || content.contains('\0') {
             return Err((ThreatEvent::NullBytePayload, "Invalid payload content"));
         }
-        if path.contains("..") || path.starts_with('/') || path.starts_with('\\') {
+        if path.contains('\\')
+            || path.split('/').next() == Some("out")
+            || path
+                .split('/')
+                .any(|part| part.is_empty() || matches!(part, "." | "..") || part.len() > 255)
+        {
             return Err((ThreatEvent::InvalidPath, "Invalid file path"));
         }
         if path.split('/').count() > MAX_PATH_DEPTH {
@@ -112,6 +118,7 @@ async fn verify_turnstile(secret: &str, token: &str) -> bool {
     let client = reqwest::Client::new();
     let res = client
         .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
+        .timeout(Duration::from_secs(5))
         .form(&[("secret", secret), ("response", token)])
         .send()
         .await;
@@ -131,101 +138,35 @@ async fn verify_turnstile(secret: &str, token: &str) -> bool {
     }
 }
 
-async fn run_docker(
-    temp_path: &std::path::Path,
-    wasome_dir: &str,
-    runtime: &str,
-    ws: &mut WebSocket,
-) -> Result<bool, String> {
-    let runtime_arg = format!("--runtime={}", runtime);
-    let mut child = Command::new("docker")
-        .args([
-            "run",
-            "--rm",
-            &runtime_arg,
-            "--network=none",
-            "--read-only",
-            "--user=1000:1000",
-            "--cap-drop=ALL",
-            "--cpus=0.50",
-            "--memory=256M",
-            "--tmpfs=/tmp:size=50M,exec,mode=1777",
-            &format!("-v={}:/workspace", temp_path.display()),
-            &format!("-v={}:/opt/wasome:ro", wasome_dir),
-            "wasome-compiler-sandbox:latest",
-            "/opt/wasome/bin/waso",
-            "build",
-            "--target",
-            "web",
-            "--profile",
-            "size",
-            "/workspace",
-        ])
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(|e| format!("Failed to start Docker: {}", e))?;
+fn start_compile(state: &AppState, payload: &CompilePayload) -> Result<CompileJob, CompileError> {
+    sandbox::start(
+        Arc::clone(&state.compile_slots),
+        &payload.files,
+        state.config.host_wasome_dir.clone(),
+        state.config.docker_runtime.clone(),
+    )
+}
 
-    let stdout = child.stdout.take();
-    let stderr = child.stderr.take();
-
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(100);
-
-    let tx_out = tx.clone();
-    if let Some(stdout) = stdout {
-        tokio::spawn(async move {
-            let mut lines = BufReader::new(stdout).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if tx_out.send(line).await.is_err() {
-                    break;
-                }
-            }
-        });
-    }
-
-    let tx_err = tx.clone();
-    if let Some(stderr) = stderr {
-        tokio::spawn(async move {
-            let mut lines = BufReader::new(stderr).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if tx_err.send(line).await.is_err() {
-                    break;
-                }
-            }
-        });
-    }
-
-    drop(tx);
-
-    let compile_result = tokio::time::timeout(DOCKER_TIMEOUT, async {
-        while let Some(line) = rx.recv().await {
-            let msg = serde_json::to_string(&WsMessage {
-                msg_type: "log",
-                data: Some(line),
-                message: None,
-                success: None,
-                cookie: None,
-                status: None,
-            })
-            .unwrap_or_default();
-            let _ = ws.send(Message::Text(msg.into())).await;
-        }
-        child.wait().await
-    })
-    .await;
-
-    match compile_result {
-        Ok(Ok(status)) => Ok(status.success()),
-        Ok(Err(e)) => Err(format!("Docker process error: {}", e)),
-        Err(_) => Err("Compilation timed out".into()),
+fn compile_error_status(error: &CompileError) -> StatusCode {
+    match error {
+        CompileError::Busy => StatusCode::SERVICE_UNAVAILABLE,
+        CompileError::TimedOut => StatusCode::REQUEST_TIMEOUT,
+        CompileError::Failed => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
-async fn send_ws_json(ws: &mut WebSocket, msg: &WsMessage) {
-    if let Ok(text) = serde_json::to_string(msg) {
-        let _ = ws.send(Message::Text(text.into())).await;
-    }
+async fn send_ws_json(ws: &mut WebSocket, msg: &WsMessage) -> bool {
+    let Ok(text) = serde_json::to_string(msg) else {
+        return false;
+    };
+    send_ws_message(ws, Message::Text(text.into())).await
+}
+
+async fn send_ws_message(ws: &mut WebSocket, message: Message) -> bool {
+    matches!(
+        tokio::time::timeout(WS_SEND_TIMEOUT, ws.send(message)).await,
+        Ok(Ok(()))
+    )
 }
 
 pub async fn ws_compile_handler(
@@ -241,7 +182,9 @@ pub async fn ws_compile_handler(
         .unwrap_or("")
         .to_owned();
 
-    ws.on_upgrade(move |socket| handle_ws_connection(socket, ip, cookie_header, state))
+    ws.max_message_size(MAX_WS_PAYLOAD_SIZE)
+        .max_frame_size(MAX_WS_PAYLOAD_SIZE)
+        .on_upgrade(move |socket| handle_ws_connection(socket, ip, cookie_header, state))
 }
 
 async fn handle_ws_connection(
@@ -265,7 +208,7 @@ async fn handle_ws_connection(
             },
         )
         .await;
-        let _ = ws.close().await;
+        send_ws_message(&mut ws, Message::Close(None)).await;
         return;
     }
 
@@ -282,7 +225,7 @@ async fn handle_ws_connection(
             },
         )
         .await;
-        let _ = ws.close().await;
+        send_ws_message(&mut ws, Message::Close(None)).await;
         return;
     }
 
@@ -299,7 +242,7 @@ async fn handle_ws_connection(
             },
         )
         .await;
-        let _ = ws.close().await;
+        send_ws_message(&mut ws, Message::Close(None)).await;
         return;
     }
 
@@ -316,12 +259,12 @@ async fn handle_ws_connection(
             },
         )
         .await;
-        let _ = ws.close().await;
+        send_ws_message(&mut ws, Message::Close(None)).await;
         return;
     }
 
-    let raw = match ws.recv().await {
-        Some(Ok(Message::Text(text))) => text.to_string(),
+    let raw = match tokio::time::timeout(WS_PAYLOAD_TIMEOUT, ws.recv()).await {
+        Ok(Some(Ok(Message::Text(text)))) => text,
         _ => return,
     };
 
@@ -411,54 +354,6 @@ async fn handle_ws_connection(
 
     let start = Instant::now();
 
-    let work_dir = std::path::Path::new("/var/lib/wasome-workspaces");
-    if tokio::fs::create_dir_all(work_dir).await.is_err() {
-        send_ws_json(
-            &mut ws,
-            &WsMessage {
-                msg_type: "error",
-                message: Some("Failed to prepare workspace directory".into()),
-                data: None,
-                success: None,
-                cookie: None,
-                status: Some(500),
-            },
-        )
-        .await;
-        return;
-    }
-
-    let temp_dir = match Builder::new().tempdir_in(work_dir) {
-        Ok(d) => d,
-        Err(_) => {
-            send_ws_json(
-                &mut ws,
-                &WsMessage {
-                    msg_type: "error",
-                    message: Some("Failed to create workspace".into()),
-                    data: None,
-                    success: None,
-                    cookie: None,
-                    status: Some(500),
-                },
-            )
-            .await;
-            return;
-        }
-    };
-
-    for (path, content) in &payload.files {
-        let file_path = temp_dir.path().join(path);
-        if let Some(parent) = file_path.parent() {
-            let _ = tokio::fs::create_dir_all(parent).await;
-        }
-        let _ = tokio::fs::write(&file_path, content).await;
-    }
-
-    let _ = std::process::Command::new("chmod")
-        .args(["-R", "777", temp_dir.path().to_str().unwrap_or("")])
-        .status();
-
     send_ws_json(
         &mut ws,
         &WsMessage {
@@ -472,38 +367,49 @@ async fn handle_ws_connection(
     )
     .await;
 
-    let success = match run_docker(temp_dir.path(), &state.config.host_wasome_dir, &state.config.docker_runtime, &mut ws).await {
-        Ok(ok) => ok,
-        Err(e) => {
+    let result = match start_compile(&state, &payload) {
+        Ok(CompileJob { mut logs, result }) => {
+            while let Some(line) = logs.recv().await {
+                if !send_ws_json(
+                    &mut ws,
+                    &WsMessage {
+                        msg_type: "log",
+                        message: None,
+                        data: Some(line),
+                        success: None,
+                        cookie: None,
+                        status: None,
+                    },
+                )
+                .await
+                {
+                    return;
+                }
+            }
+            result.await.unwrap_or(Err(CompileError::Failed))
+        }
+        Err(error) => Err(error),
+    };
+
+    let success = match result {
+        Ok(Some(wasm)) => send_ws_message(&mut ws, Message::Binary(wasm.into())).await,
+        Ok(None) => false,
+        Err(error) => {
             send_ws_json(
                 &mut ws,
                 &WsMessage {
                     msg_type: "error",
-                    message: Some(e),
+                    message: Some(error.message().into()),
                     data: None,
                     success: None,
                     cookie: None,
-                    status: Some(500),
+                    status: Some(compile_error_status(&error).as_u16()),
                 },
             )
             .await;
             false
         }
     };
-
-    if success {
-        let out_dir = temp_dir.path().join("out");
-        if let Ok(mut entries) = tokio::fs::read_dir(&out_dir).await {
-            while let Ok(Some(entry)) = entries.next_entry().await {
-                if entry.path().extension().and_then(|e| e.to_str()) == Some("wasm") {
-                    if let Ok(wasm_bytes) = tokio::fs::read(entry.path()).await {
-                        let _ = ws.send(Message::Binary(wasm_bytes.into())).await;
-                    }
-                    break;
-                }
-            }
-        }
-    }
 
     send_ws_json(
         &mut ws,
@@ -533,11 +439,8 @@ async fn handle_ws_connection(
         )
         .await;
 
-    let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    state
-        .logger
-        .log_code(&ip_hash, &payload.files, &ts)
-        .await;
+    let ts = jiff::Zoned::now().strftime("%Y-%m-%d %H:%M:%S").to_string();
+    state.logger.log_code(&ip_hash, &payload.files, &ts).await;
 
     state
         .logger
@@ -597,86 +500,23 @@ pub async fn http_compile_handler(
 
     let start = Instant::now();
 
-    let work_dir = std::path::Path::new("/var/lib/wasome-workspaces");
-    if tokio::fs::create_dir_all(work_dir).await.is_err() {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Failed to prepare workspace directory",
-        )
-            .into_response();
-    }
-    let temp_dir = match Builder::new().tempdir_in(work_dir) {
-        Ok(d) => d,
-        Err(_) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create workspace")
-                .into_response()
-        }
+    let CompileJob { mut logs, result } = match start_compile(&state, &payload) {
+        Ok(job) => job,
+        Err(error) => return (compile_error_status(&error), error.message()).into_response(),
     };
-
-    for (path, content) in &payload.files {
-        let file_path = temp_dir.path().join(path);
-        if let Some(parent) = file_path.parent() {
-            let _ = tokio::fs::create_dir_all(parent).await;
-        }
-        let _ = tokio::fs::write(&file_path, content).await;
+    let mut compiler_logs = String::new();
+    while let Some(line) = logs.recv().await {
+        compiler_logs.push_str(&line);
+        compiler_logs.push('\n');
     }
 
-    let _ = std::process::Command::new("chmod")
-        .args(["-R", "777", temp_dir.path().to_str().unwrap_or("")])
-        .status();
-
-    let runtime_arg = format!("--runtime={}", state.config.docker_runtime);
-    let child = tokio::process::Command::new("docker")
-        .args([
-            "run",
-            "--rm",
-            &runtime_arg,
-            "--network=none",
-            "--read-only",
-            "--user=1000:1000",
-            "--cap-drop=ALL",
-            "--cpus=0.50",
-            "--memory=256M",
-            "--tmpfs=/tmp:size=50M,exec,mode=1777",
-            &format!("-v={}:/workspace", temp_dir.path().display()),
-            &format!("-v={}:/opt/wasome:ro", state.config.host_wasome_dir),
-            "wasome-compiler-sandbox:latest",
-            "/opt/wasome/bin/waso",
-            "build",
-            "--target",
-            "web",
-            "--profile",
-            "size",
-            "/workspace",
-        ])
-        .output();
-
-    let output = match tokio::time::timeout(Duration::from_secs(20), child).await {
-        Ok(Ok(out)) => out,
-        Ok(Err(_)) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "Docker execution failed").into_response()
-        }
-        Err(_) => return (StatusCode::REQUEST_TIMEOUT, "Execution timed out").into_response(),
+    let wasm_base64 = match result.await.unwrap_or(Err(CompileError::Failed)) {
+        Ok(wasm) => wasm.map(|wasm| {
+            use base64::Engine;
+            base64::engine::general_purpose::STANDARD.encode(wasm)
+        }),
+        Err(error) => return (compile_error_status(&error), error.message()).into_response(),
     };
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    let logs = format!("{}{}", stdout, stderr);
-
-    let mut wasm_base64 = None;
-    let out_dir = temp_dir.path().join("out");
-    if let Ok(mut entries) = tokio::fs::read_dir(&out_dir).await {
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            if entry.path().extension().and_then(|e| e.to_str()) == Some("wasm") {
-                if let Ok(wasm_bytes) = tokio::fs::read(entry.path()).await {
-                    use base64::Engine;
-                    wasm_base64 =
-                        Some(base64::engine::general_purpose::STANDARD.encode(wasm_bytes));
-                }
-                break;
-            }
-        }
-    }
 
     let duration = start.elapsed();
     let result_str = if wasm_base64.is_some() {
@@ -697,18 +537,37 @@ pub async fn http_compile_handler(
         )
         .await;
 
-    let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    state
-        .logger
-        .log_code(&ip_hash, &payload.files, &ts)
-        .await;
+    let ts = jiff::Zoned::now().strftime("%Y-%m-%d %H:%M:%S").to_string();
+    state.logger.log_code(&ip_hash, &payload.files, &ts).await;
 
     (
         StatusCode::OK,
         Json(CompileResponse {
-            logs,
+            logs: compiler_logs,
             wasm: wasm_base64,
         }),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validates_regular_input_paths_and_reserves_compiler_output() {
+        assert!(validates_path("src/main.waso"));
+        for path in ["out/result.wasm", "", "./src/main.waso", "src//main.waso"] {
+            assert!(!validates_path(path));
+        }
+    }
+
+    fn validates_path(path: &str) -> bool {
+        validate_payload(&CompilePayload {
+            files: HashMap::from([(path.to_owned(), "source".to_owned())]),
+            entry: path.to_owned(),
+            turnstile_token: None,
+        })
+        .is_ok()
+    }
 }
