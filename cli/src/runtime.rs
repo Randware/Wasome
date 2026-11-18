@@ -7,7 +7,7 @@ use crate::error::CliResult;
 pub fn run(args: &RunArgs, wasm_bytes: &[u8]) -> CliResult<()> {
     use error::diagnostic::{Diagnostic, Level};
     use wasmtime::{Config, Engine, Linker, Module, Store};
-    use wasmtime_wasi::{DirPerms, FilePerms, WasiCtxBuilder};
+    use wasmtime_wasi::{FsPerms, WasiCtxBuilder};
 
     struct WasiState {
         ctx: wasmtime_wasi::p1::WasiP1Ctx,
@@ -76,7 +76,7 @@ pub fn run(args: &RunArgs, wasm_bytes: &[u8]) -> CliResult<()> {
     }
 
     for dir in &args.dir {
-        if let Err(e) = builder.preopened_dir(dir, dir, DirPerms::all(), FilePerms::all()) {
+        if let Err(e) = builder.preopened_dir(dir, dir, FsPerms::ReadWrite) {
             let _ = Diagnostic::builder()
                 .level(Level::Warning)
                 .message(format!("Failed to preopen directory {}: {}", dir, e))
@@ -87,7 +87,7 @@ pub fn run(args: &RunArgs, wasm_bytes: &[u8]) -> CliResult<()> {
 
     // Default permission: access to current directory
     if !args.no_cwd {
-        let _ = builder.preopened_dir(".", ".", DirPerms::all(), FilePerms::all());
+        let _ = builder.preopened_dir(".", ".", FsPerms::ReadWrite);
     }
 
     let mut store = Store::new(
