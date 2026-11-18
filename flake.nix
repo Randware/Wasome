@@ -65,7 +65,7 @@
             export LLVM_SYS_211_PREFIX=$PWD/fake-bin
           '';
 
-          cargoHash = "sha256-Ys9KURsmX5tjoGn3WoYs6uhBZH6d82Mv5c9wkEBtM74=";
+          cargoHash = "sha256-EOT5XU6Mc5Kv+/DP/RaGao7XFlz6VCyBUvdwgYQtQoU=";
 
           nativeBuildInputs = with pkgs; [
             pkg-config
